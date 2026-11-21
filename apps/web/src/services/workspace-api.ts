@@ -60,6 +60,26 @@ export interface WorkspaceSnapshot {
   };
 }
 
+export type WorkspaceScaffold = 'blank' | 'starter';
+
+export interface WorkspaceListItem {
+  path: string;
+  name: string;
+  lastOpenedAt: number;
+  /** True when the directory was discovered under the imports root but never opened. */
+  unregistered?: boolean;
+  exists: boolean;
+  isDefault: boolean;
+  isCurrent: boolean;
+}
+
+export interface WorkspacePickerSnapshot {
+  current: { path: string; name: string } | null;
+  defaultRootDir: string;
+  importsRootDir: string;
+  workspaces: WorkspaceListItem[];
+}
+
 export interface FileContentResult {
   path: string;
   content: string;
@@ -125,6 +145,32 @@ export function openWorkspaceDir(
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(target),
+  });
+}
+
+export function fetchWorkspaces(): Promise<WorkspacePickerSnapshot> {
+  return requestJson<WorkspacePickerSnapshot>('/api/workspaces');
+}
+
+export function createWorkspaceProject(payload: {
+  name: string;
+  parentDir?: string;
+  scaffold?: WorkspaceScaffold;
+}): Promise<WorkspaceSnapshot> {
+  return requestJson<WorkspaceSnapshot>('/api/workspaces/create', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function forgetWorkspaceProject(
+  dirPath: string,
+): Promise<{ workspaces: WorkspaceListItem[] }> {
+  return requestJson<{ workspaces: WorkspaceListItem[] }>('/api/workspaces/forget', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path: dirPath }),
   });
 }
 

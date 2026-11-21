@@ -1,25 +1,25 @@
 # Graph Report - DITAEditor  (2026-11-21)
 
 ## Corpus Check
-- 112 files · ~105,569 words
+- 114 files · ~112,027 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 28 file(s) not represented in the graph (top: .dita 20, .ditamap 3, .ditaval 2)
 
 ## Summary
-- 1071 nodes · 3006 edges · 73 communities (53 shown, 20 thin omitted)
-- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 59 edges (avg confidence: 0.86)
+- 1123 nodes · 3106 edges · 72 communities (56 shown, 16 thin omitted)
+- Extraction: 98% EXTRACTED · 2% INFERRED · 0% AMBIGUOUS · INFERRED: 68 edges (avg confidence: 0.87)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `6ee25579`
+- Built from commit: `fb91ab3a`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
-- semantic-engine.ts
-- web/package.json
+- files/routes.ts
+- @codemirror/state
 - converter.ts
-- ditaval.ts
+- dita-core/src/index.ts
 - App.tsx
 - Core Package Manifest
 - API Package Manifest
@@ -33,86 +33,84 @@
 - pnpm Workspace Config
 - Graphify Agent Instructions
 - Web HTML Entrypoint
-- node-views.ts
+- table-commands.ts
 - dependencies
 - dita-map.ts
 - DITAEditor
+- semantic-engine.ts
 - map-tree-utils.ts
-- WorkspaceManager
 - scripts
 - commands.ts
 - editor-store.ts
-- files/routes.ts
-- @codemirror/lang-xml
-- VisualEditor.tsx
-- semantic-indexer.ts
+- WorkspaceManager
 - WorkspaceSemanticIndexer
+- VisualEditor.tsx
+- resolveDitaHref
 - workspace-fs.ts
+- serializer.ts
 - block-transforms.ts
 - decorations.ts
-- schema.ts
-- selection-info.ts
-- inline-selection.ts
-- react
-- node-views.ts
-- serializer.ts
-- MapNodeInspector.tsx
-- MapTreeNodeRenderer.tsx
-- parser.ts
-- devDependencies
-- DocumentSemanticOverlay
-- RawAttrs
-- compare.ts
-- ParsedDitaval
-- AttributesPanel.tsx
-- dita-core/src/index.ts
+- vite.config.ts
+- Screenshots
+- block-handle.test.ts
 - createMapTemplate
-- dita-elements.ts
-- @codemirror/search
-- @codemirror/view
-- @dita/core@workspace:*
-- XmlParseError
+- DITAEditor
+- parser.ts
+- schema.ts
+- AGENTS.md
+- inline-selection.ts
+- devDependencies
+- 4. Non-Negotiable Engineering Invariants
+- @lezer/highlight@^1.2.5
+- lucide-react
+- [0.5.0] — 2026-11-21
 - prosemirror-commands
-- prosemirror-dropcursor
-- FileExplorerPanel.tsx
-- react-arborist
-- react-dnd-html5-backend@^16.0.1
-- WorkspaceDialog.tsx
-- tailwindcss@^4.3.5
-- zustand
-- scripts
-- EditorTabBar.tsx
-- LeftSidebar.tsx
-- ProblemsPanel.tsx
-- @codemirror/commands
+- computeRelativeDitaHref
+- cals-table.test.ts
+- 核心特性（已实现：Phase 0–3）
+- web/package.json
+- dita-elements.ts
 - prosemirror-gapcursor
+- Core features (Phase 0–3 implemented)
+- prosemirror-history
+- prosemirror-keymap
+- cals-table.ts
+- prosemirror-view
+- conref-renderer.ts
+- slimdom
+- 界面预览
+- react-dnd-html5-backend@^16.0.1
+- NewTopicDialog.tsx
+- LeftSidebar.tsx
+- @codemirror/lint
+- @codemirror/search
+- @dita/core@workspace:*
 - prosemirror-model@^1.25.13
-- react-dnd@^16.0.1
-- react-resizable-panels
+- react-dom
 
 ## God Nodes (most connected - your core abstractions)
 1. `parseXml()` - 38 edges
 2. `normalizePosixPath()` - 33 edges
 3. `lucide-react` - 31 edges
 4. `App()` - 31 edges
-5. `react` - 29 edges
-6. `parseDitaMap()` - 29 edges
-7. `getPmNodeRawAttrs()` - 29 edges
-8. `VisualEditor` - 28 edges
-9. `XmlParseError` - 28 edges
-10. `getRawAttr()` - 27 edges
+5. `WorkspaceManager` - 29 edges
+6. `react` - 29 edges
+7. `parseDitaMap()` - 29 edges
+8. `getPmNodeRawAttrs()` - 29 edges
+9. `VisualEditor` - 28 edges
+10. `XmlParseError` - 28 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `4.3 Source ↔ Visual Transition Safety` --references--> `checkXmlWellFormed()`  [INFERRED]
   AGENTS.md → packages/dita-core/src/xml/parser.ts
 - `2. 双模式 Topic 编辑器（可视化 / 双栏对比 / XML 源码）` --references--> `checkXmlWellFormed()`  [INFERRED]
   README.md → packages/dita-core/src/xml/parser.ts
+- `2. Dual-mode topic editor (visual / split / XML source)` --references--> `checkXmlWellFormed()`  [INFERRED]
+  README.en.md → packages/dita-core/src/xml/parser.ts
 - `4.1 Lossless XML Round-Trip & Minimal Git Diff` --references--> `serializeXml()`  [INFERRED]
   AGENTS.md → packages/dita-core/src/xml/serializer.ts
 - `5. 本地工作区、增量语义索引与资产后端（`@dita/api`）` --references--> `resolveSafeWorkspacePath()`  [INFERRED]
   README.md → apps/api/src/modules/files/workspace-fs.ts
-- `5. 本地工作区、增量语义索引与资产后端（`@dita/api`）` --references--> `WorkspaceSemanticIndexer`  [INFERRED]
-  README.md → apps/api/src/modules/indexer/semantic-indexer.ts
 
 ## Import Cycles
 - None detected.
@@ -120,31 +118,27 @@
 ## Hyperedges (group relationships)
 - **Phase 0 Lossless XML Core** — docs_architecture_and_plan_dita_core_shared_kernel, docs_architecture_and_plan_lossless_xml_roundtrip, docs_architecture_and_plan_passthrough_nodes, docs_architecture_and_plan_cals_table_adapter, docs_architecture_and_plan_dual_mode_state_machine [EXTRACTED 1.00]
 
-## Communities (73 total, 20 thin omitted)
+## Communities (72 total, 16 thin omitted)
 
-### Community 0 - "semantic-engine.ts"
-Cohesion: 0.07
-Nodes (48): computeMemoryDiagnostics(), useEditorStore, basenamePosix(), classifyDitaFileKind(), computeRelativeDitaHref(), dirnamePosix(), IMAGE_EXTENSIONS, normalizePosixPath() (+40 more)
-
-### Community 1 - "web/package.json"
-Cohesion: 0.20
-Nodes (8): 4.5 Isomorphic `@dita/core` & Runtime Gotchas, @tailwindcss/vite@^4.3.5, vite@^6.2.0, @vitejs/plugin-react@^4.3.4, browserStreamStubPlugin(), @tailwindcss/vite, vite, @vitejs/plugin-react
+### Community 0 - "files/routes.ts"
+Cohesion: 0.11
+Nodes (21): fastify@^5.2.0, zod@^3.24.2, CreateServerOptions, ALLOWED_IMAGE_EXTENSIONS, MIME_TYPES, registerAssetRoutes(), sanitizeAssetFilename(), createFileSchema (+13 more)
 
 ### Community 2 - "converter.ts"
-Cohesion: 0.14
-Nodes (25): CalsCursor, CalsCellSpan, CalsColSpec, CalsRowModel, CalsTgroupModel, parseCalsColSpecs(), parseCalsTgroup(), parseSectionRows() (+17 more)
+Cohesion: 0.23
+Nodes (16): appendPmNodeToDom(), applyRawAttrs(), convertBlockContainerChildren(), convertBlockElement(), convertInlineChildren(), convertInlineNode(), elementContainsBlockChild(), INLINE_PREFERRED_PARENTS (+8 more)
 
-### Community 3 - "ditaval.ts"
-Cohesion: 0.08
-Nodes (32): ConditionGroup, createDitavalTemplate(), DITA_PROFILING_ATTRS, DitavalAction, DitavalFlagEndpoint, DitavalFlagStyle, DitavalPropRule, evaluateElementConditions() (+24 more)
+### Community 3 - "dita-core/src/index.ts"
+Cohesion: 0.05
+Nodes (74): WorkspaceDitavalSummary, BranchIndexState, SemanticContextResponse, summarizeDitaval(), @codemirror/autocomplete@^6.20.4, buildReuseAttrValue(), ConrefAttrName, filterReusableElements() (+66 more)
 
 ### Community 4 - "App.tsx"
 Cohesion: 0.16
-Nodes (22): App(), EditorTabBar(), InsertKeyrefDialog(), KeyspacePanel(), LeftSidebar(), NewMapDialog(), NewTopicDialog(), ProblemsPanel() (+14 more)
+Nodes (19): App(), EditorTabBar(), TAB_TYPE_BADGE, KeyspacePanel(), NewMapDialog(), ProblemsPanel(), SOURCE_LABELS, InspectorTab (+11 more)
 
 ### Community 5 - "Core Package Manifest"
-Cohesion: 0.13
-Nodes (19): dependencies, fontoxpath@^3.30.0, prosemirror-model@^1.25.0, slimdom-sax-parser@^1.5.3, devDependencies, typescript@^5.8.0, vitest@^3.1.0, exports (+11 more)
+Cohesion: 0.09
+Nodes (25): dependencies, fontoxpath@^3.30.0, prosemirror-model@^1.25.0, slimdom@^4.0.2, slimdom-sax-parser@^1.5.3, devDependencies, typescript@^5.8.0, vitest@^3.1.0 (+17 more)
 
 ### Community 6 - "API Package Manifest"
 Cohesion: 0.10
@@ -182,177 +176,193 @@ Nodes (6): compilerOptions, jsx, noEmit, extends, include, ../../tsconfig.base.j
 Cohesion: 0.50
 Nodes (3): allowBuilds, esbuild, packages
 
-### Community 17 - "node-views.ts"
-Cohesion: 0.12
-Nodes (26): CalsColspecNodeView, DitaCodeblockNodeView, DitaNoteNodeView, UnknownPassthroughNodeView, addTableColumn(), addTableRow(), buildCalsSectionGrid(), CalsGridCell (+18 more)
+### Community 17 - "table-commands.ts"
+Cohesion: 0.06
+Nodes (36): CalsColspecNodeView, CalsTableNodeView, createCommentChevronTag(), CreateDitaNodeViewsOptions, DitaCodeblockNodeView, DitaImageNodeView, DitaNoteNodeView, DitaPrologNodeView (+28 more)
 
 ### Community 18 - "dependencies"
 Cohesion: 0.11
-Nodes (18): dependencies, @codemirror/autocomplete@^6.20.4, @codemirror/language@^6.13.1, @codemirror/state@^6.7.6, @lezer/highlight@^1.2.5, lucide-react@^1.76.0, prosemirror-history@^1.5.2, prosemirror-inputrules@^1.7.0 (+10 more)
+Nodes (18): dependencies, @codemirror/commands@^6.11.1, @codemirror/lang-xml@^6.1.0, @codemirror/view@^6.43.15, lucide-react@^1.76.0, prosemirror-dropcursor@^1.8.4, prosemirror-state@^1.4.4, react@^19.0.0 (+10 more)
 
 ### Community 19 - "dita-map.ts"
 Cohesion: 0.07
-Nodes (61): DEMO_SOURCE_DIR, __dirname, tempDirs, computeXmlLineDiffStats(), formatDitaXml(), SourceToVisualResult, syncSourceToVisual(), syncVisualToSource() (+53 more)
+Nodes (63): computeXmlLineDiffStats(), formatDitaXml(), SourceToVisualResult, syncSourceToVisual(), syncVisualToSource(), VisualToSourceResult, extractTitleSafe(), applyElementAttrsPreservingOrder() (+55 more)
 
 ### Community 20 - "DITAEditor"
-Cohesion: 0.06
-Nodes (32): 1. Project Overview, 2. Repository Layout, 3. Build, Typecheck & Test Commands, 4.1 Lossless XML Round-Trip & Minimal Git Diff, 4.2 ProseMirror Schema Rules (`@dita/core`), 4.3 Source ↔ Visual Transition Safety, 4.4 OASIS CALS Table Fidelity, 4.6 Golden Regression Tests (+24 more)
+Cohesion: 0.20
+Nodes (10): DITAEditor, Workspace、Semantics & Asset REST API 速览, 仓库目录结构, 后端环境变量（`@dita/api`）, 安装与启动, 实施路线图（Roadmap）, 开发、构建与测试, 快速开始 (+2 more)
 
-### Community 21 - "map-tree-utils.ts"
-Cohesion: 0.19
-Nodes (17): buildCompositeMapTree(), CompositeMapTreeNode, CompositeMapTreeResult, isSameOrDescendantPath(), planMapNodeMove(), PlannedMapMoveResult, subtreeReferencesMap(), MapNodeContextMenu() (+9 more)
+### Community 21 - "semantic-engine.ts"
+Cohesion: 0.07
+Nodes (42): collectFileSetFromTree(), computeMemoryDiagnostics(), useEditorStore, basenamePosix(), classifyDitaFileKind(), IMAGE_EXTENSIONS, normalizePosixPath(), ResolvedDitaHref (+34 more)
 
-### Community 22 - "WorkspaceManager"
-Cohesion: 0.27
-Nodes (6): registerWorkspaceFileRoutes(), resolveSafeWorkspacePath(), WorkspaceConflictError, WorkspaceManager, WorkspaceNotFoundError, WorkspacePathError
+### Community 22 - "map-tree-utils.ts"
+Cohesion: 0.14
+Nodes (24): sanitizeCssColor(), buildCompositeMapTree(), BuildCompositeMapTreeOptions, collectWorkspaceDirectoryPaths(), collectWorkspaceFilesByKind(), CompositeMapTreeNode, CompositeMapTreeResult, isSameOrDescendantPath() (+16 more)
 
 ### Community 23 - "scripts"
 Cohesion: 0.40
 Nodes (5): scripts, build, dev, test, typecheck
 
 ### Community 24 - "commands.ts"
-Cohesion: 0.22
-Nodes (17): createDitaElementSkeleton(), EMPTY_ATTRS, handleDitaEnter(), hydrateEmptyContainerAtPos(), insertBlockDitaElement(), insertBlockDitaElementAtPos(), insertInlineImage(), makeNode() (+9 more)
+Cohesion: 0.18
+Nodes (22): createDitaElementSkeleton(), EMPTY_ATTRS, exitCodeblockToParagraph(), handleDitaBackspace(), handleDitaEnter(), hydrateEmptyContainerAtPos(), insertBlockDitaElement(), insertBlockDitaElementAtPos() (+14 more)
 
 ### Community 25 - "editor-store.ts"
-Cohesion: 0.13
-Nodes (27): buildSnapshotFromMemoryFiles(), createInMemoryDemoWorkspace(), createWorkspaceDir(), createWorkspaceFile(), deleteWorkspaceEntry(), fetchFileContent(), fetchParsedDitaval(), fetchSemanticContext() (+19 more)
+Cohesion: 0.06
+Nodes (60): FileContentResult, WorkspaceFileNode, EditorTabBarProps, FileExplorerPanel(), FileExplorerPanelProps, FileIcon(), filterTreeNodes(), NewMapDialogProps (+52 more)
 
-### Community 26 - "files/routes.ts"
-Cohesion: 0.12
-Nodes (19): fastify@^5.2.0, zod@^3.24.2, CreateServerOptions, ALLOWED_IMAGE_EXTENSIONS, MIME_TYPES, registerAssetRoutes(), sanitizeAssetFilename(), createFileSchema (+11 more)
+### Community 26 - "WorkspaceManager"
+Cohesion: 0.21
+Nodes (6): registerWorkspaceFileRoutes(), resolveSafeWorkspacePath(), WorkspaceConflictError, WorkspaceManager, WorkspaceNotFoundError, WorkspacePathError
+
+### Community 27 - "WorkspaceSemanticIndexer"
+Cohesion: 0.22
+Nodes (4): createServer(), registerSemanticIndexerRoutes(), collectAllFilePaths(), WorkspaceSemanticIndexer
 
 ### Community 28 - "VisualEditor.tsx"
-Cohesion: 0.15
-Nodes (19): BlockConvertOption, planBlockMove(), BlockHandle(), BlockHandleProps, MODE_LABEL, deleteDitaNodeAtPos(), exitCodeblockToParagraph(), handleDitaBackspace() (+11 more)
-
-### Community 29 - "semantic-indexer.ts"
-Cohesion: 0.09
-Nodes (36): WorkspaceDitavalSummary, BranchIndexState, SemanticContextResponse, @codemirror/lint@^6.9.8, buildReuseAttrValue(), ConrefAttrName, filterReusableElements(), KeyBoundTopic (+28 more)
-
-### Community 30 - "WorkspaceSemanticIndexer"
-Cohesion: 0.21
-Nodes (5): createServer(), registerSemanticIndexerRoutes(), collectAllFilePaths(), summarizeDitaval(), WorkspaceSemanticIndexer
-
-### Community 31 - "workspace-fs.ts"
 Cohesion: 0.16
-Nodes (13): countMapTreeNodes(), findRepoRootFromModule(), getDefaultImportsRootDir(), getDefaultWorkspaceDir(), IGNORED_ENTRIES, isWithinRoot(), WorkspaceCreateKind, WorkspaceDiagnostic (+5 more)
+Nodes (28): getBlockConvertOptions(), planBlockMove(), convertDitaBlockAtPos(), deleteDitaNodeAtPos(), moveDitaBlockToGap(), moveDitaNodeSibling(), selectNodeAtPos(), InlineBubbleToolbar() (+20 more)
 
-### Community 32 - "block-transforms.ts"
+### Community 29 - "resolveDitaHref"
+Cohesion: 0.16
+Nodes (15): MapBufferState, findTreeNodeByPath(), GROUP_LABELS, MapNodeInspector(), MapNodeInspectorProps, MapOverviewPane(), MapOverviewPaneProps, MountExistingDialog() (+7 more)
+
+### Community 30 - "workspace-fs.ts"
 Cohesion: 0.12
-Nodes (21): acceptsBlockContent(), BLOCK_CONTAINER_TAGS, BlockConvertMode, BlockHandleTarget, BlockMovePlan, buildConvertedBlock(), computeBlockGaps(), findBlockHandleTarget() (+13 more)
+Nodes (18): countMapTreeNodes(), findRepoRootFromModule(), getDefaultImportsRootDir(), getDefaultWorkspaceDir(), IGNORED_ENTRIES, isWithinRoot(), sanitizeWorkspaceDirName(), WORKSPACE_SCAFFOLD_DIRS (+10 more)
 
-### Community 33 - "decorations.ts"
-Cohesion: 0.13
-Nodes (22): BlockGapOpenMenuPayload, collectDitaDecorations(), CONTAINER_QUICK_BLOCK_TAGS, createChevronCapSvg(), createConrefWidgetDom(), createDitaDecorationsPlugin(), createDitavalFlagPillDom(), createOxygenTagDom() (+14 more)
-
-### Community 34 - "schema.ts"
-Cohesion: 0.43
-Nodes (5): baseAttrs(), makeBlockContainerSpec(), makeInlineNodeSpec(), makeTextBlockSpec(), nodes
-
-### Community 35 - "selection-info.ts"
-Cohesion: 0.33
-Nodes (12): getBlockConvertOptions(), ActiveTableInfo, buildInsertContextGroups(), extractActiveTableInfo(), findLegalAncestorDepthForBlock(), getSelectionSnapshot(), isInlineTagAllowedAtSelection(), makeBreadcrumbItem() (+4 more)
-
-### Community 36 - "inline-selection.ts"
-Cohesion: 0.13
-Nodes (15): buildBubbleItems(), CODE_TEXTBLOCK_TYPES, collectActiveInlineTags(), emptyBubble(), getInlineBubbleInfo(), INLINE_BUBBLE_QUICK_TAGS, InlineBubbleInfo, resolveContextTag() (+7 more)
-
-### Community 37 - "react"
-Cohesion: 0.23
-Nodes (8): EditorToolbar(), InlineBubbleAnchor, InlineBubbleToolbar(), TAG_ICONS, useInstantTitles(), UseInstantTitlesOptions, rootEl, react
-
-### Community 38 - "node-views.ts"
-Cohesion: 0.16
-Nodes (8): CalsTableNodeView, createCommentChevronTag(), createDitaNodeViews(), DitaPrologNodeView, NOTE_TYPE_LABELS, NOTE_TYPES, XmlCommentNodeView, prosemirror-view
-
-### Community 39 - "serializer.ts"
+### Community 31 - "serializer.ts"
 Cohesion: 0.28
 Nodes (15): isBlockElementName(), isInlineElementName(), isWhitespacePreservingElement(), escapeXmlAttr(), escapeXmlText(), formatDoctype(), hasBlockChildren(), hasNonWhitespaceTextOrInline() (+7 more)
 
-### Community 40 - "MapNodeInspector.tsx"
-Cohesion: 0.31
-Nodes (8): ATTR_BADGE_COLORS, ProfilingAttrEditor(), findTreeNodeByPath(), GROUP_LABELS, MapNodeInspector(), formatProfilingAttrValue(), getAttributesForElement(), 4. 单一信息源语义引擎（Keys / Conref / DITAVAL）
+### Community 32 - "block-transforms.ts"
+Cohesion: 0.14
+Nodes (18): acceptsBlockContent(), BLOCK_CONTAINER_TAGS, BlockConvertMode, BlockConvertOption, BlockHandleTarget, BlockMovePlan, buildConvertedBlock(), INLINE_HOST_TAGS (+10 more)
 
-### Community 41 - "MapTreeNodeRenderer.tsx"
+### Community 33 - "decorations.ts"
+Cohesion: 0.15
+Nodes (21): BlockGapOpenMenuPayload, collectDitaDecorations(), CONTAINER_QUICK_BLOCK_TAGS, createBlockGapInserterDom(), createChevronCapSvg(), createConrefWidgetDom(), createDitaDecorationsPlugin(), createDitavalFlagPillDom() (+13 more)
+
+### Community 34 - "vite.config.ts"
 Cohesion: 0.20
-Nodes (11): BLOCK_TAG_ELEMENT_MAP, INLINE_TAG_ELEMENT_MAP, renderConrefPreviewDom(), renderDomNode(), sanitizeCssColor(), XmlLikeElement, XmlLikeNode, createMapTreeNodeRenderer() (+3 more)
+Nodes (8): 4.5 Isomorphic `@dita/core` & Runtime Gotchas, @tailwindcss/vite@^4.3.5, vite@^6.2.0, @vitejs/plugin-react@^4.3.4, browserStreamStubPlugin(), @tailwindcss/vite, vite, @vitejs/plugin-react
 
-### Community 42 - "parser.ts"
+### Community 35 - "Screenshots"
+Cohesion: 0.50
+Nodes (4): Screenshots, Single-sourcing semantic engine (Keyref / Conref / DITAVAL), Three-pane workbench with a visual Map tree, Visual and XML source side-by-side mode
+
+### Community 36 - "block-handle.test.ts"
+Cohesion: 0.13
+Nodes (8): computeBlockGaps(), findBlockHandleTarget(), duplicateDitaBlockAtPos(), buildState(), loadDoc(), noopCallbacks, pmDocToXml(), xmlToPmDoc()
+
+### Community 37 - "createMapTemplate"
+Cohesion: 0.19
+Nodes (11): buildScaleDitaProject(), tempDirs, createMapTemplate(), CreateMapTemplateOptions, escapeText(), sanitizeId(), createTopicTemplate(), CreateTopicTemplateOptions (+3 more)
+
+### Community 38 - "DITAEditor"
+Cohesion: 0.20
+Nodes (10): Architecture and technology stack, Backend environment variables (`@dita/api`), Develop, build, and test, DITAEditor, Getting started, Install and run, Repository layout, Requirements (+2 more)
+
+### Community 39 - "parser.ts"
 Cohesion: 0.18
-Nodes (14): slimdom@^4.0.2, extractDoctype(), extractXmlDeclaration(), findRootElementStartOffset(), lineColumnToOffset(), parseSaxesError(), ParseXmlOptions, PositionTrackedSlimdomNode (+6 more)
+Nodes (14): ResolveConrefOptions, extractDoctype(), extractXmlDeclaration(), findRootElementStartOffset(), lineColumnToOffset(), parseSaxesError(), ParseXmlOptions, PositionTrackedSlimdomNode (+6 more)
+
+### Community 40 - "schema.ts"
+Cohesion: 0.19
+Nodes (11): CalsCursor, CalsColSpec, DitaMapTreeNode, InsertMapNodeOptions, DomToPmContext, baseAttrs(), makeBlockContainerSpec(), makeInlineNodeSpec() (+3 more)
+
+### Community 41 - "AGENTS.md"
+Cohesion: 0.29
+Nodes (6): 1. Project Overview, 2. Repository Layout, 3. Build, Typecheck & Test Commands, 5. TypeScript & Code Style, 6. Knowledge Graph Workflow (`graphify`), 7. Implementation Roadmap Status
+
+### Community 42 - "inline-selection.ts"
+Cohesion: 0.25
+Nodes (10): buildBubbleItems(), CODE_TEXTBLOCK_TYPES, collectActiveInlineTags(), emptyBubble(), getInlineBubbleInfo(), INLINE_BUBBLE_QUICK_TAGS, InlineBubbleInfo, resolveContextTag() (+2 more)
 
 ### Community 43 - "devDependencies"
-Cohesion: 0.19
-Nodes (13): devDependencies, @types/react@^19.0.0, @types/react-dom@^19.0.0, typescript@^5.8.0, vitest@^3.1.0, typescript, vitest, name (+5 more)
+Cohesion: 0.22
+Nodes (9): devDependencies, @types/react@^19.0.0, @types/react-dom@^19.0.0, typescript@^5.8.0, vitest@^3.1.0, typescript, vitest, @types/react (+1 more)
 
-### Community 44 - "DocumentSemanticOverlay"
+### Community 44 - "4. Non-Negotiable Engineering Invariants"
+Cohesion: 0.29
+Nodes (7): 4.1 Lossless XML Round-Trip & Minimal Git Diff, 4.2 ProseMirror Schema Rules (`@dita/core`), 4.3 Source ↔ Visual Transition Safety, 4.4 OASIS CALS Table Fidelity, 4.6 Golden Regression Tests, 4. Non-Negotiable Engineering Invariants, hasMultipleTgroups()
+
+### Community 46 - "lucide-react"
 Cohesion: 0.20
-Nodes (4): CreateDitaNodeViewsOptions, DitaImageNodeView, DitaRefInlineNodeView, DocumentSemanticOverlay
+Nodes (9): EditorToolbar(), EditorToolbarProps, InlineBubbleAnchor, InlineBubbleToolbarProps, TAG_ICONS, useInstantTitles(), UseInstantTitlesOptions, rootEl (+1 more)
 
-### Community 45 - "RawAttrs"
-Cohesion: 0.43
-Nodes (5): InsertKeyrefDialogProps, XrefImageDialogProps, VisualEditorHandle, UploadAssetResult, RawAttrs
+### Community 47 - "[0.5.0] — 2026-11-21"
+Cohesion: 0.33
+Nodes (6): [0.5.0] — 2026-11-21, Added, Changed, Changelog, Known limitations, Removed
 
-### Community 46 - "compare.ts"
-Cohesion: 0.53
-Nodes (5): compareElements(), compareParsedXmlDocuments(), normalizeChildren(), NormalizedChild, XmlDiffEntry
-
-### Community 47 - "ParsedDitaval"
-Cohesion: 0.23
-Nodes (13): VisualSemanticContext, BuildCompositeMapTreeOptions, MapBufferState, MapNodeInspectorProps, MapTreePanelProps, WorkspaceDiagnostic, WorkspaceDitavalSummary, EditorWorkbenchState (+5 more)
-
-### Community 48 - "AttributesPanel.tsx"
-Cohesion: 0.23
-Nodes (13): ConrefReusePanelProps, InspectorTab, TABS, TopicInspector(), TopicInspectorProps, AttributesPanel(), AttributesPanelProps, GROUP_LABELS (+5 more)
-
-### Community 49 - "dita-core/src/index.ts"
-Cohesion: 0.16
-Nodes (10): NewMapDialogProps, DEFAULT_DIR_FOR_TYPE, NewTopicDialogProps, NewTopicMountContext, TOPIC_OPTIONS, InsertElementMenuProps, InsertContextGroup, MapOverviewPaneProps (+2 more)
-
-### Community 50 - "createMapTemplate"
-Cohesion: 0.23
-Nodes (10): buildScaleDitaProject(), createMapTemplate(), CreateMapTemplateOptions, escapeText(), sanitizeId(), createTopicTemplate(), CreateTopicTemplateOptions, DitaSampleDocument (+2 more)
-
-### Community 51 - "dita-elements.ts"
-Cohesion: 0.17
-Nodes (11): DITA_BLOCK_TAGS, DITA_INLINE_TAGS, DITA_MAP_CONTAINER_NODE_TAGS, DITA_MAP_ROOT_TAGS, DITA_MAP_TREE_NODE_TAGS, DITA_STRUCTURAL_ELEMENT_CONTAINERS, DITA_TOPIC_ROOT_TAGS, DITA_WHITESPACE_PRESERVE_TAGS (+3 more)
-
-### Community 55 - "XmlParseError"
+### Community 49 - "computeRelativeDitaHref"
 Cohesion: 0.31
-Nodes (8): FileContentResult, WorkbenchHeaderProps, FileContentResult, EditorViewMode, OpenEditorTab, DitaFileKind, DitaXmlParseError, XmlParseError
+Nodes (7): InsertKeyrefDialog(), InsertKeyrefDialogProps, XrefImageDialog(), XrefImageDialogProps, VisualEditorHandle, UploadAssetResult, RawAttrs
 
-### Community 58 - "FileExplorerPanel.tsx"
-Cohesion: 0.48
-Nodes (6): FileExplorerPanel(), FileExplorerPanelProps, FileIcon(), filterTreeNodes(), WorkspaceFileNode, WorkspaceMapSummary
+### Community 50 - "cals-table.test.ts"
+Cohesion: 0.14
+Nodes (10): DEMO_SOURCE_DIR, __dirname, ditaSchema, __dirname, FIXTURES_DIR, __dirname, FIXTURES_DIR, __dirname (+2 more)
 
-### Community 61 - "WorkspaceDialog.tsx"
-Cohesion: 0.50
-Nodes (4): arrayBufferToBase64(), RELEVANT_EXTENSIONS, WorkspaceDialog(), WorkspaceDialogProps
-
-### Community 64 - "scripts"
+### Community 51 - "核心特性（已实现：Phase 0–3）"
 Cohesion: 0.40
-Nodes (5): scripts, build, test, test:watch, typecheck
+Nodes (5): 1. 100% 无损 XML 往返内核（`@dita/core`）, 2. 双模式 Topic 编辑器（可视化 / 双栏对比 / XML 源码）, 3. 可视化 Map / Bookmap 树与多文件工作台, 5. 本地工作区、增量语义索引与资产后端（`@dita/api`）, 核心特性（已实现：Phase 0–3）
+
+### Community 52 - "web/package.json"
+Cohesion: 0.15
+Nodes (12): @codemirror/language@^6.13.1, prosemirror-inputrules@^1.7.0, react-arborist@^4.0.1, react-dnd@^16.0.1, name, private, type, version (+4 more)
+
+### Community 53 - "dita-elements.ts"
+Cohesion: 0.18
+Nodes (10): DITA_BLOCK_TAGS, DITA_INLINE_TAGS, DITA_MAP_CONTAINER_NODE_TAGS, DITA_MAP_ROOT_TAGS, DITA_MAP_TREE_NODE_TAGS, DITA_STRUCTURAL_ELEMENT_CONTAINERS, DITA_TOPIC_ROOT_TAGS, DITA_WHITESPACE_PRESERVE_TAGS (+2 more)
+
+### Community 55 - "Core features (Phase 0–3 implemented)"
+Cohesion: 0.40
+Nodes (5): 1. 100% lossless XML round-trip kernel (`@dita/core`), 2. Dual-mode topic editor (visual / split / XML source), 3. Visual Map / Bookmap tree and multi-file workbench, 5. Local workspace, incremental semantic index, and asset backend (`@dita/api`), Core features (Phase 0–3 implemented)
+
+### Community 59 - "cals-table.ts"
+Cohesion: 0.36
+Nodes (8): CalsCellSpan, CalsRowModel, CalsTgroupModel, extractElementAttrs(), parseCalsColSpecs(), parseCalsTgroup(), parseSectionRows(), resolveCalsEntrySpan()
+
+### Community 61 - "conref-renderer.ts"
+Cohesion: 0.32
+Nodes (6): BLOCK_TAG_ELEMENT_MAP, INLINE_TAG_ELEMENT_MAP, renderConrefPreviewDom(), renderDomNode(), XmlLikeElement, XmlLikeNode
+
+### Community 62 - "slimdom"
+Cohesion: 0.43
+Nodes (6): compareElements(), compareParsedXmlDocuments(), normalizeChildren(), NormalizedChild, XmlDiffEntry, slimdom
+
+### Community 63 - "界面预览"
+Cohesion: 0.50
+Nodes (4): 三栏工作台与可视化 Map 结构树, 单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）, 可视化与 XML 源码双栏对比模式, 界面预览
+
+### Community 65 - "NewTopicDialog.tsx"
+Cohesion: 0.33
+Nodes (5): DEFAULT_DIR_FOR_TYPE, NewTopicDialog(), NewTopicDialogProps, NewTopicMountContext, TOPIC_OPTIONS
+
+### Community 66 - "LeftSidebar.tsx"
+Cohesion: 0.67
+Nodes (3): LeftSidebar(), LeftSidebarProps, LeftSidebarTab
 
 ## Knowledge Gaps
 - **10 isolated node(s):** `../../tsconfig.base.json`, `../../tsconfig.base.json`, `../../tsconfig.base.json`, `OASIS CALS Table Adapter`, `Visual-Source Dual-Mode State Machine` (+5 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 280 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **20 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 304 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **16 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `slimdom` connect `parser.ts` to `semantic-engine.ts`, `converter.ts`, `ditaval.ts`, `Core Package Manifest`, `serializer.ts`, `compare.ts`, `dita-map.ts`?**
-  _High betweenness centrality (0.039) - this node is a cross-community bridge._
+- **Why does `checkXmlWellFormed()` connect `dita-map.ts` to `dita-core/src/index.ts`, `parser.ts`, `4. Non-Negotiable Engineering Invariants`, `[0.5.0] — 2026-11-21`, `核心特性（已实现：Phase 0–3）`, `semantic-engine.ts`, `map-tree-utils.ts`, `Core features (Phase 0–3 implemented)`, `editor-store.ts`, `WorkspaceManager`, `workspace-fs.ts`?**
+  _High betweenness centrality (0.054) - this node is a cross-community bridge._
 - **What connects `../../tsconfig.base.json`, `../../tsconfig.base.json`, `../../tsconfig.base.json` to the rest of the system?**
   _10 weakly-connected nodes found - possible documentation gaps or missing edges._
-- **Should `semantic-engine.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.06893106893106893 - nodes in this community are weakly interconnected._
-- **Why does `checkXmlWellFormed()` connect `semantic-engine.ts` to `parser.ts`, `dita-map.ts`, `DITAEditor`, `map-tree-utils.ts`, `WorkspaceManager`, `editor-store.ts`, `semantic-indexer.ts`, `workspace-fs.ts`?**
-  _High betweenness centrality (0.037) - this node is a cross-community bridge._
-- **Should `converter.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.1396011396011396 - nodes in this community are weakly interconnected._
-- **Why does `lucide-react` connect `dita-core/src/index.ts` to `EditorTabBar.tsx`, `LeftSidebar.tsx`, `ProblemsPanel.tsx`, `App.tsx`, `react`, `MapNodeInspector.tsx`, `MapTreeNodeRenderer.tsx`, `devDependencies`, `RawAttrs`, `AttributesPanel.tsx`, `dependencies`, `WorkspaceDialog.tsx`, `map-tree-utils.ts`, `XmlParseError`, `FileExplorerPanel.tsx`, `VisualEditor.tsx`, `semantic-indexer.ts`?**
-  _High betweenness centrality (0.033) - this node is a cross-community bridge._
-- **Should `ditaval.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.0761904761904762 - nodes in this community are weakly interconnected._
+- **Should `files/routes.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.11076923076923077 - nodes in this community are weakly interconnected._
+- **Why does `getRawAttr()` connect `dita-map.ts` to `decorations.ts`, `dita-core/src/index.ts`, `App.tsx`, `table-commands.ts`, `VisualEditor.tsx`, `resolveDitaHref`?**
+  _High betweenness centrality (0.032) - this node is a cross-community bridge._
+- **Should `dita-core/src/index.ts` be split into smaller, more focused modules?**
+  _Cohesion score 0.05239075726378403 - nodes in this community are weakly interconnected._
+- **Why does `核心特性（已实现：Phase 0–3）` connect `核心特性（已实现：Phase 0–3）` to `dita-core/src/index.ts`, `DITAEditor`?**
+  _High betweenness centrality (0.031) - this node is a cross-community bridge._
+- **Should `Core Package Manifest` be split into smaller, more focused modules?**
+  _Cohesion score 0.09230769230769231 - nodes in this community are weakly interconnected._

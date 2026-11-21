@@ -51,7 +51,10 @@ export function App() {
   const workspaceMode = useEditorStore((s) => s.workspaceMode);
   const workspaceRootDir = useEditorStore((s) => s.workspaceRootDir);
   const workspaceDefaultRootDir = useEditorStore((s) => s.workspaceDefaultRootDir);
+  const workspaceImportsRootDir = useEditorStore((s) => s.workspaceImportsRootDir);
   const workspaceName = useEditorStore((s) => s.workspaceName);
+  const recentWorkspaces = useEditorStore((s) => s.recentWorkspaces);
+  const loadingWorkspaces = useEditorStore((s) => s.loadingWorkspaces);
   const fileTree = useEditorStore((s) => s.fileTree);
   const fileSet = useEditorStore((s) => s.fileSet);
   const workspaceMaps = useEditorStore((s) => s.workspaceMaps);
@@ -87,6 +90,9 @@ export function App() {
   const initWorkspace = useEditorStore((s) => s.initWorkspace);
   const openLocalWorkspace = useEditorStore((s) => s.openLocalWorkspace);
   const importFolderWorkspace = useEditorStore((s) => s.importFolderWorkspace);
+  const createBlankWorkspace = useEditorStore((s) => s.createBlankWorkspace);
+  const forgetRecentWorkspace = useEditorStore((s) => s.forgetRecentWorkspace);
+  const refreshRecentWorkspaces = useEditorStore((s) => s.refreshRecentWorkspaces);
   const restoreOfflineDemo = useEditorStore((s) => s.restoreOfflineDemo);
   const selectRootMap = useEditorStore((s) => s.selectRootMap);
   const selectDitaval = useEditorStore((s) => s.selectDitaval);
@@ -483,6 +489,9 @@ export function App() {
                 activeTab={leftSidebarTab}
                 onChangeTab={setLeftSidebarTab}
                 onCollapse={() => setLeftSidebarOpen(false)}
+                workspaceName={workspaceName}
+                workspaceMode={workspaceMode}
+                onOpenWorkspaceDialog={() => setWorkspaceDialogOpen(true)}
                 mapTreeSlot={
                   <MapTreePanel
                     rootMapPath={activeRootMapPath}
@@ -539,13 +548,10 @@ export function App() {
                     activeTabPath={activeTabPath}
                     activeRootMapPath={activeRootMapPath}
                     maps={workspaceMaps}
-                    workspaceName={workspaceName}
-                    workspaceMode={workspaceMode}
                     topicTitles={topicTitles}
                     onOpenFile={(path) => void openFileTab(path)}
                     onActivateMap={(path) => void selectRootMap(path)}
                     onSelectRootMap={(path) => void selectRootMap(path)}
-                    onOpenWorkspaceDialog={() => setWorkspaceDialogOpen(true)}
                     onNewTopic={() => {
                       setTopicMountContext(null);
                       setNewTopicOpen(true);
@@ -868,8 +874,14 @@ export function App() {
         workspaceMode={workspaceMode}
         rootDir={workspaceRootDir}
         defaultRootDir={workspaceDefaultRootDir}
+        importsRootDir={workspaceImportsRootDir}
+        recentWorkspaces={recentWorkspaces}
+        loadingWorkspaces={loadingWorkspaces}
         onClose={() => setWorkspaceDialogOpen(false)}
         onOpenLocalDir={openLocalWorkspace}
+        onCreateWorkspace={createBlankWorkspace}
+        onForgetWorkspace={forgetRecentWorkspace}
+        onRefreshWorkspaces={refreshRecentWorkspaces}
         onImportFolder={importFolderWorkspace}
         onRestoreOfflineDemo={restoreOfflineDemo}
       />

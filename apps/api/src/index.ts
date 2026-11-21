@@ -11,6 +11,7 @@ import { WorkspaceSemanticIndexer } from './modules/indexer/semantic-indexer.js'
 export interface CreateServerOptions {
   workspaceDir?: string;
   importsRootDir?: string;
+  registryPath?: string;
   logger?: boolean;
 }
 
@@ -19,6 +20,7 @@ export function createServer(options: CreateServerOptions = {}) {
   const workspace = new WorkspaceManager({
     workspaceDir: options.workspaceDir,
     importsRootDir: options.importsRootDir,
+    registryPath: options.registryPath,
   });
   const indexer = new WorkspaceSemanticIndexer(workspace);
   workspace.setMutationCallbacks({

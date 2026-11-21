@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, mkdirSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -299,5 +299,186 @@ describe('Phase 2 Fastify Workspace, Map Persistence & Asset API', () => {
     expect(importRes.json().stats.totalTopics).toBe(1);
 
     await app.close();
+  });
+
+  it('lists, creates, persists and forgets workspaces through the registry API', async () => {
+    const workspaceDir = createTempDir('dita-ws-root-');
+    const importsDir = createTempDir('dita-ws-imports-');
+    mkdirSync(path.join(workspaceDir, 'topics'), { recursive: true });
+    writeFileSync(
+      path.join(workspaceDir, 'topics', 'intro.dita'),
+      createTopicTemplate('topic', { id: 'intro', title: 'Intro' }),
+      'utf8',
+    );
+
+    const app = createServer({ workspaceDir, importsRootDir: importsDir, logger: false });
+
+    // 1. Initial picker snapshot seeds the active workspace
+    const initial = await app.inject({ method: 'GET', url: '/api/workspaces' });
+    expect(initial.statusCode).toBe(200);
+    const initialBody = initial.json();
+    expect(initialBody.importsRootDir).toBe(importsDir);
+    expect(initialBody.current.path).toBe(realpathSync(workspaceDir));
+    expect(initialBody.workspaces[0].isCurrent).toBe(true);
+
+    // 2. Blank scaffold: standard directories, no maps/topics
+    const blankRes = await app.inject({
+      method: 'POST',
+      url: '/api/workspaces/create',
+      payload: { name: 'blank-docs', parentDir: importsDir, scaffold: 'blank' },
+    });
+    expect(blankRes.statusCode).toBe(200);
+    const blank = blankRes.json();
+    const blankRoot = realpathSync(path.join(importsDir, 'blank-docs'));
+    expect(blank.rootDir).toBe(blankRoot);
+    expect(blank.maps).toEqual([]);
+    expect(blank.stats.totalTopics).toBe(0);
+    for (const dir of ['topics', 'maps', 'images']) {
+      expect(existsSync(path.join(blankRoot, dir))).toBe(true);
+    }
+    expect(existsSync(path.join(importsDir, 'workspaces.json'))).toBe(true);
+
+    // 3. Starter scaffold: index.ditamap + introduction topic
+    const starterRes = await app.inject({
+      method: 'POST',
+      url: '/api/workspaces/create',
+      payload: { name: 'starter-manual', parentDir: importsDir, scaffold: 'starter' },
+    });
+    expect(starterRes.statusCode).toBe(200);
+    const starter = starterRes.json();
+    const starterRoot = realpathSync(path.join(importsDir, 'starter-manual'));
+    expect(starter.rootDir).toBe(starterRoot);
+    expect(starter.maps[0].path).toBe('index.ditamap');
+    expect(starter.stats.totalTopics).toBe(1);
+    expect(readFileSync(path.join(starterRoot, 'topics', 'introduction.dita'), 'utf8')).toContain(
+      'starter-manual 项目介绍',
+    );
+    expect(readFileSync(path.join(starterRoot, 'index.ditamap'), 'utf8')).toContain(
+      'href="topics/introduction.dita"',
+    );
+
+    // 4. Duplicate creation is rejected
+    const duplicateRes = await app.inject({
+      method: 'POST',
+      url: '/api/workspaces/create',
+      payload: { name: 'blank-docs', parentDir: importsDir, scaffold: 'blank' },
+    });
+    expect(duplicateRes.statusCode).toBe(409);
+
+    // 5. Picker lists all workspaces, current points at the newest one
+    const listed = await app.inject({ method: 'GET', url: '/api/workspaces' });
+    expect(listed.statusCode).toBe(200);
+    const listedBody = listed.json();
+    expect(listedBody.current.path).toBe(starterRoot);
+    const paths = (listedBody.workspaces as { path: string }[]).map((ws) => ws.path);
+    expect(paths).toContain(blankRoot);
+    expect(paths).toContain(starterRoot);
+
+    // 6. Forget removes only the registry entry
+    const forgetRes = await app.inject({
+      method: 'POST',
+      url: '/api/workspaces/forget',
+      payload: { path: blankRoot },
+    });
+    expect(forgetRes.statusCode).toBe(200);
+    expect((forgetRes.json().workspaces as { path: string }[]).map((ws) => ws.path)).not.toContain(
+      blankRoot,
+    );
+    expect(existsSync(blankRoot)).toBe(true);
+
+    await app.close();
+
+    // 7. Registry survives a server restart
+    const restarted = createServer({ workspaceDir, importsRootDir: importsDir, logger: false });
+    const afterRestart = await restarted.inject({ method: 'GET', url: '/api/workspaces' });
+    const restartPaths = (afterRestart.json().workspaces as { path: string }[]).map(
+      (ws) => ws.path,
+    );
+    expect(restartPaths).toContain(starterRoot);
+    expect(restartPaths).not.toContain(blankRoot);
+    await restarted.close();
+  });
+
+  it('discovers unregistered workspace dirs and hides forgotten ones across restarts', async () => {
+    const workspaceDir = createTempDir('dita-ws-root-');
+    const importsDir = createTempDir('dita-ws-imports-');
+
+    // An orphan workspace directory that never went through the registry.
+    const orphan = path.join(importsDir, 'legacy-cookbook');
+    mkdirSync(path.join(orphan, 'topics'), { recursive: true });
+    writeFileSync(
+      path.join(orphan, 'topics', 'cookbook.dita'),
+      createTopicTemplate('concept', { id: 'cookbook', title: 'Cookbook' }),
+      'utf8',
+    );
+    // A plain file next to the dirs must not be treated as a workspace.
+    writeFileSync(path.join(importsDir, 'notes.txt'), 'not a workspace', 'utf8');
+    const orphanRoot = realpathSync(orphan);
+
+    const app = createServer({ workspaceDir, importsRootDir: importsDir, logger: false });
+
+    // 1. Discovery surfaces the orphan as an unregistered entry.
+    const first = await app.inject({ method: 'GET', url: '/api/workspaces' });
+    const firstBody = first.json();
+    const discovered = (firstBody.workspaces as {
+      path: string;
+      name: string;
+      unregistered?: boolean;
+      exists: boolean;
+    }[]).find((ws) => ws.path === orphanRoot);
+    expect(discovered?.unregistered).toBe(true);
+    expect(discovered?.name).toBe('legacy-cookbook');
+    expect(discovered?.exists).toBe(true);
+    expect(
+      (firstBody.workspaces as { name: string }[]).some((ws) => ws.name === 'notes.txt'),
+    ).toBe(false);
+
+    // 2. Opening it registers it (no longer unregistered, becomes current).
+    const opened = await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open',
+      payload: { rootDir: orphan },
+    });
+    expect(opened.statusCode).toBe(200);
+    const afterOpen = await app.inject({ method: 'GET', url: '/api/workspaces' });
+    const openedEntry = (afterOpen.json().workspaces as {
+      path: string;
+      unregistered?: boolean;
+      isCurrent: boolean;
+    }[]).find((ws) => ws.path === orphanRoot);
+    expect(openedEntry?.unregistered).toBe(false);
+    expect(openedEntry?.isCurrent).toBe(true);
+
+    // 3. Switch back, then forget the orphan: it is hidden, not deleted.
+    await app.inject({
+      method: 'POST',
+      url: '/api/workspace/open',
+      payload: { rootDir: workspaceDir },
+    });
+    const forgetRes = await app.inject({
+      method: 'POST',
+      url: '/api/workspaces/forget',
+      payload: { path: orphanRoot },
+    });
+    expect(forgetRes.statusCode).toBe(200);
+    expect(
+      (forgetRes.json().workspaces as { path: string }[]).map((ws) => ws.path),
+    ).not.toContain(orphanRoot);
+    expect(existsSync(orphanRoot)).toBe(true);
+
+    const afterForget = await app.inject({ method: 'GET', url: '/api/workspaces' });
+    expect(
+      (afterForget.json().workspaces as { path: string }[]).map((ws) => ws.path),
+    ).not.toContain(orphanRoot);
+
+    await app.close();
+
+    // 4. The hidden tombstone survives a restart, so discovery stays quiet.
+    const restarted = createServer({ workspaceDir, importsRootDir: importsDir, logger: false });
+    const afterRestart = await restarted.inject({ method: 'GET', url: '/api/workspaces' });
+    expect(
+      (afterRestart.json().workspaces as { path: string }[]).map((ws) => ws.path),
+    ).not.toContain(orphanRoot);
+    await restarted.close();
   });
 });

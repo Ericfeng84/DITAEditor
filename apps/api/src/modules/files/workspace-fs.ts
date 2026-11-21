@@ -8,6 +8,7 @@ import {
   createTopicTemplate,
   extractDitaDocumentTitle,
   getNodeSourceRange,
+  insertMapNode,
   normalizePosixPath,
   parseDitaMap,
   parseDitaval,
@@ -68,6 +69,49 @@ export interface FileContentResult {
   kind: DitaFileKind;
   wellFormed: boolean;
   xmlError?: XmlParseError;
+}
+
+export interface WorkspaceRegistryEntry {
+  path: string;
+  name: string;
+  lastOpenedAt: number;
+  /** Tombstone written by an explicit forget so discovery keeps the directory hidden. */
+  hidden?: boolean;
+  /** Set only on list results discovered on disk but never registered. */
+  unregistered?: boolean;
+}
+
+export interface WorkspaceListItem extends Omit<WorkspaceRegistryEntry, 'hidden'> {
+  exists: boolean;
+  isDefault: boolean;
+  isCurrent: boolean;
+}
+
+export interface WorkspacePickerSnapshot {
+  current: { path: string; name: string } | null;
+  defaultRootDir: string;
+  importsRootDir: string;
+  workspaces: WorkspaceListItem[];
+}
+
+export type WorkspaceScaffold = 'blank' | 'starter';
+
+/** Standard directory skeleton created for a new blank DITA workspace. */
+export const WORKSPACE_SCAFFOLD_DIRS = ['topics', 'maps', 'images'] as const;
+
+const MAX_RECENT_WORKSPACES = 12;
+const MAX_HIDDEN_WORKSPACES = 50;
+const WORKSPACE_REGISTRY_FILENAME = 'workspaces.json';
+
+/** Turn a user-supplied project name into a filesystem-safe directory name. */
+export function sanitizeWorkspaceDirName(raw: string): string {
+  return raw
+    .trim()
+    .replace(/[\\/:*?"<>|]+/g, '-')
+    .replace(/^\.+/, '')
+    .replace(/[^\p{L}\p{N}._-]+/gu, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 64);
 }
 
 export interface WorkspaceDiagnostic {
@@ -224,6 +268,8 @@ export type WorkspaceCreateKind =
 export interface WorkspaceManagerOptions {
   workspaceDir?: string;
   importsRootDir?: string;
+  /** Optional override for the persisted recent-workspace registry file. */
+  registryPath?: string;
 }
 
 export interface WorkspaceMutationCallbacks {
@@ -237,12 +283,19 @@ export interface WorkspaceMutationCallbacks {
 export class WorkspaceManager {
   readonly defaultRootDir: string;
   readonly importsRootDir: string;
+  readonly registryPath: string;
   private activeRootDir: string;
   private callbacks: WorkspaceMutationCallbacks = {};
+  private registryChain: Promise<void> = Promise.resolve();
 
   constructor(options: WorkspaceManagerOptions = {}) {
     this.defaultRootDir = path.resolve(options.workspaceDir ?? getDefaultWorkspaceDir());
     this.importsRootDir = path.resolve(options.importsRootDir ?? getDefaultImportsRootDir());
+    this.registryPath = path.resolve(
+      options.registryPath ??
+        process.env.DITA_WORKSPACES_REGISTRY ??
+        path.join(this.importsRootDir, WORKSPACE_REGISTRY_FILENAME),
+    );
     this.activeRootDir = this.defaultRootDir;
   }
 
@@ -275,6 +328,7 @@ export class WorkspaceManager {
     }
 
     this.activeRootDir = await fs.realpath(resolved);
+    await this.recordWorkspace(this.activeRootDir);
     await this.callbacks.onWorkspaceChanged?.(this.activeRootDir);
     return this.scanWorkspace();
   }
@@ -305,8 +359,270 @@ export class WorkspaceManager {
     }
 
     this.activeRootDir = await fs.realpath(destDir);
+    await this.recordWorkspace(this.activeRootDir, projectName);
     await this.callbacks.onWorkspaceChanged?.(this.activeRootDir);
     return this.scanWorkspace();
+  }
+
+  private withRegistryLock<T>(task: () => Promise<T>): Promise<T> {
+    const run = this.registryChain.then(task, task);
+    this.registryChain = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
+  }
+
+  private async readRegistry(): Promise<WorkspaceRegistryEntry[]> {
+    try {
+      const raw = await fs.readFile(this.registryPath, 'utf8');
+      const parsed = JSON.parse(raw) as unknown;
+      const list = Array.isArray(parsed)
+        ? parsed
+        : (parsed as { workspaces?: unknown } | null)?.workspaces;
+      if (!Array.isArray(list)) return [];
+
+      return list
+        .flatMap((item): WorkspaceRegistryEntry[] => {
+          if (!item || typeof item !== 'object') return [];
+          const record = item as Record<string, unknown>;
+          if (typeof record.path !== 'string' || !path.isAbsolute(record.path)) return [];
+          return [
+            {
+              path: record.path,
+              name:
+                typeof record.name === 'string' && record.name.trim()
+                  ? record.name
+                  : path.basename(record.path),
+              lastOpenedAt:
+                typeof record.lastOpenedAt === 'number' ? record.lastOpenedAt : 0,
+              hidden: record.hidden === true,
+            },
+          ];
+        });
+    } catch {
+      return [];
+    }
+  }
+
+  private async writeRegistry(entries: readonly WorkspaceRegistryEntry[]): Promise<void> {
+    await fs.mkdir(path.dirname(this.registryPath), { recursive: true });
+    const serialized = entries.map((entry) => ({
+      path: entry.path,
+      name: entry.name,
+      lastOpenedAt: entry.lastOpenedAt,
+      ...(entry.hidden ? { hidden: true } : {}),
+    }));
+    await fs.writeFile(
+      this.registryPath,
+      `${JSON.stringify({ version: 1, workspaces: serialized }, null, 2)}\n`,
+      'utf8',
+    );
+  }
+
+  /** Record a workspace as most-recently opened (persisted under the imports root). */
+  async recordWorkspace(rootDir: string, name?: string): Promise<void> {
+    try {
+      await this.withRegistryLock(async () => {
+        const entries = (await this.readRegistry()).filter(
+          (entry) => entry.path !== rootDir,
+        );
+        entries.unshift({
+          path: rootDir,
+          name: name?.trim() || path.basename(rootDir),
+          lastOpenedAt: Date.now(),
+        });
+        const visible = entries
+          .filter((entry) => !entry.hidden)
+          .slice(0, MAX_RECENT_WORKSPACES);
+        const hidden = entries.filter((entry) => entry.hidden);
+        await this.writeRegistry([...visible, ...hidden]);
+      });
+    } catch {
+      // Recent-workspace bookkeeping must never block opening a project.
+    }
+  }
+
+  async listWorkspaces(): Promise<WorkspacePickerSnapshot> {
+    const currentReal = await fs.realpath(this.activeRootDir).catch(() => this.activeRootDir);
+    const entries = await this.readRegistry();
+
+    const hiddenPaths = new Set<string>();
+    for (const entry of entries) {
+      if (!entry.hidden) continue;
+      hiddenPaths.add(entry.path);
+      hiddenPaths.add(await fs.realpath(entry.path).catch(() => entry.path));
+    }
+
+    const merged = new Map<string, WorkspaceRegistryEntry>();
+    const seed: WorkspaceRegistryEntry[] = [
+      { path: currentReal, name: path.basename(currentReal), lastOpenedAt: Date.now() },
+      ...entries.filter((entry) => !entry.hidden).slice(0, MAX_RECENT_WORKSPACES),
+    ];
+    if (!hiddenPaths.has(this.defaultRootDir)) {
+      seed.push({
+        path: this.defaultRootDir,
+        name: path.basename(this.defaultRootDir),
+        lastOpenedAt: 0,
+      });
+    }
+    for (const entry of seed) {
+      const existing = merged.get(entry.path);
+      if (!existing || entry.lastOpenedAt > existing.lastOpenedAt) {
+        merged.set(entry.path, entry);
+      }
+    }
+
+    // Discover workspace dirs under the imports root that were never registered
+    // (e.g. created by an older build, copied in by hand, or lost with the registry).
+    try {
+      const dirents = await fs.readdir(this.importsRootDir, { withFileTypes: true });
+      for (const dirent of dirents) {
+        if (!dirent.isDirectory() || dirent.name.startsWith('.')) continue;
+        const candidate = path.join(this.importsRootDir, dirent.name);
+        const real = await fs.realpath(candidate).catch(() => candidate);
+        if (merged.has(real) || hiddenPaths.has(real) || hiddenPaths.has(candidate)) continue;
+        merged.set(real, {
+          path: real,
+          name: dirent.name,
+          lastOpenedAt: 0,
+          unregistered: true,
+        });
+      }
+    } catch {
+      // The imports root may not exist yet.
+    }
+
+    const workspaces = await Promise.all(
+      [...merged.values()].map(async (entry): Promise<WorkspaceListItem> => {
+        let exists = false;
+        try {
+          exists = (await fs.stat(entry.path)).isDirectory();
+        } catch {
+          exists = false;
+        }
+        return {
+          path: entry.path,
+          name: entry.name,
+          lastOpenedAt: entry.lastOpenedAt,
+          unregistered: entry.unregistered === true,
+          exists,
+          isDefault: entry.path === this.defaultRootDir,
+          isCurrent: entry.path === currentReal,
+        };
+      }),
+    );
+
+    workspaces.sort(
+      (a, b) =>
+        Number(b.isCurrent) - Number(a.isCurrent) ||
+        Number(a.unregistered) - Number(b.unregistered) ||
+        b.lastOpenedAt - a.lastOpenedAt ||
+        a.name.localeCompare(b.name),
+    );
+
+    return {
+      current: { path: currentReal, name: path.basename(currentReal) },
+      defaultRootDir: this.defaultRootDir,
+      importsRootDir: this.importsRootDir,
+      workspaces,
+    };
+  }
+
+  /** Create + initialize a brand-new workspace directory, optionally with a starter topic/map. */
+  async createWorkspace(options: {
+    name: string;
+    parentDir?: string;
+    scaffold?: WorkspaceScaffold;
+  }): Promise<WorkspaceSnapshot> {
+    const displayName = options.name.trim();
+    if (!displayName) {
+      throw new WorkspacePathError('Workspace name cannot be empty.');
+    }
+
+    const parentDir = path.resolve(options.parentDir?.trim() || this.importsRootDir);
+    let parentStat;
+    try {
+      parentStat = await fs.stat(parentDir);
+    } catch {
+      throw new WorkspaceNotFoundError(`父目录不存在：${parentDir}`);
+    }
+    if (!parentStat.isDirectory()) {
+      throw new WorkspacePathError(`Parent path is not a directory: ${parentDir}`);
+    }
+
+    const dirName = sanitizeWorkspaceDirName(displayName) || 'dita-project';
+    const targetDir = path.join(parentDir, dirName);
+
+    if (existsSync(targetDir)) {
+      const existing = await fs.readdir(targetDir);
+      if (existing.length > 0) {
+        throw new WorkspaceConflictError(
+          `目标目录已存在且不为空：${targetDir}`,
+        );
+      }
+    }
+
+    await fs.mkdir(targetDir, { recursive: true });
+    for (const dir of WORKSPACE_SCAFFOLD_DIRS) {
+      await fs.mkdir(path.join(targetDir, dir), { recursive: true });
+    }
+
+    if (options.scaffold === 'starter') {
+      const topicPath = 'topics/introduction.dita';
+      const mapXml = createMapTemplate('map', { id: 'index', title: displayName });
+      const mapWithTopic = insertMapNode(mapXml, {
+        parentPath: null,
+        tagName: 'topicref',
+        attrs: [
+          { name: 'href', value: topicPath, namespaceURI: null },
+          { name: 'type', value: 'concept', namespaceURI: null },
+        ],
+        navtitle: '项目介绍',
+      });
+      const topicXml = createTopicTemplate('concept', {
+        id: 'introduction',
+        title: `${displayName} 项目介绍`,
+      });
+      await fs.writeFile(path.join(targetDir, 'index.ditamap'), mapWithTopic.xml, 'utf8');
+      await fs.writeFile(path.join(targetDir, topicPath), topicXml, 'utf8');
+    }
+
+    const realRoot = await fs.realpath(targetDir);
+    this.activeRootDir = realRoot;
+    await this.recordWorkspace(realRoot, displayName);
+    await this.callbacks.onWorkspaceChanged?.(realRoot);
+    return this.scanWorkspace();
+  }
+
+  async forgetWorkspace(targetDir: string): Promise<WorkspaceListItem[]> {
+    const resolved = path.resolve(targetDir);
+    const realResolved = await fs.realpath(resolved).catch(() => resolved);
+    const currentReal = await fs.realpath(this.activeRootDir).catch(() => this.activeRootDir);
+
+    // Hide the entry instead of deleting it so auto-discovery does not resurrect it.
+    if (realResolved !== currentReal) {
+      await this.withRegistryLock(async () => {
+        const entries = await this.readRegistry();
+        const remaining = entries.filter(
+          (entry) => entry.path !== resolved && entry.path !== realResolved,
+        );
+        remaining.push({
+          path: realResolved,
+          name: path.basename(realResolved),
+          lastOpenedAt: 0,
+          hidden: true,
+        });
+        const visible = remaining
+          .filter((entry) => !entry.hidden)
+          .slice(0, MAX_RECENT_WORKSPACES);
+        const hidden = remaining.filter((entry) => entry.hidden).slice(-MAX_HIDDEN_WORKSPACES);
+        await this.writeRegistry([...visible, ...hidden]);
+      });
+    }
+
+    const snapshot = await this.listWorkspaces();
+    return snapshot.workspaces;
   }
 
   async scanWorkspace(): Promise<WorkspaceSnapshot> {

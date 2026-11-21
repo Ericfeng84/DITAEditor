@@ -23,13 +23,10 @@ export interface FileExplorerPanelProps {
   activeTabPath: string | null;
   activeRootMapPath: string | null;
   maps: WorkspaceMapSummary[];
-  workspaceName: string;
-  workspaceMode: 'api' | 'memory';
   topicTitles: Record<string, string>;
   onOpenFile: (path: string) => void;
   onActivateMap: (path: string) => void;
   onSelectRootMap: (mapPath: string) => void;
-  onOpenWorkspaceDialog: () => void;
   onNewTopic: () => void;
   onNewMap: () => void;
   onCreateFolder: (dirPath: string) => void;
@@ -80,13 +77,10 @@ export function FileExplorerPanel({
   activeTabPath,
   activeRootMapPath,
   maps,
-  workspaceName,
-  workspaceMode,
   topicTitles,
   onOpenFile,
   onActivateMap,
   onSelectRootMap,
-  onOpenWorkspaceDialog,
   onNewTopic,
   onNewMap,
   onCreateFolder,
@@ -250,44 +244,39 @@ export function FileExplorerPanel({
     <div className="flex h-full flex-col bg-white">
       {/* Workspace & Root Map Toolbar */}
       <div className="border-b border-slate-100 px-2.5 py-2">
-        <div className="flex min-w-0 items-center gap-1">
-          <button
-            type="button"
-            onClick={onOpenWorkspaceDialog}
-            className="inline-flex min-w-0 flex-1 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-            title={`当前工作区（${workspaceMode === 'api' ? '本地磁盘' : '离线内存'}）— 点击切换或导入目录`}
-          >
-            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
-            <span className="min-w-0 flex-1 truncate text-left">{workspaceName}</span>
-            <ChevronDown className="h-3 w-3 shrink-0 text-slate-400" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onNewTopic}
-            title="新建 Topic (.dita)"
-            aria-label="新建 Topic"
-            className="dita-mini-btn shrink-0 p-1"
-          >
-            <FilePlus2 className="h-3 w-3 text-indigo-600" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={onNewMap}
-            title="新建 Map / Bookmap"
-            aria-label="新建 Map 或 Bookmap"
-            className="dita-mini-btn shrink-0 p-1"
-          >
-            <Network className="h-3 w-3 text-sky-600" aria-hidden="true" />
-          </button>
-          <button
-            type="button"
-            onClick={() => setNewFolderOpen((v) => !v)}
-            title="新建文件夹"
-            aria-label="新建文件夹"
-            className="dita-mini-btn shrink-0 p-1"
-          >
-            <FolderPlus className="h-3 w-3 text-amber-600" aria-hidden="true" />
-          </button>
+        <div className="flex min-w-0 items-center justify-between gap-1">
+          <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            项目文件
+          </span>
+          <div className="flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              onClick={onNewTopic}
+              title="新建 Topic (.dita)"
+              aria-label="新建 Topic"
+              className="dita-mini-btn shrink-0 p-1"
+            >
+              <FilePlus2 className="h-3 w-3 text-indigo-600" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={onNewMap}
+              title="新建 Map / Bookmap"
+              aria-label="新建 Map 或 Bookmap"
+              className="dita-mini-btn shrink-0 p-1"
+            >
+              <Network className="h-3 w-3 text-sky-600" aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewFolderOpen((v) => !v)}
+              title="新建文件夹"
+              aria-label="新建文件夹"
+              className="dita-mini-btn shrink-0 p-1"
+            >
+              <FolderPlus className="h-3 w-3 text-amber-600" aria-hidden="true" />
+            </button>
+          </div>
         </div>
 
         {/* Active Root Map Selector */}

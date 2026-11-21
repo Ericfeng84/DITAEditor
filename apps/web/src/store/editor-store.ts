@@ -41,12 +41,15 @@ import {
   createInMemoryDemoWorkspace,
   createWorkspaceDir,
   createWorkspaceFile,
+  createWorkspaceProject,
   deleteWorkspaceEntry,
   fetchFileContent,
   fetchParsedDitaval,
   fetchSemanticContext,
   fetchWorkspace,
   fetchWorkspaceDiagnostics,
+  fetchWorkspaces,
+  forgetWorkspaceProject,
   importWorkspaceProject,
   openWorkspaceDir,
   renameWorkspaceEntry,
@@ -56,7 +59,9 @@ import {
   type WorkspaceDiagnostic,
   type WorkspaceDitavalSummary,
   type WorkspaceFileNode,
+  type WorkspaceListItem,
   type WorkspaceMapSummary,
+  type WorkspaceScaffold,
   type WorkspaceSnapshot,
 } from '../services/workspace-api';
 
@@ -90,6 +95,9 @@ export interface EditorWorkbenchState {
   workspaceRootDir: string;
   workspaceDefaultRootDir: string;
   workspaceName: string;
+  workspaceImportsRootDir: string;
+  recentWorkspaces: WorkspaceListItem[];
+  loadingWorkspaces: boolean;
   fileTree: WorkspaceFileNode[];
   fileSet: Set<string>;
   workspaceMaps: WorkspaceMapSummary[];
@@ -130,6 +138,13 @@ export interface EditorWorkbenchState {
   initWorkspace: () => Promise<void>;
   refreshWorkspaceTree: () => Promise<void>;
   openLocalWorkspace: (target: { rootDir: string } | { useDefault: true }) => Promise<void>;
+  refreshRecentWorkspaces: () => Promise<void>;
+  createBlankWorkspace: (options: {
+    name: string;
+    parentDir: string;
+    scaffold: WorkspaceScaffold;
+  }) => Promise<void>;
+  forgetRecentWorkspace: (dirPath: string) => Promise<void>;
   importFolderWorkspace: (
     projectName: string,
     files: { path: string; content: string; encoding?: 'utf8' | 'base64' }[],
@@ -454,6 +469,45 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     return mapPath;
   };
 
+  /** Adopt an API workspace snapshot and open its first map/topic. */
+  const adoptApiWorkspaceSnapshot = async (
+    snapshot: WorkspaceSnapshot,
+    statusMessage: string,
+  ): Promise<void> => {
+    const fSet = applySnapshotToState(snapshot);
+    const firstMap = snapshot.maps[0]?.path ?? null;
+    set({
+      workspaceMode: 'api',
+      mapBuffers: {},
+      openTabs: [],
+      activeTabPath: null,
+      activeRootMapPath: firstMap,
+      activeDitavalPath: null,
+      activeDitaval: null,
+      documentOverlays: {},
+      selectedMapNode: firstMap ? { mapPath: firstMap, elementPath: null } : null,
+      loadingWorkspace: false,
+      statusMessage,
+    });
+
+    if (firstMap) {
+      await loadMapTreeBuffers(firstMap, true);
+      const firstTopic = findFirstTopicInWorkspace(
+        get().mapBuffers[firstMap]?.xml ?? null,
+        firstMap,
+        fSet,
+      );
+      if (firstTopic) await get().openFileTab(firstTopic);
+    } else {
+      const firstTopic = findFirstTopicInWorkspace(null, null, fSet);
+      if (firstTopic) await get().openFileTab(firstTopic);
+    }
+
+    await get().refreshSemantics();
+    await get().refreshDiagnostics();
+    await get().refreshRecentWorkspaces().catch(() => undefined);
+  };
+
   const activateMemoryFallback = (reason?: string) => {
     const demo = createInMemoryDemoWorkspace();
     const fSet = collectFileSetFromTree(demo.snapshot.files);
@@ -508,6 +562,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     workspaceRootDir: initialMemoryDemo.snapshot.rootDir,
     workspaceDefaultRootDir: initialMemoryDemo.snapshot.rootDir,
     workspaceName: initialMemoryDemo.snapshot.name,
+    workspaceImportsRootDir: '',
+    recentWorkspaces: [],
+    loadingWorkspaces: false,
     fileTree: initialMemoryDemo.snapshot.files,
     fileSet: initialFileSet,
     workspaceMaps: initialMemoryDemo.snapshot.maps,
@@ -605,35 +662,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       set({ loadingWorkspace: true });
       try {
         const snapshot = await openWorkspaceDir(target);
-        const fSet = applySnapshotToState(snapshot);
-        const firstMap = snapshot.maps[0]?.path ?? null;
-        set({
-          workspaceMode: 'api',
-          mapBuffers: {},
-          openTabs: [],
-          activeTabPath: null,
-          activeRootMapPath: firstMap,
-          activeDitavalPath: null,
-          activeDitaval: null,
-          documentOverlays: {},
-          selectedMapNode: firstMap ? { mapPath: firstMap, elementPath: null } : null,
-          loadingWorkspace: false,
-          statusMessage: `已打开本地项目：${snapshot.name}`,
-        });
-        if (firstMap) {
-          await loadMapTreeBuffers(firstMap, true);
-          const firstTopic = findFirstTopicInWorkspace(
-            get().mapBuffers[firstMap]?.xml ?? null,
-            firstMap,
-            fSet,
-          );
-          if (firstTopic) await get().openFileTab(firstTopic);
-        } else {
-          const firstTopic = findFirstTopicInWorkspace(null, null, fSet);
-          if (firstTopic) await get().openFileTab(firstTopic);
-        }
-        await get().refreshSemantics();
-        await get().refreshDiagnostics();
+        await adoptApiWorkspaceSnapshot(snapshot, `已打开本地项目：${snapshot.name}`);
       } catch (err) {
         set({
           loadingWorkspace: false,
@@ -643,36 +672,56 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       }
     },
 
+    async refreshRecentWorkspaces() {
+      if (get().workspaceMode !== 'api') {
+        set({ recentWorkspaces: [], loadingWorkspaces: false });
+        return;
+      }
+      set({ loadingWorkspaces: true });
+      try {
+        const snapshot = await fetchWorkspaces();
+        set({
+          recentWorkspaces: snapshot.workspaces,
+          workspaceImportsRootDir: snapshot.importsRootDir,
+          loadingWorkspaces: false,
+        });
+      } catch {
+        set({ recentWorkspaces: [], loadingWorkspaces: false });
+      }
+    },
+
+    async createBlankWorkspace(options) {
+      set({ loadingWorkspace: true });
+      try {
+        const snapshot = await createWorkspaceProject(options);
+        await adoptApiWorkspaceSnapshot(
+          snapshot,
+          `已创建空白工作区：${snapshot.name}（${snapshot.rootDir}）`,
+        );
+      } catch (err) {
+        set({ loadingWorkspace: false });
+        throw err;
+      }
+    },
+
+    async forgetRecentWorkspace(dirPath) {
+      try {
+        const res = await forgetWorkspaceProject(dirPath);
+        set({ recentWorkspaces: res.workspaces });
+      } catch {
+        // Ignore bookkeeping failures; the workspace itself is untouched.
+      }
+    },
+
     async importFolderWorkspace(projectName, files) {
       set({ loadingWorkspace: true });
       if (get().workspaceMode === 'api') {
         try {
           const snapshot = await importWorkspaceProject(projectName, files);
-          const fSet = applySnapshotToState(snapshot);
-          const firstMap = snapshot.maps[0]?.path ?? null;
-          set({
-            mapBuffers: {},
-            openTabs: [],
-            activeTabPath: null,
-            activeRootMapPath: firstMap,
-            activeDitavalPath: null,
-            activeDitaval: null,
-            documentOverlays: {},
-            selectedMapNode: firstMap ? { mapPath: firstMap, elementPath: null } : null,
-            loadingWorkspace: false,
-            statusMessage: `已导入本地文件夹项目：${projectName}（${snapshot.stats.totalTopics} 个主题）`,
-          });
-          if (firstMap) {
-            await loadMapTreeBuffers(firstMap, true);
-            const firstTopic = findFirstTopicInWorkspace(
-              get().mapBuffers[firstMap]?.xml ?? null,
-              firstMap,
-              fSet,
-            );
-            if (firstTopic) await get().openFileTab(firstTopic);
-          }
-          await get().refreshSemantics();
-          await get().refreshDiagnostics();
+          await adoptApiWorkspaceSnapshot(
+            snapshot,
+            `已导入本地文件夹项目：${projectName}（${snapshot.stats.totalTopics} 个主题）`,
+          );
           return;
         } catch {
           // Fallback to memory import if API is offline

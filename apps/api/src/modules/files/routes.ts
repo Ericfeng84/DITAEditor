@@ -46,6 +46,16 @@ const mkdirSchema = z.object({
   path: z.string().min(1),
 });
 
+const createWorkspaceSchema = z.object({
+  name: z.string().trim().min(1).max(120),
+  parentDir: z.string().trim().min(1).optional(),
+  scaffold: z.enum(['blank', 'starter']).optional(),
+});
+
+const forgetWorkspaceSchema = z.object({
+  path: z.string().min(1),
+});
+
 const renameSchema = z.object({
   fromPath: z.string().min(1),
   toPath: z.string().min(1),
@@ -95,6 +105,38 @@ export function registerWorkspaceFileRoutes(
     }
     try {
       return await workspace.importBatchFiles(parsed.data.projectName, parsed.data.files);
+    } catch (err) {
+      return handleWorkspaceError(err, reply);
+    }
+  });
+
+  app.get('/api/workspaces', async (_req, reply) => {
+    try {
+      return await workspace.listWorkspaces();
+    } catch (err) {
+      return handleWorkspaceError(err, reply);
+    }
+  });
+
+  app.post('/api/workspaces/create', async (req, reply) => {
+    const parsed = createWorkspaceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.message });
+    }
+    try {
+      return await workspace.createWorkspace(parsed.data);
+    } catch (err) {
+      return handleWorkspaceError(err, reply);
+    }
+  });
+
+  app.post('/api/workspaces/forget', async (req, reply) => {
+    const parsed = forgetWorkspaceSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.message });
+    }
+    try {
+      return { workspaces: await workspace.forgetWorkspace(parsed.data.path) };
     } catch (err) {
       return handleWorkspaceError(err, reply);
     }

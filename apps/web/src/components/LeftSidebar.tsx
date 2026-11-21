@@ -1,11 +1,14 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { FolderTree, KeyRound, Network, PanelLeftClose } from 'lucide-react';
+import { ChevronDown, FolderOpen, FolderTree, KeyRound, Network, PanelLeftClose } from 'lucide-react';
 import type { LeftSidebarTab } from '../store/editor-store';
 
 export interface LeftSidebarProps {
   activeTab: LeftSidebarTab;
   onChangeTab: (tab: LeftSidebarTab) => void;
   onCollapse: () => void;
+  workspaceName: string;
+  workspaceMode: 'api' | 'memory';
+  onOpenWorkspaceDialog: () => void;
   mapTreeSlot: ReactNode;
   fileExplorerSlot: ReactNode;
   keyspaceSlot: ReactNode;
@@ -22,6 +25,9 @@ export function LeftSidebar({
   activeTab,
   onChangeTab,
   onCollapse,
+  workspaceName,
+  workspaceMode,
+  onOpenWorkspaceDialog,
   mapTreeSlot,
   fileExplorerSlot,
   keyspaceSlot,
@@ -104,32 +110,40 @@ export function LeftSidebar({
   return (
     <aside
       aria-label="项目导航工作区"
-      className="flex h-full flex-col border-r border-slate-200 bg-white"
+      className="@container flex h-full flex-col border-r border-slate-200 bg-white"
     >
       {/* Top strip aligned with the workbench header height (h-12) */}
-      <div className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200 px-3">
-        <div className="flex min-w-0 items-center gap-2">
+      <div className="flex h-12 shrink-0 items-center justify-between gap-1.5 border-b border-slate-200 px-2.5">
+        <div className="flex shrink-0 items-center gap-2">
           <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-slate-900 font-mono text-xs font-bold text-white shadow-xs">
             D
           </div>
-          <div className="min-w-0 leading-tight">
-            <div className="truncate text-xs font-bold tracking-tight text-slate-900">
-              DITAEditor
-            </div>
-            <div className="truncate text-[10px] font-medium text-slate-400">
-              项目 · Map · Keys
-            </div>
+          <div className="hidden truncate text-xs font-bold tracking-tight text-slate-900 @min-[240px]:block">
+            DITAEditor
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onCollapse}
-          className="inline-flex shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-          title="收起左侧栏 (⌘\\)"
-          aria-label="收起项目与 Map 导航栏"
-        >
-          <PanelLeftClose className="h-3.5 w-3.5" aria-hidden="true" />
-        </button>
+        <div className="flex min-w-0 shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onOpenWorkspaceDialog}
+            title={`当前工作区：${workspaceName}（${workspaceMode === 'api' ? '本地磁盘' : '离线内存'}）— 点击切换、新建空白工作区或导入目录`}
+            aria-label={`切换工作区，当前为 ${workspaceName}`}
+            className="inline-flex h-6 min-w-0 max-w-[160px] flex-1 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+          >
+            <FolderOpen className="h-3 w-3 shrink-0 text-amber-600" aria-hidden="true" />
+            <span className="min-w-0 truncate">{workspaceName}</span>
+            <ChevronDown className="h-2.5 w-2.5 shrink-0 text-slate-400" aria-hidden="true" />
+          </button>
+          <button
+            type="button"
+            onClick={onCollapse}
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
+            title="收起左侧栏 (⌘\\)"
+            aria-label="收起项目与 Map 导航栏"
+          >
+            <PanelLeftClose className="h-3.5 w-3.5" aria-hidden="true" />
+          </button>
+        </div>
       </div>
 
       <div
