@@ -2,7 +2,7 @@
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="single_sourcing_model" xml:lang="zh-CN">
   <title>单一信息源与跨文档复用（<keyword keyref="prod_name"/>）</title>
-  <shortdesc>理解如何利用 Root Map Keyspace 变量替换、Conref/Conkeyref 片段复用与 DITAVAL 条件过滤实现多版本交付。</shortdesc>
+  <shortdesc>理解如何利用 Root Map Keyspace 变量替换、Conref/Conkeyref 片段复用与 DITAVAL 条件过滤实现多版本交付。7787878</shortdesc>
   <conbody>
     <p>当前激活的产品版本为 <keyword keyref="prod_name"/> <keyword keyref="api_version"/>，运行形态：<ph keyref="deployment_mode"/>，API 端点：<keyword keyref="cloud.endpoint_url"/>。</p>
     <section id="sec_mechanisms">

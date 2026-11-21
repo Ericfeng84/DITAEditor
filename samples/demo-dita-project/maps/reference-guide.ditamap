@@ -4,5 +4,4 @@
   <title>规格参数与接口参考子地图</title>
   <topicref href="../references/server-sizing-cals.dita" type="reference" navtitle="服务器容量规格与 CALS 表格"/>
   <topicref href="../references/rest-api-endpoints.dita" type="reference" navtitle="工作台 REST API 端点参考"/>
-  <topicref href="../references/specialized-passthrough.dita" type="topic" navtitle="特化元素与注释 PI 透传示例"/>
 </map>

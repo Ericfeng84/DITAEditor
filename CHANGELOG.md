@@ -3,6 +3,69 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.0] — 2026-11-22
+
+覆盖架构基线中的 **Phase 5**：由 `@dita/api` 直接调度 DITA-OT 4.x CLI，打通官方 DITA 1.3 严格校验、
+HTML5 / 中文 PDF 异步发布、SSE 构建日志与单容器部署，零 Java 业务代码、零 Redis / PostgreSQL 依赖。
+
+### Added
+
+- **DITA-OT 4.x 运行时与严格校验（Phase 5）**
+  - `apps/api/src/modules/dita-ot/`：`dita` CLI 探测（`--version`、版本缓存、`DITA_CMD` / `DITA_OT_HOME`）、
+    子进程调度（进程组超时强杀、`AbortSignal` 取消、stdout/stderr 双流保留）与 DOTJ/DOTX、Xerces
+    `file:line:col`、`file:` URL 日志解析，统一归一化为工作区相对 POSIX 路径。
+  - `POST /api/validate/strict` + `GET /api/validate/runtime`：使用 `--validate=yes --processing-mode=strict`
+    对选中 Topic/Map 或整个 Root Map 执行官方 DITA 1.3 DTD/RNG 校验；Root Map 上下文保证
+    `keyref` / `conkeyref` / `conref` 正常解析，独立主题校验将缺少键上下文的 `DOTJ046E` 降级为警告。
+  - 顶栏与问题面板新增「DITA-OT 严格校验」，签入对话框支持在提交前对选中文件预检；结果按错误/警告
+    分类并支持点击跳转到源码行列。
+- **零外部中间件异步发布流水线**
+  - SQLite `publish_jobs` 表（含增量列迁移）持久化任务；进程内 `PublishQueue` 并发限流、排队/运行中取消、
+    超时强杀、服务重启把中断任务标记失败并按保留天数清理历史产物。
+  - 发布前复制当前分支工作区快照（排除 `.git` / `node_modules` / 构建目录）隔离构建，未签入的已保存修改
+    同样进入构建；`build.log` 落盘，支持按偏移读取与 `/api/publish/jobs/:id/events` SSE 实时日志。
+  - HTML5 构建成功后打包为 store-only ZIP（UTF-8 文件名），提供 `/preview/*` 在线预览与 ZIP 下载；
+    PDF 自动查找产物并按标题命名下载，`artifact?inline=1` 支持内嵌预览。
+  - REST：`/api/publish/runtime`、任务列表/创建/详情/取消、日志、SSE、预览与产物下载；只读角色可查看
+    历史但创建/取消返回 403，取消仅限作者或管理员。
+- **纯 XML Noto CJK 中文 PDF 插件**
+  - `dita-ot-plugins/com.ditaeditor.pdf-cjk/`：`plugin.xml` + XML Catalog（`org.dita.pdf2.catalog.relative`）+
+    DITA-OT 4 新版 `cfg/fo/font-mappings.xml` + `fop.xconf`，映射 Noto Sans / Serif / Mono CJK 的
+    SC/JP/KR 字型与粗细；发布时通过 `--customization.dir` 优先加载仓库插件，避免 DITA-OT 4 Catalog
+    顺序被默认 `font-mappings.xml` 覆盖。
+  - 每次 PDF 构建按 `DITAEDITOR_NOTO_CJK_DIR` 生成 job 级 `fop.xconf` 并传入 `--args.fo.userconfig`；
+    实测 PDF 嵌入 NotoSansCJKsc / NotoSerifCJKsc / NotoSansMonoCJKsc。
+- **前端发布工作台**
+  - 顶栏「发布」对话框：Root Map / HTML5-PDF 切换 / DITAVAL / 标题、运行时状态、发布历史、任务详情、
+    构建日志流、HTML5 预览、PDF/ZIP 下载与取消；发布/签名后自动刷新历史。
+  - `publish-api.ts` / `publish-store.ts` / `PublishDialog.tsx` / `JobLogViewer.tsx` /
+    `StrictValidationDialog.tsx`，并接入 `WorkbenchHeader`、`ProblemsPanel`、`CheckinDialog` 与 `App`。
+- **单容器部署与文档**
+  - 单 `Dockerfile`：Node 22 构建 + 运行镜像内置 Temurin JRE 21、DITA-OT 4.2.1、Noto CJK 字体与插件；
+    生产模式由 `@dita/api` 直接托管 `apps/web/dist`，`/data` 卷持久化工作区、SQLite、worktree 与发布产物。
+  - `docker-entrypoint.sh` 首次启动播种示例项目；`.dockerignore` 精简构建上下文；README / README.en
+    新增 Docker 单容器、本地源码 + 本机 DITA-OT、仅编辑三种安装方式，以及发布对话框、严格校验结果、
+    中文 PDF 输出三张 Phase 5 界面截图与发布 API / 环境变量说明。
+  - 新增 `apps/api/test/phase5-publish.test.ts`：假 `dita` 可执行文件端到端覆盖运行时探测、DOTJ/DOTX 与
+    `file:` URL 归一化、严格校验成功/失败/只读放行、Root Map 上下文与 `DOTJ046E` 降级、HTML5 ZIP
+    与预览、PDF 下载、慢任务取消、历史排序与 DITAVAL 工作区边界。全仓 **132/132** Vitest 测试通过。
+
+### Changed
+
+- 发布与严格校验统一使用 `--validate=yes`（裸 `--validate` 不会开启 DITA-OT 校验）。
+- 示例项目 `product-manual.ditamap` / `admin-book.bookmap` 不再引用故意非法的
+  `references/specialized-passthrough.dita`，避免演示发布被严格校验拦截；该文件仍保留用于编辑器无损测试。
+- 版本号统一升级至 `0.7.0`，品牌副标题更新为 `DITA 1.3 · Phase 5`。
+
+### Known limitations
+
+- DITA-OT 严格校验依赖本机或容器内已安装的 DITA-OT 4.x；未安装时接口返回 503 并在 UI 提示，
+  Docker 镜像已内置。
+- PDF 排版仍可能出现 DITA-OT / FOP 对 SVG `auto-start-reverse`、`table-layout="auto"` 等非阻断警告。
+- 发布历史按 `(project, branch)` 隔离；跨分支查看需先切换分支。HTML5 预览随保留期清理而失效。
+
+[0.7.0]: https://github.com/Ericfeng84/DITAEditor/releases/tag/v0.7.0
+
 ## [0.6.0] — 2026-11-21
 
 覆盖架构基线中的 **Phase 4**：零外部依赖的本地 Git 版本管理、SQLite + Drizzle 轻量身份与三档角色，

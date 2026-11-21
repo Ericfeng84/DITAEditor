@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, FileDiff, Lock, X } from 'lucide-react';
+import { CheckCircle2, FileDiff, Lock, ShieldCheck, X } from 'lucide-react';
 import type { FileLock } from '../services/git-api';
 import { useGitStore } from '../store/git-store';
 import { DiffViewer } from './DiffViewer';
@@ -15,9 +15,16 @@ export interface CheckinDialogProps {
   candidates: CheckinCandidate[];
   onClose: () => void;
   onConfirm: (paths: string[], message: string) => Promise<boolean>;
+  onStrictValidate?: (paths: string[]) => void;
 }
 
-export function CheckinDialog({ open, candidates, onClose, onConfirm }: CheckinDialogProps) {
+export function CheckinDialog({
+  open,
+  candidates,
+  onClose,
+  onConfirm,
+  onStrictValidate,
+}: CheckinDialogProps) {
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState('');
   const [previewPath, setPreviewPath] = useState<string | null>(null);
@@ -162,6 +169,18 @@ export function CheckinDialog({ open, candidates, onClose, onConfirm }: CheckinD
             只会提交到本地 Git 仓库；不会推送到任何远端。
           </span>
           <div className="flex items-center gap-2">
+            {onStrictValidate ? (
+              <button
+                type="button"
+                disabled={selected.length === 0 || submitting}
+                onClick={() => onStrictValidate(selected)}
+                className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+                title="签入前调用 DITA-OT 严格校验选中文件"
+              >
+                <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+                严格校验
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}

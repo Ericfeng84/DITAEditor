@@ -8,6 +8,7 @@ import {
   Eye,
   PanelLeft,
   PanelRight,
+  Rocket,
   RotateCcw,
   Save,
 } from 'lucide-react';
@@ -39,6 +40,7 @@ export interface WorkbenchHeaderProps {
   onChangeMode: (nextMode: EditorViewMode) => void;
   onToggleProblems: () => void;
   onToggleInspector: () => void;
+  onOpenPublish: () => void;
 }
 
 export function WorkbenchHeader({
@@ -64,6 +66,7 @@ export function WorkbenchHeader({
   onChangeMode,
   onToggleProblems,
   onToggleInspector,
+  onOpenPublish,
 }: WorkbenchHeaderProps) {
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3">
@@ -91,7 +94,7 @@ export function WorkbenchHeader({
             </div>
             <div className="hidden leading-tight xl:block">
               <div className="text-xs font-bold tracking-tight text-slate-900">DITAEditor</div>
-              <div className="text-[10px] font-medium text-slate-400">DITA 1.3 · Phase 4</div>
+              <div className="text-[10px] font-medium text-slate-400">DITA 1.3 · Phase 5</div>
             </div>
           </div>
         ) : null}
@@ -168,6 +171,16 @@ export function WorkbenchHeader({
             ) : null}
           </div>
         ) : null}
+
+        <button
+          type="button"
+          onClick={onOpenPublish}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+          title="发布 HTML5 / PDF（DITA-OT 严格校验）"
+        >
+          <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="hidden lg:inline">发布</span>
+        </button>
 
         {/* Diagnostics toggle pill */}
         <button

@@ -61,6 +61,43 @@ export const lockBackups = sqliteTable(
   (table) => [index('lock_backups_scope_idx').on(table.projectId, table.branch, table.filePath)],
 );
 
+/** Asynchronous DITA-OT publishing jobs (Phase 5). */
+export const publishJobs = sqliteTable(
+  'publish_jobs',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id').notNull(),
+    branch: text('branch').notNull(),
+    userId: text('user_id').notNull(),
+    rootMap: text('root_map').notNull(),
+    format: text('format', { enum: ['html5', 'pdf'] }).notNull(),
+    ditaval: text('ditaval'),
+    title: text('title').notNull(),
+    status: text('status', {
+      enum: ['queued', 'running', 'succeeded', 'failed', 'cancelled'],
+    }).notNull(),
+    optionsJson: text('options_json').notNull(),
+    createdAt: integer('created_at').notNull(),
+    startedAt: integer('started_at'),
+    finishedAt: integer('finished_at'),
+    exitCode: integer('exit_code'),
+    error: text('error'),
+    logPath: text('log_path'),
+    outputPath: text('output_path'),
+    artifactPath: text('artifact_path'),
+    artifactName: text('artifact_name'),
+    artifactSize: integer('artifact_size'),
+    snapshotPath: text('snapshot_path'),
+    diagnosticsJson: text('diagnostics_json'),
+    cancelRequested: integer('cancel_requested').notNull().default(0),
+  },
+  (table) => [
+    index('publish_jobs_created_idx').on(table.createdAt),
+    index('publish_jobs_project_idx').on(table.projectId, table.branch),
+  ],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type FileLockRow = typeof fileLocks.$inferSelect;
 export type LockBackupRow = typeof lockBackups.$inferSelect;
+export type PublishJobRow = typeof publishJobs.$inferSelect;

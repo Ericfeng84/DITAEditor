@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  DITA-OT 4.x PDF font table for Noto CJK. The FOP configuration (fop.xconf) registers the
+  physical families; this file maps the logical DITA-OT families (Sans / Serif / Monospaced)
+  and the character sets used by the PDF2 I18N post-processing to those families.
+-->
+<font-mappings>
+  <font-table>
+    <aliases>
+      <alias name="Noto Sans CJK SC">Normal</alias>
+    </aliases>
+    <aliases>
+      <alias name="sans-serif">Sans</alias>
+    </aliases>
+    <aliases>
+      <alias name="serif">Serif</alias>
+    </aliases>
+    <aliases>
+      <alias name="monospace">Monospaced</alias>
+    </aliases>
+    <aliases>
+      <alias name="Courier">Monospaced</alias>
+    </aliases>
+
+    <logical-font name="Sans">
+      <physical-font char-set="default">
+        <font-face>Noto Sans CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="Simplified Chinese">
+        <font-face>Noto Sans CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="Japanese">
+        <font-face>Noto Sans CJK JP</font-face>
+      </physical-font>
+      <physical-font char-set="Korean">
+        <font-face>Noto Sans CJK KR</font-face>
+      </physical-font>
+      <physical-font char-set="Symbols">
+        <font-face>Noto Sans CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="SubmenuSymbol">
+        <font-face>Noto Sans CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="SymbolsSuperscript">
+        <font-face>Noto Sans CJK SC</font-face>
+        <baseline-shift>20%</baseline-shift>
+        <override-size>smaller</override-size>
+      </physical-font>
+    </logical-font>
+
+    <logical-font name="Serif">
+      <physical-font char-set="default">
+        <font-face>Noto Serif CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="Simplified Chinese">
+        <font-face>Noto Serif CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="Japanese">
+        <font-face>Noto Serif CJK JP</font-face>
+      </physical-font>
+      <physical-font char-set="Korean">
+        <font-face>Noto Serif CJK KR</font-face>
+      </physical-font>
+      <physical-font char-set="Symbols">
+        <font-face>Noto Serif CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="SubmenuSymbol">
+        <font-face>Noto Serif CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="SymbolsSuperscript">
+        <font-face>Noto Serif CJK SC</font-face>
+        <baseline-shift>20%</baseline-shift>
+        <override-size>smaller</override-size>
+      </physical-font>
+    </logical-font>
+
+    <logical-font name="Monospaced">
+      <physical-font char-set="default">
+        <font-face>Noto Sans Mono CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="Simplified Chinese">
+        <font-face>Noto Sans Mono CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="Japanese">
+        <font-face>Noto Sans Mono CJK JP</font-face>
+      </physical-font>
+      <physical-font char-set="Korean">
+        <font-face>Noto Sans Mono CJK KR</font-face>
+      </physical-font>
+      <physical-font char-set="Symbols">
+        <font-face>Noto Sans Mono CJK SC</font-face>
+      </physical-font>
+      <physical-font char-set="SymbolsSuperscript">
+        <font-face>Noto Sans Mono CJK SC</font-face>
+      </physical-font>
+    </logical-font>
+  </font-table>
+</font-mappings>

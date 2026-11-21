@@ -15,6 +15,11 @@ import { registerSemanticIndexerRoutes } from './modules/indexer/routes.js';
 import { WorkspaceSemanticIndexer } from './modules/indexer/semantic-indexer.js';
 import { LockService } from './modules/locks/lock-service.js';
 import { registerLockRoutes } from './modules/locks/routes.js';
+import { registerPublishRoutes } from './modules/publish/routes.js';
+import { PublishService } from './modules/publish/publish-service.js';
+import { defaultWebDistDir, registerWebStaticRoutes } from './modules/static/web-static.js';
+import { registerStrictValidationRoutes } from './modules/validate/routes.js';
+import type { DitaRuntimeOptions } from './modules/dita-ot/dita-runtime.js';
 
 export interface CreateServerOptions {
   workspaceDir?: string;
@@ -22,6 +27,12 @@ export interface CreateServerOptions {
   registryPath?: string;
   dbPath?: string;
   worktreesRootDir?: string;
+  publishRootDir?: string;
+  publishConcurrency?: number;
+  publishTimeoutMs?: number;
+  publishRetentionDays?: number;
+  ditaRuntime?: DitaRuntimeOptions;
+  webDistDir?: string;
   logger?: boolean;
 }
 
@@ -41,7 +52,24 @@ export function createServer(options: CreateServerOptions = {}) {
       options.worktreesRootDir ?? path.join(workspace.importsRootDir, 'git-worktrees'),
   });
   const locks = new LockService(database.db, git);
+  const publish = new PublishService({
+    db: database.db,
+    workspace,
+    publishRootDir: options.publishRootDir,
+    concurrency: options.publishConcurrency,
+    timeoutMs: options.publishTimeoutMs,
+    retentionDays: options.publishRetentionDays,
+    runtime: options.ditaRuntime,
+    logger: (message, error) => {
+      if (options.logger === false) return;
+      app.log.warn({ err: error }, message);
+    },
+  });
+  app.addHook('onReady', async () => {
+    await publish.start();
+  });
   app.addHook('onClose', async () => {
+    await publish.stop();
     database.close();
   });
   const indexer = new WorkspaceSemanticIndexer(workspace);
@@ -82,6 +110,12 @@ export function createServer(options: CreateServerOptions = {}) {
   };
   registerLockRoutes(app, phase4);
   registerGitRoutes(app, phase4);
+  registerStrictValidationRoutes(app, {
+    workspace,
+    runtime: options.ditaRuntime,
+  });
+  registerPublishRoutes(app, { ...phase4, publish });
+  registerWebStaticRoutes(app, options.webDistDir ?? defaultWebDistDir());
 
   return app;
 }

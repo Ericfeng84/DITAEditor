@@ -72,6 +72,5 @@
   </part>
   <appendix href="references/server-sizing-cals.dita" navtitle="附录 A 服务器规格与 API 参考">
     <topicref href="references/rest-api-endpoints.dita" type="reference" navtitle="REST API 接口清单"/>
-    <topicref href="references/specialized-passthrough.dita" type="topic" navtitle="特化元素与无损保真验证"/>
   </appendix>
 </bookmap>

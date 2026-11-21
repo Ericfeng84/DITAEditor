@@ -20,6 +20,8 @@ import { LockStatusBar } from './components/LockStatusBar';
 import { NewMapDialog } from './components/NewMapDialog';
 import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopicDialog';
 import { ProblemsPanel } from './components/ProblemsPanel';
+import { PublishDialog } from './components/publish/PublishDialog';
+import { StrictValidationDialog } from './components/publish/StrictValidationDialog';
 import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
@@ -40,6 +42,7 @@ import {
 } from './map-tree/map-tree-utils';
 import { MountExistingDialog } from './map-tree/MountExistingDialog';
 import { resolveFileEditability } from './services/lock-helpers';
+import type { StrictValidationInput } from './services/publish-api';
 import {
   resolveWorkspaceAssetUrl,
   uploadWorkspaceImage,
@@ -234,6 +237,16 @@ export function App() {
   const [diffDialogOpen, setDiffDialogOpen] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [checkinPaths, setCheckinPaths] = useState<string[]>([]);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [strictOpen, setStrictOpen] = useState(false);
+  const [strictInput, setStrictInput] = useState<StrictValidationInput | null>(null);
+  const [strictLabel, setStrictLabel] = useState('');
+
+  const openStrictValidation = useCallback((input: StrictValidationInput, label: string) => {
+    setStrictInput(input);
+    setStrictLabel(label);
+    setStrictOpen(true);
+  }, []);
 
   const activeLock = useMemo(
     () => locks.find((lock) => lock.filePath === activeTabPath) ?? null,
@@ -565,6 +578,40 @@ export function App() {
     [openFileTab],
   );
 
+  const rootMapStrictInput = useMemo<StrictValidationInput | null>(() => {
+    if (activeRootMapPath) {
+      return { rootMapPath: activeRootMapPath, ditavalPath: activeDitavalPath };
+    }
+    if (activeTabPath) {
+      return { paths: [activeTabPath], ditavalPath: activeDitavalPath };
+    }
+    return null;
+  }, [activeRootMapPath, activeDitavalPath, activeTabPath]);
+
+  const handleJumpFromStrictValidation = useCallback(
+    (filePath: string, line: number, column: number) => {
+      setStrictOpen(false);
+      void openFileTab(filePath, { mode: 'source', jumpLine: line });
+      void column;
+    },
+    [openFileTab],
+  );
+
+  const handleCheckinStrictValidate = useCallback(
+    (paths: string[]) => {
+      setCheckinOpen(false);
+      openStrictValidation(
+        {
+          paths,
+          ditavalPath: activeDitavalPath,
+          ...(activeRootMapPath ? { rootMapPath: activeRootMapPath } : {}),
+        },
+        `签入前严格校验 · ${paths.length} 个文件`,
+      );
+    },
+    [activeRootMapPath, activeDitavalPath, openStrictValidation],
+  );
+
   const showTopicVisual =
     Boolean(activeTab) &&
     activeTab!.kind === 'topic' &&
@@ -710,6 +757,7 @@ export function App() {
               onChangeMode={handleChangeMode}
               onToggleProblems={() => setProblemsOpen(!problemsOpen)}
               onToggleInspector={() => setInspectorOpen(!inspectorOpen)}
+              onOpenPublish={() => setPublishOpen(true)}
             />
 
             {workspaceMode === 'api' && activeTab ? (
@@ -922,6 +970,15 @@ export function App() {
                                 onRefresh={() => void refreshDiagnostics()}
                                 onJumpToDiagnostic={handleJumpToDiagnostic}
                                 onClose={() => setProblemsOpen(false)}
+                                onStrictValidate={
+                                  rootMapStrictInput
+                                    ? () =>
+                                        openStrictValidation(
+                                          rootMapStrictInput,
+                                          `Root Map 严格校验 · ${activeRootMapPath ?? activeTabPath ?? ''}`,
+                                        )
+                                    : undefined
+                                }
                               />
                             </Panel>
                           </>
@@ -1094,11 +1151,30 @@ export function App() {
         open={checkinOpen}
         candidates={checkinCandidates}
         onClose={() => setCheckinOpen(false)}
+        onStrictValidate={handleCheckinStrictValidate}
         onConfirm={async (paths, message) => {
           const result = await checkinFiles(paths, message);
           if (result) await loadGitHistory(activeTabPath);
           return result !== null;
         }}
+      />
+
+      <PublishDialog
+        open={publishOpen}
+        rootMaps={workspaceMaps}
+        ditavals={workspaceDitavals}
+        activeRootMapPath={activeRootMapPath}
+        activeDitavalPath={activeDitavalPath}
+        role={currentUser?.role ?? null}
+        onClose={() => setPublishOpen(false)}
+      />
+
+      <StrictValidationDialog
+        open={strictOpen}
+        input={strictInput}
+        targetLabel={strictLabel}
+        onClose={() => setStrictOpen(false)}
+        onJumpToFile={handleJumpFromStrictValidation}
       />
     </div>
   );

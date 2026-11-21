@@ -31,8 +31,9 @@ DITAEditor/
 ├── apps/
 │   ├── web/                # @dita/web — React 19 + TypeScript + Vite frontend workbench
 │   └── api/                # @dita/api — Fastify + Zod API, SQLite/Drizzle identities & locks, simple-git
-│       └── src/modules/{git,identity,locks,files,indexer}/
-├── dita-ot-plugins/        # (Phase 5) Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
+│       └── src/modules/{git,identity,locks,files,indexer,validate,publish,dita-ot,static}/
+├── dita-ot-plugins/        # Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
+├── Dockerfile              # Single container: Node + JRE 21 + DITA-OT 4.2.1 + Noto CJK
 ├── docs/                   # Architecture baseline, ADRs, and contracts
 └── graphify-out/           # Persistent codebase knowledge graph (graph.json, GRAPH_REPORT.md, graph.html)
 ```
@@ -112,4 +113,4 @@ This repository maintains a persistent knowledge graph at `graphify-out/`:
 - [x] **Phase 2**: Visual Map/Bookmap tree (`react-arborist`), lossless `@dita/core` Map/Bookmap DOM engine & POSIX path utilities, multi-tab workbench, Fastify local workspace/file CRUD/multipart asset APIs & diagnostics, curated demo project (`samples/demo-dita-project/`), and 85/85 Vitest tests passing across `@dita/core` (39), `@dita/api` (2), & `@dita/web` (44).
 - [x] **Phase 3**: Root Map semantic engine (`keydef/keyref` BFS + `keyscope`, `conref/conkeyref`/`conrefend` with DFS cycle detection & specialization checks, `.ditaval` parser/evaluator & live filtering/flagging across Map Tree + Visual Editor without mutating XML, incremental Fastify `/api/semantics/*` indexer, `Keys` panel, Insert Keyref/Conref dialogs, profiling attribute editor, CodeMirror 6 semantic autocomplete; 107/107 Vitest tests passing across `@dita/core` (54), `@dita/api` (4), & `@dita/web` (49)).
 - [x] **Phase 4**: SQLite + Drizzle ORM (`better-sqlite3`) identity/role switcher (Admin/Writer/Viewer), local Git workspace (`simple-git` + branch-isolated `git worktree`, no external GitHub/GitLab/Gitee dependency), Check-out exclusive locks with admin force-unlock patch backups, commit history & CodeMirror 6 MergeView visual version Diff (126/126 Vitest tests passing across `@dita/core` 54, `@dita/api` 7, `@dita/web` 65).
-- [ ] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (built-in DITA 1.3 DTD/RNG strict validation + HTML5/PDF publishing, zero custom Java code), pure-XML Noto CJK PDF font-mappings plugin, BullMQ + SSE async publishing, Docker Compose deployment.
+- [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (built-in DITA 1.3 DTD/RNG strict validation with `--validate=yes --processing-mode=strict` + HTML5/PDF publishing, zero custom Java code), pure-XML Noto CJK PDF font-mappings plugin loaded via `--customization.dir`, zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE log streaming and cancellation/retention, web publish/strict-validation UI, and single-container `Dockerfile` (Node 22 + JRE 21 + DITA-OT 4.2.1 + Noto CJK); 132/132 Vitest tests passing across `@dita/core` 54, `@dita/api` 13, `@dita/web` 65.

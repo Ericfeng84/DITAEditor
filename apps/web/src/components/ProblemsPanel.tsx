@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   CheckCircle2,
   RefreshCw,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import type { WorkspaceDiagnostic } from '../services/workspace-api';
@@ -13,6 +14,7 @@ export interface ProblemsPanelProps {
   onRefresh: () => void;
   onJumpToDiagnostic: (diag: WorkspaceDiagnostic) => void;
   onClose: () => void;
+  onStrictValidate?: () => void;
 }
 
 const SOURCE_LABELS: Record<WorkspaceDiagnostic['source'], string> = {
@@ -30,6 +32,7 @@ export function ProblemsPanel({
   onRefresh,
   onJumpToDiagnostic,
   onClose,
+  onStrictValidate,
 }: ProblemsPanelProps) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning'>('all');
 
@@ -80,6 +83,17 @@ export function ProblemsPanel({
         </div>
 
         <div className="flex items-center gap-1">
+          {onStrictValidate ? (
+            <button
+              type="button"
+              onClick={onStrictValidate}
+              className="dita-mini-btn border-indigo-200 px-2 py-0.5 text-indigo-700 hover:bg-indigo-50"
+              title="调用 DITA-OT 对 Root Map 执行 DTD/RNG 严格校验"
+            >
+              <ShieldCheck className="h-3 w-3" aria-hidden="true" />
+              <span>DITA-OT 严格校验</span>
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onRefresh}

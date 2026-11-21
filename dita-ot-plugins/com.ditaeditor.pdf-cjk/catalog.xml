@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<catalog xmlns="urn:oasis:names:tc:entity:xmlns:xml:catalog" prefer="system">
+  <!-- Override the PDF2 logical font table with the Noto CJK mappings below. -->
+  <uri name="cfg:fo/font-mappings.xml" uri="cfg/fo/font-mappings.xml"/>
+</catalog>

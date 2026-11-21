@@ -2,11 +2,11 @@
 
 **简体中文** · [English](README.en.md)
 
-面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，支持 **ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排**、**单一信息源语义引擎（Keys / Conref / DITAVAL）** 与 **本地 Git 版本管理 / Check-out 独占锁 / 可视化 Diff**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
+面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，支持 **ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排**、**单一信息源语义引擎（Keys / Conref / DITAVAL）**、**本地 Git 版本管理 / Check-out 独占锁 / 可视化 Diff**，以及 **DITA-OT 4.x 权威严格校验与 HTML5 / 中文 PDF 异步发布**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
-> 当前版本 **v0.6.0**（覆盖 Phase 0–4），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+> 当前版本 **v0.7.0**（覆盖 Phase 0–5），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
@@ -36,9 +36,19 @@
 
 ![单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）](docs/pic/phase4-single-sourcing.png)
 
+### Phase 5：DITA-OT 严格校验与异步 HTML5 / 中文 PDF 发布
+
+发布对话框集中选择 Root Map、HTML5 / PDF、DITAVAL 与标题，实时展示 DITA-OT 运行时、构建命令、`build.log`、发布历史与产物下载；HTML5 可直接在线预览，PDF 确认嵌入 Noto CJK 字体。严格校验弹窗展示真实 DITA-OT 退出码、耗时、输入文件与 `DOTJ` / `DOTX` 诊断，并可一键跳回源码行列。
+
+![Phase 5 发布对话框、构建日志与 HTML5 / PDF 产物](docs/pic/phase5-publish.png)
+
+![DITA-OT 严格校验结果与诊断摘要](docs/pic/phase5-strict-validation.png)
+
+![Noto CJK 中文 PDF 输出（目录与正文）](docs/pic/phase5-pdf-output.png)
+
 ---
 
-## 核心特性（已实现：Phase 0–4）
+## 核心特性（已实现：Phase 0–5）
 
 ### 1. 100% 无损 XML 往返内核（`@dita/core`）
 - 基于 `slimdom` + `slimdom-sax-parser` + `fontoxpath` 构建前后端同构的 DITA XML 内核，解析时同步记录节点源码起止行列号。
@@ -89,11 +99,17 @@
 - **Check-out 独占锁**：默认只读打开，检出后本人可编辑，同一 `(project, branch, file_path)` 互斥；不同文件、不同分支互不阻塞。仅能提交本人已检出且有改动的文件，提交成功后自动释放锁；支持撤销检出（回滚到 `HEAD`）、释放锁保留草稿，以及管理员强制解锁并把当前内容与补丁写入 `lock_backups` 备份表。
 - **可视化 Diff 与历史**：左侧「版本」面板展示分支、检出锁、工作区改动与提交历史；基于 CodeMirror 6 `MergeView` 对比工作区改动或任意两个历史版本，签入前先预览 Diff 并填写本地提交说明。
 
+### 7. DITA-OT 4.x 权威校验与异步发布（Phase 5）
+- **双层严格校验**：日常编辑继续由前端约束 + TS 语义索引零延迟把关；工具栏、问题面板与签入对话框可按需调用 `POST /api/validate/strict`，由 `@dita/api` 以 `--validate=yes --processing-mode=strict` 调度 DITA-OT 官方 DITA 1.3 DTD/RNG 校验，解析 `DOTJ` / `DOTX` 错误码并统一跳转到源码行列。提供 Root Map 上下文时按整图校验，保证 `keyref` / `conkeyref` / `conref` 正常解析；独立主题校验会把缺少键上下文的 `DOTJ046E` 降级为警告。
+- **零外部中间件发布流水线**：SQLite `publish_jobs` 表持久化任务，Node 进程内 `PublishQueue` 并发限流（默认 1）；每次发布复制当前分支工作区快照隔离构建，支持超时强杀、排队/运行中取消、`build.log` 落盘与 SSE 实时日志、`GET /api/publish/jobs/:id/events` 事件流、服务重启自动回收中断任务与按保留天数清理历史产物。
+- **HTML5 与中文 PDF 交付**：HTML5 构建完成后自动打包 ZIP，并提供 `/preview/*` 在线预览（相对图片/CSS 路径可直接访问）；PDF 通过纯 XML 插件 `dita-ot-plugins/com.ditaeditor.pdf-cjk/`（`plugin.xml` + XML Catalog + DITA-OT 4 新版 `font-mappings.xml` + `fop.xconf`）映射 Noto Sans / Serif / Mono CJK，发布时追加 `--customization.dir` 与 `--args.fo.userconfig`，并强制 `--validate=yes`，确保中文嵌入字体、无乱码。
+- **单容器交付**：`Dockerfile` 内置 Node 22、JRE 21、DITA-OT 4.2.1、Noto CJK 字体与字体插件；生产模式由 `@dita/api` 直接托管 `@dita/web` 构建产物，零 Redis / PostgreSQL 依赖，`/data` 数据卷持久化工作区、SQLite、分支 worktree 与发布产物。
+
 ---
 
 ## 系统架构与技术栈
 
-系统采用 **pnpm Workspace + Turborepo** 组织的纯 TypeScript 全栈 Monorepo，核心设计是将 XML 解析、无损序列化、DITA 1.3 元素规则、CALS 表格模型与 Map DOM 操作沉淀在共享包 `@dita/core` 中，由前端 `@dita/web` 与后端 `@dita/api` 共同复用（官方 DITA 1.3 DTD/RNG 严格校验与 HTML5/PDF 异步发布将在 Phase 5 由 `@dita/api` 直接调用 DITA-OT 4.x CLI 完成，零 Java 业务代码）。
+系统采用 **pnpm Workspace + Turborepo** 组织的纯 TypeScript 全栈 Monorepo，核心设计是将 XML 解析、无损序列化、DITA 1.3 元素规则、CALS 表格模型与 Map DOM 操作沉淀在共享包 `@dita/core` 中，由前端 `@dita/web` 与后端 `@dita/api` 共同复用；官方 DITA 1.3 DTD/RNG 严格校验与 HTML5/PDF 异步发布由 `@dita/api` 直接调用 DITA-OT 4.x CLI 完成，零 Java 业务代码。
 
 ```mermaid
 flowchart LR
@@ -101,9 +117,9 @@ flowchart LR
     API["@dita/api (Fastify 5 + Zod)<br/>工作区 CRUD / 增量语义索引 / 资产 / 身份 / Git / 检出锁"]
     Core["@dita/core (Isomorphic Kernel)<br/>slimdom + fontoxpath / PM Schema / CALS / Map / Keyspace / Conref / DITAVAL"]
     FS[("本地 DITA 工作区<br/>默认 samples/demo-dita-project")]
-    DB[("SQLite + Drizzle<br/>身份 / 仓库 / 检出锁 / 解锁备份")]
+    DB[("SQLite + Drizzle<br/>身份 / 仓库 / 检出锁 / 发布任务")]
     GIT[("本地 Git 仓库 + 分支 worktree<br/>无外部托管平台")]
-    CLI["DITA-OT 4.x CLI (Phase 5 规划)<br/>官方 DITA 1.3 校验 + HTML5/PDF + Noto CJK 插件"]
+    CLI["DITA-OT 4.x CLI<br/>DITA 1.3 严格校验 + HTML5/PDF + Noto CJK 插件"]
 
     Web <-->|"/api 代理 (HTTP)"| API
     Web --> Core
@@ -126,6 +142,7 @@ flowchart LR
 | **后端 API** | Fastify 5 + `@fastify/multipart` + Zod | 本地磁盘工作区管理、资产上传预览与项目诊断接口 |
 | **持久化与协作** | SQLite + Drizzle ORM + `better-sqlite3` | 轻量身份/角色、检出锁与管理员解锁补丁备份，零外部数据库依赖 |
 | **版本管理** | `simple-git` + `git worktree` | 本地仓库初始化、分支隔离工作区、提交历史与工作区/历史 Diff |
+| **校验与发布** | DITA-OT 4.2.x CLI + JRE 21 | 官方 DITA 1.3 DTD/RNG 严格校验、HTML5 / PDF2 发布、纯 XML Noto CJK 字体插件 |
 | **测试框架** | Vitest 3 | 覆盖核心 round-trip 黄金样本、编辑器交互命令、工作区 API 与 Git/锁全链路 |
 
 ---
@@ -152,18 +169,23 @@ DITAEditor/
 │   │       ├── components/     # 顶栏、Tab 栏、文件浏览、Keys 面板、属性/复用检视区、条件编辑器、问题面板
 │   │       ├── editor/         # visual/ (ProseMirror + 语义装饰/Conref 渲染)、source/ (CodeMirror 6)
 │   │       ├── map-tree/       # react-arborist Map 树、DITAVAL 投影、节点检查器、右键菜单、概览面板
+│   │       ├── components/publish/ # 发布对话框、构建日志流与严格校验结果
 │   │       ├── services/       # API 客户端、离线示例回退与持久化桥接
 │   │       └── store/          # Zustand 工作台、多 Tab 与语义上下文状态管理
 │   └── api/                    # @dita/api — Fastify 5 本地工作区、增量语义索引与资产服务
 │       └── src/modules/
 │           ├── files/          # 安全路径校验、工作区扫描、文件 CRUD、Multipart 上传、诊断
-│           └── indexer/        # WorkspaceSemanticIndexer 与 /api/semantics/* 语义路由
+│           ├── indexer/        # WorkspaceSemanticIndexer 与 /api/semantics/* 语义路由
+│           ├── validate/       # /api/validate/strict DITA-OT 严格校验
+│           ├── publish/        # SQLite 发布任务、快照构建、SSE 日志与产物下载
+│           └── dita-ot/        # dita CLI 运行时探测、子进程调度与 DOTJ/DOTX 日志解析
 ├── samples/
 │   └── demo-dita-project/      # 开箱即用的多变体 DITA 1.3 演示项目（Map/Bookmap/复用库/DITAVAL/SVG）
 ├── docs/
 │   ├── architecture-and-plan.md # 完整架构设计基线与 Phase 0–5 实施路线
 │   └── pic/                    # 工作台界面截图
-├── dita-ot-plugins/            # （Phase 5 规划）纯 XML DITA-OT 4.x 中文 PDF 字体映射插件（Noto CJK）
+├── dita-ot-plugins/            # 纯 XML DITA-OT 4.x 中文 PDF 字体映射插件（Noto CJK）
+├── Dockerfile                  # 单容器构建（Node + JRE 21 + DITA-OT + Noto CJK）
 └── graphify-out/               # 项目代码库知识图谱
 ```
 
@@ -172,10 +194,29 @@ DITAEditor/
 ## 快速开始
 
 ### 环境要求
-- **Node.js** `>= 20.0.0`
-- **pnpm** `11.5.2`（推荐使用 `corepack enable` 自动匹配 `packageManager` 版本）
 
-### 安装与启动
+| 依赖 | 版本 | 用途 |
+| :--- | :--- | :--- |
+| Node.js | **22+** | 运行 `@dita/web`、`@dita/api` 与构建脚本 |
+| pnpm | **11.5+** | Monorepo 依赖管理与 workspace 脚本 |
+| Java | **21** | DITA-OT 4.x 运行时（仅严格校验 / 发布需要） |
+| DITA-OT | **4.2.x** | 官方 DITA 1.3 DTD/RNG 校验与 HTML5 / PDF 构建 |
+| Noto CJK | Sans / Serif / Mono | 中文 PDF 字体嵌入（Docker 镜像已内置） |
+| Docker | 24+（可选） | 单容器一键部署，内置全部运行时 |
+
+### 方式一：Docker 单容器（推荐，开箱即用）
+
+镜像已内置 Node 22、JRE 21、DITA-OT 4.2.1、Noto CJK 与字体插件，无需在宿主机安装 Java / DITA-OT；生产模式由 API 直接托管前端构建产物：
+
+```bash
+docker build -t dita-editor .
+docker run --rm -p 3001:3001 -v dita-editor-data:/data dita-editor
+# 浏览器打开 http://localhost:3001
+```
+
+`/data` 卷包含默认示例工作区（首次启动自动播种）、SQLite 数据库、分支 worktree 与发布历史；备份该卷即可迁移全部项目数据。也可通过 `-v /path/to/project:/data/workspace` 挂载宿主 DITA 项目。
+
+### 方式二：本地源码 + 本机 DITA-OT
 
 ```bash
 # 1. 安装依赖
@@ -184,7 +225,17 @@ pnpm install
 # 2. 首次编译共享内核 @dita/core（供 @dita/api 与 @dita/web 引用）
 pnpm --filter @dita/core build
 
-# 3. 并行启动后端 API 与前端开发服务器
+# 3. 准备 DITA-OT 4.2.1（macOS / Linux，安装到自动探测目录）
+curl -L -o /tmp/dita-ot.zip \
+  https://github.com/dita-ot/dita-ot/releases/download/4.2.1/dita-ot-4.2.1.zip
+unzip -q /tmp/dita-ot.zip -d "$HOME/.local/share"
+mv "$HOME/.local/share/dita-ot-4.2.1" "$HOME/.local/share/dita-ot"
+"$HOME/.local/share/dita-ot/bin/dita" --version
+
+# 4. 可选：准备 Noto CJK 字体（也可设置 DITAEDITOR_NOTO_CJK_DIR）
+#    放到 ~/.local/share/fonts/noto 或 ~/Library/Fonts/Noto 即可被自动探测
+
+# 5. 并行启动后端 API 与前端开发服务器
 pnpm dev
 ```
 
@@ -199,6 +250,14 @@ pnpm --filter @dita/api dev
 pnpm --filter @dita/web dev
 ```
 
+#### 本机 DITA-OT 配置
+
+不使用 Docker 时，安装 DITA-OT 4.x 并确保 `dita` 在 `PATH` 中（或设置 `DITA_OT_HOME`；也会自动探测 `~/dita-ot`、`~/.local/share/dita-ot`、`/opt/dita-ot`、`/usr/local/dita-ot`）；中文 PDF 需额外准备 Noto CJK 字体，可设置 `DITAEDITOR_NOTO_CJK_DIR`，或放入 `~/.local/share/fonts/noto`、`~/Library/Fonts/Noto` 由运行时自动探测。`pnpm --filter @dita/api dev` 启动后，发布对话框会显示运行时检测结果。无需把插件安装进 DITA-OT：`@dita/api` 始终通过 `--customization.dir` 加载仓库内插件，避免 DITA-OT 4 的 Catalog 顺序覆盖；如需让其他 DITA-OT 命令复用，可 `cd dita-ot-plugins && zip -qr /tmp/plugin.zip com.ditaeditor.pdf-cjk && dita install /tmp/plugin.zip`。
+
+### 方式三：仅编辑 / 语义写作（不安装 DITA-OT）
+
+只运行编辑、Map 编排、Keys / Conref / DITAVAL、Git 与检出锁时，可跳过 Java 与 DITA-OT；发布与「DITA-OT 严格校验」会显示运行时未就绪，不影响其它功能。
+
 ### 后端环境变量（`@dita/api`）
 
 | 变量名 | 默认值 | 说明 |
@@ -207,6 +266,14 @@ pnpm --filter @dita/web dev
 | `DITA_WORKSPACE_DIR` | `samples/demo-dita-project` | 启动时默认打开的本地 DITA 项目目录 |
 | `DITA_IMPORTS_DIR` | `.dita-workspaces` | 导入项目、SQLite 数据库（`dita-editor.sqlite`）与分支 `git worktree` 的存放根目录 |
 | `DITA_LOCK_TTL_HOURS` | `72` | 检出锁过期提示阈值（小时，仅用于界面提醒，不自动删除锁） |
+| `DITA_OT_HOME` / `DITA_HOME` | 空 | DITA-OT 4.x 安装目录；未设置时自动探测常见目录，最后回退到 `PATH` 中的 `dita` |
+| `DITA_CMD` | 空 | 显式指定 `dita` 可执行文件路径（优先级高于 `DITA_OT_HOME`） |
+| `DITA_PUBLISH_DIR` | `.dita-workspaces/publish` | 发布任务快照、`build.log` 与产物的存储根目录 |
+| `DITA_PUBLISH_CONCURRENCY` | `1` | 进程内并发构建数；大队列建议保持 1–2 |
+| `DITAEDITOR_PDF_PLUGIN_DIR` | 仓库 `dita-ot-plugins/com.ditaeditor.pdf-cjk` | 中文 PDF 字体插件目录，同时作为 `--customization.dir` |
+| `DITAEDITOR_FOP_XCONF` | 插件内 `fop.xconf` | FOP 字体配置模板 |
+| `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK 字体目录，用于生成本次构建的 `fop.xconf` |
+| `DITA_WEB_DIST` | `apps/web/dist` | 生产模式静态前端目录；存在 `index.html` 时由 API 托管 |
 
 ---
 
@@ -247,6 +314,16 @@ pnpm --filter @dita/web dev
 | `POST /api/git/switch-branch` | 切换到主工作区或分支隔离 worktree 并返回新快照 |
 | `GET /api/git/log` / `diff` / `file` | 提交历史、任意两版本差异与指定版本文件内容 |
 | `POST /api/git/commit` / `discard` | 本地提交（校验锁归属）/ 丢弃单文件改动 |
+| `GET /api/validate/runtime` | 检测 DITA-OT 版本、中文 PDF 插件与 Noto CJK 字体是否就绪 |
+| `POST /api/validate/strict` | 按文件或 Root Map 调用 DITA-OT `--validate=yes --processing-mode=strict`，返回归一化 DOTJ/DOTX 诊断 |
+| `GET /api/publish/runtime` | 发布运行时状态与发布根目录 |
+| `GET` / `POST /api/publish/jobs` | 当前分支发布历史 / 创建 HTML5 或 PDF 发布任务（只读角色 403） |
+| `GET /api/publish/jobs/:id` | 任务状态、诊断、产物与日志/预览/下载 URL |
+| `POST /api/publish/jobs/:id/cancel` | 取消排队或运行中的任务（作者或管理员） |
+| `GET /api/publish/jobs/:id/log?offset=` | 按偏移增量读取 `build.log` |
+| `GET /api/publish/jobs/:id/events` | SSE 实时推送构建状态与日志 |
+| `GET /api/publish/jobs/:id/preview/*` | HTML5 产物在线预览（目录默认 `index.html`） |
+| `GET /api/publish/jobs/:id/artifact?inline=1` | 下载 PDF 或 HTML5 ZIP，`inline=1` 用于内嵌预览 |
 
 ---
 
@@ -264,10 +341,10 @@ pnpm typecheck
 pnpm test
 ```
 
-当前测试覆盖（**126/126 Vitest 测试通过**）：
+当前测试覆盖（**132/132 Vitest 测试通过**）：
 - `@dita/core`（54 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测。
 - `@dita/web`（65 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，以及 Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥）。
-- `@dita/api`（7 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，以及 Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份集成测试。
+- `@dita/api`（13 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份，以及 Phase 5 运行时探测、DOTJ/DOTX/file URL 日志归一化、严格校验成功/失败/只读放行、HTML5 ZIP 与预览、PDF 下载、取消与历史排序，以及 DITAVAL 路径必须位于工作区内的安全约束。
 
 ---
 
@@ -278,4 +355,4 @@ pnpm test
 - [x] **Phase 2**：可视化 Map / Bookmap 树（`react-arborist`）、无损 Map DOM 引擎、三栏多 Tab 工作台、Fastify 本地工作区/资产 API 与示例项目 `samples/demo-dita-project/`。
 - [x] **Phase 3**：Root Map 跨文件语义引擎（`keydef/keyref` BFS + `keyscope`、`conref/conkeyref`/`conrefend` 与 DFS 循环引用检测、`DITAVAL` 三态条件过滤与 Flag 标记、增量 `/api/semantics/*` 索引服务、`Keys` 面板、语义插入弹窗、条件属性编辑器与 CodeMirror 6 语义补全）。
 - [x] **Phase 4**：SQLite + Drizzle ORM 轻量身份与三档角色、本地 `simple-git` 仓库与按分支隔离 `git worktree`、Check-out 独占锁/签入/撤销/管理员强制解锁备份、CodeMirror 6 MergeView 工作区与历史版本 Diff、左侧「版本」面板。
-- [ ] **Phase 5**：基于 `@dita/api` 直接调度 DITA-OT 4.x CLI（零 Java 业务代码，内置 DITA 1.3 DTD/RNG 严格校验 + 纯 XML Noto CJK 中文 PDF 字体插件）、BullMQ + SSE 异步发布与 Docker Compose 一键部署。
+- [x] **Phase 5**：基于 `@dita/api` 直接调度 DITA-OT 4.x CLI（零 Java 业务代码，内置 DITA 1.3 DTD/RNG 严格校验 + 纯 XML Noto CJK 中文 PDF 字体插件）、零 Redis 的 SQLite + 进程内并发限流异步发布与 SSE 实时日志，以及单容器 `Dockerfile` 一键部署。

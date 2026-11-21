@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Pure-XML DITA-OT 4.x PDF2 font plug-in for Simplified Chinese output.
+
+  DITA-OT 4 resolves PDF fonts through the `cfg:fo/font-mappings.xml` catalog entry, so this
+  plug-in contributes an XML catalog override plus a Noto CJK font table. DITAEditor also passes
+  `fop.xconf` explicitly through the `args.fo.userconfig` parameter to register the embedded TTC collections.
+  No Java or XSLT business code is involved.
+-->
+<plugin id="com.ditaeditor.pdf-cjk" version="1.0.0">
+  <require plugin="org.dita.pdf2"/>
+  <feature extension="org.dita.pdf2.catalog.relative" file="catalog.xml"/>
+</plugin>

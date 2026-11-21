@@ -1,10 +1,10 @@
 # DITAEditor
 
-A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It combines **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, and **local Git versioning with check-out locks and visual diffs** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
+A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It combines **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, **local Git versioning with check-out locks and visual diffs**, and **authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
 
 > For the full architecture, technology rationale, and phased implementation baseline, see [docs/architecture-and-plan.md](docs/architecture-and-plan.md) and [AGENTS.md](AGENTS.md).
 
-> Current release **v0.6.0** (covers Phase 0–4). See [CHANGELOG.md](CHANGELOG.md) for the changelog.
+> Current release **v0.7.0** (covers Phase 0–5). See [CHANGELOG.md](CHANGELOG.md) for the changelog.
 
 **English** · [简体中文](README.md)
 
@@ -36,9 +36,19 @@ Without touching the underlying XML, the visual editor renders read-only inline 
 
 ![Single-sourcing semantic engine (Keyref / Conref / DITAVAL)](docs/pic/phase4-single-sourcing.png)
 
+### Phase 5: DITA-OT strict validation and asynchronous HTML5 / Chinese PDF publishing
+
+The publish dialog combines root-map, HTML5/PDF, DITAVAL, and title selection with live DITA-OT runtime status, the exact build command, `build.log`, publish history, and artifact downloads. HTML5 output can be previewed in place; PDF output embeds Noto CJK fonts. The strict-validation dialog shows the real DITA-OT exit code, duration, input files, and `DOTJ` / `DOTX` diagnostics, with one-click jumps back to the source line.
+
+![Phase 5 publish dialog, build log, and HTML5 / PDF artifacts](docs/pic/phase5-publish.png)
+
+![DITA-OT strict validation result and diagnostics](docs/pic/phase5-strict-validation.png)
+
+![Chinese PDF output with embedded Noto CJK fonts (contents and body)](docs/pic/phase5-pdf-output.png)
+
 ---
 
-## Core features (Phase 0–4 implemented)
+## Core features (Phase 0–5 implemented)
 
 ### 1. 100% lossless XML round-trip kernel (`@dita/core`)
 
@@ -95,11 +105,18 @@ Without touching the underlying XML, the visual editor renders read-only inline 
 - **Check-out exclusive locks**: files open read-only by default. Checking out grants editing rights on the same `(project, branch, file_path)` scope while other files and branches stay unblocked. Only the lock owner's dirty files can be committed, and check-in releases their locks; cancel-checkout rolls back to `HEAD`, release keeps the draft, and admin force-unlock stores the current content and patch in `lock_backups`.
 - **Visual diff and history**: the left **Version** panel shows branches, locks, working-tree changes, and commit history. CodeMirror 6 `MergeView` compares working-tree changes or any two revisions, and check-in previews the diff with a local commit message before committing.
 
+### 7. Authoritative DITA-OT 4.x validation and asynchronous publishing (Phase 5)
+
+- **Two-layer strict validation**: day-to-day typing stays guarded by zero-latency frontend constraints and the TS semantic index. The toolbar, problems panel, and check-in dialog can call `POST /api/validate/strict`, which runs DITA-OT with `--validate=yes --processing-mode=strict`, parses `DOTJ` / `DOTX` codes, and jumps to the exact source line/column. Passing a Root Map validates the whole map in context so `keyref` / `conkeyref` / `conref` resolve; isolated topic validation downgrades context-free `DOTJ046E` to a warning.
+- **Zero-middleware publish pipeline**: SQLite `publish_jobs` persists tasks and an in-process `PublishQueue` limits concurrency (default 1). Each publish copies a branch working-tree snapshot for an isolated build, supports timeout kills, cancellation while queued or running, `build.log` plus SSE streaming (`GET /api/publish/jobs/:id/events`), restart recovery, and retention-based artifact pruning.
+- **HTML5 and Chinese PDF delivery**: successful HTML5 builds are zipped and served under `/preview/*` with working relative assets. PDF uses the pure-XML `dita-ot-plugins/com.ditaeditor.pdf-cjk/` plugin (`plugin.xml` + XML Catalog + DITA-OT 4 `font-mappings.xml` + `fop.xconf`) to map Noto Sans / Serif / Mono CJK; publishing adds `--customization.dir` and `--args.fo.userconfig` and always enables `--validate=yes` so CJK fonts are embedded and text never turns into tofu.
+- **Single-container delivery**: the `Dockerfile` bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts, and the font plugin. In production `@dita/api` serves the built `@dita/web` assets directly with zero Redis / PostgreSQL dependencies; the `/data` volume keeps workspaces, SQLite, branch worktrees, and publish artifacts.
+
 ---
 
 ## Architecture and technology stack
 
-A pure TypeScript full-stack monorepo organized with **pnpm workspaces + Turborepo**. XML parsing, lossless serialization, DITA 1.3 element rules, the CALS table model, and Map DOM operations live in the shared `@dita/core` package, reused by both `@dita/web` and `@dita/api`. Authoritative DITA 1.3 DTD/RNG validation and HTML5/PDF publishing will be driven directly from `@dita/api` via the DITA-OT 4.x CLI in Phase 5 (zero custom Java service code).
+A pure TypeScript full-stack monorepo organized with **pnpm workspaces + Turborepo**. XML parsing, lossless serialization, DITA 1.3 element rules, the CALS table model, and Map DOM operations live in the shared `@dita/core` package, reused by both `@dita/web` and `@dita/api`. Authoritative DITA 1.3 DTD/RNG validation and HTML5/PDF publishing are driven directly from `@dita/api` through the DITA-OT 4.x CLI (zero custom Java service code).
 
 ```mermaid
 flowchart LR
@@ -107,9 +124,9 @@ flowchart LR
     API["@dita/api (Fastify 5 + Zod)<br/>workspace CRUD / semantic index / assets / identity / Git / locks"]
     Core["@dita/core (isomorphic kernel)<br/>slimdom + fontoxpath / PM schema / CALS / Map / keyspace / conref / DITAVAL"]
     FS[("Local DITA workspace<br/>defaults to samples/demo-dita-project")]
-    DB[("SQLite + Drizzle<br/>identity / repository / locks / unlock backups")]
+    DB[("SQLite + Drizzle<br/>identity / repository / locks / publish jobs")]
     GIT[("Local Git repository + branch worktrees<br/>no external hosting")]
-    CLI["DITA-OT 4.x CLI (Phase 5)<br/>Built-in DITA 1.3 Validation + HTML5/PDF + Noto CJK Plugin"]
+    CLI["DITA-OT 4.x CLI<br/>DITA 1.3 strict validation + HTML5/PDF + Noto CJK plugin"]
 
     Web <-->|"/api proxy (HTTP)"| API
     Web --> Core
@@ -132,6 +149,7 @@ flowchart LR
 | **Backend API** | Fastify 5 + `@fastify/multipart` + Zod | Local disk workspace management, asset upload/preview, project diagnostics |
 | **Persistence & collaboration** | SQLite + Drizzle ORM + `better-sqlite3` | Password-less identities, check-out locks, admin unlock patch backups — no external database |
 | **Version control** | `simple-git` + `git worktree` | Local repository init, branch-isolated worktrees, commit history, working-tree and revision diffs |
+| **Validation & publishing** | DITA-OT 4.2.x CLI + JRE 21 | Authoritative DITA 1.3 DTD/RNG validation, HTML5 / PDF2 publishing, pure-XML Noto CJK plugin |
 | **Testing** | Vitest 3 | Golden round-trip fixtures, editor commands, workspace and Git/lock API flows |
 
 ---
@@ -158,18 +176,23 @@ DITAEditor/
 │   │       ├── components/     # header, tab bar, file explorer, Keys panel, reuse panel, profiling editor, problems panel
 │   │       ├── editor/         # visual/ (ProseMirror + semantic decorations + conref rendering), source/ (CodeMirror 6)
 │   │       ├── map-tree/       # react-arborist map tree, DITAVAL projection, node inspector, context menu, overview
+│   │       ├── components/publish/ # publish dialog, live build log, strict-validation results
 │   │       ├── services/       # API client, offline demo fallback, persistence bridge
 │   │       └── store/          # Zustand workbench, multi-tab, and semantic context state
 │   └── api/                    # @dita/api — Fastify 5 workspace, semantic index, and asset service
 │       └── src/modules/
 │           ├── files/          # safe path validation, workspace scan, file CRUD, multipart upload, diagnostics
-│           └── indexer/        # WorkspaceSemanticIndexer and /api/semantics/* routes
+│           ├── indexer/        # WorkspaceSemanticIndexer and /api/semantics/* routes
+│           ├── validate/       # /api/validate/strict DITA-OT strict validation
+│           ├── publish/        # SQLite publish jobs, snapshot builds, SSE logs, artifact downloads
+│           └── dita-ot/        # dita CLI runtime detection, child-process runner, DOTJ/DOTX log parser
 ├── samples/
 │   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/bookmaps/reuse library/DITAVAL/SVG)
 ├── docs/
 │   ├── architecture-and-plan.md # full architecture baseline and Phase 0–5 roadmap
 │   └── pic/                    # workbench screenshots
-├── dita-ot-plugins/            # (Phase 5) Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
+├── dita-ot-plugins/            # Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
+├── Dockerfile                  # single-container build (Node + JRE 21 + DITA-OT + Noto CJK)
 └── graphify-out/               # persistent codebase knowledge graph
 ```
 
@@ -179,10 +202,28 @@ DITAEditor/
 
 ### Requirements
 
-- **Node.js** `>= 20.0.0`
-- **pnpm** `11.5.2` (use `corepack enable` to match the `packageManager` field automatically)
+| Dependency | Version | Purpose |
+| :--- | :--- | :--- |
+| Node.js | **22+** | Runs `@dita/web`, `@dita/api`, and build scripts |
+| pnpm | **11.5+** | Monorepo dependency management and workspace scripts |
+| Java | **21** | DITA-OT 4.x runtime (strict validation / publishing only) |
+| DITA-OT | **4.2.x** | Official DITA 1.3 DTD/RNG validation and HTML5 / PDF builds |
+| Noto CJK | Sans / Serif / Mono | Chinese PDF font embedding (bundled in the Docker image) |
+| Docker | 24+ (optional) | Single-container deployment with every runtime included |
 
-### Install and run
+### Option 1: Single-container Docker (recommended, zero setup)
+
+The image bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts, and the font plugin; no host Java or DITA-OT installation is required. In production the API serves the built frontend directly:
+
+```bash
+docker build -t dita-editor .
+docker run --rm -p 3001:3001 -v dita-editor-data:/data dita-editor
+# Open http://localhost:3001
+```
+
+The `/data` volume contains the seeded demo workspace, the SQLite database, branch worktrees, and publish history; back up this volume to migrate all project data. Mount a host project with `-v /path/to/project:/data/workspace` if preferred.
+
+### Option 2: Local source with host DITA-OT
 
 ```bash
 # 1. Install dependencies
@@ -191,7 +232,17 @@ pnpm install
 # 2. Build the shared kernel once (consumed by @dita/api and @dita/web)
 pnpm --filter @dita/core build
 
-# 3. Start the API and the web dev server in parallel
+# 3. Install DITA-OT 4.2.1 (macOS / Linux, into an auto-detected directory)
+curl -L -o /tmp/dita-ot.zip \
+  https://github.com/dita-ot/dita-ot/releases/download/4.2.1/dita-ot-4.2.1.zip
+unzip -q /tmp/dita-ot.zip -d "$HOME/.local/share"
+mv "$HOME/.local/share/dita-ot-4.2.1" "$HOME/.local/share/dita-ot"
+"$HOME/.local/share/dita-ot/bin/dita" --version
+
+# 4. Optional: Noto CJK fonts (or set DITAEDITOR_NOTO_CJK_DIR)
+#    Place them in ~/.local/share/fonts/noto or ~/Library/Fonts/Noto for auto-discovery.
+
+# 5. Start the API and the web dev server in parallel
 pnpm dev
 ```
 
@@ -207,6 +258,14 @@ pnpm --filter @dita/api dev
 pnpm --filter @dita/web dev
 ```
 
+#### Host DITA-OT setup
+
+Without Docker, install DITA-OT 4.x and make sure `dita` is on `PATH` (or set `DITA_OT_HOME`; the runtime also probes `~/dita-ot`, `~/.local/share/dita-ot`, `/opt/dita-ot`, and `/usr/local/dita-ot`). Chinese PDF also needs Noto CJK fonts: set `DITAEDITOR_NOTO_CJK_DIR`, or place them in `~/.local/share/fonts/noto` / `~/Library/Fonts/Noto` for automatic discovery. After `pnpm --filter @dita/api dev`, the publish dialog reports runtime detection. You do not need to install the plugin into DITA-OT: `@dita/api` always loads the repository plugin through `--customization.dir` to avoid DITA-OT 4 catalog ordering overrides. To reuse it with other DITA-OT commands: `cd dita-ot-plugins && zip -qr /tmp/plugin.zip com.ditaeditor.pdf-cjk && dita install /tmp/plugin.zip`.
+
+### Option 3: Editing and semantic authoring only (no DITA-OT)
+
+For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, Java and DITA-OT are optional. Publishing and "DITA-OT strict validation" report that the runtime is not ready without affecting any other feature.
+
 ### Backend environment variables (`@dita/api`)
 
 | Variable | Default | Description |
@@ -215,6 +274,14 @@ pnpm --filter @dita/web dev
 | `DITA_WORKSPACE_DIR` | `samples/demo-dita-project` | Local DITA project opened at startup |
 | `DITA_IMPORTS_DIR` | `.dita-workspaces` | Root for UI-imported projects, the SQLite database (`dita-editor.sqlite`), and branch `git worktree`s |
 | `DITA_LOCK_TTL_HOURS` | `72` | Lock age shown as stale in the UI (hours; locks are never auto-deleted) |
+| `DITA_OT_HOME` / `DITA_HOME` | empty | DITA-OT 4.x installation; falls back to common install directories, then `dita` from `PATH` |
+| `DITA_CMD` | empty | Explicit `dita` executable path (takes precedence over `DITA_OT_HOME`) |
+| `DITA_PUBLISH_DIR` | `.dita-workspaces/publish` | Root for publish snapshots, `build.log`, and artifacts |
+| `DITA_PUBLISH_CONCURRENCY` | `1` | In-process build concurrency; keep 1–2 for large queues |
+| `DITAEDITOR_PDF_PLUGIN_DIR` | repo `dita-ot-plugins/com.ditaeditor.pdf-cjk` | Chinese PDF font plugin directory, also used as `--customization.dir` |
+| `DITAEDITOR_FOP_XCONF` | plugin `fop.xconf` | FOP font configuration template |
+| `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK font directory used to generate the per-job `fop.xconf` |
+| `DITA_WEB_DIST` | `apps/web/dist` | Production web assets; served by the API when `index.html` exists |
 
 ---
 
@@ -255,6 +322,16 @@ pnpm --filter @dita/web dev
 | `POST /api/git/switch-branch` | Switch to the primary workspace or a branch worktree and return the new snapshot |
 | `GET /api/git/log` / `diff` / `file` | Commit history, diff between two revisions, file content at a revision |
 | `POST /api/git/commit` / `discard` | Local commit (validates lock ownership) / discard one file's changes |
+| `GET /api/validate/runtime` | DITA-OT version, Chinese PDF plugin, and Noto CJK font readiness |
+| `POST /api/validate/strict` | Runs DITA-OT `--validate=yes --processing-mode=strict` for files or a Root Map and returns normalized DOTJ/DOTX diagnostics |
+| `GET /api/publish/runtime` | Publish runtime state and publish root |
+| `GET` / `POST /api/publish/jobs` | Branch publish history / create an HTML5 or PDF job (viewers get 403) |
+| `GET /api/publish/jobs/:id` | Job status, diagnostics, artifact, and log/preview/download URLs |
+| `POST /api/publish/jobs/:id/cancel` | Cancel a queued or running job (owner or admin) |
+| `GET /api/publish/jobs/:id/log?offset=` | Incremental `build.log` reads |
+| `GET /api/publish/jobs/:id/events` | SSE stream of build status and logs |
+| `GET /api/publish/jobs/:id/preview/*` | HTML5 output preview (directories default to `index.html`) |
+| `GET /api/publish/jobs/:id/artifact?inline=1` | Download the PDF or HTML5 ZIP; `inline=1` embeds it |
 
 ---
 
@@ -272,11 +349,11 @@ pnpm typecheck
 pnpm test
 ```
 
-Current coverage (**126/126 Vitest tests passing**):
+Current coverage (**132/132 Vitest tests passing**):
 
 - `@dita/core` (54): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, lossless Map/Bookmap operations, DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, and DFS cycle detection.
 - `@dita/web` (65): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, decorations and insert menu, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, and Phase 4 identity/lock read-only projection (admin, writer, viewer, cross-author exclusion).
-- `@dita/api` (7): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, and a Phase 4 end-to-end flow covering identities, Git init, same-file exclusion, independent files, check-in commits, history diff, cross-branch isolation, cancel-checkout rollback, and admin force-unlock backups.
+- `@dita/api` (13): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, and a Phase 4 end-to-end flow covering identities, Git init, same-file exclusion, independent files, check-in commits, history diff, cross-branch isolation, cancel-checkout rollback, and admin force-unlock backups. Phase 5 adds runtime detection, DOTJ/DOTX/file-URL log normalization, successful/failed/read-only strict validation, HTML5 ZIP plus preview, PDF download, cancellation, history ordering, and the workspace boundary for DITAVAL filters.
 
 ---
 
@@ -287,4 +364,4 @@ Current coverage (**126/126 Vitest tests passing**):
 - [x] **Phase 2**: Visual Map / Bookmap tree (`react-arborist`), lossless Map DOM engine, three-pane multi-tab workbench, Fastify workspace/asset APIs, and the `samples/demo-dita-project/` demo project.
 - [x] **Phase 3**: Root Map cross-file semantic engine (`keydef/keyref` BFS + `keyscope`, `conref/conkeyref`/`conrefend` with DFS cycle detection, DITAVAL three-state filtering and flags, incremental `/api/semantics/*` indexer, Keys panel, reuse/semantic insert UI, profiling attribute editor, CodeMirror 6 semantic completion).
 - [x] **Phase 4**: SQLite + Drizzle identities and three roles, local `simple-git` repository with branch-isolated `git worktree`s, check-out exclusive locks / check-in / cancel / admin force-unlock backups, CodeMirror 6 MergeView working-tree and revision diffs, and the left **Version** panel.
-- [ ] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (zero custom Java code; built-in DITA 1.3 DTD/RNG strict validation + pure-XML Noto CJK PDF font-mappings plugin), BullMQ + SSE async publishing, and one-command Docker Compose deployment.
+- [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (zero custom Java code; built-in DITA 1.3 DTD/RNG strict validation + pure-XML Noto CJK PDF font-mappings plugin), zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE log streaming, and single-container `Dockerfile` deployment.

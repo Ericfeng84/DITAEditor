@@ -17,8 +17,9 @@
 | **多人并发机制** | **仅支持 Check-out 独占锁**（单文件同时仅 1 人编辑） | 不做 CRDT 实时协同；按分支维度隔离 worktree，文件级悲观锁 + 管理员强解 |
 | **校验策略** | 双层校验（前端实时约束 + 语义索引 + DITA-OT CLI 权威校验） | 日常编辑 0 延迟由 `@dita/core` 与语义索引器校验；按需/检入前/发布前调用 `dita` CLI 跑官方 DITA 1.3 DTD/RNG 严格校验 |
 | **发布与预览** | 服务端 DITA-OT CLI 异步发布（Root Map + DITAVAL → HTML5 / PDF） | 异步构建队列、实时日志流、产物在线预览与打包下载，预置 Noto CJK 字体与纯 XML 字体插件 |
+| **AI 辅助写作（Phase 6）** | 后端 **LangChain.js**（`@langchain/core` + `@langchain/openai`，默认 DeepSeek `deepseek-flash`，支持私有化代理） | 覆盖单 Topic 写作、语义/结构/Keyref 标签优化与三类错误修复，并为后续「手册发布后 RAG 问答」统一模型、Prompt 与 `BaseRetriever` 底座；片段级无损替换 + `@dita/core` 自动校验重试 + 强制 MergeView Diff 确认，写操作强守 Check-out 锁 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
-| **部署与权限** | 私有化/团队内网单组织部署（Docker Compose / K8s） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证依赖 |
+| **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
 
 ---
@@ -30,9 +31,9 @@
 ```mermaid
 flowchart TB
     subgraph Client["前端工作台 (React + TypeScript + Vite)"]
-        UI["工作台布局 (Map 树 / 多 Tab / 属性与校验面板 / DITAVAL 切换)"]
+        UI["工作台布局 (Map 树 / 多 Tab / 属性·复用·AI 检查器 / 问题面板 / DITAVAL)"]
         PM["可视化编辑器 (ProseMirror + DITA 1.3 Schema + 兜底节点)"]
-        CM["XML 源码编辑器 (CodeMirror 6 + 语法补全 + Lint 标红)"]
+        CM["XML 源码编辑器 (CodeMirror 6 + 语法补全 + Lint 标红 + MergeView Diff)"]
         CoreFE["共享内核 @dita/core (XML DOM / 序列化 / 规则表)"]
         UI --> PM
         UI --> CM
@@ -41,19 +42,23 @@ flowchart TB
     end
 
     subgraph Server["TS 主后端 (Fastify + TypeScript)"]
-        API["REST API & SSE 日志/事件推送"]
+        API["REST API & SSE 日志/流式事件推送"]
         Auth["轻量身份与角色切换 (免密码本地身份 / Admin-Writer-Viewer)"]
         Lock["Check-out 文件独占锁服务 (DB 唯一约束 + 强制解锁)"]
         GitMgr["本地 Git 工作区管理 (按分支隔离 git worktree / 版本历史 / Diff 对比)"]
         Indexer["项目级语义索引器 (Root Map Keyspace / Conref / ID / DITAVAL)"]
-        Queue["异步任务调度 (BullMQ)"]
+        Queue["进程内异步发布调度器 (SQLite 持久化 + 并发限流 + SSE 日志)"]
+        AISvc["AI 辅助编排服务 (LangChain.js / ChatOpenAI / DITA 上下文裁剪 / 片段校验重试 / SSE)"]
         CoreBE["共享内核 @dita/core"]
         API --> Auth
         API --> Lock
         API --> GitMgr
         API --> Indexer
         API --> Queue
+        API --> AISvc
         Indexer --> CoreBE
+        AISvc --> CoreBE
+        AISvc --> Indexer
     end
 
     subgraph DitaCLI["DITA-OT 4.x CLI 运行时 (容器/本机预装 JRE + dita 命令)"]
@@ -61,16 +66,21 @@ flowchart TB
         PubSvc["DITA-OT 4.x 发布执行器 (HTML5 / PDF2 + Noto CJK 纯 XML 字体插件)"]
     end
 
-    subgraph Infra["基础设施"]
-        DB[("SQLite (身份/项目/Check-out 锁/发布记录)")]
-        Redis[("Redis (BullMQ 队列 / 构建日志流 / 索引缓存)")]
-        FS[("共享磁盘卷 (本地 Git Repos / Worktrees / 发布产物)")]
+    subgraph LLM["外部 / 私有化大模型服务 (OpenAI 兼容协议)"]
+        DeepSeek["DeepSeek API / 内网代理 (默认 deepseek-flash)"]
+    end
+
+    subgraph Infra["基础设施（零外部中间件）"]
+        DB[("SQLite (身份/项目/Check-out 锁/发布任务/AI 配置与调用审计)")]
+        FS[("共享磁盘卷 (本地 Git Repos / Worktrees / 发布产物与日志)")]
     end
 
     Client <-->|"HTTP / SSE"| API
     Lock --> DB
     Auth --> DB
-    Queue <--> Redis
+    Queue --> DB
+    AISvc --> DB
+    AISvc -->|"HTTPS / SSE (片段级 Prompt + 上下文)"| DeepSeek
     GitMgr <--> FS
     Indexer --> FS
     API -->|"spawn dita CLI (按需/检入前严格校验)"| ValSvc
@@ -87,12 +97,15 @@ flowchart TB
 2. **为什么直接由 Node 后端调度 `dita` CLI，而不单独开发维护常驻 Java Worker？**
    - 编辑器日常输入与保存时的实时反馈，已由前端 ProseMirror/CodeMirror 约束、`@dita/core` 规则表与 TS 跨文件语义索引器（断链、`keyref`、`conref` 环路）以 0 延迟覆盖。
    - DITA-OT 4.x 本身已内置官方 OASIS DITA 1.3 DTD/RNG 校验器与发布引擎，且中文 PDF 字体映射插件仅为纯 XML 配置（`plugin.xml` + `font-mappings.xml` + `fop.xconf`）。通过 `spawn('dita', ...)` 按需在检入前/发布前做严格校验和异步构建，可实现**零 Java 业务代码**、免去独立 JVM 微服务的开发与运维；若未来确需 50ms 级保存期 DTD 校验，再平滑外挂常驻校验服务即可。
+3. **为什么 AI 辅助采用「后端 LangChain.js（`@langchain/core` + `@langchain/openai`）+ 片段级 `@dita/core` 校验重试 + 强制 MergeView Diff 确认」，而不是前端直连或整篇重写？**
+   - **私有化、密钥安全与后续手册 RAG 演进**：项目面向团队内网/单容器部署，API Key 仅由服务端持有（环境变量兜底 + SQLite 仅 `Admin` 可改、前端掩码展示）；通过 LangChain 的 `ChatOpenAI`（自定义 `configuration.baseURL`）既开箱对接 DeepSeek 官方 API（默认 `deepseek-flash`）与内网兼容代理，又在后端统一沉淀了 `ChatPromptTemplate`、`BaseChatModel` 工厂与可选 `BaseRetriever` 扩展口，后续接入「基于发布后手册产物的 RAG AI 问答」（文档切分、Embedding、向量检索与引用溯源）可平滑复用同一套编排与流式底座，而无需推翻重来（同时 `@dita/core` 保持零 LangChain 依赖的纯同构内核）。
+   - **守住无损 XML 与最小 Git Diff 底线**：直接让大模型重写整篇 `.dita` 极易丢弃 `<!DOCTYPE>`、XML 注释、处理指令（PI）或打乱属性顺序。后端将目标缩小到选区节点/报错片段，生成后先由 `@dita/core` 校验良构性与合法性（不合法时自动带错反馈重试 1–2 次）再拼回原文，并强制经现有 CodeMirror 6 MergeView 展示精确 Diff；用户确认应用时同样严格受 Check-out 独占锁约束，避免破坏团队协作秩序。
 
 ---
 
-## 三、五大核心技术难点攻关设计
+## 三、六大核心技术难点攻关设计
 
-Web DITA 编辑器 80% 的工程风险集中在下面 5 个模块，必须在编码前明确边界与实现策略：
+Web DITA 编辑器 80% 的工程风险集中在下面 6 个模块，必须在编码前明确边界与实现策略：
 
 ### 1. XML 无损往返（Lossless Round-trip）与双模同步内核
 
@@ -170,11 +183,32 @@ flowchart LR
 
 - **双层校验闭环**：
   - **第一层（日常实时，0 延迟）**：ProseMirror Schema 限制合法子节点与属性；CodeMirror 6 基于 `@dita/core` 规则表做标签与属性自动补全及 XML 良构检查；TS 语义索引器实时报出断链 `href`、未定义 `keyref`、无效/循环 `conref`。
-  - **第二层（官方权威，手动触发 / 检入前 / 发布前）**：TS 后端通过子进程调用 `dita` CLI（启用 `-Dvalidate=true -Dprocessing-mode=strict`，使用 DITA-OT 内置 OASIS DITA 1.3 DTD/RNG 与 XML Catalog），解析 DOTJ/DOTX 诊断日志并合并 TS 语义诊断，统一归一为 `{ filePath, line, column, severity, source, message }` 结构，在底部“问题面板”、源码红线和可视化节点旁同步高亮。
+  - **第二层（官方权威，手动触发 / 检入前 / 发布前）**：TS 后端通过子进程调用 `dita` CLI（启用 `--validate=yes --processing-mode=strict`，使用 DITA-OT 内置 OASIS DITA 1.3 DTD/RNG 与 XML Catalog），解析 DOTJ/DOTX 诊断日志并合并 TS 语义诊断，统一归一为 `{ filePath, line, column, severity, source, message }` 结构，在底部“问题面板”、源码红线和可视化节点旁同步高亮。
 - **DITA-OT CLI 异步发布流水线**：
-  - 用户选择 `Root Map` + `Output Format (HTML5 / PDF)` + 可选 `DITAVAL` → TS 后端将当前分支工作区文件快照到独立构建目录 → 写入 BullMQ 任务 → 后端 Worker 进程调用 `dita` CLI 执行构建，将 stdout/stderr 实时通过 SSE 回传前端构建日志抽屉。
+  - 用户选择 `Root Map` + `Output Format (HTML5 / PDF)` + 可选 `DITAVAL` → TS 后端写入 SQLite `publish_jobs` 记录并将当前分支工作区文件快照到独立构建目录 → 进程内并发限流调度器（默认并发 1–2）调用 `dita` CLI 执行构建，将 stdout/stderr 一边落盘到 `build.log`、一边通过 `EventEmitter` + SSE 实时回传前端构建日志抽屉（支持断线续看与手动取消）。
   - HTML5 产物通过受鉴权的静态预览路由直接在浏览器新标签页/抽屉内在线预览，同时提供 `.zip` 打包下载；PDF 支持在线预览与下载。
-  - **中文 PDF 避坑方案（必做）**：DITA-OT 默认 `pdf2`（Apache FOP）不含中文字体，中文会全部渲染成 `###`。在 `api` 容器镜像内预装 **Noto Sans CJK SC / Noto Serif CJK SC**，并在仓库内置纯 XML 的 DITA-OT PDF 字体映射插件（`dita-ot-plugins/com.ditaeditor.pdf-cjk/`，含 `plugin.xml`、`fop.xconf` 与 `font-mappings.xml`），通过 `dita install` 注册（或通过 `-Dcustomization.dir` / `-Dargs.fo.userconfig` 传入），确保零 Java 代码即可开箱导出中文 PDF。
+  - **中文 PDF 避坑方案（必做）**：DITA-OT 默认 `pdf2`（Apache FOP）不含中文字体，中文会全部渲染成 `###`。在 `api` 容器镜像内预装 **Noto Sans CJK SC / Noto Serif CJK SC**，并在仓库内置纯 XML 的 DITA-OT PDF 字体映射插件（`dita-ot-plugins/com.ditaeditor.pdf-cjk/`，含 `plugin.xml`、`catalog.xml`、`cfg/fo/font-mappings.xml` 与 `fop.xconf`），通过 `dita install` 注册（运行时同时通过 `--customization.dir` 优先加载仓库 XML Catalog，并以 `--args.fo.userconfig` 传入按字体目录生成的 FOP 配置），确保零 Java 代码即可开箱导出中文 PDF。
+
+### 6. DeepSeek AI 辅助文档编写、标签优化与错误处理（无损约束与锁联动）
+
+将大模型引入结构化 DITA 工作台，最难的不是“调通 Chat API”，而是如何在**不破坏无损 XML 往返、最小 Git Diff 与 Check-out 锁边界**的前提下，让 AI 真正理解 DITA 1.3 语义与项目上下文：
+
+- **接入层、LangChain 底座与配置权限（`@langchain/core` + `@langchain/openai` + 默认 `deepseek-flash`）**：
+  - 后端 `apps/api/src/modules/ai/` 基于 **LangChain.js**（仅引入核心包 `@langchain/core` 与 `@langchain/openai`，严格隔离在服务端，`@dita/core` 保持零依赖）封装 `ChatOpenAI` 工厂与 `ChatPromptTemplate`，默认对接 DeepSeek API 并采用 **`deepseek-flash`** 作为默认模型，同时支持配置兼容协议的私有化/内网代理 `baseURL` 与自定义模型名，并预留 `BaseRetriever` / `Embeddings` 扩展口以无缝衔接后续「手册发布后 RAG 问答」。
+  - 配置采用 **环境变量兜底（`DEEPSEEK_API_KEY` / `DEEPSEEK_BASE_URL` / `DEEPSEEK_MODEL`）+ SQLite `ai_settings` 全局覆盖**：工作台设置弹窗仅 `Admin` 角色可编辑保存，API Key 仅服务端持有并向前端返回掩码状态（如 `sk-****1234`）。
+- **按任务裁剪的 DITA 上下文组装与隐私边界**：
+  - 服务端按任务类型自动组装精简上下文：目标节点周边 XML、当前信息类型与 `@dita/core` 合法子元素约束、当前 Root Map 的 `Keyspace` 摘要（用于 `keyref` 推荐与未定义 key 修复）、报错关联的工作区文件路径/Topic ID 清单，并设置硬性 Token 上限截断。
+  - AI 面板提供透明可控的 **「附带项目上下文」开关**，并在发送区以胶囊标签展示本次实际附带的上下文范围，兼顾语义准确率与敏感信息外发控制。
+- **三大核心场景设计**：
+  1. **辅助文档编写（单 Topic 全生命周期）**：支持选区润色、扩写、精简、术语统一、中英互译、自动补全 `shortdesc` / 操作步骤，以及按自然语言需求或草稿生成结构规范的 `concept` / `task` / `reference` Topic（暂不做跨文件批量建 Map）。
+  2. **优化标签（语义精细化 + 块级重构 + Keyref 推荐）**：将粗粒度 `<b>`/`<i>`/`<ph>` 或纯文本精准升级为 `<uicontrol>`、`<menucascade>`、`<codeph>`、`<filepath>`、`<varname>`、`<cmdname>` 等语义标签并补齐 `id`/`alt`；将平铺段落重构为 `<steps>/<step>/<cmd>/<stepresult>`、`<dl>`、`<note>`、`<codeblock>`；同时结合当前 Root Map `Keyspace`，识别硬编码产品名/版本号并建议替换为 `<keyword keyref="..."/>`。
+  3. **错误处理（全覆盖三类错误 + 自动校验重试闭环）**：覆盖 **XML 良构错误**（`checkXmlWellFormed()`）、**项目语义诊断**（断链 `href`/未定义 `keyref`/无效或循环 `conref`/`ditaval`）与 **DITA-OT 严格校验/发布报错**（DOTJ/DOTX）。AI 生成修复方案后，后端先经 `@dita/core` 校验良构性与结构合法性；若仍不合法，将报错信息回喂模型自动纠错重试最多 **1–2 次**，验证通过后再向用户展示解释与 Diff，并支持对 DITA-OT 报错一键复跑严格校验复验。
+- **无损落地安全、UI 融合与 Check-out 锁联动**：
+  - **片段级靶向替换 + 强制 Diff 审阅**：默认只替换选中节点或报错片段并经 `@dita/core` 拼回原文档，完整保留 `<?xml ...?>`、`<!DOCTYPE ...>`、XML 注释、PI、属性顺序与未改动行（当原文档 XML 已损坏无法解析时，降级为报错行附近行段补丁并经 `checkXmlWellFormed()` 验证）。所有改写结果均通过现有 CodeMirror 6 MergeView（`DiffViewer`）展示精确 Diff，用户点击「应用」后才写入编辑器且支持单步 Undo。
+  - **工作台入口融合**：右侧 `TopicInspector` 扩展为三 Tab（`属性` / `复用` / `AI 助手`），同时在选区浮动栏（`InlineBubbleToolbar`）、底部 `ProblemsPanel` 每条诊断、源码 XML 报错条与 `StrictValidationDialog` 报错项挂接「AI 优化 / AI 修复」快捷按钮，点击自动携带上下文切换至右侧 AI 面板。
+  - **读写分离与锁保护**：未 Check-out 或 `Viewer` 只读状态下允许向 AI 提问、解释报错与预览优化方案，但「应用修改」强校验 Check-out 锁与写角色；`Writer`/`Admin` 在未检出文件上点击应用时提供一键 **「检出并应用」**。
+- **流式交互与轻量审计**：
+  - 响应通过 SSE 实时流式推送并支持随时中止（`AbortController`）；对话记录保存在前端当前会话态不落库；后端 SQLite `ai_usage_logs` 表仅记录调用元数据（作者、任务类型、模型、输入/输出 Token 数、耗时、状态，**不落盘文档正文**），供 `Admin` 查看团队用量统计。
 
 ---
 
@@ -193,9 +227,10 @@ flowchart LR
 | **TS 主后端** | **Fastify + TypeScript + Zod** | 轻量高性能、开发心智负担低，非常适合个人/AI 快速迭代 | NestJS（多人强约束规范团队可选） |
 | **Git 引擎** | **`simple-git`**（封装系统 git） | 原生支持本地仓库初始化、`git worktree`、分支、历史日志与 Diff，零外部平台依赖 | `isomorphic-git`（大仓库和 worktree 支持较弱） |
 | **数据库 & ORM** | **SQLite + Drizzle ORM** | 零外部服务依赖、单文件开箱即用，强事务唯一索引支撑 Check-out 独占锁，Drizzle 类型安全轻量 | PostgreSQL（若后期多实例横向扩展可平滑迁移） |
-| **队列与实时通信** | **Redis 7 + BullMQ + SSE** | 异步调度 DITA-OT 构建，SSE 轻量推送日志与锁状态变更 | WebSocket（若后期加协同再升级） |
+| **异步发布队列与实时日志** | **SQLite (`publish_jobs`) + Node 进程内并发队列 + SSE** | 零外部中间件依赖，支持并发限流、超时强杀、手动取消与日志落盘断线续看 | Redis + BullMQ（仅后期多 API 副本横向扩展时按需引入） |
 | **DITA-OT 发布与校验运行时** | **DITA-OT 4.x CLI + JRE 21 + 纯 XML 中文 PDF 插件** | 零 Java 业务代码，直接复用官方 DITA 1.3 DTD/RNG 校验与 HTML5/PDF2 发布引擎 | 独立常驻 Java Worker（仅在强需求 50ms 级保存期 DTD 校验时按需扩展） |
-| **部署交付** | **Docker Compose**（`web` + `api`（内置 JRE/DITA-OT/Noto CJK）+ `redis`） | 私有化内网一键启动，SQLite 与本地 Git 仓库持久化在共享卷，后续可平滑拆成 K8s Manifest | 单机裸部署（本机安装 `dita` CLI 与 Noto CJK 字体亦可直接运行） |
+| **AI 辅助与模型接入 (Phase 6)** | **LangChain.js（`@langchain/core` + `@langchain/openai`，默认 DeepSeek `deepseek-flash`）+ SSE 流式 + SQLite 配置与轻量审计** | 仅引入轻量核心包即可统一 `ChatOpenAI`（兼容 DeepSeek 与内网代理）、Prompt 模板与消息历史，并天然预留 `BaseRetriever`/`Embeddings`/LangGraph 扩展位，平滑承接后续「基于手册发布后的 RAG AI 问答」 | 原生 `fetch` / `openai` SDK（若明确永远不做 RAG 知识库问答时可降级简化） |
+| **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管打包后的 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK） | 零外部数据库/队列中间件，一条 `docker run` 一键启动，SQLite 与本地 Git 仓库持久化在挂载卷 | 单机裸部署（本机安装 `dita` CLI 与 Noto CJK 字体亦可直接运行） |
 
 ---
 
@@ -213,7 +248,8 @@ DITAEditor/
 │   │   │   │   └── bridge/     # Visual <-> Source 双模无损同步与光标映射
 │   │   │   ├── map-tree/       # 可视化 Map/Bookmap 树形编辑器
 │   │   │   ├── git-panel/      # 分支管理、Check-out 状态、版本历史、Diff 对比、Commit
-│   │   │   └── publish/        # DITA-OT 发布配置、实时日志抽屉、产物预览
+│   │   │   ├── publish/        # DITA-OT 发布配置、实时日志抽屉、产物预览
+│   │   │   └── ai/             # AI 助手面板（TopicInspector 第三 Tab）、Diff 审阅、Admin 设置与用量统计
 │   └── api/                    # Fastify + TypeScript 主后端
 │       ├── src/
 │       │   ├── modules/
@@ -223,8 +259,9 @@ DITAEditor/
 │       │   │   ├── files/      # 文件读写、图片资产、重命名与引用影响检查
 │       │   │   ├── indexer/    # Root Map Keyspace / Conref / ID / DITAVAL 语义引擎
 │       │   │   ├── validate/   # 校验编排（调用 dita CLI 严格校验 + 解析日志 + 合并语义诊断）
-│       │   │   └── publish/    # BullMQ 任务派发、工作区快照、spawn dita CLI、SSE 日志与静态预览路由
-│       │   └── db/             # Drizzle Schema & Migrations
+│       │   │   ├── publish/    # SQLite 发布任务、进程内并发队列、工作区快照、spawn dita CLI、SSE 日志与静态预览路由
+│       │   │   └── ai/         # LangChain.js (@langchain/core + @langchain/openai) 模型工厂、DITA 上下文裁剪、片段校验重试、SSE 流式与轻量审计（预留手册 RAG Retriever 扩展口）
+│       │   └── db/             # Drizzle Schema & Migrations（含 ai_settings / ai_usage_logs）
 ├── packages/
 │   └── dita-core/              # @dita/core 前后端共享核心库
 │       ├── xml/                # slimdom 解析、位置追踪、确定性无损序列化
@@ -232,9 +269,9 @@ DITAEditor/
 │       ├── cals/               # CALS 表格 <-> 矩阵模型双向转换
 │       ├── ditaval/            # .ditaval 解析与元素条件求值器
 │       └── templates/          # concept / task / reference / topic / map 新建模板
-└── dita-ot-plugins/            # 纯 XML DITA-OT 定制插件（零 Java 代码）
-    └── com.ditaeditor.pdf-cjk/ # 内置中文 PDF 字体映射插件 (plugin.xml + fop.xconf + font-mappings.xml)
-├── docker-compose.yml          # 一键拉起全套服务
+├── dita-ot-plugins/            # 纯 XML DITA-OT 定制插件（零 Java 代码）
+│   └── com.ditaeditor.pdf-cjk/ # 内置中文 PDF 字体映射插件 (plugin.xml + fop.xconf + font-mappings.xml)
+├── Dockerfile                  # 单容器部署镜像（Node + JRE 21 + DITA-OT 4.x + Noto CJK + 前后端静态托管）
 └── docs/                       # 架构文档、ADR 与接口契约
 ```
 
@@ -242,7 +279,7 @@ DITAEditor/
 
 ## 六、分阶段垂直切片实施计划
 
-面向**个人 / AI 辅助独立推进**，遵循 **“高风险内核先行（Spike）→ 单机闭环 → 语义深化 → 团队协作 → 发布闭环”** 的原则，每个阶段产出可运行、可验收的垂直切片，总计约 **10–14 周**（按全职或高强度 AI 辅助推进估算；兼职可按比例顺延）。
+面向**个人 / AI 辅助独立推进**，遵循 **“高风险内核先行（Spike）→ 单机闭环 → 语义深化 → 团队协作 → 发布闭环 → AI 赋能”** 的原则，每个阶段产出可运行、可验收的垂直切片。Phase 0–5 基线总计约 **10–14 周**（已完成），Phase 6 增补约 **2–3 周**（按全职或高强度 AI 辅助推进估算；兼职可按比例顺延）。
 
 ### Phase 0：技术尖刺与工程底座（第 1 周）
 > **目标**：在写任何业务页面之前，用自动化测试证明最难的“DITA XML 无损往返 + 双模互转”可行。
@@ -281,12 +318,32 @@ DITAEditor/
 - **验收标准**：在工具栏切换两个不同作者身份打开同一仓库同一分支，验证同一文件互斥检出、不同文件互不干扰、跨分支互不阻塞，以及完整 Check-out → 编辑 → Diff 对比 → Check-in（本地 Commit）→ 历史版本对比链路。
 
 ### Phase 5：DITA-OT CLI 权威校验、异步发布与容器部署（第 12–14 周）
+> **状态**：✅ 已实现（v0.7.0）。运行时使用 DITA-OT 4.2.1 + JRE 21；严格校验命令为 `--validate=yes --processing-mode=strict`；中文 PDF 插件通过 XML Catalog `org.dita.pdf2.catalog.relative` 与 `--customization.dir` 加载；发布队列为 SQLite `publish_jobs` + 进程内并发限流。
+>
 > **目标**：零 Java 业务代码打通 DITA-OT 4.x 官方严格校验与 HTML5 / 中文 PDF 一键发布交付，达到团队生产可用状态。
-- 构建纯 XML 的中文 PDF 字体插件 `dita-ot-plugins/com.ditaeditor.pdf-cjk/`（`plugin.xml` + `fop.xconf` + `font-mappings.xml`），并在后端运行镜像中预装 JRE 21 + DITA-OT 4.x + Noto CJK 字体（通过 `dita install` 注册或 CLI 参数加载）。
-- 打通**双层校验**：在现有实时前端约束与 TS 语义索引之上，新增 `/api/validate/strict`（手动触发 / Check-in 前 / 发布前调用 `dita` CLI `-Dvalidate=true -Dprocessing-mode=strict`），解析 DOTJ/DOTX 报错并统一汇总到底部问题面板，点击精准定位到可视化节点或源码对应行/列。
-- 接入 Redis + BullMQ 异步发布流水线（`apps/api/src/modules/publish/`）：工作区快照隔离构建、子进程调度 `dita` CLI、SSE 实时构建日志流、HTML5 在线预览与 ZIP 导出、中文 PDF 正确渲染与下载、历史发布记录管理。
-- 编写 `docker-compose.yml`（`web` + 内置 DITA-OT CLI 的 `api` + `redis`），补齐内网部署文档、本机 `dita` CLI 配置说明与备份方案。
-- **验收标准**：通过 `docker compose up`（或本机安装 DITA-OT CLI）一键运行；故意写入违反 DITA 1.3 DTD 的标签可在严格校验中准确标红定位；选定 Root Map + DITAVAL 一键产出排版正常、中文无乱码的 HTML5 与 PDF。
+- 构建纯 XML 的中文 PDF 字体插件 `dita-ot-plugins/com.ditaeditor.pdf-cjk/`（`plugin.xml` + `fop.xconf` + `font-mappings.xml`），并在后端运行镜像中预装 JRE 21 + DITA-OT 4.x + Noto CJK 字体（插件可通过 `dita install` 注册，但运行时始终以 `--customization.dir` 优先加载仓库插件，避免 DITA-OT 4 默认 Catalog 覆盖字体映射）。
+- 打通**双层校验**：在现有实时前端约束与 TS 语义索引之上，新增 `/api/validate/strict`（手动触发 / Check-in 前 / 发布前调用 `dita` CLI `--validate=yes --processing-mode=strict`），解析 DOTJ/DOTX 报错并统一汇总到底部问题面板，点击精准定位到可视化节点或源码对应行/列。
+- 实现零外部中间件的异步发布流水线（`apps/api/src/modules/publish/`，基于 SQLite `publish_jobs` 表 + Node 进程内并发限流队列）：工作区快照隔离构建、子进程调度 `dita` CLI（支持超时强杀与取消）、`build.log` 落盘 + SSE 实时构建日志流、HTML5 在线预览与 ZIP 导出、中文 PDF 正确渲染与下载、历史发布记录管理。
+- 编写单容器 `Dockerfile`（生产模式由 `@dita/api` 直接托管打包后的 `@dita/web` 静态资源，镜像内置 Node + JRE 21 + DITA-OT 4.x + Noto CJK 字体与中文 PDF 插件，无 Redis/PG 外部依赖），补齐单容器部署、本机 `dita` CLI 配置说明与数据卷备份方案。
+- **验收标准**：通过单容器 `docker run`（或本机安装 DITA-OT CLI）一键运行；故意写入违反 DITA 1.3 DTD 的标签可在严格校验中准确标红定位；选定 Root Map + DITAVAL 一键产出排版正常、中文无乱码的 HTML5 与 PDF。
+
+### Phase 6：DeepSeek AI 辅助文档编写、标签优化与错误处理（第 15–17 周）
+> **状态**：📋 规划中（设计共识已确认；详细实施方案见 [phase6-ai-implementation-plan.md](./phase6-ai-implementation-plan.md)）。后端采用 **LangChain.js**（`@langchain/core` + `@langchain/openai`），默认模型为 `deepseek-flash`，支持私有化/内网兼容代理，并为后续手册发布后 RAG 问答预留 `BaseRetriever` 扩展底座。
+>
+> **目标**：在不破坏 DITA 无损 XML 往返、最小 Git Diff 与 Check-out 独占锁边界的前提下，引入 DeepSeek 全面提升单 Topic 编写、标签规范化与错误排障效率。
+- **后端 AI 模块与配置审计（`apps/api/src/modules/ai/` + LangChain.js + Drizzle）**：
+  - 引入 `@langchain/core` + `@langchain/openai`，构建 `ChatOpenAI` 模型工厂与 `ChatPromptTemplate` 编排层，默认接入 DeepSeek API（`deepseek-flash`），支持自定义私有化/内网代理 `baseURL` 与模型名，并预留 `BaseRetriever` / `Embeddings` 接口承接后续发布手册 RAG 问答。
+  - 在 SQLite 新增 `ai_settings`（环境变量兜底、仅 `Admin` 可写、API Key 服务端持有并掩码返回）与 `ai_usage_logs`（仅记录作者、任务类型、模型、Token 用量、耗时与状态，不存储文档正文）。
+  - 实现按任务裁剪的 DITA 上下文构建器（周边 XML、`@dita/core` 合法子元素约束、Root Map `Keyspace` 摘要、报错关联清单 + Token 上限截断）以及 SSE 流式响应与 `AbortController` 中止取消。
+- **内核无损片段拼装与自动校验重试（`@dita/core` + `apps/api`）**：
+  - 在 `@dita/core` 补齐面向 AI 的节点/片段级提取与无损回拼能力，以及针对损坏 XML 的局部行段补丁兜底，确保 `<?xml?>`、`<!DOCTYPE>`、注释、PI 与未改动区域零污染。
+  - 落地 AI 修复结果自动预验闭环：生成 XML 片段后先经 `@dita/core` 检验良构性与结构合法性，若失败则附带错误详情自动向模型发起最多 1–2 次纠错重试，通过后再返回前端。
+- **三大核心能力与前端工作台深度融合（`apps/web/src/ai/`）**：
+  - **辅助文档编写**：支持选区润色/扩写/精简/术语统一/中英互译、`shortdesc` 与步骤补全，以及按自然语言需求/草稿生成标准 `concept`/`task`/`reference` Topic。
+  - **优化标签**：实现行内语义标签精细化（`uicontrol`/`menucascade`/`codeph`/`filepath`/`varname` 等）、块级结构规范化（`steps`/`dl`/`note`/`codeblock`）与结合当前 Root Map `Keyspace` 的 `keyref` 变量替换建议。
+  - **错误处理**：打通 XML 良构错误、项目语义诊断（`ProblemsPanel`）与 DITA-OT 严格校验/发布报错（`StrictValidationDialog`）三类报错源，提供中文根因解释、预验修复 Diff 与一键复跑 DITA-OT 严格校验。
+  - **UI 入口与安全落地**：在右侧 `TopicInspector` 新增 `AI 助手` Tab（含「附带项目上下文」透明开关与上下文标签），并在选区浮动栏、问题面板、源码报错条与严格校验弹窗挂接快捷按钮；所有改动强制经现有 CodeMirror MergeView（`DiffViewer`）审阅后写入并支持单步 Undo；遵循读写分离与 Check-out 锁边界（只读/Viewer 仅问答预览，`Writer`/`Admin` 未检出时支持一键「检出并应用」）；新增 `Admin` 专属 AI 配置与调用统计弹窗。
+- **验收标准**：通过单测（Mock OpenAI 兼容 SSE 流 + `@dita/core` 片段无损回拼与自动重试用例）与端到端手测验证：在含 `DOCTYPE`/注释/PI 的复杂 Topic 上执行选区改写、标签优化与三类错误修复，MergeView Diff 仅改动目标片段且无损往返；未检出文件可提问预览但写操作触发 Check-out 拦截或一键检出并应用；切换为内网兼容代理 URL 与自定义模型可正常工作。
 
 ---
 
@@ -296,6 +353,7 @@ DITAEditor/
 | :--- | :--- | :--- |
 | **Git Diff 污染** | 可视化编辑改了一个字，保存后整篇 XML 缩进、属性顺序全变 | Phase 0 即引入确定性序列化器，严格保留属性顺序、注释与未改动节点格式，并建立 Round-trip 回归测试集 |
 | **CALS 复杂表格损坏** | 带多行跨列（`namest`/`nameend`/`morerows`）与多 `tgroup` 的技术规格表 | 编写独立 `@dita/core/cals` 单元测试；对含多个 `tgroup` 等极端结构自动降级为源码编辑提示，绝不静默丢数据 |
-| **DITA-OT 构建阻塞与磁盘膨胀** | 多人同时发布大手册，临时构建目录和历史产物占满磁盘 | BullMQ 限制并发度（如 1–2 个构建并发），构建超时强制 kill，定时清理超过 N 天的历史构建产物 |
-| **DITA-OT 中文 PDF 乱码** | 默认 FOP 找不到 CJK 字形导致方块/`###` | 后端镜像内置 Noto CJK 字体 + 纯 XML 定制 `font-mappings` 插件（`dita install` 注册），纳入 Phase 5 必检验收项 |
+| **DITA-OT 构建阻塞与磁盘膨胀** | 多人同时发布大手册，临时构建目录和历史产物占满磁盘 | 进程内发布调度器限制并发度（如 1–2 个构建并发），构建超时强制 kill，服务重启自动回收中断任务并定时清理超过 N 天的历史构建产物 |
+| **DITA-OT 中文 PDF 乱码** | 默认 FOP 找不到 CJK 字形导致方块/`###` | 后端镜像内置 Noto CJK 字体 + 纯 XML 定制 `font-mappings` 插件，并通过 `--customization.dir` 优先加载 XML Catalog（避免 DITA-OT 4 默认 Catalog 覆盖），纳入 Phase 5 必检验收项 |
 | **Check-out 死锁** | 成员检出文件后长期休假或忘记检入 | 提供清晰的锁定人/锁定时间展示、锁到期提醒，以及管理员带补丁备份的一键强制解锁 |
+| **AI 改写破坏 XML 结构或污染无关行** | 模型幻觉遗漏 `DOCTYPE`/注释、输出未闭合或违背 DTD 的标签、或改写选区外内容 | 采用片段级靶向替换 + `@dita/core` 校验拼回与 1–2 次自动纠错重试；强制通过 MergeView 审阅 Diff 后应用，且受 Check-out 锁与单步 Undo 双重兜底 |
