@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/App.tsx": {
-    "mtime": 1795263088.9424832,
-    "seen": 1795263708.76719,
-    "ast_hash": "0d36a1799bc91239714fb21db9645edf",
+    "mtime": 1795264802.7369926,
+    "seen": 1795264883.7468958,
+    "ast_hash": "fb7341d78d859cc9242732e009e33586",
     "semantic_hash": ""
   },
   "apps/web/src/main.tsx": {
@@ -210,9 +210,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/WorkbenchHeader.tsx": {
-    "mtime": 1795261185.2207847,
-    "seen": 1795263708.767199,
-    "ast_hash": "016341e7ab043b667996e7f0c42bfc9a",
+    "mtime": 1795264805.8891203,
+    "seen": 1795264883.746905,
+    "ast_hash": "2a22645bc220a8cf79a8754d512601ca",
     "semantic_hash": ""
   },
   "apps/web/src/components/XrefImageDialog.tsx": {
@@ -360,9 +360,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795239025.7706826,
-    "seen": 1795239262.1407511,
-    "ast_hash": "5d6f1c4f4a8ad2d504643d0fd698dde4",
+    "mtime": 1795263726.7546446,
+    "seen": 1795264582.891256,
+    "ast_hash": "8b95fd2aa2ac73a21130ca8984255d13",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/decorations.ts": {
@@ -450,9 +450,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/FileExplorerPanel.tsx": {
-    "mtime": 1795238461.7042325,
-    "seen": 1795239262.140687,
-    "ast_hash": "818ea5c46a921b17d5277c23f9744be9",
+    "mtime": 1795264840.494837,
+    "seen": 1795264883.746898,
+    "ast_hash": "4e7f16d59b0f3d9a871a2c35d8d2ed5c",
     "semantic_hash": ""
   },
   "apps/web/src/components/LeftSidebar.tsx": {
@@ -504,9 +504,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapTreePanel.tsx": {
-    "mtime": 1795261735.4154327,
-    "seen": 1795263708.767221,
-    "ast_hash": "ab435fd150686c72e3357b72acdecc2f",
+    "mtime": 1795264769.4460418,
+    "seen": 1795264883.7469282,
+    "ast_hash": "6bfd745c90e462ac79dda7f44a479e22",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MountExistingDialog.tsx": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795257578.1597493,
-    "seen": 1795263708.767265,
-    "ast_hash": "1d6df1616547bed48c201b5d978032e1",
+    "mtime": 1795264128.8676598,
+    "seen": 1795264582.891257,
+    "ast_hash": "0787e4ac94469a9f2920935ed0c430a9",
     "semantic_hash": ""
   },
   "docs/pic/841e8029-186e-4e00-a655-25f7ffde2e04.png": {
@@ -681,6 +681,12 @@
     "mtime": 1795257215.7649908,
     "seen": 1795263708.7672682,
     "ast_hash": "9c0aa77bedbcbaab24b6b5d4493a9f51",
+    "semantic_hash": ""
+  },
+  "docs/pic/phase3-single-sourcing.png": {
+    "mtime": 1795264051.9943955,
+    "seen": 1795264582.891262,
+    "ast_hash": "01495ec808c6e44c6fc31d7231f5fa22",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

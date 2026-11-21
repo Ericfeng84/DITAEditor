@@ -15,6 +15,7 @@ import {
   Search,
   Undo2,
 } from 'lucide-react';
+import type { WorkspaceDitavalSummary } from '../services/workspace-api';
 import {
   buildCompositeMapTree,
   type CompositeMapTreeNode,
@@ -28,9 +29,12 @@ export interface MapTreePanelProps {
   mapBuffers: Record<string, MapBufferState>;
   fileSet: ReadonlySet<string>;
   topicTitles: Record<string, string>;
+  ditavals: WorkspaceDitavalSummary[];
   activeDitavalPath?: string | null;
   activeDitaval?: ParsedDitaval | null;
   ditavalDisplayMode?: DitavalDisplayMode;
+  onSelectDitaval: (ditavalPath: string | null) => void;
+  onChangeDitavalDisplayMode: (mode: DitavalDisplayMode) => void;
   selectedMapNode: { mapPath: string; elementPath: number[] | null } | null;
   onSelectMapNode: (ref: { mapPath: string; elementPath: number[] | null }) => void;
   onMoveNodes: (
@@ -79,9 +83,12 @@ export function MapTreePanel({
   mapBuffers,
   fileSet,
   topicTitles,
+  ditavals,
   activeDitavalPath = null,
   activeDitaval = null,
   ditavalDisplayMode = 'dim-excluded',
+  onSelectDitaval,
+  onChangeDitavalDisplayMode,
   selectedMapNode,
   onSelectMapNode,
   onMoveNodes,
@@ -173,8 +180,7 @@ export function MapTreePanel({
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Root Map Header & Quick Actions */}
-      <div className="border-b border-slate-100 px-2.5 py-2">
+      {/* Root Map Header & Quick Actions */}      <div className="border-b border-slate-100 px-2.5 py-2">
         <div className="flex items-center justify-between gap-1">
           <button
             type="button"
@@ -308,6 +314,89 @@ export function MapTreePanel({
         </div>
       </div>
 
+      {/* DITAVAL Condition Projection Control */}
+      <div className="border-b border-slate-100 px-2.5 py-1.5">
+        <div className="flex min-w-0 items-center gap-1">
+          <Filter
+            className={`h-3 w-3 shrink-0 ${activeDitaval ? 'text-teal-600' : 'text-slate-400'}`}
+            aria-hidden="true"
+          />
+          <label htmlFor="map-ditaval-select" className="sr-only">
+            选择 DITAVAL 条件过滤配置
+          </label>
+          <select
+            id="map-ditaval-select"
+            value={activeDitavalPath ?? ''}
+            onChange={(e) => onSelectDitaval(e.target.value || null)}
+            title={
+              activeDitavalPath
+                ? `当前条件过滤配置：${activeDitavalPath}`
+                : '选择当前激活的 .ditaval 条件过滤配置'
+            }
+            className={`min-w-0 flex-1 truncate rounded-md border px-1.5 py-1 text-[11px] font-medium focus:border-teal-500 focus:outline-none ${
+              activeDitavalPath
+                ? 'border-teal-300 bg-teal-50/70 text-teal-900'
+                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
+            }`}
+          >
+            <option value="">关闭过滤 (无 DITAVAL)</option>
+            {ditavals.map((dv) => (
+              <option key={dv.path} value={dv.path}>
+                {dv.name} ({dv.ruleCount} 条规则)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div className="mt-1 flex min-w-0 items-center justify-between gap-1">
+          <div
+            role="group"
+            aria-label="DITAVAL 条件显示模式"
+            className="flex items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
+          >
+            {(
+              [
+                { id: 'show-all', label: '全显', title: '显示全部内容及条件属性彩色徽章' },
+                { id: 'dim-excluded', label: '淡化', title: '淡化被 DITAVAL 排除的内容' },
+                { id: 'hide-excluded', label: '隐藏', title: '隐藏被 DITAVAL 排除的内容' },
+              ] as const
+            ).map((opt) => {
+              const active = ditavalDisplayMode === opt.id;
+              const disabled = !activeDitavalPath && opt.id !== 'show-all';
+              return (
+                <button
+                  key={opt.id}
+                  type="button"
+                  aria-pressed={active}
+                  disabled={disabled}
+                  onClick={() => onChangeDitavalDisplayMode(opt.id)}
+                  title={disabled ? '请先选择 .ditaval 文件' : opt.title}
+                  className={`rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors disabled:opacity-40 ${
+                    active ? 'bg-white text-teal-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {activeDitaval ? (
+            <span
+              className="min-w-0 truncate font-mono text-[10px] text-teal-800"
+              title={`当前 DITAVAL：${activeDitavalPath ?? ''}`}
+            >
+              {treeResult.hiddenCount > 0
+                ? `隐藏 ${treeResult.hiddenCount}`
+                : treeResult.excludedCount > 0
+                  ? `排除 ${treeResult.excludedCount}`
+                  : '全通过'}
+              {treeResult.flaggedCount > 0 ? ` · 标记 ${treeResult.flaggedCount}` : ''}
+            </span>
+          ) : null}
+        </div>
+      </div>
+
       {/* Filter Input */}
       <div className="border-b border-slate-100 px-2.5 py-1.5">
         <div className="relative flex items-center">
@@ -344,24 +433,6 @@ export function MapTreePanel({
           >
             切到源码修复
           </button>
-        </div>
-      ) : null}
-
-      {/* DITAVAL Projection Banner */}
-      {activeDitaval ? (
-        <div className="flex items-center justify-between gap-2 border-b border-teal-100 bg-teal-50/70 px-2.5 py-1 text-[10.5px] text-teal-900">
-          <span className="inline-flex min-w-0 items-center gap-1 truncate font-medium">
-            <Filter className="h-3 w-3 shrink-0 text-teal-600" aria-hidden="true" />
-            <span className="truncate">{activeDitavalPath?.split('/').pop()}</span>
-          </span>
-          <span className="shrink-0 font-mono text-[10px]">
-            {treeResult.hiddenCount > 0
-              ? `隐藏 ${treeResult.hiddenCount}`
-              : treeResult.excludedCount > 0
-                ? `排除 ${treeResult.excludedCount}`
-                : '全通过'}
-            {treeResult.flaggedCount > 0 ? ` · 标记 ${treeResult.flaggedCount}` : ''}
-          </span>
         </div>
       ) : null}
 

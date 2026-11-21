@@ -16,15 +16,20 @@ import {
   Search,
   Trash2,
 } from 'lucide-react';
-import type { WorkspaceFileNode } from '../services/workspace-api';
+import type { WorkspaceFileNode, WorkspaceMapSummary } from '../services/workspace-api';
 
 export interface FileExplorerPanelProps {
   files: WorkspaceFileNode[];
   activeTabPath: string | null;
   activeRootMapPath: string | null;
+  maps: WorkspaceMapSummary[];
+  workspaceName: string;
+  workspaceMode: 'api' | 'memory';
   topicTitles: Record<string, string>;
   onOpenFile: (path: string) => void;
   onActivateMap: (path: string) => void;
+  onSelectRootMap: (mapPath: string) => void;
+  onOpenWorkspaceDialog: () => void;
   onNewTopic: () => void;
   onNewMap: () => void;
   onCreateFolder: (dirPath: string) => void;
@@ -74,9 +79,14 @@ export function FileExplorerPanel({
   files,
   activeTabPath,
   activeRootMapPath,
+  maps,
+  workspaceName,
+  workspaceMode,
   topicTitles,
   onOpenFile,
   onActivateMap,
+  onSelectRootMap,
+  onOpenWorkspaceDialog,
   onNewTopic,
   onNewMap,
   onCreateFolder,
@@ -238,37 +248,74 @@ export function FileExplorerPanel({
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Toolbar */}
-      <div className="flex items-center justify-between gap-1 border-b border-slate-100 px-2.5 py-2">
-        <span className="text-[11px] font-semibold text-slate-600">工作区文件</span>
-        <div className="flex items-center gap-1">
+      {/* Workspace & Root Map Toolbar */}
+      <div className="border-b border-slate-100 px-2.5 py-2">
+        <div className="flex min-w-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={onOpenWorkspaceDialog}
+            className="inline-flex min-w-0 flex-1 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
+            title={`当前工作区（${workspaceMode === 'api' ? '本地磁盘' : '离线内存'}）— 点击切换或导入目录`}
+          >
+            <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
+            <span className="min-w-0 flex-1 truncate text-left">{workspaceName}</span>
+            <ChevronDown className="h-3 w-3 shrink-0 text-slate-400" aria-hidden="true" />
+          </button>
           <button
             type="button"
             onClick={onNewTopic}
             title="新建 Topic (.dita)"
-            className="dita-mini-btn px-1.5 py-0.5"
+            aria-label="新建 Topic"
+            className="dita-mini-btn shrink-0 p-1"
           >
             <FilePlus2 className="h-3 w-3 text-indigo-600" aria-hidden="true" />
-            <span>Topic</span>
           </button>
           <button
             type="button"
             onClick={onNewMap}
             title="新建 Map / Bookmap"
-            className="dita-mini-btn px-1.5 py-0.5"
+            aria-label="新建 Map 或 Bookmap"
+            className="dita-mini-btn shrink-0 p-1"
           >
             <Network className="h-3 w-3 text-sky-600" aria-hidden="true" />
-            <span>Map</span>
           </button>
           <button
             type="button"
             onClick={() => setNewFolderOpen((v) => !v)}
             title="新建文件夹"
             aria-label="新建文件夹"
-            className="dita-mini-btn p-1"
+            className="dita-mini-btn shrink-0 p-1"
           >
             <FolderPlus className="h-3 w-3 text-amber-600" aria-hidden="true" />
           </button>
+        </div>
+
+        {/* Active Root Map Selector */}
+        <div className="mt-1 flex min-w-0 items-center gap-1">
+          <Network className="h-3 w-3 shrink-0 text-sky-600" aria-hidden="true" />
+          <label htmlFor="file-root-map-select" className="sr-only">
+            切换激活 Root Map
+          </label>
+          <select
+            id="file-root-map-select"
+            value={activeRootMapPath ?? ''}
+            onChange={(e) => {
+              if (e.target.value) onSelectRootMap(e.target.value);
+            }}
+            disabled={maps.length === 0}
+            className="min-w-0 flex-1 truncate rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium text-slate-800 hover:bg-slate-50 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+            title="选择当前激活的 Root Map / Bookmap"
+          >
+            {maps.length === 0 ? (
+              <option value="">无 Map 文件</option>
+            ) : (
+              maps.map((m) => (
+                <option key={m.path} value={m.path}>
+                  [{m.kind === 'bookmap' ? 'Book' : 'Map'}] {m.path} — {m.title}
+                </option>
+              ))
+            )}
+          </select>
         </div>
       </div>
 

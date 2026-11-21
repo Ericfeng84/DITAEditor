@@ -1206,7 +1206,11 @@ dialog.dita-dialog::backdrop {
   height: 17px;
   line-height: 15px;
   font-size: 10.5px;
-  vertical-align: 1px;
+  /* Must stay keyword-based (`middle`), never a length offset: the open pill starts with the
+   * text body while the close pill starts with the SVG cap, and an inline-flex box derives its
+   * baseline from its FIRST flex item. A length offset therefore lands the closing pill ~5px
+   * above the opening one; `middle` centers both on the parent line box instead. */
+  vertical-align: middle;
 }
 
 .dita-ox-close {

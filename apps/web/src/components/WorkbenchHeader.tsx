@@ -1,39 +1,21 @@
-import { useRef } from 'react';
-import type { DitavalDisplayMode, XmlParseError } from '@dita/core';
+import type { XmlParseError } from '@dita/core';
 import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
   Code2,
   Columns2,
-  Download,
   Eye,
-  FilePlus2,
-  Filter,
-  FolderOpen,
-  Network,
   PanelLeft,
   PanelRight,
   RotateCcw,
   Save,
-  Upload,
 } from 'lucide-react';
-import type {
-  WorkspaceDitavalSummary,
-  WorkspaceMapSummary,
-} from '../services/workspace-api';
 import type { EditorViewMode, OpenEditorTab } from '../store/editor-store';
 
 export interface WorkbenchHeaderProps {
   /** Brand lockup is rendered in the sidebar strip while it is open; the header takes over when collapsed. */
   showBrand: boolean;
-  workspaceName: string;
-  workspaceMode: 'api' | 'memory';
-  maps: WorkspaceMapSummary[];
-  activeRootMapPath: string | null;
-  ditavals: WorkspaceDitavalSummary[];
-  activeDitavalPath: string | null;
-  ditavalDisplayMode: DitavalDisplayMode;
   activeTab: OpenEditorTab | null;
   mode: EditorViewMode;
   xmlError: XmlParseError | null;
@@ -46,13 +28,6 @@ export interface WorkbenchHeaderProps {
   isCurrentDirty: boolean;
   saving: boolean;
   onToggleLeftSidebar: () => void;
-  onOpenWorkspaceDialog: () => void;
-  onSelectRootMap: (mapPath: string) => void;
-  onSelectDitaval: (ditavalPath: string | null) => void;
-  onChangeDitavalDisplayMode: (mode: DitavalDisplayMode) => void;
-  onOpenNewTopic: () => void;
-  onImportFile: (fileName: string, content: string) => void;
-  onExportFile: () => void;
   onResetBaseline: () => void;
   onSaveActive: () => void;
   onSaveAll: () => void;
@@ -63,13 +38,6 @@ export interface WorkbenchHeaderProps {
 
 export function WorkbenchHeader({
   showBrand,
-  workspaceName,
-  workspaceMode,
-  maps,
-  activeRootMapPath,
-  ditavals,
-  activeDitavalPath,
-  ditavalDisplayMode,
   activeTab,
   mode,
   xmlError,
@@ -82,13 +50,6 @@ export function WorkbenchHeader({
   isCurrentDirty,
   saving,
   onToggleLeftSidebar,
-  onOpenWorkspaceDialog,
-  onSelectRootMap,
-  onSelectDitaval,
-  onChangeDitavalDisplayMode,
-  onOpenNewTopic,
-  onImportFile,
-  onExportFile,
   onResetBaseline,
   onSaveActive,
   onSaveAll,
@@ -96,19 +57,9 @@ export function WorkbenchHeader({
   onToggleProblems,
   onToggleInspector,
 }: WorkbenchHeaderProps) {
-  const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  const handleFilePicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    onImportFile(file.name, text);
-    e.target.value = '';
-  };
-
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3">
-      {/* Left: Sidebar Toggle + Brand + Workspace + Active Root Map Selector */}
+      {/* Left: Sidebar Toggle + Brand */}
       <div className="flex min-w-0 items-center gap-1.5">
         <button
           type="button"
@@ -135,154 +86,6 @@ export function WorkbenchHeader({
               <div className="text-[10px] font-medium text-slate-400">DITA 1.3 · Phase 3</div>
             </div>
           </div>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={onOpenWorkspaceDialog}
-          className="inline-flex max-w-[160px] items-center gap-1.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-100"
-          title={`当前工作区（${workspaceMode === 'api' ? '本地磁盘' : '离线内存'}）— 点击切换或导入目录`}
-        >
-          <FolderOpen className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />
-          <span className="truncate">{workspaceName}</span>
-        </button>
-
-        <span className="h-5 w-px bg-slate-200" aria-hidden="true" />
-
-        {/* Active Root Map Selector */}
-        <div className="flex min-w-0 items-center gap-1.5">
-          <Network className="h-3.5 w-3.5 shrink-0 text-sky-600" aria-hidden="true" />
-          <label htmlFor="root-map-select" className="sr-only">
-            切换激活 Root Map
-          </label>
-          <select
-            id="root-map-select"
-            value={activeRootMapPath ?? ''}
-            onChange={(e) => {
-              if (e.target.value) onSelectRootMap(e.target.value);
-            }}
-            disabled={maps.length === 0}
-            className="max-w-[180px] min-w-0 truncate rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-800 hover:bg-slate-50 focus:border-indigo-500 focus:outline-none sm:max-w-[230px]"
-            title="选择当前激活的 Root Map / Bookmap"
-          >
-            {maps.length === 0 ? (
-              <option value="">无 Map 文件</option>
-            ) : (
-              maps.map((m) => (
-                <option key={m.path} value={m.path}>
-                  [{m.kind === 'bookmap' ? 'Book' : 'Map'}] {m.path} — {m.title}
-                </option>
-              ))
-            )}
-          </select>
-        </div>
-
-        {/* Active DITAVAL Selector + 3-mode projection switcher */}
-        <div className="flex min-w-0 items-center gap-1">
-          <Filter
-            className={`h-3.5 w-3.5 shrink-0 ${
-              activeDitavalPath ? 'text-teal-600' : 'text-slate-400'
-            }`}
-            aria-hidden="true"
-          />
-          <label htmlFor="ditaval-select" className="sr-only">
-            选择 DITAVAL 条件过滤配置
-          </label>
-          <select
-            id="ditaval-select"
-            value={activeDitavalPath ?? ''}
-            onChange={(e) => onSelectDitaval(e.target.value ? e.target.value : null)}
-            className={`max-w-[140px] min-w-0 truncate rounded-md border px-2 py-1 text-xs font-medium focus:border-teal-500 focus:outline-none sm:max-w-[175px] ${
-              activeDitavalPath
-                ? 'border-teal-300 bg-teal-50/70 text-teal-900'
-                : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
-            }`}
-            title="选择当前激活的 .ditaval 条件过滤配置"
-          >
-            <option value="">关闭过滤 (无 DITAVAL)</option>
-            {ditavals.map((dv) => (
-              <option key={dv.path} value={dv.path}>
-                {dv.name} ({dv.ruleCount} 条规则)
-              </option>
-            ))}
-          </select>
-
-          <div
-            role="group"
-            aria-label="DITAVAL 条件显示模式"
-            className="hidden items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5 lg:flex"
-          >
-            {(
-              [
-                { id: 'show-all', label: '全显', title: '显示全部内容及条件属性彩色徽章' },
-                { id: 'dim-excluded', label: '淡化', title: '淡化被 DITAVAL 排除的内容' },
-                { id: 'hide-excluded', label: '隐藏', title: '隐藏被 DITAVAL 排除的内容' },
-              ] as const
-            ).map((opt) => {
-              const active = ditavalDisplayMode === opt.id;
-              return (
-                <button
-                  key={opt.id}
-                  type="button"
-                  aria-pressed={active}
-                  disabled={!activeDitavalPath && opt.id !== 'show-all'}
-                  onClick={() => onChangeDitavalDisplayMode(opt.id)}
-                  title={
-                    !activeDitavalPath && opt.id !== 'show-all'
-                      ? '请先选择 .ditaval 文件'
-                      : opt.title
-                  }
-                  className={`rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors disabled:opacity-40 ${
-                    active
-                      ? 'bg-white text-teal-800 shadow-xs'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={onOpenNewTopic}
-          className="inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50"
-          title="按标准模板新建 Concept / Task / Reference / Topic"
-        >
-          <FilePlus2 className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
-          <span className="hidden lg:inline">新建</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 xl:inline-flex"
-          title="导入单个 .dita / .ditamap 文件"
-        >
-          <Upload className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
-          <span>导入</span>
-        </button>
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".dita,.ditamap,.bookmap,.ditaval,.xml"
-          onChange={handleFilePicked}
-          className="hidden"
-          aria-hidden="true"
-        />
-
-        {activeTab ? (
-          <button
-            type="button"
-            onClick={onExportFile}
-            className="hidden shrink-0 items-center gap-1 whitespace-nowrap rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 2xl:inline-flex"
-            title="下载当前文档 XML 文件"
-          >
-            <Download className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
-            <span>导出</span>
-          </button>
         ) : null}
       </div>
 

@@ -122,7 +122,6 @@ export function App() {
 
   const createStandaloneTopic = useEditorStore((s) => s.createStandaloneTopic);
   const createNewMapFile = useEditorStore((s) => s.createNewMapFile);
-  const importSingleLocalFile = useEditorStore((s) => s.importSingleLocalFile);
   const createWorkspaceFolder = useEditorStore((s) => s.createWorkspaceFolder);
   const renameWorkspaceFile = useEditorStore((s) => s.renameWorkspaceFile);
   const deleteWorkspaceFile = useEditorStore((s) => s.deleteWorkspaceFile);
@@ -310,18 +309,6 @@ export function App() {
     ],
   );
 
-  const handleExportFile = useCallback(() => {
-    if (!activeTab) return;
-    const blob = new Blob([activeTab.xml], { type: 'application/xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = activeTab.fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    announce(`已导出 ${a.download}`);
-  }, [activeTab, announce]);
-
   const handleConfirmXref = useCallback((attrs: RawAttrs, linkText: string) => {
     visualRef.current?.toggleInline('xref', attrs, linkText || undefined);
   }, []);
@@ -488,9 +475,12 @@ export function App() {
                     fileSet={fileSet}
                     topicTitles={topicTitles}
                     selectedMapNode={selectedMapNode}
+                    ditavals={workspaceDitavals}
                     activeDitavalPath={activeDitavalPath}
                     activeDitaval={activeDitaval}
                     ditavalDisplayMode={ditavalDisplayMode}
+                    onSelectDitaval={(ditavalPath) => void selectDitaval(ditavalPath)}
+                    onChangeDitavalDisplayMode={setDitavalDisplayMode}
                     onSelectMapNode={(ref) => selectMapNode(ref, true)}
                     onMoveNodes={moveMapTreeNodes}
                     onOpenTopicOrMap={(path) => void openFileTab(path)}
@@ -533,9 +523,14 @@ export function App() {
                     files={fileTree}
                     activeTabPath={activeTabPath}
                     activeRootMapPath={activeRootMapPath}
+                    maps={workspaceMaps}
+                    workspaceName={workspaceName}
+                    workspaceMode={workspaceMode}
                     topicTitles={topicTitles}
                     onOpenFile={(path) => void openFileTab(path)}
                     onActivateMap={(path) => void selectRootMap(path)}
+                    onSelectRootMap={(path) => void selectRootMap(path)}
+                    onOpenWorkspaceDialog={() => setWorkspaceDialogOpen(true)}
                     onNewTopic={() => {
                       setTopicMountContext(null);
                       setNewTopicOpen(true);
@@ -556,13 +551,6 @@ export function App() {
           <div className="flex h-full flex-col overflow-hidden">
             <WorkbenchHeader
               showBrand={!leftSidebarOpen}
-              workspaceName={workspaceName}
-              workspaceMode={workspaceMode}
-              maps={workspaceMaps}
-              activeRootMapPath={activeRootMapPath}
-              ditavals={workspaceDitavals}
-              activeDitavalPath={activeDitavalPath}
-              ditavalDisplayMode={ditavalDisplayMode}
               activeTab={activeTab}
               mode={mode}
               xmlError={activeTab?.xmlError ?? null}
@@ -575,16 +563,6 @@ export function App() {
               isCurrentDirty={!diffStats.isIdentical}
               saving={savingPaths.length > 0}
               onToggleLeftSidebar={() => setLeftSidebarOpen(!leftSidebarOpen)}
-              onOpenWorkspaceDialog={() => setWorkspaceDialogOpen(true)}
-              onSelectRootMap={(mapPath) => void selectRootMap(mapPath)}
-              onSelectDitaval={(ditavalPath) => void selectDitaval(ditavalPath)}
-              onChangeDitavalDisplayMode={setDitavalDisplayMode}
-              onOpenNewTopic={() => {
-                setTopicMountContext(null);
-                setNewTopicOpen(true);
-              }}
-              onImportFile={(name, content) => void importSingleLocalFile(name, content)}
-              onExportFile={handleExportFile}
               onResetBaseline={resetCurrentToBaseline}
               onSaveActive={() => void saveActiveFile()}
               onSaveAll={() => void saveAllDirtyFiles()}
