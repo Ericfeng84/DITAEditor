@@ -1,1 +1,15 @@
-{"0": "Core Barrel & XML Parser", "1": "Web App Package Manifest", "2": "DITA Element Registry & Serializer", "3": "CALS Table & XPath Utilities", "4": "ProseMirror Schema & Converter", "5": "Core Package Manifest", "6": "API Package Manifest", "7": "Root Monorepo Manifest", "8": "Base TypeScript Config", "9": "Turborepo Pipeline Config", "10": "Architecture & Design Spec", "11": "API TypeScript Config", "12": "Core TypeScript Config", "13": "Web TypeScript Config", "14": "pnpm Workspace Config", "15": "Graphify Agent Instructions", "16": "Web HTML Entrypoint"}
+{
+  "0": "Core Barrel & XML Parser",
+  "5": "Core Package Manifest",
+  "6": "API Package Manifest",
+  "7": "Root Monorepo Manifest",
+  "8": "Base TypeScript Config",
+  "9": "Turborepo Pipeline Config",
+  "10": "Architecture & Design Spec",
+  "11": "API TypeScript Config",
+  "12": "Core TypeScript Config",
+  "13": "Web TypeScript Config",
+  "14": "pnpm Workspace Config",
+  "15": "Graphify Agent Instructions",
+  "16": "Web HTML Entrypoint"
+}

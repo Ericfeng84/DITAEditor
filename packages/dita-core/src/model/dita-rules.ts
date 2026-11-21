@@ -1,0 +1,534 @@
+/**
+ * DITA 1.3 content model rules, element display metadata, and attribute definitions.
+ * Shared across Visual Editor (context-aware insert menu, breadcrumb, attributes panel)
+ * and CodeMirror 6 XML Source Editor (context-aware tag & attribute autocomplete).
+ */
+
+import type { XmlAttributeEntry } from '../xml/types.js';
+
+export type DitaElementCategory =
+  | 'topic'
+  | 'structure'
+  | 'task'
+  | 'block'
+  | 'table'
+  | 'inline'
+  | 'metadata';
+
+export interface DitaElementSpec {
+  tag: string;
+  label: string;
+  labelZh: string;
+  description: string;
+  category: DitaElementCategory;
+  kind: 'block' | 'inline';
+  pmNodeType?: string;
+  shortcut?: string;
+  keywords?: readonly string[];
+}
+
+export type DitaAttributeGroup =
+  | 'element'
+  | 'core'
+  | 'profiling'
+  | 'reuse'
+  | 'presentation';
+
+export interface DitaAttributeSpec {
+  name: string;
+  label: string;
+  group: DitaAttributeGroup;
+  description: string;
+  required?: boolean;
+  values?: readonly string[];
+  placeholder?: string;
+}
+
+export const DITA_CORE_INLINE_TAGS: readonly string[] = [
+  'b',
+  'i',
+  'u',
+  'codeph',
+  'uicontrol',
+  'filepath',
+  'varname',
+  'ph',
+  'keyword',
+  'xref',
+  'fn',
+  'image',
+  'cmdname',
+  'parmname',
+  'userinput',
+  'systemoutput',
+  'wintitle',
+  'menucascade',
+  'term',
+  'option',
+  'apiname',
+];
+
+const FLOW_BLOCKS: readonly string[] = [
+  'p',
+  'note',
+  'ul',
+  'ol',
+  'dl',
+  'codeblock',
+  'pre',
+  'fig',
+  'image',
+  'simpletable',
+  'table',
+];
+
+const BODY_BLOCKS: readonly string[] = [
+  'p',
+  'section',
+  'example',
+  'note',
+  'ul',
+  'ol',
+  'dl',
+  'codeblock',
+  'pre',
+  'fig',
+  'image',
+  'simpletable',
+  'table',
+];
+
+const MIXED_CONTAINER_CHILDREN: readonly string[] = [
+  ...FLOW_BLOCKS,
+  ...DITA_CORE_INLINE_TAGS,
+];
+
+/**
+ * DITA 1.3 parent element -> allowed direct child elements.
+ * Used for both Visual context-aware insert menus and CodeMirror 6 XML tag completion.
+ */
+export const DITA_CONTENT_MODEL: Readonly<Record<string, readonly string[]>> = {
+  // Topic roots
+  topic: ['title', 'shortdesc', 'prolog', 'body', 'related-links'],
+  concept: ['title', 'shortdesc', 'prolog', 'conbody', 'related-links'],
+  task: ['title', 'shortdesc', 'prolog', 'taskbody', 'related-links'],
+  reference: ['title', 'shortdesc', 'prolog', 'refbody', 'related-links'],
+
+  // Bodies
+  body: BODY_BLOCKS,
+  conbody: BODY_BLOCKS,
+  taskbody: ['prereq', 'context', 'steps', 'steps-unordered', 'result', 'example', 'postreq'],
+  refbody: ['refsyn', 'section', 'example', 'simpletable', 'table'],
+
+  // Sections & examples
+  section: ['title', ...FLOW_BLOCKS],
+  example: ['title', ...FLOW_BLOCKS],
+  refsyn: ['title', ...FLOW_BLOCKS],
+
+  // Task children
+  prereq: FLOW_BLOCKS,
+  context: FLOW_BLOCKS,
+  steps: ['step'],
+  'steps-unordered': ['step'],
+  step: ['cmd', 'info', 'substeps', 'choices', 'stepxmp', 'stepresult'],
+  substeps: ['substep'],
+  substep: ['cmd', 'info', 'stepxmp', 'stepresult'],
+  choices: ['choice'],
+  choice: MIXED_CONTAINER_CHILDREN,
+  info: FLOW_BLOCKS,
+  stepxmp: FLOW_BLOCKS,
+  stepresult: FLOW_BLOCKS,
+  result: FLOW_BLOCKS,
+  postreq: FLOW_BLOCKS,
+
+  // Related links & prolog
+  'related-links': ['link'],
+  link: ['linktext', 'desc'],
+  prolog: ['author', 'critdates', 'metadata'],
+  critdates: ['created', 'revised'],
+  metadata: ['keywords', 'othermeta'],
+  keywords: ['keyword'],
+
+  // Textblocks
+  title: DITA_CORE_INLINE_TAGS,
+  shortdesc: DITA_CORE_INLINE_TAGS,
+  cmd: DITA_CORE_INLINE_TAGS,
+  dt: DITA_CORE_INLINE_TAGS,
+  desc: DITA_CORE_INLINE_TAGS,
+  p: [...DITA_CORE_INLINE_TAGS, 'ul', 'ol', 'dl', 'note', 'codeblock', 'pre', 'fig', 'simpletable', 'table'],
+  codeblock: ['b', 'i', 'u', 'ph', 'keyword', 'varname', 'userinput', 'systemoutput', 'xref'],
+  pre: ['b', 'i', 'u', 'ph', 'keyword', 'varname', 'userinput', 'systemoutput', 'xref'],
+
+  // Lists & callouts
+  ul: ['li'],
+  ol: ['li'],
+  li: MIXED_CONTAINER_CHILDREN,
+  dl: ['dlentry'],
+  dlentry: ['dt', 'dd'],
+  dd: MIXED_CONTAINER_CHILDREN,
+  note: MIXED_CONTAINER_CHILDREN,
+  fig: ['title', 'desc', 'image', 'p', 'codeblock', 'pre', 'simpletable'],
+  image: ['alt'],
+
+  // Simpletable
+  simpletable: ['sthead', 'strow'],
+  sthead: ['stentry'],
+  strow: ['stentry'],
+  stentry: MIXED_CONTAINER_CHILDREN,
+
+  // CALS table
+  table: ['title', 'desc', 'tgroup'],
+  tgroup: ['colspec', 'thead', 'tbody'],
+  thead: ['row'],
+  tbody: ['row'],
+  row: ['entry'],
+  entry: MIXED_CONTAINER_CHILDREN,
+
+  // Inline containers
+  b: DITA_CORE_INLINE_TAGS,
+  i: DITA_CORE_INLINE_TAGS,
+  u: DITA_CORE_INLINE_TAGS,
+  ph: DITA_CORE_INLINE_TAGS,
+  xref: ['b', 'i', 'u', 'codeph', 'uicontrol', 'filepath', 'varname', 'ph', 'keyword', 'image'],
+  fn: ['p', 'ul', 'ol', 'note', 'codeblock', ...DITA_CORE_INLINE_TAGS],
+  codeph: ['varname', 'ph', 'keyword', 'b', 'i'],
+  uicontrol: ['keyword', 'ph', 'varname'],
+  filepath: ['varname', 'keyword', 'ph'],
+  varname: ['keyword', 'ph'],
+  keyword: [],
+  menucascade: ['uicontrol'],
+  cmdname: ['keyword', 'ph'],
+  parmname: ['keyword', 'ph'],
+  userinput: ['varname', 'keyword', 'ph'],
+  systemoutput: ['varname', 'keyword', 'ph'],
+  wintitle: ['keyword', 'ph'],
+  term: ['keyword', 'ph'],
+  option: ['keyword', 'ph'],
+  apiname: ['keyword', 'ph'],
+};
+
+const ELEMENT_SPEC_LIST: readonly DitaElementSpec[] = [
+  // Topic roots
+  { tag: 'topic', label: 'Topic', labelZh: '通用主题', description: 'Base DITA topic root element', category: 'topic', kind: 'block', pmNodeType: 'dita_topic' },
+  { tag: 'concept', label: 'Concept', labelZh: '概念主题', description: 'Conceptual overview answering "what" and "why"', category: 'topic', kind: 'block', pmNodeType: 'dita_concept' },
+  { tag: 'task', label: 'Task', labelZh: '任务主题', description: 'Step-by-step procedural guide', category: 'topic', kind: 'block', pmNodeType: 'dita_task' },
+  { tag: 'reference', label: 'Reference', labelZh: '参考主题', description: 'Structured specifications, parameters, and tables', category: 'topic', kind: 'block', pmNodeType: 'dita_reference' },
+
+  // Header & metadata
+  { tag: 'title', label: 'Title', labelZh: '标题', description: 'Heading for a topic, section, figure, or table', category: 'structure', kind: 'block', pmNodeType: 'dita_title', keywords: ['heading', 'h1', '标题'] },
+  { tag: 'shortdesc', label: 'Short Description', labelZh: '摘要', description: 'Concise topic summary used in previews and search', category: 'structure', kind: 'block', pmNodeType: 'dita_shortdesc', keywords: ['summary', 'abstract', '摘要'] },
+  { tag: 'prolog', label: 'Prolog', labelZh: '元数据区', description: 'Author, dates, keywords, and topic metadata', category: 'metadata', kind: 'block', pmNodeType: 'dita_prolog', keywords: ['meta', 'author', '元数据'] },
+  { tag: 'related-links', label: 'Related Links', labelZh: '相关链接', description: 'Cross-references to related topics', category: 'structure', kind: 'block', pmNodeType: 'dita_related_links', keywords: ['links', '相关'] },
+  { tag: 'link', label: 'Related Link', labelZh: '链接项', description: 'Single related topic link inside related-links', category: 'structure', kind: 'block', pmNodeType: 'dita_link', keywords: ['href', '链接'] },
+
+  // Bodies & sections
+  { tag: 'body', label: 'Body', labelZh: '正文', description: 'Main body of a base topic', category: 'structure', kind: 'block', pmNodeType: 'dita_body' },
+  { tag: 'conbody', label: 'Concept Body', labelZh: '概念正文', description: 'Main body of a concept topic', category: 'structure', kind: 'block', pmNodeType: 'dita_conbody' },
+  { tag: 'taskbody', label: 'Task Body', labelZh: '任务正文', description: 'Structured body of a procedural task', category: 'structure', kind: 'block', pmNodeType: 'dita_taskbody' },
+  { tag: 'refbody', label: 'Reference Body', labelZh: '参考正文', description: 'Main body of a reference topic', category: 'structure', kind: 'block', pmNodeType: 'dita_refbody' },
+  { tag: 'section', label: 'Section', labelZh: '章节', description: 'Titled organizational division within a topic body', category: 'structure', kind: 'block', pmNodeType: 'dita_section', keywords: ['sec', '章节', '小节'] },
+  { tag: 'example', label: 'Example', labelZh: '示例块', description: 'Illustrates a concept, task, or reference usage', category: 'structure', kind: 'block', pmNodeType: 'dita_example', keywords: ['sample', '示例'] },
+  { tag: 'refsyn', label: 'Reference Syntax', labelZh: '语法定义', description: 'Syntax signature or endpoint block in reference topics', category: 'structure', kind: 'block', pmNodeType: 'dita_refsyn', keywords: ['syntax', 'api', '语法'] },
+
+  // Task workflow elements
+  { tag: 'prereq', label: 'Prerequisites', labelZh: '前置条件', description: 'Conditions required before performing the task', category: 'task', kind: 'block', pmNodeType: 'dita_prereq', keywords: ['before', '前置'] },
+  { tag: 'context', label: 'Context', labelZh: '背景说明', description: 'Background context for the procedure', category: 'task', kind: 'block', pmNodeType: 'dita_context', keywords: ['background', '背景'] },
+  { tag: 'steps', label: 'Ordered Steps', labelZh: '有序步骤组', description: 'Numbered sequence of procedural steps', category: 'task', kind: 'block', pmNodeType: 'dita_steps', keywords: ['procedure', '步骤'] },
+  { tag: 'steps-unordered', label: 'Unordered Steps', labelZh: '无序步骤组', description: 'Non-sequential procedural steps', category: 'task', kind: 'block', pmNodeType: 'dita_steps_unordered', keywords: ['unordered', '无序步骤'] },
+  { tag: 'step', label: 'Step', labelZh: '操作步骤', description: 'Single action step containing a command (cmd)', category: 'task', kind: 'block', pmNodeType: 'dita_step', keywords: ['action', '步骤'] },
+  { tag: 'cmd', label: 'Command', labelZh: '步骤指令', description: 'Required action instruction for a step', category: 'task', kind: 'block', pmNodeType: 'dita_cmd', keywords: ['command', '指令'] },
+  { tag: 'info', label: 'Step Info', labelZh: '步骤补充说明', description: 'Additional details explaining a step', category: 'task', kind: 'block', pmNodeType: 'dita_info', keywords: ['detail', '说明'] },
+  { tag: 'substeps', label: 'Substeps', labelZh: '子步骤组', description: 'Nested ordered sub-steps inside a step', category: 'task', kind: 'block', pmNodeType: 'dita_substeps', keywords: ['sub', '子步骤'] },
+  { tag: 'substep', label: 'Substep', labelZh: '子步骤', description: 'Single nested sub-step with a cmd', category: 'task', kind: 'block', pmNodeType: 'dita_substep', keywords: ['子步骤'] },
+  { tag: 'choices', label: 'Choices', labelZh: '分支选项组', description: 'Alternative options for completing a step', category: 'task', kind: 'block', pmNodeType: 'dita_choices', keywords: ['options', '选项'] },
+  { tag: 'choice', label: 'Choice', labelZh: '分支选项', description: 'Single option within choices', category: 'task', kind: 'block', pmNodeType: 'dita_choice', keywords: ['选项'] },
+  { tag: 'stepxmp', label: 'Step Example', labelZh: '步骤示例', description: 'Concrete example illustrating a step', category: 'task', kind: 'block', pmNodeType: 'dita_stepxmp', keywords: ['example', '示例'] },
+  { tag: 'stepresult', label: 'Step Result', labelZh: '步骤预期结果', description: 'Expected outcome after completing a step', category: 'task', kind: 'block', pmNodeType: 'dita_stepresult', keywords: ['outcome', '结果'] },
+  { tag: 'result', label: 'Task Result', labelZh: '任务结果', description: 'Overall expected result of the task', category: 'task', kind: 'block', pmNodeType: 'dita_result', keywords: ['outcome', '任务结果'] },
+  { tag: 'postreq', label: 'Postrequisites', labelZh: '后续操作', description: 'Follow-up actions after finishing the task', category: 'task', kind: 'block', pmNodeType: 'dita_postreq', keywords: ['next', '后续'] },
+
+  // Common blocks
+  { tag: 'p', label: 'Paragraph', labelZh: '段落', description: 'Standard text paragraph', category: 'block', kind: 'block', pmNodeType: 'dita_p', keywords: ['text', 'para', '段落'] },
+  { tag: 'note', label: 'Note / Callout', labelZh: '提示框', description: 'Admonition block (note, tip, caution, warning, danger)', category: 'block', kind: 'block', pmNodeType: 'dita_note', keywords: ['tip', 'warning', 'caution', 'callout', '提示', '注意'] },
+  { tag: 'ul', label: 'Bulleted List', labelZh: '无序列表', description: 'Unordered bulleted list', category: 'block', kind: 'block', pmNodeType: 'dita_ul', keywords: ['list', 'bullet', '无序列表'] },
+  { tag: 'ol', label: 'Numbered List', labelZh: '有序列表', description: 'Ordered numbered list', category: 'block', kind: 'block', pmNodeType: 'dita_ol', keywords: ['list', 'number', '有序列表'] },
+  { tag: 'li', label: 'List Item', labelZh: '列表项', description: 'Item inside ul or ol', category: 'block', kind: 'block', pmNodeType: 'dita_li', keywords: ['item', '列表项'] },
+  { tag: 'dl', label: 'Definition List', labelZh: '定义列表', description: 'Term and definition list', category: 'block', kind: 'block', pmNodeType: 'dita_dl', keywords: ['glossary', 'terms', '定义列表'] },
+  { tag: 'dlentry', label: 'Definition Entry', labelZh: '定义条目', description: 'Term (dt) + description (dd) pair', category: 'block', kind: 'block', pmNodeType: 'dita_dlentry', keywords: ['条目'] },
+  { tag: 'dt', label: 'Definition Term', labelZh: '术语名', description: 'Term defined in a dlentry', category: 'block', kind: 'block', pmNodeType: 'dita_dt' },
+  { tag: 'dd', label: 'Definition Desc', labelZh: '术语解释', description: 'Explanation for a definition term', category: 'block', kind: 'block', pmNodeType: 'dita_dd' },
+  { tag: 'codeblock', label: 'Code Block', labelZh: '代码块', description: 'Preformatted multi-line code snippet (preserves whitespace)', category: 'block', kind: 'block', pmNodeType: 'dita_codeblock', keywords: ['code', 'snippet', '代码'] },
+  { tag: 'pre', label: 'Preformatted', labelZh: '预格式化文本', description: 'Whitespace-preserving preformatted text block', category: 'block', kind: 'block', pmNodeType: 'dita_pre', keywords: ['verbatim', '预格式'] },
+  { tag: 'fig', label: 'Figure', labelZh: '插图容器', description: 'Titled figure wrapper for images or code', category: 'block', kind: 'block', pmNodeType: 'dita_fig', keywords: ['image', 'diagram', '图片', '插图'] },
+  { tag: 'desc', label: 'Description', labelZh: '说明文字', description: 'Caption or description for a figure or table', category: 'block', kind: 'block', pmNodeType: 'dita_desc', keywords: ['caption', '说明'] },
+
+  // Tables
+  { tag: 'simpletable', label: 'Simple Table', labelZh: '简单表格', description: 'Lightweight uniform-column DITA table', category: 'table', kind: 'block', pmNodeType: 'dita_simpletable', keywords: ['table', 'grid', '简单表格'] },
+  { tag: 'sthead', label: 'Simple Table Head', labelZh: '简单表头行', description: 'Header row in a simpletable', category: 'table', kind: 'block', pmNodeType: 'dita_sthead' },
+  { tag: 'strow', label: 'Simple Table Row', labelZh: '简单表行', description: 'Body row in a simpletable', category: 'table', kind: 'block', pmNodeType: 'dita_strow' },
+  { tag: 'stentry', label: 'Simple Table Cell', labelZh: '简单单元格', description: 'Cell inside sthead or strow', category: 'table', kind: 'block', pmNodeType: 'dita_stentry' },
+  { tag: 'table', label: 'CALS Table', labelZh: 'CALS 复杂表格', description: 'OASIS CALS table supporting title, colspec, and merged cells', category: 'table', kind: 'block', pmNodeType: 'cals_table', keywords: ['cals', 'merge', 'colspan', 'rowspan', '表格'] },
+  { tag: 'tgroup', label: 'Table Group', labelZh: 'CALS 表体组', description: 'Column group containing colspec, thead, and tbody', category: 'table', kind: 'block', pmNodeType: 'cals_tgroup' },
+  { tag: 'colspec', label: 'Column Spec', labelZh: '列规格', description: 'Defines column name, number, width, and alignment', category: 'table', kind: 'block', pmNodeType: 'cals_colspec' },
+  { tag: 'thead', label: 'Table Head', labelZh: '表头区', description: 'Header rows section of a CALS table', category: 'table', kind: 'block', pmNodeType: 'cals_thead' },
+  { tag: 'tbody', label: 'Table Body', labelZh: '表体区', description: 'Body rows section of a CALS table', category: 'table', kind: 'block', pmNodeType: 'cals_tbody' },
+  { tag: 'row', label: 'Table Row', labelZh: '表格行', description: 'Row inside CALS thead or tbody', category: 'table', kind: 'block', pmNodeType: 'cals_row' },
+  { tag: 'entry', label: 'Table Cell', labelZh: '表格单元格', description: 'Cell inside a CALS row (supports namest/nameend/morerows)', category: 'table', kind: 'block', pmNodeType: 'cals_entry' },
+
+  // Inline elements
+  { tag: 'b', label: 'Bold', labelZh: '粗体', description: 'Bold emphasis', category: 'inline', kind: 'inline', pmNodeType: 'dita_b', shortcut: '⌘B', keywords: ['strong', '加粗'] },
+  { tag: 'i', label: 'Italic', labelZh: '斜体', description: 'Italic emphasis', category: 'inline', kind: 'inline', pmNodeType: 'dita_i', shortcut: '⌘I', keywords: ['em', '斜体'] },
+  { tag: 'u', label: 'Underline', labelZh: '下划线', description: 'Underlined text', category: 'inline', kind: 'inline', pmNodeType: 'dita_u', shortcut: '⌘U', keywords: ['下划线'] },
+  { tag: 'codeph', label: 'Code Phrase', labelZh: '行内代码', description: 'Inline code snippet', category: 'inline', kind: 'inline', pmNodeType: 'dita_codeph', shortcut: '⌘E', keywords: ['code', 'inline', '代码'] },
+  { tag: 'xref', label: 'Cross-Reference', labelZh: '交叉引用', description: 'Link to another topic, element, or external URL', category: 'inline', kind: 'inline', pmNodeType: 'dita_xref', shortcut: '⌘K', keywords: ['link', 'href', '引用', '链接'] },
+  { tag: 'uicontrol', label: 'UI Control', labelZh: '界面控件', description: 'Button, menu item, or UI field label', category: 'inline', kind: 'inline', pmNodeType: 'dita_uicontrol', keywords: ['ui', 'button', '控件'] },
+  { tag: 'filepath', label: 'File Path', labelZh: '文件路径', description: 'File or directory path', category: 'inline', kind: 'inline', pmNodeType: 'dita_filepath', keywords: ['path', 'file', '路径'] },
+  { tag: 'varname', label: 'Variable', labelZh: '变量占位', description: 'Placeholder variable replaced by the reader', category: 'inline', kind: 'inline', pmNodeType: 'dita_varname', keywords: ['var', 'placeholder', '变量'] },
+  { tag: 'ph', label: 'Phrase', labelZh: '语义短语', description: 'Reusable inline phrase container (conref/keyref/profiling)', category: 'inline', kind: 'inline', pmNodeType: 'dita_ph', keywords: ['span', 'reuse', '短语'] },
+  { tag: 'keyword', label: 'Keyword', labelZh: '关键字/变量', description: 'Inline keyword or keyref variable reference', category: 'inline', kind: 'inline', pmNodeType: 'dita_keyword', keywords: ['keyref', 'var', '关键字'] },
+  { tag: 'cmdname', label: 'Command Name', labelZh: '命令名', description: 'CLI command name', category: 'inline', kind: 'inline', pmNodeType: 'dita_cmdname', keywords: ['cli', '命令'] },
+  { tag: 'parmname', label: 'Parameter Name', labelZh: '参数名', description: 'API or CLI parameter name', category: 'inline', kind: 'inline', pmNodeType: 'dita_parmname', keywords: ['param', 'arg', '参数'] },
+  { tag: 'userinput', label: 'User Input', labelZh: '用户输入', description: 'Literal text typed by the user', category: 'inline', kind: 'inline', pmNodeType: 'dita_userinput', keywords: ['kbd', 'input', '输入'] },
+  { tag: 'systemoutput', label: 'System Output', labelZh: '系统输出', description: 'Output returned by a system or terminal', category: 'inline', kind: 'inline', pmNodeType: 'dita_systemoutput', keywords: ['output', 'stdout', '输出'] },
+  { tag: 'wintitle', label: 'Window Title', labelZh: '窗口标题', description: 'Dialog, panel, or window title', category: 'inline', kind: 'inline', pmNodeType: 'dita_wintitle', keywords: ['window', 'dialog', '窗口'] },
+  { tag: 'menucascade', label: 'Menu Cascade', labelZh: '级联菜单', description: 'Sequence of UI menu navigation steps', category: 'inline', kind: 'inline', pmNodeType: 'dita_menucascade', keywords: ['menu', 'breadcrumb', '菜单路径'] },
+  { tag: 'term', label: 'Term', labelZh: '术语引用', description: 'Glossary or technical term reference', category: 'inline', kind: 'inline', pmNodeType: 'dita_term', keywords: ['glossary', '术语'] },
+  { tag: 'option', label: 'CLI Option', labelZh: '命令选项', description: 'Command-line flag or option', category: 'inline', kind: 'inline', pmNodeType: 'dita_option', keywords: ['flag', '选项'] },
+  { tag: 'apiname', label: 'API Name', labelZh: 'API 名称', description: 'Endpoint, class, or function name', category: 'inline', kind: 'inline', pmNodeType: 'dita_apiname', keywords: ['api', 'endpoint', '接口'] },
+  { tag: 'fn', label: 'Footnote', labelZh: '脚注', description: 'Inline footnote annotation', category: 'inline', kind: 'inline', pmNodeType: 'dita_fn', keywords: ['footnote', '脚注'] },
+  { tag: 'image', label: 'Image', labelZh: '图片', description: 'Referenced image asset (inline or placement="break")', category: 'block', kind: 'inline', pmNodeType: 'dita_image_block', keywords: ['img', 'graphic', '图片'] },
+];
+
+export const DITA_ELEMENT_SPECS: ReadonlyMap<string, DitaElementSpec> = new Map(
+  ELEMENT_SPEC_LIST.map((spec) => [spec.tag, spec]),
+);
+
+export function getElementSpec(tagName: string): DitaElementSpec | undefined {
+  return DITA_ELEMENT_SPECS.get(tagName);
+}
+
+export function getAllowedChildElementTags(parentTag: string): readonly string[] {
+  return DITA_CONTENT_MODEL[parentTag] ?? [];
+}
+
+export function isChildAllowed(parentTag: string, childTag: string): boolean {
+  const allowed = DITA_CONTENT_MODEL[parentTag];
+  if (!allowed) return true; // Permissive for unknown/specialized passthrough containers
+  return allowed.includes(childTag);
+}
+
+export function getAllowedChildElements(
+  parentTag: string,
+  filterKind: 'block' | 'inline' | 'all' = 'all',
+): DitaElementSpec[] {
+  const tags = getAllowedChildElementTags(parentTag);
+  const result: DitaElementSpec[] = [];
+  for (const tag of tags) {
+    const spec = DITA_ELEMENT_SPECS.get(tag);
+    if (!spec) continue;
+    // `image` can appear in both block and inline positions
+    if (filterKind === 'block' && spec.kind !== 'block' && tag !== 'image') continue;
+    if (filterKind === 'inline' && spec.kind !== 'inline') continue;
+    result.push(spec);
+  }
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// DITA 1.3 Attribute Metadata Registry
+// ---------------------------------------------------------------------------
+
+const UNIVERSAL_CORE_ATTRS: readonly DitaAttributeSpec[] = [
+  { name: 'id', label: 'ID', group: 'core', description: 'Unique identifier for cross-references (xref) and reuse (conref)', placeholder: 'e.g. sec_overview' },
+  { name: 'outputclass', label: 'Output Class', group: 'core', description: 'CSS/publishing role hint passed through to HTML5/PDF output', placeholder: 'e.g. highlight' },
+  { name: 'xml:lang', label: 'Language', group: 'core', description: 'BCP-47 language tag (e.g. zh-CN, en-US)', values: ['zh-CN', 'en-US', 'ja-JP', 'de-DE'] },
+  { name: 'translate', label: 'Translate', group: 'core', description: 'Indicates whether element text should be localized', values: ['yes', 'no'] },
+  { name: 'status', label: 'Status', group: 'core', description: 'Editorial revision status', values: ['new', 'changed', 'deleted', 'unchanged'] },
+  { name: 'dir', label: 'Text Direction', group: 'core', description: 'Bidirectional text override', values: ['ltr', 'rtl', 'lro', 'rlo'] },
+];
+
+const PROFILING_ATTRS: readonly DitaAttributeSpec[] = [
+  { name: 'audience', label: 'Audience', group: 'profiling', description: 'Target reader role for DITAVAL filtering (space-separated)', placeholder: 'e.g. admin developer' },
+  { name: 'platform', label: 'Platform', group: 'profiling', description: 'Target OS or runtime platform', placeholder: 'e.g. linux macos' },
+  { name: 'product', label: 'Product', group: 'profiling', description: 'Target product edition or SKU', placeholder: 'e.g. enterprise cloud' },
+  { name: 'otherprops', label: 'Other Props', group: 'profiling', description: 'Custom conditional profiling tokens', placeholder: 'e.g. beta' },
+  { name: 'props', label: 'Props', group: 'profiling', description: 'Base conditional profiling attribute' },
+  { name: 'rev', label: 'Revision', group: 'profiling', description: 'Product/document revision identifier for change flagging', placeholder: 'e.g. 2.1' },
+];
+
+const REUSE_ATTRS: readonly DitaAttributeSpec[] = [
+  { name: 'conref', label: 'Conref', group: 'reuse', description: 'Direct content reference (file.dita#topicId/elemId)', placeholder: 'shared.dita#reuse/note_1' },
+  { name: 'conkeyref', label: 'Conkeyref', group: 'reuse', description: 'Key-based content reference (key/elemId)', placeholder: 'shared_notes/note_1' },
+  { name: 'conrefend', label: 'Conref End', group: 'reuse', description: 'End target for a range content reference' },
+  { name: 'conaction', label: 'Conaction', group: 'reuse', description: 'Content reference push action', values: ['mark', 'pushafter', 'pushbefore', 'pushreplace', '-dita-use-conref-target'] },
+];
+
+const ELEMENT_SPECIFIC_ATTRS: Readonly<Record<string, readonly DitaAttributeSpec[]>> = {
+  topic: [
+    { name: 'id', label: 'Topic ID', group: 'element', required: true, description: 'Required root topic identifier', placeholder: 'topic_id' },
+  ],
+  concept: [
+    { name: 'id', label: 'Concept ID', group: 'element', required: true, description: 'Required concept topic identifier', placeholder: 'concept_id' },
+  ],
+  task: [
+    { name: 'id', label: 'Task ID', group: 'element', required: true, description: 'Required task topic identifier', placeholder: 'task_id' },
+  ],
+  reference: [
+    { name: 'id', label: 'Reference ID', group: 'element', required: true, description: 'Required reference topic identifier', placeholder: 'ref_id' },
+  ],
+  note: [
+    {
+      name: 'type',
+      label: 'Note Type',
+      group: 'element',
+      description: 'Semantic admonition severity',
+      values: ['note', 'tip', 'important', 'remember', 'attention', 'caution', 'notice', 'warning', 'danger', 'restriction', 'fastpath', 'trouble', 'other'],
+    },
+    { name: 'othertype', label: 'Other Type', group: 'element', description: 'Custom label when type="other"' },
+  ],
+  xref: [
+    { name: 'href', label: 'Target Href', group: 'element', description: 'Relative path, #topicId/elemId, or external URL', placeholder: 'target.dita or https://...' },
+    { name: 'keyref', label: 'Keyref', group: 'element', description: 'Key name resolved via Root Map keyspace', placeholder: 'key_name' },
+    { name: 'scope', label: 'Scope', group: 'element', description: 'Target resource scope', values: ['local', 'peer', 'external'] },
+    { name: 'format', label: 'Format', group: 'element', description: 'Target media format', values: ['dita', 'html', 'pdf', 'ditamap', 'markdown'] },
+    { name: 'type', label: 'Target Type', group: 'element', description: 'Target DITA element/topic type', values: ['topic', 'concept', 'task', 'reference', 'section', 'fig', 'table', 'li', 'fn'] },
+  ],
+  link: [
+    { name: 'href', label: 'Href', group: 'element', description: 'Related topic path or URL', placeholder: '../concepts/overview.dita' },
+    { name: 'keyref', label: 'Keyref', group: 'element', description: 'Key name resolved via Root Map' },
+    { name: 'scope', label: 'Scope', group: 'element', description: 'Target resource scope', values: ['local', 'peer', 'external'] },
+    { name: 'format', label: 'Format', group: 'element', description: 'Target file format', values: ['dita', 'html', 'pdf'] },
+    { name: 'type', label: 'Target Type', group: 'element', description: 'Target topic type', values: ['topic', 'concept', 'task', 'reference'] },
+    { name: 'role', label: 'Role', group: 'element', description: 'Relationship role', values: ['parent', 'child', 'sibling', 'friend', 'next', 'previous', 'other'] },
+  ],
+  image: [
+    { name: 'href', label: 'Image Href', group: 'element', description: 'Relative path or URL to the image asset', placeholder: '../images/diagram.svg' },
+    { name: 'keyref', label: 'Keyref', group: 'element', description: 'Key reference to an image resource' },
+    { name: 'alt', label: 'Alt Text', group: 'element', description: 'Alternative text for accessibility' },
+    { name: 'placement', label: 'Placement', group: 'element', description: 'Inline flow or standalone block', values: ['inline', 'break'] },
+    { name: 'align', label: 'Alignment', group: 'element', description: 'Horizontal alignment for block images', values: ['left', 'center', 'right', 'current'] },
+    { name: 'width', label: 'Width', group: 'element', description: 'Display width (e.g. 480px, 80%)' },
+    { name: 'height', label: 'Height', group: 'element', description: 'Display height' },
+    { name: 'scalefit', label: 'Scale to Fit', group: 'element', description: 'Scale image to fit container bounds', values: ['yes', 'no'] },
+  ],
+  codeblock: [
+    {
+      name: 'outputclass',
+      label: 'Syntax Language',
+      group: 'element',
+      description: 'Language class for syntax highlighting',
+      values: ['language-xml', 'language-bash', 'language-typescript', 'language-json', 'language-yaml', 'language-java', 'language-sql'],
+    },
+    { name: 'xml:space', label: 'XML Space', group: 'element', description: 'Whitespace handling mode', values: ['preserve'] },
+    { name: 'scale', label: 'Font Scale (%)', group: 'presentation', description: 'Relative font size percentage', values: ['50', '60', '70', '80', '90', '100', '110', '120'] },
+  ],
+  pre: [
+    { name: 'xml:space', label: 'XML Space', group: 'element', description: 'Whitespace handling mode', values: ['preserve'] },
+    { name: 'frame', label: 'Frame', group: 'presentation', description: 'Border style', values: ['top', 'bottom', 'topbot', 'all', 'sides', 'none'] },
+  ],
+  keyword: [
+    { name: 'keyref', label: 'Keyref', group: 'element', description: 'Variable key name resolved via Root Map', placeholder: 'prod_name' },
+  ],
+  ph: [
+    { name: 'keyref', label: 'Keyref', group: 'element', description: 'Variable key name resolved via Root Map' },
+  ],
+  term: [
+    { name: 'keyref', label: 'Glossary Keyref', group: 'element', description: 'Glossary entry key reference' },
+  ],
+  step: [
+    { name: 'importance', label: 'Importance', group: 'element', description: 'Mark step as optional or required', values: ['optional', 'required'] },
+  ],
+  simpletable: [
+    { name: 'relcolwidth', label: 'Relative Column Widths', group: 'element', description: 'Space-separated proportional widths (e.g. 1* 2* 3*)', placeholder: '1* 2* 3*' },
+    { name: 'keycol', label: 'Key Column', group: 'element', description: '1-based column index treated as row headers' },
+    { name: 'frame', label: 'Frame', group: 'presentation', description: 'Outer table border', values: ['top', 'bottom', 'topbot', 'all', 'sides', 'none'] },
+  ],
+  table: [
+    { name: 'frame', label: 'Frame', group: 'element', description: 'Outer border style', values: ['all', 'topbot', 'top', 'bottom', 'sides', 'none'] },
+    { name: 'colsep', label: 'Column Rules', group: 'element', description: 'Show vertical column dividers', values: ['1', '0'] },
+    { name: 'rowsep', label: 'Row Rules', group: 'element', description: 'Show horizontal row dividers', values: ['1', '0'] },
+    { name: 'pgwide', label: 'Page Wide', group: 'presentation', description: 'Span full page width in PDF', values: ['1', '0'] },
+  ],
+  tgroup: [
+    { name: 'cols', label: 'Columns Count', group: 'element', required: true, description: 'Number of columns in this CALS tgroup' },
+    { name: 'align', label: 'Default Align', group: 'element', description: 'Default horizontal alignment', values: ['left', 'center', 'right', 'justify', 'char'] },
+  ],
+  colspec: [
+    { name: 'colnum', label: 'Column Number', group: 'element', description: '1-based column ordinal' },
+    { name: 'colname', label: 'Column Name', group: 'element', description: 'Symbolic name used by namest/nameend (e.g. c1)' },
+    { name: 'colwidth', label: 'Column Width', group: 'element', description: 'Proportional or fixed width (e.g. 1.5*, 120pt)' },
+    { name: 'align', label: 'Alignment', group: 'element', description: 'Column text alignment', values: ['left', 'center', 'right', 'justify', 'char'] },
+  ],
+  entry: [
+    { name: 'colname', label: 'Column Name', group: 'element', description: 'Target colspec name' },
+    { name: 'namest', label: 'Span Start', group: 'element', description: 'Start column name for horizontal span' },
+    { name: 'nameend', label: 'Span End', group: 'element', description: 'End column name for horizontal span' },
+    { name: 'morerows', label: 'More Rows', group: 'element', description: 'Number of additional rows spanned vertically (rowspan - 1)' },
+    { name: 'align', label: 'Horizontal Align', group: 'element', description: 'Cell horizontal alignment', values: ['left', 'center', 'right', 'justify'] },
+    { name: 'valign', label: 'Vertical Align', group: 'element', description: 'Cell vertical alignment', values: ['top', 'middle', 'bottom'] },
+  ],
+  fn: [
+    { name: 'callout', label: 'Callout Symbol', group: 'element', description: 'Custom footnote marker symbol (e.g. *, a, 1)' },
+  ],
+};
+
+/**
+ * Return deduplicated attribute metadata specs for a given DITA element tag,
+ * ordered by element-specific -> core -> profiling -> reuse.
+ */
+export function getAttributesForElement(tagName: string): DitaAttributeSpec[] {
+  const specific = ELEMENT_SPECIFIC_ATTRS[tagName] ?? [];
+  const seen = new Set<string>();
+  const merged: DitaAttributeSpec[] = [];
+
+  for (const list of [specific, UNIVERSAL_CORE_ATTRS, PROFILING_ATTRS, REUSE_ATTRS]) {
+    for (const spec of list) {
+      if (seen.has(spec.name)) continue;
+      seen.add(spec.name);
+      merged.push(spec);
+    }
+  }
+  return merged;
+}
+
+// ---------------------------------------------------------------------------
+// Order-Preserving RawAttrs Helpers (Never converts rawAttrs to unordered maps)
+// ---------------------------------------------------------------------------
+
+export function getRawAttr(rawAttrs: readonly XmlAttributeEntry[], name: string): string | undefined {
+  return rawAttrs.find((a) => a.name === name)?.value;
+}
+
+/**
+ * Set, update in-place, or remove (`value === null`) an attribute while strictly
+ * preserving the original order of all other attributes.
+ */
+export function setRawAttr(
+  rawAttrs: readonly XmlAttributeEntry[],
+  name: string,
+  value: string | null,
+  namespaceURI: string | null = null,
+): XmlAttributeEntry[] {
+  const existingIdx = rawAttrs.findIndex((a) => a.name === name);
+  if (value === null) {
+    if (existingIdx === -1) return [...rawAttrs];
+    return rawAttrs.filter((_, idx) => idx !== existingIdx);
+  }
+
+  if (existingIdx !== -1) {
+    const existing = rawAttrs[existingIdx]!;
+    if (existing.value === value) return [...rawAttrs];
+    const next = [...rawAttrs];
+    next[existingIdx] = { ...existing, value };
+    return next;
+  }
+
+  return [...rawAttrs, { name, value, namespaceURI }];
+}
+
+export function removeRawAttr(
+  rawAttrs: readonly XmlAttributeEntry[],
+  name: string,
+): XmlAttributeEntry[] {
+  return rawAttrs.filter((a) => a.name !== name);
+}

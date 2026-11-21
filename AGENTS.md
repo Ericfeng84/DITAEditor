@@ -107,7 +107,7 @@ This repository maintains a persistent knowledge graph at `graphify-out/`:
 ## 7. Implementation Roadmap Status
 
 - [x] **Phase 0**: Monorepo foundation, `@dita/core` (`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS adapter), and 10 golden round-trip fixtures (21/21 Vitest tests passing).
-- [ ] **Phase 1**: Dual-mode Topic Editor MVP (ProseMirror visual editing + NodeViews + context-aware insert menu + attributes panel + CodeMirror 6 XML source with schema completion & Source ↔ Visual switching).
+- [x] **Phase 1**: Dual-mode Topic Editor MVP (ProseMirror visual editing + NodeViews + DITA-aware commands/keymap + CALS & simpletable editing + context-aware `/` insert menu + attributes inspector + clickable breadcrumb bar + CodeMirror 6 XML source with `@dita/core`-driven completion/lint & guarded Source ↔ Visual switching; 49/49 Vitest tests passing across `@dita/core` & `@dita/web`).
 - [ ] **Phase 2**: Visual Map/Bookmap tree (`react-arborist`), multi-tab workbench, Fastify local file & asset APIs.
 - [ ] **Phase 3**: Root Map semantic engine (`keydef/keyref`, `conref/conkeyref` with DFS cycle detection, `DITAVAL` profiling & live filtering).
 - [ ] **Phase 4**: PostgreSQL + Drizzle ORM, GitHub/GitLab/Gitee OAuth/PAT, branch-isolated `git worktree`, Check-out exclusive locks & PR/MR workflow.

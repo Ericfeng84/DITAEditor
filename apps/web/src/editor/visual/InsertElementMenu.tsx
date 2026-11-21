@@ -1,0 +1,268 @@
+import { useEffect, useMemo, useRef, useState } from 'react';
+import type { DitaElementSpec } from '@dita/core';
+import { CornerDownLeft, Search, X } from 'lucide-react';
+import type { InsertContextGroup } from './selection-info';
+
+export interface InsertElementChoice {
+  spec: DitaElementSpec;
+  containerTag: string;
+  containerDepth: number;
+  insertKind: 'inline' | 'block';
+  groupLabel: string;
+  /** Optional explicit ProseMirror document offset when opened from a Jupyter-style between-block `+` gap */
+  insertPos?: number;
+}
+
+export interface InsertElementMenuProps {
+  open: boolean;
+  groups: InsertContextGroup[];
+  anchorRect: { top: number; left: number } | null;
+  isSlashTrigger?: boolean;
+  explicitInsertPos?: number | null;
+  onSelect: (choice: InsertElementChoice) => void;
+  onClose: () => void;
+}
+
+export function InsertElementMenu({
+  open,
+  groups,
+  anchorRect,
+  isSlashTrigger = false,
+  explicitInsertPos = null,
+  onSelect,
+  onClose,
+}: InsertElementMenuProps) {
+  const [query, setQuery] = useState('');
+  const [activeIndex, setActiveIndex] = useState(0);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  const flattened = useMemo<InsertElementChoice[]>(() => {
+    const q = query.trim().toLowerCase();
+    const out: InsertElementChoice[] = [];
+    for (const group of groups) {
+      for (const spec of group.items) {
+        if (q) {
+          const haystack = [
+            spec.tag,
+            spec.label,
+            spec.labelZh,
+            spec.description,
+            ...(spec.keywords ?? []),
+          ]
+            .join(' ')
+            .toLowerCase();
+          if (!haystack.includes(q)) continue;
+        }
+        out.push({
+          spec,
+          containerTag: group.containerTag,
+          containerDepth: group.containerDepth,
+          insertKind: group.insertKind,
+          groupLabel: group.containerLabel,
+          insertPos: explicitInsertPos ?? undefined,
+        });
+      }
+    }
+    return out;
+  }, [groups, query, explicitInsertPos]);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery('');
+    setActiveIndex(0);
+    // Focus search box cleanly on next paint
+    const raf = window.requestAnimationFrame(() => {
+      inputRef.current?.focus();
+    });
+    return () => window.cancelAnimationFrame(raf);
+  }, [open]);
+
+  useEffect(() => {
+    setActiveIndex((prev) =>
+      flattened.length === 0 ? 0 : Math.min(prev, flattened.length - 1),
+    );
+  }, [flattened.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (e: PointerEvent) => {
+      if (panelRef.current && !panelRef.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    return () => window.removeEventListener('pointerdown', onPointerDown, true);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  // Clamp floating position safely inside viewport
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1280;
+  const vh = typeof window !== 'undefined' ? window.innerHeight : 800;
+  const menuW = 340;
+  const menuH = 380;
+  const rawLeft = anchorRect?.left ?? Math.round((vw - menuW) / 2);
+  const rawTop = anchorRect?.top ?? 120;
+  const left = Math.max(12, Math.min(rawLeft, vw - menuW - 12));
+  const top = rawTop + menuH > vh - 16 ? Math.max(12, rawTop - menuH - 12) : Math.max(12, rawTop);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      onClose();
+      return;
+    }
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (flattened.length > 0) {
+        setActiveIndex((i) => (i + 1) % flattened.length);
+      }
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      if (flattened.length > 0) {
+        setActiveIndex((i) => (i - 1 + flattened.length) % flattened.length);
+      }
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const chosen = flattened[activeIndex];
+      if (chosen) {
+        onSelect(chosen);
+      }
+    }
+  };
+
+  // Group flattened results back by container group label for clean headers
+  const groupedSections: { label: string; kind: 'inline' | 'block'; items: { choice: InsertElementChoice; flatIndex: number }[] }[] = [];
+  const sectionMap = new Map<string, (typeof groupedSections)[number]>();
+  flattened.forEach((choice, flatIndex) => {
+    const key = `${choice.insertKind}:${choice.containerDepth}:${choice.containerTag}`;
+    let sec = sectionMap.get(key);
+    if (!sec) {
+      sec = { label: choice.groupLabel, kind: choice.insertKind, items: [] };
+      sectionMap.set(key, sec);
+      groupedSections.push(sec);
+    }
+    sec.items.push({ choice, flatIndex });
+  });
+
+  return (
+    <div
+      ref={panelRef}
+      role="listbox"
+      aria-label="上下文合法 DITA 元素插入菜单"
+      style={{ top: `${top}px`, left: `${left}px`, width: `${menuW}px` }}
+      className="fixed z-50 flex max-h-[380px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-900/5"
+      onKeyDown={handleKeyDown}
+    >
+      <div className="flex items-center gap-2 border-b border-slate-100 bg-slate-50/80 px-3 py-2">
+        <Search className="h-3.5 w-3.5 shrink-0 text-slate-400" aria-hidden="true" />
+        <input
+          ref={inputRef}
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={
+            isSlashTrigger
+              ? '筛选当前光标处合法的 DITA 1.3 元素...'
+              : '搜索合法 DITA 元素（标签名 / 中文）...'
+          }
+          className="w-full bg-transparent text-xs text-slate-900 outline-none placeholder:text-slate-400"
+        />
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="关闭插入菜单"
+          className="rounded p-0.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700"
+        >
+          <X className="h-3.5 w-3.5" aria-hidden="true" />
+        </button>
+      </div>
+
+      <div className="dita-scroller min-h-0 flex-1 overflow-y-auto p-1.5">
+        {groupedSections.length === 0 ? (
+          <div className="px-3 py-6 text-center text-xs text-slate-400">
+            当前位置没有匹配的合法 DITA 1.3 元素
+          </div>
+        ) : (
+          groupedSections.map((section) => (
+            <div key={section.label} className="mb-2 last:mb-0">
+              <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+                <span>{section.label}</span>
+                <span
+                  className={
+                    section.kind === 'inline'
+                      ? 'rounded bg-indigo-50 px-1.5 py-0.5 text-indigo-600'
+                      : 'rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700'
+                  }
+                >
+                  {section.kind === 'inline' ? 'Inline' : 'Block'}
+                </span>
+              </div>
+              <div className="space-y-0.5">
+                {section.items.map(({ choice, flatIndex }) => {
+                  const isActive = flatIndex === activeIndex;
+                  return (
+                    <button
+                      key={`${choice.insertKind}-${choice.containerDepth}-${choice.spec.tag}`}
+                      type="button"
+                      role="option"
+                      aria-selected={isActive}
+                      onMouseEnter={() => setActiveIndex(flatIndex)}
+                      onClick={() => onSelect(choice)}
+                      className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors ${
+                        isActive
+                          ? 'bg-indigo-600 text-white'
+                          : 'text-slate-700 hover:bg-slate-100'
+                      }`}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <code
+                            className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold ${
+                              isActive
+                                ? 'bg-indigo-500/80 text-white'
+                                : 'bg-slate-100 text-indigo-700'
+                            }`}
+                          >
+                            &lt;{choice.spec.tag}&gt;
+                          </code>
+                          <span className="truncate text-xs font-medium">
+                            {choice.spec.labelZh}
+                          </span>
+                        </div>
+                        <p
+                          className={`mt-0.5 truncate text-[11px] ${
+                            isActive ? 'text-indigo-100' : 'text-slate-500'
+                          }`}
+                        >
+                          {choice.spec.description}
+                        </p>
+                      </div>
+                      {isActive ? (
+                        <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-indigo-200" aria-hidden="true" />
+                      ) : choice.spec.shortcut ? (
+                        <span className="shrink-0 font-mono text-[10px] text-slate-400">
+                          {choice.spec.shortcut}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+
+      <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-500">
+        <span>仅展示 DITA 1.3 内容模型允许的元素</span>
+        <span className="font-mono">↑↓ 选择 · Enter 插入 · Esc 关闭</span>
+      </div>
+    </div>
+  );
+}

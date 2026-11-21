@@ -1,0 +1,1314 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  --scrollbar-thumb: #94a3b8;
+  --scrollbar-track: #f1f5f9;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-sans);
+  background-color: #f8fafc;
+  color: #0f172a;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* --------------------------------------------------------------------------
+ * Accessible Scrollbars (modern-web-guidance: customize-scrollbar-color-and-thickness)
+ * -------------------------------------------------------------------------- */
+.dita-scroller {
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
+  scrollbar-width: thin;
+}
+
+@supports not (scrollbar-color: auto) {
+  .dita-scroller {
+    scrollbar-width: auto;
+  }
+  .dita-scroller::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .dita-scroller::-webkit-scrollbar-thumb {
+    background: var(--scrollbar-thumb);
+    border-radius: 4px;
+  }
+  .dita-scroller::-webkit-scrollbar-track {
+    background: var(--scrollbar-track);
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Native Modal <dialog> (modern-web-guidance: dialog)
+ * -------------------------------------------------------------------------- */
+dialog.dita-dialog[open] {
+  display: block;
+  margin: auto;
+}
+
+dialog.dita-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.dita-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* --------------------------------------------------------------------------
+ * Accessible Toolbar Controls (modern-web-guidance: toolbar)
+ * -------------------------------------------------------------------------- */
+.dita-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-inline-size: 28px;
+  min-block-size: 28px;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .dita-tb-btn {
+    min-inline-size: 36px;
+    min-block-size: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-tb-btn {
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .dita-tb-btn:not([aria-disabled="true"]):hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+}
+
+.dita-tb-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.dita-tb-btn[aria-pressed="true"] {
+  background-color: #e0e7ff;
+  border-color: #6366f1;
+  color: #3730a3;
+}
+
+.dita-tb-btn[aria-disabled="true"] {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.dita-tb-btn-primary {
+  background-color: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+  padding-inline: 0.55rem;
+}
+
+@media (hover: hover) {
+  .dita-tb-btn-primary:not([aria-disabled="true"]):hover {
+    background-color: #e0e7ff;
+    border-color: #818cf8;
+  }
+}
+
+.dita-tb-sep {
+  display: inline-block;
+  align-self: stretch;
+  margin: 0.25rem 0.25rem;
+  border-inline-start: 1px solid #cbd5e1;
+}
+
+.dita-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 0.2rem 0.45rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .dita-mini-btn:not(:disabled):hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Resize Handle Styling
+ * -------------------------------------------------------------------------- */
+.dita-resize-handle {
+  width: 5px;
+  background: #e2e8f0;
+  position: relative;
+  cursor: col-resize;
+  transition: background-color 120ms ease;
+}
+
+.dita-resize-handle:hover,
+.dita-resize-handle[data-resize-handle-active],
+.dita-resize-handle[data-separator="active"] {
+  background: #6366f1;
+}
+
+/* --------------------------------------------------------------------------
+ * ProseMirror DITA 1.3 Visual Document Canvas
+ * -------------------------------------------------------------------------- */
+.dita-prosemirror-doc {
+  outline: none;
+  font-size: 15px;
+  line-height: 1.72;
+  color: #1e293b;
+  caret-color: #4f46e5;
+}
+
+.dita-prosemirror-doc .ProseMirror-selectednode {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Topic Root Framing */
+.dita-prosemirror-doc > article[data-dita-tag] {
+  position: relative;
+}
+
+.dita-prosemirror-doc > article[data-dita-tag]::before {
+  content: attr(data-dita-tag);
+  display: inline-block;
+  margin-bottom: 0.5rem;
+  border-radius: 4px;
+  padding: 0.1rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  background: #f1f5f9;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+}
+
+.dita-prosemirror-doc > article[data-dita-tag="concept"]::before {
+  background: #eef2ff;
+  color: #4338ca;
+  border-color: #c7d2fe;
+}
+
+.dita-prosemirror-doc > article[data-dita-tag="task"]::before {
+  background: #ecfdf5;
+  color: #047857;
+  border-color: #a7f3d0;
+}
+
+.dita-prosemirror-doc > article[data-dita-tag="reference"]::before {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+/* Titles at different nesting levels */
+.dita-prosemirror-doc > article > h1[data-dita-tag="title"] {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.75rem;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc section[data-dita-tag="section"] > h1[data-dita-tag="title"],
+.dita-prosemirror-doc section[data-dita-tag="example"] > h1[data-dita-tag="title"],
+.dita-prosemirror-doc section[data-dita-tag="refsyn"] > h1[data-dita-tag="title"] {
+  margin: 1.4rem 0 0.6rem 0;
+  padding-bottom: 0.35rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.35;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc figure[data-dita-tag="fig"] > h1[data-dita-tag="title"],
+.dita-prosemirror-doc .dita-nv-cals-content > h1[data-dita-tag="title"] {
+  margin: 0 0 0.35rem 0;
+  font-size: 0.875rem;
+  font-weight: 650;
+  color: #334155;
+}
+
+/* Shortdesc */
+.dita-prosemirror-doc p[data-dita-tag="shortdesc"] {
+  margin: 0 0 1.25rem 0;
+  border-left: 3px solid #cbd5e1;
+  background: #f8fafc;
+  padding: 0.55rem 0.9rem;
+  border-radius: 0 6px 6px 0;
+  font-size: 0.95rem;
+  color: #475569;
+}
+
+/* Paragraphs & virtual mixed-content blocks */
+.dita-prosemirror-doc p[data-dita-tag="p"],
+.dita-prosemirror-doc div[data-dita-tag="p"] {
+  margin: 0.55rem 0;
+}
+
+.dita-prosemirror-doc div[data-dita-virtual="text-block"] {
+  min-height: 1.35em;
+}
+
+/* Prolog collapsible metadata */
+.dita-nv-prolog {
+  margin: 0.75rem 0 1.25rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  overflow: hidden;
+}
+
+.dita-nv-prolog-header {
+  padding: 0.35rem 0.65rem;
+  background: #f1f5f9;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dita-nv-prolog[data-collapsed="true"] .dita-nv-prolog-header {
+  border-bottom: none;
+}
+
+.dita-nv-prolog-toggle {
+  border: none;
+  background: transparent;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #475569;
+  cursor: pointer;
+}
+
+.dita-nv-prolog-body {
+  padding: 0.65rem 0.85rem;
+  font-size: 13px;
+}
+
+.dita-nv-prolog[data-collapsed="true"] .dita-nv-prolog-body {
+  display: none;
+}
+
+/* Task Structural Sections */
+.dita-prosemirror-doc section[data-dita-tag="prereq"],
+.dita-prosemirror-doc section[data-dita-tag="context"],
+.dita-prosemirror-doc section[data-dita-tag="result"],
+.dita-prosemirror-doc section[data-dita-tag="postreq"] {
+  margin: 1rem 0;
+  padding: 0.7rem 0.95rem;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.dita-prosemirror-doc section[data-dita-tag="prereq"]::before {
+  content: "前置条件 · prereq";
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #0369a1;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dita-prosemirror-doc section[data-dita-tag="context"]::before {
+  content: "背景说明 · context";
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dita-prosemirror-doc section[data-dita-tag="result"]::before {
+  content: "任务结果 · result";
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #047857;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.dita-prosemirror-doc section[data-dita-tag="postreq"]::before {
+  content: "后续操作 · postreq";
+  display: block;
+  margin-bottom: 0.3rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #7c3aed;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+/* Task Steps & Substeps */
+.dita-prosemirror-doc ol[data-dita-tag="steps"] {
+  counter-reset: dita-step;
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.dita-prosemirror-doc ol[data-dita-tag="steps"] > li[data-dita-tag="step"] {
+  counter-increment: dita-step;
+  position: relative;
+  padding: 0.7rem 0.9rem 0.7rem 2.75rem;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.dita-prosemirror-doc ol[data-dita-tag="steps"] > li[data-dita-tag="step"]::before {
+  content: counter(dita-step);
+  position: absolute;
+  left: 0.75rem;
+  top: 0.72rem;
+  display: flex;
+  height: 1.45rem;
+  width: 1.45rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #0f172a;
+  color: #ffffff;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.dita-prosemirror-doc ul[data-dita-tag="steps-unordered"] {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.85rem 0;
+}
+
+.dita-prosemirror-doc p[data-dita-tag="cmd"] {
+  margin: 0 0 0.35rem 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="info"],
+.dita-prosemirror-doc div[data-dita-tag="stepxmp"],
+.dita-prosemirror-doc div[data-dita-tag="stepresult"] {
+  margin-top: 0.45rem;
+  padding-left: 0.75rem;
+  border-left: 2px solid #e2e8f0;
+  font-size: 0.92em;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="stepresult"] {
+  border-left-color: #34d399;
+}
+
+.dita-prosemirror-doc ol[data-dita-tag="substeps"] {
+  list-style: lower-alpha;
+  padding-left: 1.4rem;
+  margin: 0.5rem 0;
+}
+
+.dita-prosemirror-doc ul[data-dita-tag="choices"] {
+  list-style: circle;
+  padding-left: 1.4rem;
+  margin: 0.45rem 0;
+}
+
+/* Standard Lists */
+.dita-prosemirror-doc ul[data-dita-tag="ul"] {
+  list-style: disc;
+  padding-left: 1.5rem;
+  margin: 0.6rem 0;
+}
+
+.dita-prosemirror-doc ol[data-dita-tag="ol"] {
+  list-style: decimal;
+  padding-left: 1.5rem;
+  margin: 0.6rem 0;
+}
+
+.dita-prosemirror-doc li[data-dita-tag="li"] {
+  margin: 0.25rem 0;
+}
+
+/* Definition Lists (<dl>) */
+.dita-prosemirror-doc dl[data-dita-tag="dl"] {
+  margin: 0.85rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="dlentry"] {
+  display: grid;
+  grid-template-columns: minmax(110px, 28%) 1fr;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="dlentry"]:last-child {
+  border-bottom: none;
+}
+
+.dita-prosemirror-doc dt[data-dita-tag="dt"] {
+  padding: 0.55rem 0.8rem;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc dd[data-dita-tag="dd"] {
+  margin: 0;
+  padding: 0.55rem 0.85rem;
+}
+
+/* Note / Callout NodeView */
+.dita-nv-note {
+  margin: 0.9rem 0;
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  border-left-width: 4px;
+  border-left-color: #0284c7;
+  background: #f0f9ff;
+  padding: 0.6rem 0.9rem;
+}
+
+.dita-nv-note[data-note-type="tip"],
+.dita-nv-note[data-note-type="fastpath"] {
+  border-color: #a7f3d0;
+  border-left-color: #059669;
+  background: #ecfdf5;
+}
+
+.dita-nv-note[data-note-type="warning"],
+.dita-nv-note[data-note-type="caution"],
+.dita-nv-note[data-note-type="attention"] {
+  border-color: #fde68a;
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+
+.dita-nv-note[data-note-type="danger"],
+.dita-nv-note[data-note-type="restriction"] {
+  border-color: #fecdd3;
+  border-left-color: #e11d48;
+  background: #fff1f2;
+}
+
+.dita-nv-note[data-note-type="important"],
+.dita-nv-note[data-note-type="remember"] {
+  border-color: #c7d2fe;
+  border-left-color: #4f46e5;
+  background: #eef2ff;
+}
+
+.dita-nv-note-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+
+.dita-nv-note-dot {
+  height: 7px;
+  width: 7px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.dita-nv-note-select {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.dita-nv-tag-chip {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #64748b;
+  display: none;
+}
+
+.dita-show-tags .dita-nv-tag-chip {
+  display: inline;
+}
+
+/* Codeblock / Pre NodeView */
+.dita-nv-code-card {
+  margin: 0.85rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+}
+
+.dita-nv-code-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #1e293b;
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.dita-nv-code-tag {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.dita-nv-code-lang {
+  border-radius: 4px;
+  background: #334155;
+  padding: 0.05rem 0.4rem;
+  color: #e2e8f0;
+}
+
+.dita-nv-code-ws {
+  margin-left: auto;
+  color: #64748b;
+}
+
+.dita-nv-code-pre {
+  margin: 0;
+  padding: 0.8rem 0.95rem;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  color: #e2e8f0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Figures & Images */
+.dita-prosemirror-doc figure[data-dita-tag="fig"] {
+  margin: 1rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 0.75rem 0.9rem;
+}
+
+.dita-prosemirror-doc figcaption[data-dita-tag="desc"] {
+  margin-top: 0.35rem;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dita-nv-image-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 6px;
+  border: 1px dashed #94a3b8;
+  background: #ffffff;
+}
+
+.dita-nv-image-img {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 4px;
+}
+
+.dita-nv-image-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 4px;
+  border: 1px dashed #94a3b8;
+  background: #f8fafc;
+  padding: 0 0.35rem;
+  font-size: 12px;
+}
+
+.dita-nv-image-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #475569;
+}
+
+/* Simpletable & OASIS CALS Table */
+.dita-prosemirror-doc table[data-dita-tag="simpletable"],
+.dita-prosemirror-doc table[data-dita-tag="tgroup"] {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 13.5px;
+  background: #ffffff;
+}
+
+.dita-prosemirror-doc table[data-dita-tag="simpletable"] td,
+.dita-prosemirror-doc table[data-dita-tag="tgroup"] td {
+  border: 1px solid #cbd5e1;
+  padding: 0.45rem 0.65rem;
+  vertical-align: top;
+  min-width: 56px;
+  min-height: 28px;
+}
+
+.dita-prosemirror-doc tr[data-dita-tag="sthead"] > td,
+.dita-prosemirror-doc thead[data-dita-tag="thead"] td {
+  background: #f1f5f9;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc td[colspan],
+.dita-prosemirror-doc td[rowspan] {
+  background-image: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, transparent 60%);
+}
+
+.dita-nv-cals-table {
+  margin: 1rem 0;
+}
+
+.dita-nv-cals-multigroup-warn {
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  padding: 0.45rem 0.7rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+/* Related Links */
+.dita-prosemirror-doc nav[data-dita-tag="related-links"] {
+  margin-top: 1.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dita-prosemirror-doc nav[data-dita-tag="related-links"]::before {
+  content: "相关链接 · related-links";
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="link"]::before {
+  content: "↗ link";
+  display: inline-block;
+  margin-right: 0.4rem;
+  border-radius: 4px;
+  background: #eef2ff;
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #4338ca;
+}
+
+/* Core DITA 1.3 Inline Semantic Styling */
+.dita-prosemirror-doc code[data-dita-tag="codeph"],
+.dita-prosemirror-doc code[data-dita-tag="cmdname"],
+.dita-prosemirror-doc code[data-dita-tag="parmname"],
+.dita-prosemirror-doc code[data-dita-tag="option"],
+.dita-prosemirror-doc code[data-dita-tag="apiname"] {
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc code[data-dita-tag="filepath"] {
+  border-radius: 4px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  color: #0369a1;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="uicontrol"] {
+  border-radius: 4px;
+  background: #eef2ff;
+  padding: 0.05rem 0.35rem;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: #3730a3;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="menucascade"] > span[data-dita-tag="uicontrol"] + span[data-dita-tag="uicontrol"]::before {
+  content: " › ";
+  color: #94a3b8;
+  font-weight: 400;
+  margin-inline: 0.1rem;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="wintitle"] {
+  font-weight: 600;
+  color: #334155;
+  text-decoration: underline dotted #94a3b8;
+  text-underline-offset: 3px;
+}
+
+.dita-prosemirror-doc var[data-dita-tag="varname"] {
+  font-style: italic;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: #9333ea;
+}
+
+.dita-prosemirror-doc kbd[data-dita-tag="userinput"] {
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  box-shadow: 0 1px 0 #cbd5e1;
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  font-weight: 600;
+}
+
+.dita-prosemirror-doc samp[data-dita-tag="systemoutput"] {
+  border-radius: 4px;
+  background: #0f172a;
+  color: #34d399;
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+}
+
+.dita-prosemirror-doc dfn[data-dita-tag="term"] {
+  font-style: normal;
+  border-bottom: 1px dashed #6366f1;
+}
+
+.dita-nv-xref {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  border-radius: 4px;
+  background: #eff6ff;
+  border-bottom: 1px solid #60a5fa;
+  padding: 0 0.25rem;
+  color: #1d4ed8;
+}
+
+.dita-nv-keyword {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  border-radius: 4px;
+  border-bottom: 1px dashed #8b5cf6;
+  background: #f5f3ff;
+  padding: 0 0.25rem;
+  color: #5b21b6;
+}
+
+.dita-nv-ref-badge {
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="fn"] {
+  display: inline-block;
+  border-radius: 4px;
+  background: #fefce8;
+  border: 1px solid #fde047;
+  padding: 0 0.35rem;
+  font-size: 0.85em;
+  color: #854d0e;
+}
+
+/* Passthrough Unknown / Specialized Elements */
+.dita-nv-unknown-block,
+.dita-nv-unknown-pre {
+  margin: 0.85rem 0;
+  border-radius: 8px;
+  border: 1.5px dashed #d97706;
+  background: #fffbeb;
+  padding: 0.55rem 0.8rem;
+}
+
+.dita-nv-unknown-badge {
+  display: inline-block;
+  border-radius: 4px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 0.05rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.dita-nv-unknown-block > .dita-nv-unknown-badge,
+.dita-nv-unknown-pre > .dita-nv-unknown-badge {
+  margin-bottom: 0.35rem;
+}
+
+.dita-nv-unknown-pre > .dita-nv-unknown-content {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: pre;
+  overflow-x: auto;
+  color: #1e293b;
+}
+
+.dita-nv-unknown-inline,
+.dita-nv-unknown-inline-block {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  border-radius: 4px;
+  border: 1px dashed #d97706;
+  background: #fffbeb;
+  padding: 0 0.3rem;
+}
+
+/* XML Metadata Chips (Comment / PI / CDATA) */
+.dita-nv-comment-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 4px;
+  background: #f8fafc;
+  padding: 0.2rem 0.5rem;
+  margin: 0.35rem 0;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.dita-nv-comment-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #f8fafc;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dita-nv-comment-text {
+  font-style: italic;
+  color: #64748b;
+}
+
+/* Hide Oxygen chevron #comment tags when user selects "无标签" mode */
+.dita-tag-mode-none .dita-ox-comment-tag {
+  display: none;
+}
+
+.dita-tag-mode-none .dita-nv-comment-text::before {
+  content: "<!-- ";
+  font-family: var(--font-mono);
+  font-style: normal;
+  color: #94a3b8;
+}
+
+.dita-tag-mode-none .dita-nv-comment-text::after {
+  content: " -->";
+  font-family: var(--font-mono);
+  font-style: normal;
+  color: #94a3b8;
+}
+
+.dita-prosemirror-doc [data-xml-pi] {
+  border-radius: 4px;
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  padding: 0.15rem 0.45rem;
+  margin: 0.35rem 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #7e22ce;
+}
+
+.dita-prosemirror-doc [data-xml-cdata="true"] {
+  border-radius: 4px;
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #155e75;
+}
+
+/* --------------------------------------------------------------------------
+ * Oxygen XML Author-Style Pointed Chevron Start / End Tags (标签 / 含属性模式)
+ * -------------------------------------------------------------------------- */
+.dita-ox-tag {
+  --ox-bg: #eef2f6;
+  --ox-border: #64748b;
+  --ox-text: #1e293b;
+  --ox-attr: #475569;
+
+  display: inline-flex;
+  align-items: stretch;
+  vertical-align: middle;
+  height: 19px;
+  line-height: 17px;
+  margin: 1px 3px 1px 1px;
+  font-family: ui-serif, Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ox-text);
+  user-select: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dita-ox-inline {
+  height: 17px;
+  line-height: 15px;
+  font-size: 10.5px;
+  vertical-align: 1px;
+}
+
+.dita-ox-close {
+  margin: 1px 1px 1px 3px;
+}
+
+.dita-ox-body {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  background: var(--ox-bg);
+  border-top: 1px solid var(--ox-border);
+  border-bottom: 1px solid var(--ox-border);
+}
+
+.dita-ox-open > .dita-ox-body {
+  border-left: 1px solid var(--ox-border);
+  border-radius: 2px 0 0 2px;
+  padding-left: 5px;
+  padding-right: 3px;
+}
+
+.dita-ox-close > .dita-ox-body {
+  border-right: 1px solid var(--ox-border);
+  border-radius: 0 2px 2px 0;
+  padding-left: 3px;
+  padding-right: 5px;
+}
+
+.dita-ox-name {
+  font-weight: 600;
+  color: var(--ox-text);
+}
+
+.dita-ox-attrs {
+  color: var(--ox-attr);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: -0.01em;
+}
+
+.dita-ox-cap {
+  width: 7px;
+  height: 100%;
+  flex-shrink: 0;
+  display: block;
+  overflow: visible;
+}
+
+.dita-ox-cap-fill {
+  fill: var(--ox-bg);
+}
+
+.dita-ox-cap-stroke {
+  stroke: var(--ox-border);
+}
+
+/* Hover & active-selected tag pill feedback */
+@media (hover: hover) {
+  .dita-ox-tag:hover {
+    --ox-bg: #e0e7ff;
+    --ox-border: #4f46e5;
+    --ox-text: #312e81;
+    --ox-attr: #4338ca;
+  }
+}
+
+.dita-ox-tag[data-ox-selected="true"] {
+  --ox-bg: #dbeafe;
+  --ox-border: #2563eb;
+  --ox-text: #1e3a8a;
+  --ox-attr: #1d4ed8;
+}
+
+.dita-ox-unknown {
+  --ox-bg: #fef3c7;
+  --ox-border: #d97706;
+  --ox-text: #92400e;
+  --ox-attr: #b45309;
+}
+
+/* Profiling Highlight Box & Lime-Yellow Badge (matching Oxygen screenshot) */
+.dita-ox-profiled {
+  border: 1.5px solid #4d9e44 !important;
+  border-radius: 4px;
+  padding: 0.35rem 0.55rem !important;
+  margin: 0.45rem 0 !important;
+  background: rgba(240, 253, 244, 0.35);
+}
+
+.dita-ox-prof-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.dita-ox-prof-badge {
+  display: inline-block;
+  border-radius: 2px;
+  background: #bef264;
+  border: 1px solid #84cc16;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  color: #1a2e05;
+}
+
+/* When Oxygen tags are visible, suppress redundant CSS ::before labels so tags stay crisp */
+.dita-tag-mode-tags .dita-prosemirror-doc > article[data-dita-tag]::before,
+.dita-tag-mode-full .dita-prosemirror-doc > article[data-dita-tag]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="prereq"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="prereq"]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="context"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="context"]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="result"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="result"]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="postreq"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="postreq"]::before {
+  display: none;
+}
+
+.dita-tag-mode-tags .dita-prosemirror-doc > article > h1[data-dita-tag="title"],
+.dita-tag-mode-full .dita-prosemirror-doc > article > h1[data-dita-tag="title"] {
+  line-height: 1.4;
+}
+
+/* --------------------------------------------------------------------------
+ * Jupyter Notebook-Style Between-Block `+` Inserter Dividers (Zero Layout Shift)
+ * -------------------------------------------------------------------------- */
+.dita-block-inserter {
+  position: relative;
+  height: 16px;
+  margin: -1px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  z-index: 4;
+}
+
+.dita-bi-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  transform: translateY(-50%);
+  background: transparent;
+  pointer-events: none;
+}
+
+.dita-bi-bar {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-bi-line,
+  .dita-bi-bar,
+  .dita-bi-plus,
+  .dita-bi-chip {
+    transition: opacity 130ms ease, background-color 130ms ease, border-color 130ms ease, transform 130ms ease;
+  }
+}
+
+/* "+" dots are hidden by default. They appear only for the gaps directly above and
+   below a hovered block, or the block that contains the current selection. */
+*:hover + .dita-block-inserter .dita-bi-bar,
+.dita-block-inserter:has(+ *:hover) .dita-bi-bar,
+.dita-gap-active + .dita-block-inserter .dita-bi-bar,
+.dita-block-inserter:has(+ .dita-gap-active) .dita-bi-bar {
+  opacity: 1;
+}
+
+/* Neighbour-triggered state shows just the "+" dot; chips need direct gap hover/focus */
+.dita-block-inserter:not(:hover):not(:focus-within) .dita-bi-chips {
+  display: none;
+}
+
+/* Reveal full Jupyter horizontal guide line + quick-insert pill bar on gap hover or keyboard focus */
+.dita-block-inserter:hover,
+.dita-block-inserter:focus-within {
+  z-index: 12;
+}
+
+.dita-block-inserter:hover .dita-bi-line,
+.dita-block-inserter:focus-within .dita-bi-line {
+  background: linear-gradient(90deg, transparent 0%, #818cf8 12%, #6366f1 50%, #818cf8 88%, transparent 100%);
+}
+
+.dita-block-inserter:hover .dita-bi-bar,
+.dita-block-inserter:focus-within .dita-bi-bar {
+  opacity: 1 !important;
+}
+
+.dita-block-inserter:hover .dita-bi-chips,
+.dita-block-inserter:focus-within .dita-bi-chips {
+  display: inline-flex !important;
+}
+
+.dita-bi-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 1px solid #a5b4fc;
+  background: #ffffff;
+  color: #4f46e5;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.dita-bi-plus:hover,
+.dita-bi-plus:focus-visible {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #ffffff;
+  outline: 2px solid #818cf8;
+  outline-offset: 1px;
+}
+
+.dita-bi-chips {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 1px 4px;
+  border-radius: 9999px;
+  border: 1px solid #e0e7ff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+}
+
+.dita-bi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #ffffff;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  color: #334155;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dita-bi-chip:hover,
+.dita-bi-chip:focus-visible {
+  border-color: #6366f1;
+  background: #eef2ff;
+  color: #312e81;
+  outline: none;
+}
+
+.dita-bi-chip-plus {
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.dita-bi-chip-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #64748b;
+}
+
+.dita-bi-chip:hover .dita-bi-chip-tag {
+  color: #4338ca;
+}
+
+.dita-bi-chip-more {
+  border-style: dashed;
+  color: #4f46e5;
+  border-color: #c7d2fe;
+}
+

@@ -1,5 +1,6 @@
 import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
+import tailwindcss from '@tailwindcss/vite';
 
 /**
  * slimdom-sax-parser imports `Readable` from Node's `stream` module for its unused `async()` helper.
@@ -26,8 +27,32 @@ function browserStreamStubPlugin(): Plugin {
 }
 
 export default defineConfig({
-  plugins: [browserStreamStubPlugin(), react()],
+  plugins: [browserStreamStubPlugin(), tailwindcss(), react()],
   server: {
     port: 5173,
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules/@codemirror/') || id.includes('node_modules/@lezer/')) {
+            return 'vendor-codemirror';
+          }
+          if (id.includes('node_modules/prosemirror-')) {
+            return 'vendor-prosemirror';
+          }
+          if (
+            id.includes('node_modules/slimdom') ||
+            id.includes('node_modules/fontoxpath')
+          ) {
+            return 'vendor-xml-core';
+          }
+          if (id.includes('node_modules/react/') || id.includes('node_modules/react-dom/')) {
+            return 'vendor-react';
+          }
+          return undefined;
+        },
+      },
+    },
   },
 });
