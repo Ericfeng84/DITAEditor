@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.turbo/
+.pnpm-store/
+*.tsbuildinfo
+coverage/
+.DS_Store
+*.log
+.env
+.env.local
+graphify-out/.graphify_python
+graphify-out/.graphify_root
+graphify-out/cache/

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="urn:oasis:names:tc:dita:rng:topic.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<!-- Top-level header comment before DOCTYPE -->
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<!-- Comment immediately after DOCTYPE -->
+<topic id="topic_metadata_preservation">
+  <title>Comments, Processing Instructions, and CDATA</title>
+  <body>
+    <!-- Block comment inside body -->
+    <?editor-fold collapsed="false"?>
+    <p>This paragraph contains <?oxy_comment_start author="alice" timestamp="20261121T080000+0800" comment="Verify escaping"?>inline review annotations<?oxy_comment_end?> and an inline comment<!-- keep me intact --> right between words.</p>
+    <section id="sec_cdata">
+      <title>Verbatim Code and CDATA</title>
+      <codeblock xml:space="preserve" outputclass="language-xml"><![CDATA[<filter>
+  <condition expr="a < b && c > d"/>
+</filter>]]>
+// Variable placeholder below:
+const endpoint = "<varname>API_HOST</varname>/v1";
+  indentedLine();</codeblock>
+      <pre>Line 1
+    Indented Line 2
+Line 3</pre>
+    </section>
+  </body>
+</topic>
+<!-- Trailing epilog comment after root element -->

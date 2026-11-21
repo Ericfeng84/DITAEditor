@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task_deploy_worker" xml:lang="en-US">
+  <title>Deploy the DITA Validation Worker</title>
+  <shortdesc>Configure and start the persistent Java validation and DITA-OT publishing worker.</shortdesc>
+  <taskbody>
+    <prereq id="prereq_env">
+      <p>Ensure Docker Engine 24+ and <cmdname>docker compose</cmdname> are installed on the host.</p>
+    </prereq>
+    <context>
+      <p>The persistent JVM worker preloads the DITA 1.3 XML Catalog grammar pool to keep validation latency under 80 ms.</p>
+    </context>
+    <steps>
+      <step id="step_config">
+        <cmd>Open <menucascade><uicontrol>Settings</uicontrol><uicontrol>Publishing</uicontrol><uicontrol>Worker</uicontrol></menucascade> in the <wintitle>Admin Console</wintitle>.</cmd>
+        <info>
+          <p>Verify the endpoint URL matches your internal service network.</p>
+        </info>
+        <substeps>
+          <substep>
+            <cmd>Set <parmname>WORKER_PORT</parmname> to <userinput>8090</userinput>.</cmd>
+          </substep>
+          <substep>
+            <cmd>Set <parmname>MAX_CONCURRENT_BUILDS</parmname> to <userinput>2</userinput>.</cmd>
+          </substep>
+        </substeps>
+      </step>
+      <step id="step_start">
+        <cmd>Start the container using the deployment profile of your choice:</cmd>
+        <choices>
+          <choice>For local evaluation, run <cmdname>docker compose up -d</cmdname>.</choice>
+          <choice>For production clusters, apply the Kubernetes manifest with <option>--namespace=docs</option>.</choice>
+        </choices>
+        <stepxmp>
+          <codeblock outputclass="language-bash">docker compose up -d dita-worker
+curl -fsS http://localhost:8090/health</codeblock>
+        </stepxmp>
+        <stepresult>
+          <p>The health endpoint responds with <systemoutput>{"status":"ready","catalogsLoaded":true}</systemoutput>.</p>
+        </stepresult>
+      </step>
+    </steps>
+    <result>
+      <p>The validation and publishing worker is now active and accepting requests from the API server.</p>
+    </result>
+    <postreq>
+      <p>Run a sample HTML5 and PDF build to confirm Noto CJK fonts render properly.</p>
+    </postreq>
+  </taskbody>
+  <related-links>
+    <link href="../concepts/architecture.dita" format="dita" type="concept"/>
+  </related-links>
+</task>

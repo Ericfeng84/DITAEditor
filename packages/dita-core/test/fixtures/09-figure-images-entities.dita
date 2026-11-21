@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="concept_figures_entities">
+  <title>Figures, Images, and XML Entities (&amp; Unicode)</title>
+  <shortdesc>Verifies block &amp; inline images, entity escaping (&lt;, &gt;, &amp;), and CJK/math glyphs (≤, ≥, →).</shortdesc>
+  <conbody>
+    <p>Click the save icon <image href="../icons/save.png" placement="inline" height="16" alt="Save &amp; Validate"/> when latency is &lt; 80ms &amp;&amp; throughput ≥ 100 req/s → ready for release.</p>
+    <fig id="fig_system_arch">
+      <title>Monorepo &amp; Java Worker Architecture</title>
+      <desc>Data flow between React workbench, Fastify API, and JVM worker.</desc>
+      <image href="../images/architecture.svg" placement="break" scale="80" alt="Architecture &quot;v1&quot;">
+        <alt>System Architecture Diagram — 架构总览</alt>
+      </image>
+    </fig>
+    <example id="ex_quote">
+      <title>Attribute Escaping Example</title>
+      <p outputclass="callout &quot;quoted&quot; &amp; safe">Escaped entities inside text: 1 &lt; 2 &amp; 3 &gt; 2.</p>
+    </example>
+  </conbody>
+</concept>

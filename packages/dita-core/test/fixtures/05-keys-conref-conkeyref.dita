@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task_single_sourcing" audience="admin" platform="linux macos" product="enterprise" rev="2.4">
+  <title>Upgrade <keyword keyref="product_name"/> to Version <ph keyref="release_version"/></title>
+  <shortdesc>Follow this procedure to upgrade <keyword keyref="product_name"/> without downtime.</shortdesc>
+  <taskbody>
+    <prereq>
+      <note conref="shared/warnings.dita#warnings/backup_before_upgrade" type="caution" product="enterprise"/>
+      <ul>
+        <li conkeyref="common_lists/prereq_start" conrefend="common_lists/prereq_end"/>
+        <li platform="linux" audience="admin" otherprops="cluster-mode">Verify systemd service permissions on all Linux nodes.</li>
+      </ul>
+    </prereq>
+    <steps>
+      <step conkeyref="common_steps/login_admin"/>
+      <step id="step_run_upgrade" props="deployment(onprem)">
+        <cmd>Run the upgrade script referenced in <xref keyref="upgrade_cli_ref" format="dita"/>.</cmd>
+        <info>
+          <p id="reusable_info">Backups are stored under <filepath><keyword keyref="backup_dir"/>/snapshots</filepath>.</p>
+          <p conref="#task_single_sourcing/reusable_info"/>
+        </info>
+      </step>
+    </steps>
+  </taskbody>
+</task>

@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="topic_specialized_passthrough">
+  <title>Specialized and Unknown DITA Elements</title>
+  <body>
+    <p>This document tests <tm tmtype="reg" trademark="DITAForge">DITAForge</tm>, <abbreviated-form keyref="gloss_dita"/>, custom inline tag <acme-tag env="prod" tier="gold">v2.4</acme-tag>, empty inline marker <acme-marker id="m1"/>, and a multi-paragraph footnote<fn id="fn_complex"><p>First footnote paragraph with <codeph>inline</codeph> code.</p><p>Second footnote paragraph.</p></fn>.</p>
+    <hazardstatement id="haz_voltage" type="warning">
+      <messagepanel>
+        <typeofhazard>High Voltage Hazard</typeofhazard>
+        <consequence>Contact may cause severe electric shock or equipment damage.</consequence>
+        <howtoavoid>Disconnect all power cables before opening the chassis.</howtoavoid>
+      </messagepanel>
+      <hazardsymbol href="../images/high-voltage.svg" alt="High Voltage"/>
+    </hazardstatement>
+    <syntaxdiagram id="syn_cli">
+      <title>CLI Invocation Syntax</title>
+      <groupseq>
+        <kwd>dita</kwd>
+        <delim>--</delim>
+        <kwd>input</kwd>
+        <oper>=</oper>
+        <var>map-file</var>
+      </groupseq>
+    </syntaxdiagram>
+    <screen outputclass="terminal">$ dita --input=manual.ditamap --format=pdf
+[INFO] Processing completed in 4.2s
+  Output: out/manual.pdf</screen>
+    <acme-callout severity="high" data-owner="sec-team">
+      <acme-badge code="SEC-01"/>
+      <p>Custom enterprise callout block must survive Visual ↔ Source round-trips without losing attributes.</p>
+    </acme-callout>
+  </body>
+</topic>

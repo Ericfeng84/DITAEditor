@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="ref_multi_tgroup_properties">
+  <title>Multi-Tgroup CALS Table and Reference Properties</title>
+  <shortdesc>Edge-case reference topic with two CALS tgroups and a DITA properties table.</shortdesc>
+  <refbody>
+    <table id="tbl_multi_tgroup" frame="topbot">
+      <title>Multi-Section Specification Table</title>
+      <tgroup cols="2">
+        <!-- First tgroup colspecs -->
+        <colspec colnum="1" colname="a1" colwidth="1*"/>
+        <colspec colnum="2" colname="a2" colwidth="3*"/>
+        <thead>
+          <row>
+            <entry>Phase</entry>
+            <entry>Deliverable</entry>
+          </row>
+        </thead>
+        <tbody>
+          <row>
+            <entry>Phase 0</entry>
+            <entry>Lossless XML ↔ ProseMirror round-trip core</entry>
+          </row>
+        </tbody>
+      </tgroup>
+      <tgroup cols="3">
+        <colspec colnum="1" colname="b1" colwidth="1*"/>
+        <colspec colnum="2" colname="b2" colwidth="1*"/>
+        <colspec colnum="3" colname="b3" colwidth="2*"/>
+        <tbody>
+          <row>
+            <entry namest="b1" nameend="b2">Merged Summary</entry>
+            <entry>All 10 fixtures green</entry>
+          </row>
+        </tbody>
+      </tgroup>
+    </table>
+    <properties id="prop_env_vars">
+      <prophead>
+        <proptypehd>Variable</proptypehd>
+        <propvaluehd>Default</propvaluehd>
+        <propdeschd>Description</propdeschd>
+      </prophead>
+      <property>
+        <proptype>GIT_WORKTREE_ROOT</proptype>
+        <propvalue>/var/lib/dita/worktrees</propvalue>
+        <propdesc>Root directory for branch-isolated Git worktrees.</propdesc>
+      </property>
+      <property>
+        <proptype>VALIDATION_TIMEOUT_MS</proptype>
+        <propvalue>5000</propvalue>
+        <propdesc>Maximum wait time for JVM grammar pool validation.</propdesc>
+      </property>
+    </properties>
+  </refbody>
+</reference>

@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
+<topic id="topic_mixed_content_stress">
+  <title>Mixed Content and Inline Order Stress Test</title>
+  <body>
+    <p id="p_nesting">Nesting order check: <b><i>bold-then-italic</i></b> vs <i><b>italic-then-bold</b></i>, and distinct siblings: <ph id="a">alpha</ph> <ph id="b">beta</ph>.</p>
+    <p id="p_with_blocks">
+      Paragraph containing direct text before a nested list:
+      <ul>
+        <li>
+          Direct text inside list item with <codeph>inline</codeph> code
+          <ol>
+            <li>Nested ordered child 1</li>
+            <li>Nested ordered child 2</li>
+          </ol>
+          <note type="important">Inline note nested directly under li.</note>
+        </li>
+      </ul>
+      <codeblock>echo "codeblock nested inside p"</codeblock>
+    </p>
+    <section id="sec_mixed">
+      <title>Section With Direct Text</title>
+      Direct text inside section before paragraph.
+      <p>Regular paragraph following direct section text.</p>
+    </section>
+    <dl>
+      <dlentry>
+        <dt>Mixed DD</dt>
+        <dd>
+          Lead explanation inside dd before code example.
+          <codeblock>key = "value"</codeblock>
+        </dd>
+      </dlentry>
+    </dl>
+    <note type="attention">
+      <p>First paragraph in block note.</p>
+      <p>Second paragraph in block note.</p>
+    </note>
+  </body>
+</topic>
