@@ -22,10 +22,13 @@ import {
 } from '@dita/core';
 import type { TagDisplayMode } from '../../store/editor-store';
 import {
+  convertDitaBlockAtPos,
   deleteDitaNodeAtPos,
+  duplicateDitaBlockAtPos,
   hydrateEmptyContainerAtPos,
   insertBlockDitaElement,
   insertBlockDitaElementAtPos,
+  moveDitaBlockToGap,
   moveDitaNodeSibling,
   selectNodeAtPos,
   toggleInlineDitaElement,
@@ -39,6 +42,15 @@ import {
 import { buildDitaKeymapPlugins } from './keymap';
 import { createDitaNodeViews } from './node-views';
 import { InsertElementMenu, type InsertElementChoice } from './InsertElementMenu';
+import { InlineBubbleToolbar } from './InlineBubbleToolbar';
+import { BlockHandle } from './BlockHandle';
+import {
+  findBlockHandleTarget,
+  getBlockConvertOptions,
+  planBlockMove,
+  type BlockHandleTarget,
+} from './block-transforms';
+import { getInlineBubbleInfo, type InlineBubbleInfo } from './inline-selection';
 import {
   findLegalAncestorDepthForBlock,
   getSelectionSnapshot,
@@ -55,6 +67,33 @@ import {
   mergeCalsCellRight,
   splitCalsCell,
 } from './table-commands';
+
+/** Table internals and metadata are never offered by the block insert menus. */
+const NON_INSERTABLE_BLOCK_TAGS: ReadonlySet<string> = new Set([
+  'sthead',
+  'strow',
+  'stentry',
+  'tgroup',
+  'colspec',
+  'thead',
+  'tbody',
+  'row',
+  'entry',
+]);
+
+function buildBlockInsertGroups(containerTag: string, containerDepth: number): InsertContextGroup[] {
+  return [
+    {
+      containerTag,
+      containerDepth,
+      containerLabel: `在 <${containerTag}> 此处插入块`,
+      insertKind: 'block',
+      items: getAllowedChildElements(containerTag, 'block').filter(
+        (spec) => !NON_INSERTABLE_BLOCK_TAGS.has(spec.tag),
+      ),
+    },
+  ];
+}
 
 export interface VisualEditorHandle {
   runCommand: (cmd: Command) => boolean;
@@ -148,6 +187,35 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       groups: InsertContextGroup[];
     } | null>(null);
     const [latestSnapshot, setLatestSnapshot] = useState<EditorSelectionSnapshot | null>(null);
+    const [inlineBubble, setInlineBubble] = useState<{
+      info: InlineBubbleInfo;
+      top: number;
+      left: number;
+    } | null>(null);
+    const [dismissedBubbleKey, setDismissedBubbleKey] = useState<string | null>(null);
+    const [insertMenuInlineOnly, setInsertMenuInlineOnly] = useState(false);
+
+    /** Recompute the floating inline-element bubble against the current viewport geometry. */
+    const syncInlineBubble = useCallback((view: EditorView) => {
+      const info = getInlineBubbleInfo(view.state);
+      if (!info.visible) {
+        setInlineBubble(null);
+        return;
+      }
+      let startCoords: { top: number; bottom: number; left: number };
+      let endCoords: { top: number; bottom: number; left: number };
+      try {
+        startCoords = view.coordsAtPos(info.from);
+        endCoords = view.coordsAtPos(info.to, -1);
+      } catch {
+        setInlineBubble(null);
+        return;
+      }
+      const left = (startCoords.left + endCoords.left) / 2;
+      const aboveTop = Math.min(startCoords.top, endCoords.top) - 46;
+      const top = aboveTop < 8 ? Math.max(startCoords.bottom, endCoords.bottom) + 10 : aboveTop;
+      setInlineBubble({ info, top, left });
+    }, []);
 
     const emitSnapshot = useCallback((state: EditorState) => {
       const snap = getSelectionSnapshot(state, pinnedPosRef.current);
@@ -169,6 +237,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       const view = viewRef.current;
       if (!view) return;
       setGapInsertContext(null);
+      setInsertMenuInlineOnly(false);
       try {
         const coords = view.coordsAtPos(view.state.selection.from);
         setInsertMenuAnchor({ top: coords.bottom + 6, left: coords.left });
@@ -206,38 +275,284 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     const handleOpenGapInsertMenu = useCallback((payload: BlockGapOpenMenuPayload) => {
       slashPosRef.current = null;
-      const legalBlocks = getAllowedChildElements(payload.containerTag, 'block').filter(
-        (s) =>
-          ![
-            'sthead',
-            'strow',
-            'stentry',
-            'tgroup',
-            'colspec',
-            'thead',
-            'tbody',
-            'row',
-            'entry',
-          ].includes(s.tag),
-      );
-
       const rect = payload.anchorEl.getBoundingClientRect();
       setGapInsertContext({
         insertPos: payload.insertPos,
-        groups: [
-          {
-            containerTag: payload.containerTag,
-            containerDepth: payload.containerDepth,
-            containerLabel: `在 <${payload.containerTag}> 此处插入块`,
-            insertKind: 'block',
-            items: legalBlocks,
-          },
-        ],
+        groups: buildBlockInsertGroups(payload.containerTag, payload.containerDepth),
       });
       setInsertMenuAnchor({ top: rect.bottom + 6, left: rect.left });
       setInsertIsSlash(false);
+      setInsertMenuInlineOnly(false);
       setInsertMenuOpen(true);
     }, []);
+
+    /** Apply a DITA inline element to the highlighted range from the floating bubble toolbar. */
+    const applyInlineBubbleTag = useCallback((tagName: string) => {
+      const view = viewRef.current;
+      if (!view) return;
+      if (toggleInlineDitaElement(tagName)(view.state, view.dispatch)) {
+        view.focus();
+        onAnnounceRef.current?.(`已将选中文字转换为行内元素 <${tagName}>`);
+      }
+    }, []);
+
+    /** "更多元素" opens the insert menu narrowed to the inline elements legal at the caret. */
+    const openInlineMoreMenu = useCallback((anchorEl: HTMLElement) => {
+      slashPosRef.current = null;
+      setGapInsertContext(null);
+      const rect = anchorEl.getBoundingClientRect();
+      setInsertMenuAnchor({ top: rect.bottom + 6, left: rect.left });
+      setInsertIsSlash(false);
+      setInsertMenuInlineOnly(true);
+      setInsertMenuOpen(true);
+    }, []);
+
+    // ---- Notion-style left gutter block handle -------------------------------------------
+    const [blockHandle, setBlockHandle] = useState<{
+      target: BlockHandleTarget;
+      top: number;
+      left: number;
+    } | null>(null);
+    const [blockMenuOpen, setBlockMenuOpen] = useState(false);
+    const [blockDragging, setBlockDragging] = useState(false);
+    const [blockDropGap, setBlockDropGap] = useState<{
+      gap: number;
+      top: number;
+      left: number;
+      width: number;
+    } | null>(null);
+    const blockDragRef = useRef<{
+      target: BlockHandleTarget;
+      startX: number;
+      startY: number;
+      active: boolean;
+    } | null>(null);
+    const blockDragGapRef = useRef<number | null>(null);
+
+    /** Viewport anchor of the handle row: aligned with the block's first text line. */
+    const resolveHandleAnchor = useCallback((view: EditorView, target: BlockHandleTarget) => {
+      let lineTop: number | null = null;
+      try {
+        lineTop = view.coordsAtPos(target.blockPos + 1).top;
+      } catch {
+        lineTop = null;
+      }
+      const dom = view.nodeDOM(target.blockPos);
+      const rect = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null;
+      const top = lineTop ?? rect?.top ?? null;
+      if (top === null) return null;
+      const leftEdge = rect?.left ?? 0;
+      return { top: Math.max(8, top), left: Math.max(6, leftEdge - 46) };
+    }, []);
+
+    /**
+     * The gutter handle is not a hover affordance: it follows the block that holds the caret /
+     * selection, so it only shows up after the user clicks into a paragraph.
+     */
+    const syncBlockHandle = useCallback(
+      (view: EditorView) => {
+        if (blockDragRef.current) return;
+        const target = findBlockHandleTarget(view.state, view.state.selection.from);
+        if (!target) {
+          setBlockHandle(null);
+          return;
+        }
+        const anchor = resolveHandleAnchor(view, target);
+        if (!anchor) {
+          setBlockHandle(null);
+          return;
+        }
+        setBlockHandle((prev) => {
+          if (
+            prev &&
+            prev.target.blockPos === target.blockPos &&
+            Math.abs(prev.top - anchor.top) < 1.5 &&
+            Math.abs(prev.left - anchor.left) < 1.5
+          ) {
+            return prev;
+          }
+          return { target, top: anchor.top, left: anchor.left };
+        });
+      },
+      [resolveHandleAnchor],
+    );
+
+    /** Nearest legal gap inside the block's container, with the indicator geometry. */
+    const computeDropGap = useCallback((target: BlockHandleTarget, clientY: number) => {
+      const view = viewRef.current;
+      if (!view) return null;
+      // Measure the real DOM boxes of the container's children: `coordsAtPos` at node boundaries
+      // is unreliable inside DITA NodeViews (note/task/table wrappers), so anchor the drop line
+      // to the sibling elements themselves.
+      const candidates: { gap: number; top: number }[] = [];
+      let pos = target.containerPos + 1;
+      let lastBottom: number | null = null;
+      for (let index = 0; index < target.containerNode.childCount; index += 1) {
+        const child = target.containerNode.child(index);
+        const dom = view.nodeDOM(pos);
+        const rect = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null;
+        if (rect) {
+          candidates.push({ gap: pos, top: rect.top });
+          lastBottom = rect.bottom;
+        } else {
+          try {
+            candidates.push({ gap: pos, top: view.coordsAtPos(pos, 1).top });
+          } catch {
+            /* unmeasurable edge position */
+          }
+        }
+        pos += child.nodeSize;
+      }
+      if (lastBottom !== null) candidates.push({ gap: pos, top: lastBottom });
+
+      let best: { gap: number; top: number } | null = null;
+      for (const candidate of candidates) {
+        if (!planBlockMove(target.blockPos, target.blockNode.nodeSize, candidate.gap)) continue;
+        if (!best || Math.abs(candidate.top - clientY) < Math.abs(best.top - clientY)) {
+          best = candidate;
+        }
+      }
+      if (!best) return null;
+      const paper = mountRef.current?.closest('.dita-paper');
+      const paperRect = paper instanceof HTMLElement ? paper.getBoundingClientRect() : null;
+      return {
+        gap: best.gap,
+        top: best.top,
+        left: paperRect?.left ?? 0,
+        width: paperRect?.width ?? 0,
+      };
+    }, []);
+
+    const startBlockDrag = useCallback(
+      (event: React.PointerEvent<HTMLButtonElement>) => {
+        const view = viewRef.current;
+        if (!view || !blockHandle) return;
+        event.preventDefault();
+        blockDragRef.current = {
+          target: blockHandle.target,
+          startX: event.clientX,
+          startY: event.clientY,
+          active: false,
+        };
+        blockDragGapRef.current = null;
+
+        const onMove = (moveEvent: PointerEvent) => {
+          const drag = blockDragRef.current;
+          if (!drag) return;
+          if (!drag.active) {
+            if (
+              Math.abs(moveEvent.clientY - drag.startY) < 4 &&
+              Math.abs(moveEvent.clientX - drag.startX) < 4
+            ) {
+              return;
+            }
+            drag.active = true;
+            setBlockDragging(true);
+          }
+          const gap = computeDropGap(drag.target, moveEvent.clientY);
+          blockDragGapRef.current = gap?.gap ?? null;
+          setBlockDropGap(gap);
+        };
+
+        const onUp = () => {
+          window.removeEventListener('pointermove', onMove);
+          window.removeEventListener('pointerup', onUp);
+          const drag = blockDragRef.current;
+          blockDragRef.current = null;
+          setBlockDragging(false);
+          setBlockDropGap(null);
+          if (!drag) return;
+          if (!drag.active) {
+            setBlockMenuOpen(true);
+            return;
+          }
+          const gap = blockDragGapRef.current;
+          blockDragGapRef.current = null;
+          const currentView = viewRef.current;
+          if (
+            gap !== null &&
+            currentView &&
+            moveDitaBlockToGap(drag.target.blockPos, gap)(currentView.state, currentView.dispatch)
+          ) {
+            onAnnounceRef.current?.(`已移动块 <${drag.target.blockTag}>`);
+          }
+          setBlockHandle(null);
+        };
+
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+      },
+      [blockHandle, computeDropGap],
+    );
+
+    const openInsertMenuAfterBlock = useCallback(() => {
+      const target = blockHandle?.target;
+      if (!target) return;
+      slashPosRef.current = null;
+      setGapInsertContext({
+        insertPos: target.blockPos + target.blockNode.nodeSize,
+        groups: buildBlockInsertGroups(target.containerTag, target.containerDepth),
+      });
+      setInsertMenuAnchor({ top: (blockHandle?.top ?? 0) + 28, left: (blockHandle?.left ?? 0) + 34 });
+      setInsertIsSlash(false);
+      setInsertMenuInlineOnly(false);
+      setInsertMenuOpen(true);
+    }, [blockHandle]);
+
+    const convertBlockTo = useCallback(
+      (tag: string) => {
+        const view = viewRef.current;
+        const target = blockHandle?.target;
+        if (!view || !target) return;
+        setBlockMenuOpen(false);
+        if (convertDitaBlockAtPos(tag, target.blockPos)(view.state, view.dispatch)) {
+          onAnnounceRef.current?.(`已将块 <${target.blockTag}> 转换为 <${tag}>`);
+        }
+        setBlockHandle(null);
+      },
+      [blockHandle],
+    );
+
+    const duplicateBlock = useCallback(() => {
+      const view = viewRef.current;
+      const target = blockHandle?.target;
+      if (!view || !target) return;
+      setBlockMenuOpen(false);
+      if (duplicateDitaBlockAtPos(target.blockPos)(view.state, view.dispatch)) {
+        onAnnounceRef.current?.(`已复制块 <${target.blockTag}>`);
+      }
+      setBlockHandle(null);
+    }, [blockHandle]);
+
+    const deleteBlock = useCallback(() => {
+      const view = viewRef.current;
+      const target = blockHandle?.target;
+      if (!view || !target) return;
+      setBlockMenuOpen(false);
+      if (deleteDitaNodeAtPos(target.blockPos)(view.state, view.dispatch)) {
+        onAnnounceRef.current?.(`已删除块 <${target.blockTag}>`);
+      }
+      setBlockHandle(null);
+    }, [blockHandle]);
+
+    // Dismiss the "turn into" menu on outside pointerdown / Escape
+    useEffect(() => {
+      if (!blockMenuOpen) return;
+      const onPointerDown = (event: PointerEvent) => {
+        const el = event.target as Element | null;
+        if (el?.closest('.dita-block-menu') || el?.closest('.dita-block-handle')) return;
+        setBlockMenuOpen(false);
+      };
+      const onKeyDown = (event: KeyboardEvent) => {
+        if (event.key === 'Escape') setBlockMenuOpen(false);
+      };
+      document.addEventListener('pointerdown', onPointerDown, true);
+      document.addEventListener('keydown', onKeyDown, true);
+      return () => {
+        document.removeEventListener('pointerdown', onPointerDown, true);
+        document.removeEventListener('keydown', onKeyDown, true);
+      };
+    }, [blockMenuOpen]);
 
     // Build / reload ProseMirror EditorView whenever `reloadToken` changes (document switch, Source -> Visual)
     useEffect(() => {
@@ -255,6 +570,15 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       slashPosRef.current = null;
       setInsertMenuOpen(false);
       setGapInsertContext(null);
+      setInsertMenuInlineOnly(false);
+      setDismissedBubbleKey(null);
+      setInlineBubble(null);
+      setBlockHandle(null);
+      setBlockMenuOpen(false);
+      setBlockDragging(false);
+      setBlockDropGap(null);
+      blockDragRef.current = null;
+      blockDragGapRef.current = null;
 
       const state = EditorState.create({
         doc: initialDoc,
@@ -331,15 +655,34 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           }
 
           emitSnapshot(nextState);
+          syncInlineBubble(view);
+          syncBlockHandle(view);
         },
       });
 
       viewRef.current = view;
       emitSnapshot(state);
+      syncInlineBubble(view);
+      syncBlockHandle(view);
+
+      // Keep the bubble and gutter handle glued to the content while scrolling / resizing
+      const handleViewportChange = () => {
+        if (!viewRef.current) return;
+        syncInlineBubble(viewRef.current);
+        syncBlockHandle(viewRef.current);
+      };
+      window.addEventListener('scroll', handleViewportChange, true);
+      window.addEventListener('resize', handleViewportChange);
 
       return () => {
+        window.removeEventListener('scroll', handleViewportChange, true);
+        window.removeEventListener('resize', handleViewportChange);
         view.destroy();
         viewRef.current = null;
+        setInlineBubble(null);
+        setBlockHandle(null);
+        setBlockMenuOpen(false);
+        setBlockDropGap(null);
       };
       // Only rebuild ProseMirror view on explicit reloadToken changes
       // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -353,6 +696,9 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
         tagMode: tagDisplayMode,
       });
       view.dispatch(tr);
+      // Tag chrome changes every block's height; the dispatch above re-anchors the handle
+      setBlockMenuOpen(false);
+      setBlockDropGap(null);
     }, [tagDisplayMode]);
 
     // Sync active highlighted tag pill in decorations when inspected element changes
@@ -581,7 +927,26 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onAnnounceRef.current?.(`已插入 <${choice.spec.tag}>`);
     };
 
-    const activeMenuGroups = gapInsertContext?.groups ?? latestSnapshot?.insertGroups ?? [];
+    const activeMenuGroups = insertMenuInlineOnly
+      ? (gapInsertContext?.groups ?? latestSnapshot?.insertGroups ?? [])
+          .map((group) => ({
+            ...group,
+            items: group.items.filter((spec) => spec.kind === 'inline'),
+          }))
+          .filter((group) => group.items.length > 0)
+      : (gapInsertContext?.groups ?? latestSnapshot?.insertGroups ?? []);
+
+    const bubbleKey = inlineBubble ? `${inlineBubble.info.from}-${inlineBubble.info.to}` : null;
+
+    // Recomputed each render so the "turn into" list always reflects the live block content
+    const blockMenuOptions =
+      blockMenuOpen && blockHandle
+        ? getBlockConvertOptions(
+            viewRef.current?.state.doc.nodeAt(blockHandle.target.blockPos) ??
+              blockHandle.target.blockNode,
+            blockHandle.target.containerTag,
+          )
+        : null;
 
     return (
       <div className="flex h-full flex-col bg-slate-100/80">
@@ -626,12 +991,14 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             </div>
 
             <span className="hidden text-[11px] text-slate-400 md:inline">
-              悬停段落间点击 <kbd className="rounded border border-slate-200 bg-white px-1 font-mono text-[10px] text-slate-600">+</kbd> 快速插块
+              选中段落后点击段间 <kbd className="rounded border border-slate-200 bg-white px-1 font-mono text-[10px] text-slate-600">+</kbd> 快速插块
             </span>
           </div>
         </div>
 
-        <div className="dita-scroller relative min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8">
+        <div
+          className="dita-scroller relative min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"
+        >
           <div
             className={`dita-paper dita-tag-mode-${tagDisplayMode} mx-auto min-h-[calc(100%-0.5rem)] max-w-[880px] rounded-xl border border-slate-200/90 bg-white px-7 py-7 shadow-sm sm:px-10 sm:py-9`}
           >
@@ -648,10 +1015,49 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             onClose={() => {
               slashPosRef.current = null;
               setGapInsertContext(null);
+              setInsertMenuInlineOnly(false);
               setInsertMenuOpen(false);
               viewRef.current?.focus();
             }}
           />
+
+          {inlineBubble && !insertMenuOpen && dismissedBubbleKey !== bubbleKey ? (
+            <InlineBubbleToolbar
+              anchor={{ top: inlineBubble.top, left: inlineBubble.left }}
+              contextTag={inlineBubble.info.contextTag}
+              items={inlineBubble.info.items}
+              activeTags={inlineBubble.info.activeTags}
+              onApply={applyInlineBubbleTag}
+              onOpenMore={openInlineMoreMenu}
+              onClose={() => setDismissedBubbleKey(bubbleKey)}
+            />
+          ) : null}
+
+          {blockHandle && !insertMenuOpen ? (
+            <BlockHandle
+              top={blockHandle.top}
+              left={blockHandle.left}
+              blockTag={blockHandle.target.blockTag}
+              containerTag={blockHandle.target.containerTag}
+              dragging={blockDragging}
+              menuOptions={blockMenuOptions}
+              onInsert={openInsertMenuAfterBlock}
+              onToggleMenu={() => setBlockMenuOpen((open) => !open)}
+              onStartDrag={startBlockDrag}
+              onConvert={convertBlockTo}
+              onDuplicate={duplicateBlock}
+              onDelete={deleteBlock}
+              onCloseMenu={() => setBlockMenuOpen(false)}
+            />
+          ) : null}
+
+          {blockDropGap ? (
+            <div
+              className="dita-block-drop-indicator"
+              style={{ top: blockDropGap.top, left: blockDropGap.left, width: blockDropGap.width }}
+              aria-hidden
+            />
+          ) : null}
         </div>
       </div>
     );

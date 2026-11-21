@@ -9,14 +9,23 @@ import {
 } from 'prosemirror-state';
 import {
   ditaSchema,
+  getElementSpec,
   getPmNodeRawAttrs,
   getPmNodeTagName,
+  isChildAllowed,
   MODELED_INLINE_TAGS,
   removeRawAttr,
   setRawAttr,
   type RawAttrs,
 } from '@dita/core';
 import { findLegalAncestorDepthForBlock } from './selection-info';
+import { buildConvertedBlock, planBlockMove } from './block-transforms';
+import {
+  findSharedInlineTextblock,
+  flattenSameTypeInline,
+  isCodeTextblock,
+  sliceInlineContent,
+} from './inline-selection';
 
 const EMPTY_ATTRS: RawAttrs = [];
 
@@ -354,8 +363,13 @@ export function toggleInlineDitaElement(
         const start = $from.before(d);
         const end = $from.after(d);
         const tr = state.tr.replaceWith(start, end, ancestor.content);
-        const nextPos = Math.min(start + ancestor.content.size, tr.doc.content.size);
-        tr.setSelection(TextSelection.create(tr.doc, nextPos));
+        // Keep the unwrapped content highlighted so the quick bubble reflects the new state
+        const contentSize = ancestor.content.size;
+        tr.setSelection(
+          contentSize > 0
+            ? TextSelection.create(tr.doc, start, start + contentSize)
+            : TextSelection.create(tr.doc, Math.min(start, tr.doc.content.size)),
+        );
         dispatch(tr.scrollIntoView());
         return true;
       }
@@ -363,47 +377,39 @@ export function toggleInlineDitaElement(
 
     if (!$from.parent.inlineContent) return false;
 
-    // 2. Non-empty selection within the same inline parent -> wrap selected fragment cleanly
+    // 2. Non-empty selection inside ONE textblock -> wrap the selected fragment cleanly.
+    //    Uses a lossless inline slice (never flattens to plain text) and drops nested
+    //    wrappers of the same tag so `<b>` can never contain another `<b>`.
     if (selection.from < selection.to) {
-      if ($from.sameParent($to)) {
-        const selectedFragment = $from.parent.content.cut(
-          $from.parentOffset,
-          $to.parentOffset,
-        );
-        const wrapped = createDitaElementSkeleton(tagName, initialAttrs, selectedFragment);
-        if (!wrapped) return false;
-        if (!dispatch) return true;
-        const tr = state.tr.replaceWith(selection.from, selection.to, wrapped);
-        // Select the text inside the newly wrapped inline node
-        tr.setSelection(
-          TextSelection.create(
-            tr.doc,
-            selection.from + 1,
-            selection.from + 1 + selectedFragment.size,
-          ),
-        );
-        dispatch(tr.scrollIntoView());
-        return true;
-      }
+      const textblock = findSharedInlineTextblock(state, selection.from, selection.to);
+      if (!textblock || isCodeTextblock(textblock.node)) return false;
 
-      // Cross-inline-boundary inside the same textblock: extract plain inline text safely
-      const text = state.doc.textBetween(selection.from, selection.to, '');
-      if (text.length > 0) {
-        const wrapped = createDitaElementSkeleton(
-          tagName,
-          initialAttrs,
-          Fragment.from(textNode(text)),
-        );
-        if (!wrapped) return false;
-        if (!dispatch) return true;
-        const tr = state.tr.replaceWith(selection.from, selection.to, wrapped);
-        tr.setSelection(
-          TextSelection.create(tr.doc, selection.from + 1, selection.from + 1 + text.length),
-        );
-        dispatch(tr.scrollIntoView());
-        return true;
-      }
-      return false;
+      const sliced = sliceInlineContent(
+        textblock.node,
+        selection.from - textblock.startPos,
+        selection.to - textblock.startPos,
+      );
+      if (sliced.length === 0) return false;
+
+      const flattened = flattenSameTypeInline(sliced, nodeType);
+      if (flattened.length === 0) return false;
+
+      const selectedFragment = Fragment.fromArray(flattened);
+      const wrapped = createDitaElementSkeleton(tagName, initialAttrs, selectedFragment);
+      if (!wrapped) return false;
+      if (!dispatch) return true;
+
+      const tr = state.tr.replaceWith(selection.from, selection.to, wrapped);
+      // Select the content inside the newly wrapped inline node
+      tr.setSelection(
+        TextSelection.create(
+          tr.doc,
+          selection.from + 1,
+          selection.from + 1 + wrapped.content.size,
+        ),
+      );
+      dispatch(tr.scrollIntoView());
+      return true;
     }
 
     // 3. Collapsed cursor -> insert inline element (with optional default text or empty for keyref)
@@ -953,6 +959,65 @@ export function moveDitaNodeSibling(nodePos: number, direction: 'up' | 'down'): 
     const tr = state.tr.replaceWith(offset, rangeEnd, [second, first]);
     const newPos = direction === 'up' ? offset : offset + second.nodeSize;
     tr.setSelection(Selection.near(tr.doc.resolve(newPos + 1), 1));
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+/**
+ * Turn a block into another DITA block tag (Notion-style "Turn into"), keeping its text.
+ */
+export function convertDitaBlockAtPos(tagName: string, nodePos: number): Command {
+  return (state, dispatch) => {
+    if (nodePos <= 0) return false;
+    const node = state.doc.nodeAt(nodePos);
+    if (!node || node.isInline) return false;
+    const spec = getElementSpec(tagName);
+    if (!spec || spec.tag === getPmNodeTagName(node)) return false;
+    const parentTag = getPmNodeTagName(state.doc.resolve(nodePos).parent);
+    if (!parentTag || !isChildAllowed(parentTag, spec.tag)) return false;
+    const converted = buildConvertedBlock(node, spec);
+    if (!converted) return false;
+    if (!dispatch) return true;
+
+    const tr = state.tr.replaceWith(nodePos, nodePos + node.nodeSize, converted);
+    const caret = Math.min(nodePos + 1, tr.doc.content.size);
+    tr.setSelection(Selection.near(tr.doc.resolve(caret), -1));
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+/** Duplicate a block right below itself. */
+export function duplicateDitaBlockAtPos(nodePos: number): Command {
+  return (state, dispatch) => {
+    if (nodePos <= 0) return false;
+    const node = state.doc.nodeAt(nodePos);
+    if (!node || node.isInline) return false;
+    if (!dispatch) return true;
+    const insertAt = nodePos + node.nodeSize;
+    const tr = state.tr.insert(insertAt, node);
+    tr.setSelection(Selection.near(tr.doc.resolve(insertAt + 1), 1));
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+/**
+ * Move a block into one of the gaps of its own container (drag & drop from the gutter handle).
+ */
+export function moveDitaBlockToGap(nodePos: number, gapPos: number): Command {
+  return (state, dispatch) => {
+    if (nodePos <= 0) return false;
+    const node = state.doc.nodeAt(nodePos);
+    if (!node || node.isInline) return false;
+    const plan = planBlockMove(nodePos, node.nodeSize, gapPos);
+    if (!plan) return false;
+    if (!dispatch) return true;
+
+    const tr = state.tr.delete(plan.from, plan.to);
+    tr.insert(plan.insertAt, node);
+    tr.setSelection(Selection.near(tr.doc.resolve(plan.insertAt + 1), 1));
     dispatch(tr.scrollIntoView());
     return true;
   };

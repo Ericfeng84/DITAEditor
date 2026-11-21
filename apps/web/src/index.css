@@ -140,6 +140,132 @@ dialog.dita-dialog::backdrop {
   border-inline-start: 1px solid #cbd5e1;
 }
 
+/* ---- Floating inline-element bubble toolbar (text selection quick actions) ---- */
+.dita-bubble {
+  position: fixed;
+  z-index: 45;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem 0.3rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 10px 24px -8px rgba(15, 23, 42, 0.28), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-bubble {
+    animation: dita-bubble-in 110ms ease-out;
+  }
+}
+
+@keyframes dita-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.dita-bubble-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 26px;
+  min-block-size: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-bubble-btn {
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .dita-bubble-btn:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+}
+
+.dita-bubble-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 1px;
+}
+
+.dita-bubble-btn[aria-pressed="true"] {
+  background-color: #e0e7ff;
+  border-color: #6366f1;
+  color: #3730a3;
+}
+
+.dita-bubble-sep {
+  display: inline-block;
+  align-self: stretch;
+  margin: 0.15rem 0.2rem;
+  border-inline-start: 1px solid #e2e8f0;
+}
+
+/* Instant tooltip shown right after hovering a [title] trigger (see useInstantTitles) */
+.dita-instant-tip {
+  position: fixed;
+  z-index: 80;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  box-shadow: 0 8px 20px -8px rgba(15, 23, 42, 0.55);
+  animation: dita-instant-tip-in 90ms ease-out;
+}
+
+.dita-instant-tip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  border: 5px solid transparent;
+}
+
+.dita-instant-tip[data-placement="bottom"]::before {
+  bottom: 100%;
+  border-bottom-color: #0f172a;
+}
+
+.dita-instant-tip[data-placement="top"]::before {
+  top: 100%;
+  border-top-color: #0f172a;
+}
+
+@keyframes dita-instant-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .dita-mini-btn {
   display: inline-flex;
   align-items: center;
@@ -471,7 +597,11 @@ dialog.dita-dialog::backdrop {
   margin: 0.25rem 0;
 }
 
-/* Definition Lists (<dl>) */
+/* Definition Lists (<dl>)
+ * The two-column key/value table look is only safe when tag chrome is hidden. In 标签 /
+ * 含属性 mode the Oxygen tag widgets are direct children of the entry, so a grid host turns
+ * them into grid items and scatters `dlentry` / `dt` / `dd` pills across the table.
+ * Tag modes therefore flow as stacked blocks, keeping every pill in document order. */
 .dita-prosemirror-doc dl[data-dita-tag="dl"] {
   margin: 0.85rem 0;
   border: 1px solid #e2e8f0;
@@ -480,9 +610,9 @@ dialog.dita-dialog::backdrop {
 }
 
 .dita-prosemirror-doc div[data-dita-tag="dlentry"] {
-  display: grid;
-  grid-template-columns: minmax(110px, 28%) 1fr;
-  border-bottom: 1px solid #e2e8f0;
+  display: block;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px dashed #e2e8f0;
 }
 
 .dita-prosemirror-doc div[data-dita-tag="dlentry"]:last-child {
@@ -490,16 +620,61 @@ dialog.dita-dialog::backdrop {
 }
 
 .dita-prosemirror-doc dt[data-dita-tag="dt"] {
-  padding: 0.55rem 0.8rem;
-  background: #f8fafc;
-  border-right: 1px solid #e2e8f0;
+  display: block;
+  margin: 0;
+  padding: 0;
   font-weight: 650;
   color: #0f172a;
 }
 
 .dita-prosemirror-doc dd[data-dita-tag="dd"] {
+  display: block;
+  margin: 0.15rem 0 0;
+  padding: 0.05rem 0 0.05rem 0.7rem;
+  border-left: 2px solid #e2e8f0;
+  color: #334155;
+}
+
+.dita-prosemirror-doc dd[data-dita-tag="dd"] > p:first-child {
+  margin-top: 0.1rem;
+}
+
+.dita-prosemirror-doc dd[data-dita-tag="dd"] > p:last-child {
+  margin-bottom: 0.1rem;
+}
+
+/* Table-style definition list, used only when no tag chrome is rendered. */
+.dita-tag-mode-none .dita-prosemirror-doc div[data-dita-tag="dlentry"] {
+  display: grid;
+  grid-template-columns: minmax(110px, 28%) 1fr;
+  padding: 0;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dita-tag-mode-none .dita-prosemirror-doc dt[data-dita-tag="dt"] {
+  padding: 0.55rem 0.8rem;
+  background: #f8fafc;
+  border-right: 1px solid #e2e8f0;
+}
+
+.dita-tag-mode-none .dita-prosemirror-doc dd[data-dita-tag="dd"] {
   margin: 0;
   padding: 0.55rem 0.85rem;
+  border-left: none;
+}
+
+/* Tag chrome is decoration: never let a pill become a grid/flex item that reflows its host. */
+.dita-prosemirror-doc [data-dita-tag] > .dita-ox-tag {
+  grid-column: 1 / -1;
+  flex: 0 0 auto;
+}
+
+/* The closing tag pill is the last child of every textblock, which makes prosemirror-view append
+ * a `ProseMirror-trailingBreak` caret line — a phantom empty line under every paragraph in tag
+ * modes. Collapse it (empty blocks still keep their pills, so they stay clickable). */
+.dita-tag-mode-tags .dita-prosemirror-doc [data-dita-tag] > br.ProseMirror-trailingBreak,
+.dita-tag-mode-full .dita-prosemirror-doc [data-dita-tag] > br.ProseMirror-trailingBreak {
+  display: none;
 }
 
 /* Note / Callout NodeView */
@@ -1195,10 +1370,8 @@ dialog.dita-dialog::backdrop {
   }
 }
 
-/* "+" dots are hidden by default. They appear only for the gaps directly above and
-   below a hovered block, or the block that contains the current selection. */
-*:hover + .dita-block-inserter .dita-bi-bar,
-.dita-block-inserter:has(+ *:hover) .dita-bi-bar,
+/* "+" dots are hidden by default and stay hidden on hover: they only appear for the gaps
+   directly above and below the block that contains the caret / selection (click to reveal). */
 .dita-gap-active + .dita-block-inserter .dita-bi-bar,
 .dita-block-inserter:has(+ .dita-gap-active) .dita-bi-bar {
   opacity: 1;
@@ -1312,3 +1485,205 @@ dialog.dita-dialog::backdrop {
   border-color: #c7d2fe;
 }
 
+
+/* ---------------------------------------------------------------------------------------------
+   Notion-style left gutter block handle: `+` inserts a sibling block, the grip drags the block
+   and a plain click opens the "turn into" menu (see BlockHandle.tsx / block-transforms.ts).
+   --------------------------------------------------------------------------------------------- */
+.dita-block-handle {
+  position: fixed;
+  z-index: 46;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-block-handle {
+    animation: dita-block-handle-in 90ms ease-out;
+  }
+}
+
+@keyframes dita-block-handle-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dita-block-handle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .dita-block-handle-btn:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4338ca;
+  }
+}
+
+.dita-block-handle-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 1px;
+}
+
+.dita-block-handle-grip {
+  cursor: grab;
+  touch-action: none;
+}
+
+.dita-block-handle--dragging .dita-block-handle-grip {
+  cursor: grabbing;
+}
+
+.dita-block-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 232px;
+  max-height: 320px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 12px;
+  box-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.34), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.dita-block-menu-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.dita-block-menu-tag {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dita-block-menu-hint {
+  overflow: hidden;
+  font-size: 10.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dita-block-menu-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.dita-block-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 7px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dita-block-menu-item:hover,
+.dita-block-menu-item:focus-visible {
+  background: #eef2ff;
+  outline: none;
+}
+
+.dita-block-menu-item-label {
+  flex: 1 1 auto;
+  font-size: 12px;
+}
+
+.dita-block-menu-item-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #64748b;
+}
+
+.dita-block-menu-mode {
+  padding: 0 5px;
+  border: 1px solid #e0e7ff;
+  border-radius: 9999px;
+  color: #6366f1;
+  font-size: 9.5px;
+}
+
+.dita-block-menu-sep {
+  height: 1px;
+  margin: 2px 0;
+  background: #f1f5f9;
+}
+
+.dita-block-menu-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dita-block-menu-action:hover,
+.dita-block-menu-action:focus-visible {
+  background: #f8fafc;
+  outline: none;
+}
+
+.dita-block-menu-action--danger {
+  color: #b91c1c;
+}
+
+.dita-block-menu-action--danger:hover {
+  background: #fef2f2;
+}
+
+.dita-block-menu-empty {
+  padding: 8px 10px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.dita-block-drop-indicator {
+  position: fixed;
+  z-index: 44;
+  height: 2px;
+  border-radius: 9999px;
+  background: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
+  pointer-events: none;
+}

@@ -29,6 +29,7 @@ import {
   Variable,
 } from 'lucide-react';
 import type { EditorSelectionSnapshot } from './selection-info';
+import { useInstantTitles } from './useInstantTitles';
 
 export interface EditorToolbarProps {
   snapshot: EditorSelectionSnapshot | null;
@@ -81,6 +82,7 @@ export function EditorToolbar({
   disabled = false,
 }: EditorToolbarProps) {
   const toolbarRef = useRef<HTMLDivElement | null>(null);
+  useInstantTitles(toolbarRef);
 
   // Roving-tabindex fallback strictly when native `focusgroup` is unsupported
   useEffect(() => {
