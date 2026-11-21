@@ -1,5 +1,7 @@
 # DITAEditor
 
+**简体中文** · [English](README.en.md)
+
 面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，支持 **ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排** 与 **单一信息源语义引擎（Keys / Conref / DITAVAL）**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
@@ -63,7 +65,7 @@
 - **跨文档内容复用（`conref` / `conkeyref` / `conrefend`）与 DFS 环路检测**：
   - 支持直接 `conref`、间接 `conkeyref`、同文档 `#./id`、`conrefend` 范围切片、嵌套 `keyref` 展开及 DITA 1.3 元素特化兼容校验。
   - 基于 DFS `visitStack` 精准拦截自循环、双向/多跳循环与嵌套子节点循环（同时放行合法菱形 DAG），并在可视化编辑区与问题面板展示完整环路链。
-  - 可视化编辑区以只读内联卡片渲染被复用片段（纯 DOM 构造，不改写底层 ProseMirror `Doc` 与 XML），工具栏与属性检查器提供 **插入 / 绑定 Conref 弹窗** 浏览目标文档元素并实时预览展开结果。
+  - 可视化编辑区以只读内联卡片渲染被复用片段（纯 DOM 构造，不改写底层 ProseMirror `Doc` 与 XML），工具栏与右侧检视区的 **「复用」tab** 可按 Key 或相对路径浏览目标文档元素、实时预览展开结果，并选择「新建复用元素」或「绑定到当前元素」。
 - **DITAVAL 条件过滤与实时三态投影**：
   - 完整解析 `.ditaval`（`<prop>`、`<revprop>`、`<startflag>` / `<endflag>`、`<style-conflict>`），遵循 DITA 1.3 同属性多值全排斥、跨属性逻辑与及 `props="group(val)"` 分组求值规则。
   - 顶部工作台一键切换 `.ditaval` 与「**全部显示 / 置灰排除 / 隐藏排除**」三种投影模式，实时同步至 Map 结构树（隐藏模式下自动锁定拖拽以防索引错位）与可视化编辑区（支持 Flag 配色与起止徽章），严格保持底层 XML 零修改。
@@ -128,7 +130,7 @@ DITAEditor/
 ├── apps/
 │   ├── web/                    # @dita/web — React 19 + Vite 双模结构化写作工作台
 │   │   └── src/
-│   │       ├── components/     # 顶栏、Tab 栏、文件浏览、Keys 面板、条件编辑器、语义引用弹窗、问题面板
+│   │       ├── components/     # 顶栏、Tab 栏、文件浏览、Keys 面板、属性/复用检视区、条件编辑器、问题面板
 │   │       ├── editor/         # visual/ (ProseMirror + 语义装饰/Conref 渲染)、source/ (CodeMirror 6)
 │   │       ├── map-tree/       # react-arborist Map 树、DITAVAL 投影、节点检查器、右键菜单、概览面板
 │   │       ├── services/       # API 客户端、离线示例回退与持久化桥接
@@ -230,9 +232,9 @@ pnpm typecheck
 pnpm test
 ```
 
-当前测试覆盖（**107/107 Vitest 测试通过**）：
+当前测试覆盖（**117/117 Vitest 测试通过**）：
 - `@dita/core`（54 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测。
-- `@dita/web`（49 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言。
+- `@dita/web`（59 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言，以及复用属性值组装（conkeyref / 相对路径 / 同文件片段）。
 - `@dita/api`（4 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试，以及 `/api/semantics/*` Root Map 切换、实时 `conkeyref` 展开与增量更新环路诊断集成测试。
 
 ---
