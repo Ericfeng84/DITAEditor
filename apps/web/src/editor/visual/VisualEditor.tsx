@@ -11,11 +11,18 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { EditorState, Selection, TextSelection, type Command } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { Tags } from 'lucide-react';
+import { Filter, Tags } from 'lucide-react';
 import {
+  evaluateElementConditions,
   getAllowedChildElements,
+  getPmNodeRawAttrs,
+  getPmNodeTagName,
+  getRawAttr,
   pmDocToXml,
   xmlToPmDoc,
+  type DitavalDisplayMode,
+  type DocumentSemanticOverlay,
+  type ParsedDitaval,
   type RawAttrs,
   type XmlDeclaration,
   type XmlPrologItem,
@@ -40,7 +47,7 @@ import {
   type BlockGapOpenMenuPayload,
 } from './decorations';
 import { buildDitaKeymapPlugins } from './keymap';
-import { createDitaNodeViews } from './node-views';
+import { createDitaNodeViews, SemanticViewRegistry } from './node-views';
 import { InsertElementMenu, type InsertElementChoice } from './InsertElementMenu';
 import { InlineBubbleToolbar } from './InlineBubbleToolbar';
 import { BlockHandle } from './BlockHandle';
@@ -129,6 +136,11 @@ export interface VisualEditorProps {
   reloadToken: number;
   tagDisplayMode: TagDisplayMode;
   onChangeTagDisplayMode: (mode: TagDisplayMode) => void;
+  semanticOverlay?: DocumentSemanticOverlay | null;
+  activeDitaval?: ParsedDitaval | null;
+  activeDitavalPath?: string | null;
+  ditavalDisplayMode?: DitavalDisplayMode;
+  onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
   pendingJumpPos: number | null;
   onJumpHandled: () => void;
   onXmlChange: (nextXml: string) => void;
@@ -153,6 +165,11 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       reloadToken,
       tagDisplayMode,
       onChangeTagDisplayMode,
+      semanticOverlay = null,
+      activeDitaval = null,
+      activeDitavalPath = null,
+      ditavalDisplayMode = 'dim-excluded',
+      onJumpToSource,
       pendingJumpPos,
       onJumpHandled,
       onXmlChange,
@@ -169,6 +186,16 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     const slashPosRef = useRef<number | null>(null);
     const tagModeRef = useRef<TagDisplayMode>(tagDisplayMode);
     tagModeRef.current = tagDisplayMode;
+
+    const semanticOverlayRef = useRef<DocumentSemanticOverlay | null>(semanticOverlay);
+    const activeDitavalRef = useRef<ParsedDitaval | null>(activeDitaval);
+    const ditavalModeRef = useRef<DitavalDisplayMode>(ditavalDisplayMode);
+    const onJumpToSourceRef = useRef(onJumpToSource);
+    const semanticRegistryRef = useRef<SemanticViewRegistry>(new SemanticViewRegistry());
+    semanticOverlayRef.current = semanticOverlay;
+    activeDitavalRef.current = activeDitaval;
+    ditavalModeRef.current = ditavalDisplayMode;
+    onJumpToSourceRef.current = onJumpToSource;
 
     const onXmlChangeRef = useRef(onXmlChange);
     const onSnapshotRef = useRef(onSnapshotChange);
@@ -595,11 +622,21 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             },
             onOpenXrefDialog: () => onXrefRef.current(),
           }),
-          createDitaDecorationsPlugin(tagModeRef.current, {
-            onSelectTagNode: selectTagNodeFromDecoration,
-            onQuickInsertBlock: handleGapQuickInsert,
-            onOpenGapInsertMenu: handleOpenGapInsertMenu,
-          }),
+          createDitaDecorationsPlugin(
+            tagModeRef.current,
+            {
+              onSelectTagNode: selectTagNodeFromDecoration,
+              onQuickInsertBlock: handleGapQuickInsert,
+              onOpenGapInsertMenu: handleOpenGapInsertMenu,
+              onJumpToSource: (filePath, line, elementId) =>
+                onJumpToSourceRef.current?.(filePath, line, elementId),
+            },
+            {
+              overlay: semanticOverlayRef.current,
+              ditaval: activeDitavalRef.current,
+              ditavalDisplayMode: ditavalModeRef.current,
+            },
+          ),
           dropCursor({ color: '#4f46e5', width: 2 }),
           gapCursor(),
         ],
@@ -609,6 +646,10 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
         state,
         nodeViews: createDitaNodeViews({
           resolveImageSrc: (href) => resolveImageSrcRef.current?.(href) ?? null,
+          getSemanticOverlay: () => semanticOverlayRef.current,
+          semanticRegistry: semanticRegistryRef.current,
+          onJumpToSource: (filePath, line, elementId) =>
+            onJumpToSourceRef.current?.(filePath, line, elementId),
         }),
         attributes: {
           class: 'dita-prosemirror-doc',
@@ -639,6 +680,11 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           return false;
         },
         handleClickOn(editorView, pos, node, nodePos) {
+          // Never hydrate empty containers carrying conref/conkeyref so source XML stays untouched
+          const rawAttrs = getPmNodeRawAttrs(node);
+          if (getRawAttr(rawAttrs, 'conref') || getRawAttr(rawAttrs, 'conkeyref')) {
+            return false;
+          }
           if (node.childCount === 0 && !node.isTextblock && !node.isAtom) {
             if (hydrateEmptyContainerAtPos(nodePos)(editorView.state, editorView.dispatch)) {
               return true;
@@ -706,6 +752,22 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       setBlockMenuOpen(false);
       setBlockDropGap(null);
     }, [tagDisplayMode]);
+
+    // Live-update Keyref / Conref / DITAVAL semantic overlays WITHOUT losing editor history
+    useEffect(() => {
+      const view = viewRef.current;
+      if (view) {
+        const tr = view.state.tr.setMeta(DITA_DECORATIONS_KEY, {
+          semantic: {
+            overlay: semanticOverlay ?? null,
+            ditaval: activeDitaval ?? null,
+            ditavalDisplayMode,
+          },
+        });
+        view.dispatch(tr);
+      }
+      semanticRegistryRef.current.notifyAll();
+    }, [semanticOverlay, activeDitaval, ditavalDisplayMode]);
 
     // Sync active highlighted tag pill in decorations when inspected element changes
     useEffect(() => {
@@ -954,6 +1016,20 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           )
         : null;
 
+    const ditavalTopicSummary = (() => {
+      if (!activeDitaval || !viewRef.current) return null;
+      let excluded = 0;
+      let flagged = 0;
+      viewRef.current.state.doc.descendants((node) => {
+        if (!getPmNodeTagName(node)) return true;
+        const ev = evaluateElementConditions(getPmNodeRawAttrs(node), activeDitaval);
+        if (ev.status === 'exclude') excluded++;
+        else if (ev.status === 'flag') flagged++;
+        return true;
+      });
+      return { excluded, flagged };
+    })();
+
     return (
       <div className="flex h-full flex-col bg-slate-100/80">
         {/* Compact Visual Sub-Header Bar (aligned with Source Editor sub-bar) */}
@@ -1000,6 +1076,18 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
               选中段落后点击段间 <kbd className="rounded border border-slate-200 bg-white px-1 font-mono text-[10px] text-slate-600">+</kbd> 快速插块
             </span>
           </div>
+
+          {activeDitaval ? (
+            <div className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[10.5px] font-medium text-teal-800">
+              <Filter className="h-3 w-3 text-teal-600" aria-hidden="true" />
+              <span className="max-w-[140px] truncate">{activeDitavalPath?.split('/').pop()}</span>
+              {ditavalTopicSummary ? (
+                <span className="font-mono text-[10px] text-teal-700">
+                  · 排除 {ditavalTopicSummary.excluded} · 标记 {ditavalTopicSummary.flagged}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div

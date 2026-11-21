@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { FolderTree, Network, PanelLeftClose } from 'lucide-react';
+import { FolderTree, KeyRound, Network, PanelLeftClose } from 'lucide-react';
 import type { LeftSidebarTab } from '../store/editor-store';
 
 export interface LeftSidebarProps {
@@ -8,17 +8,15 @@ export interface LeftSidebarProps {
   onCollapse: () => void;
   mapTreeSlot: ReactNode;
   fileExplorerSlot: ReactNode;
+  keyspaceSlot: ReactNode;
 }
 
 /**
  * Left workbench sidebar implementing `modern-web-guidance` `tabs`:
  * - `focusgroup="tablist nomemory"` + `focusgroupstart` on selected tab
- * - `hidden="until-found"` + `beforematch` support; the inactive panel keeps its box, so
+ * - `hidden="until-found"` + `beforematch` support; the inactive panels keep their boxes, so
  *   `.dita-sidebar-panel[hidden]` disables pointer events (see index.css) instead of overlaying
  * - Underline indicator styled via `[aria-selected="true"]::after`
- *
- * The sidebar owns its own top strip (brand + collapse button) because it now runs to the
- * very top edge of the window instead of starting below the workbench header.
  */
 export function LeftSidebar({
   activeTab,
@@ -26,12 +24,15 @@ export function LeftSidebar({
   onCollapse,
   mapTreeSlot,
   fileExplorerSlot,
+  keyspaceSlot,
 }: LeftSidebarProps) {
   const mapTabId = useId();
   const filesTabId = useId();
+  const keysTabId = useId();
   const tablistRef = useRef<HTMLDivElement | null>(null);
   const mapPanelRef = useRef<HTMLDivElement | null>(null);
   const filesPanelRef = useRef<HTMLDivElement | null>(null);
+  const keysPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Roving-tabindex fallback when native `focusgroup` is unavailable
   useEffect(() => {
@@ -80,18 +81,23 @@ export function LeftSidebar({
     };
     syncPanel(mapPanelRef.current, 'map');
     syncPanel(filesPanelRef.current, 'files');
+    syncPanel(keysPanelRef.current, 'keys');
   }, [activeTab]);
 
   useEffect(() => {
     const mapEl = mapPanelRef.current;
     const filesEl = filesPanelRef.current;
+    const keysEl = keysPanelRef.current;
     const onMatchMap = () => onChangeTab('map');
     const onMatchFiles = () => onChangeTab('files');
+    const onMatchKeys = () => onChangeTab('keys');
     mapEl?.addEventListener('beforematch', onMatchMap);
     filesEl?.addEventListener('beforematch', onMatchFiles);
+    keysEl?.addEventListener('beforematch', onMatchKeys);
     return () => {
       mapEl?.removeEventListener('beforematch', onMatchMap);
       filesEl?.removeEventListener('beforematch', onMatchFiles);
+      keysEl?.removeEventListener('beforematch', onMatchKeys);
     };
   }, [onChangeTab]);
 
@@ -111,7 +117,7 @@ export function LeftSidebar({
               DITAEditor
             </div>
             <div className="truncate text-[10px] font-medium text-slate-400">
-              项目 · Map 管理
+              项目 · Map · Keys
             </div>
           </div>
         </div>
@@ -130,7 +136,7 @@ export function LeftSidebar({
         ref={tablistRef}
         {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
         aria-label="导航视图切换"
-        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-2 border-b border-slate-200 bg-slate-50"
+        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-3 border-b border-slate-200 bg-slate-50"
       >
         <button
           type="button"
@@ -138,10 +144,10 @@ export function LeftSidebar({
           aria-selected={activeTab === 'files'}
           {...(activeTab === 'files' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
           onClick={() => onChangeTab('files')}
-          className="dita-sidebar-tab relative flex items-center justify-center gap-1.5 text-xs text-slate-600 hover:text-slate-900"
+          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
         >
           <FolderTree className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>项目文件</span>
+          <span>文件</span>
         </button>
         <button
           type="button"
@@ -149,14 +155,25 @@ export function LeftSidebar({
           aria-selected={activeTab === 'map'}
           {...(activeTab === 'map' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
           onClick={() => onChangeTab('map')}
-          className="dita-sidebar-tab relative flex items-center justify-center gap-1.5 text-xs text-slate-600 hover:text-slate-900"
+          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
         >
           <Network className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Map 结构树</span>
+          <span>Map 树</span>
+        </button>
+        <button
+          type="button"
+          id={keysTabId}
+          aria-selected={activeTab === 'keys'}
+          {...(activeTab === 'keys' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
+          onClick={() => onChangeTab('keys')}
+          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
+        >
+          <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>Keys</span>
         </button>
       </div>
 
-      {/* Single stacked grid cell holds both panels cleanly without padding/border on tabpanel */}
+      {/* Single stacked grid cell holds all panels cleanly without padding/border on tabpanel */}
       <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 overflow-hidden">
         <div
           ref={mapPanelRef}
@@ -174,6 +191,15 @@ export function LeftSidebar({
           className="dita-sidebar-panel col-start-1 row-start-1"
         >
           <div className="h-full w-full overflow-hidden">{fileExplorerSlot}</div>
+        </div>
+        <div
+          ref={keysPanelRef}
+          role="tabpanel"
+          aria-labelledby={keysTabId}
+          hidden
+          className="dita-sidebar-panel col-start-1 row-start-1"
+        >
+          <div className="h-full w-full overflow-hidden">{keyspaceSlot}</div>
         </div>
       </div>
     </aside>

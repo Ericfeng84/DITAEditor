@@ -10,6 +10,9 @@ import {
 import { FilePlus2, FolderOpen, Network } from 'lucide-react';
 import { EditorTabBar } from './components/EditorTabBar';
 import { FileExplorerPanel } from './components/FileExplorerPanel';
+import { InsertConrefDialog } from './components/InsertConrefDialog';
+import { InsertKeyrefDialog } from './components/InsertKeyrefDialog';
+import { KeyspacePanel } from './components/KeyspacePanel';
 import { LeftSidebar } from './components/LeftSidebar';
 import { NewMapDialog } from './components/NewMapDialog';
 import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopicDialog';
@@ -52,8 +55,16 @@ export function App() {
   const fileTree = useEditorStore((s) => s.fileTree);
   const fileSet = useEditorStore((s) => s.fileSet);
   const workspaceMaps = useEditorStore((s) => s.workspaceMaps);
+  const workspaceDitavals = useEditorStore((s) => s.workspaceDitavals);
   const topicTitles = useEditorStore((s) => s.topicTitles);
   const activeRootMapPath = useEditorStore((s) => s.activeRootMapPath);
+  const activeDitavalPath = useEditorStore((s) => s.activeDitavalPath);
+  const activeDitaval = useEditorStore((s) => s.activeDitaval);
+  const ditavalDisplayMode = useEditorStore((s) => s.ditavalDisplayMode);
+  const keyspace = useEditorStore((s) => s.keyspace);
+  const topicIndices = useEditorStore((s) => s.topicIndices);
+  const profilingCatalog = useEditorStore((s) => s.profilingCatalog);
+  const documentOverlays = useEditorStore((s) => s.documentOverlays);
   const memoryAssets = useEditorStore((s) => s.memoryAssets);
   const mapBuffers = useEditorStore((s) => s.mapBuffers);
   const diagnostics = useEditorStore((s) => s.diagnostics);
@@ -78,7 +89,11 @@ export function App() {
   const importFolderWorkspace = useEditorStore((s) => s.importFolderWorkspace);
   const restoreOfflineDemo = useEditorStore((s) => s.restoreOfflineDemo);
   const selectRootMap = useEditorStore((s) => s.selectRootMap);
+  const selectDitaval = useEditorStore((s) => s.selectDitaval);
+  const setDitavalDisplayMode = useEditorStore((s) => s.setDitavalDisplayMode);
   const refreshDiagnostics = useEditorStore((s) => s.refreshDiagnostics);
+  const jumpToSemanticLocation = useEditorStore((s) => s.jumpToSemanticLocation);
+  const resolveConrefPreview = useEditorStore((s) => s.resolveConrefPreview);
   const openFileTab = useEditorStore((s) => s.openFileTab);
   const activateTab = useEditorStore((s) => s.activateTab);
   const closeTab = useEditorStore((s) => s.closeTab);
@@ -219,6 +234,8 @@ export function App() {
     isBookmap: boolean;
   } | null>(null);
   const [refDialogMode, setRefDialogMode] = useState<'xref' | 'image' | null>(null);
+  const [keyrefDialogOpen, setKeyrefDialogOpen] = useState(false);
+  const [conrefDialogOpen, setConrefDialogOpen] = useState(false);
 
   const handleSnapshotChange = useCallback(
     (
@@ -316,6 +333,40 @@ export function App() {
       visualRef.current?.insertBlock('image', undefined, attrs);
     }
   }, []);
+
+  const handleConfirmKeyref = useCallback(
+    (tagName: 'keyword' | 'ph' | 'xref' | 'term', attrs: RawAttrs, fallbackText?: string) => {
+      visualRef.current?.toggleInline(tagName, attrs, fallbackText || undefined);
+    },
+    [],
+  );
+
+  const handleConfirmConref = useCallback(
+    (opts: {
+      action: 'insert-new' | 'bind-selected';
+      tagName: string;
+      attrName: 'conref' | 'conkeyref';
+      value: string;
+    }) => {
+      const oppositeAttr = opts.attrName === 'conref' ? 'conkeyref' : 'conref';
+      if (opts.action === 'bind-selected' && snapshot?.activeItem) {
+        const targetPos = snapshot.activeItem.pos;
+        visualRef.current?.updateAttr(targetPos, oppositeAttr, null);
+        visualRef.current?.updateAttr(targetPos, opts.attrName, opts.value);
+        announce(`已为 <${snapshot.activeItem.tagName}> 绑定 ${opts.attrName}="${opts.value}"`);
+        return;
+      }
+
+      const initialAttrs: RawAttrs = [{ name: opts.attrName, value: opts.value, namespaceURI: null }];
+      if (visualRef.current?.canInsertInline(opts.tagName)) {
+        visualRef.current.toggleInline(opts.tagName, initialAttrs);
+      } else {
+        visualRef.current?.insertBlock(opts.tagName, undefined, initialAttrs);
+      }
+      announce(`已插入复用节点 <${opts.tagName} ${opts.attrName}="${opts.value}"/>`);
+    },
+    [snapshot, announce],
+  );
 
   const handleSelectBreadcrumb = useCallback((crumb: BreadcrumbItem) => {
     visualRef.current?.selectNode(crumb.pos, true);
@@ -437,6 +488,9 @@ export function App() {
                     fileSet={fileSet}
                     topicTitles={topicTitles}
                     selectedMapNode={selectedMapNode}
+                    activeDitavalPath={activeDitavalPath}
+                    activeDitaval={activeDitaval}
+                    ditavalDisplayMode={ditavalDisplayMode}
                     onSelectMapNode={(ref) => selectMapNode(ref, true)}
                     onMoveNodes={moveMapTreeNodes}
                     onOpenTopicOrMap={(path) => void openFileTab(path)}
@@ -454,6 +508,24 @@ export function App() {
                     onDeleteNode={deleteMapTreeNode}
                     onUndoMap={undoMap}
                     onRedoMap={redoMap}
+                  />
+                }
+                keyspaceSlot={
+                  <KeyspacePanel
+                    rootMapPath={activeRootMapPath}
+                    keyspace={keyspace}
+                    canInsertInTopic={Boolean(showTopicVisual)}
+                    onInsertKeyref={(keyName) => {
+                      visualRef.current?.toggleInline('keyword', [
+                        { name: 'keyref', value: keyName, namespaceURI: null },
+                      ]);
+                    }}
+                    onJumpToKeyDef={(def) =>
+                      void jumpToSemanticLocation(def.sourceMapPath, {
+                        mode: 'source',
+                        line: def.line,
+                      })
+                    }
                   />
                 }
                 fileExplorerSlot={
@@ -488,6 +560,9 @@ export function App() {
               workspaceMode={workspaceMode}
               maps={workspaceMaps}
               activeRootMapPath={activeRootMapPath}
+              ditavals={workspaceDitavals}
+              activeDitavalPath={activeDitavalPath}
+              ditavalDisplayMode={ditavalDisplayMode}
               activeTab={activeTab}
               mode={mode}
               xmlError={activeTab?.xmlError ?? null}
@@ -502,6 +577,8 @@ export function App() {
               onToggleLeftSidebar={() => setLeftSidebarOpen(!leftSidebarOpen)}
               onOpenWorkspaceDialog={() => setWorkspaceDialogOpen(true)}
               onSelectRootMap={(mapPath) => void selectRootMap(mapPath)}
+              onSelectDitaval={(ditavalPath) => void selectDitaval(ditavalPath)}
+              onChangeDitavalDisplayMode={setDitavalDisplayMode}
               onOpenNewTopic={() => {
                 setTopicMountContext(null);
                 setNewTopicOpen(true);
@@ -531,6 +608,8 @@ export function App() {
                 onInsertBlock={(tag) => visualRef.current?.insertBlock(tag)}
                 onOpenXrefDialog={() => setRefDialogMode('xref')}
                 onOpenImageDialog={() => setRefDialogMode('image')}
+                onOpenKeyrefDialog={() => setKeyrefDialogOpen(true)}
+                onOpenConrefDialog={() => setConrefDialogOpen(true)}
                 onTableAction={(action) => visualRef.current?.runTableAction(action)}
               />
             ) : null}
@@ -634,6 +713,13 @@ export function App() {
                                       onOpenXrefDialog={() => setRefDialogMode('xref')}
                                       onAnnounce={announce}
                                       resolveImageSrc={resolveImageSrcForActiveTab}
+                                      semanticOverlay={documentOverlays[activeTab.path] ?? null}
+                                      activeDitaval={activeDitaval}
+                                      activeDitavalPath={activeDitavalPath}
+                                      ditavalDisplayMode={ditavalDisplayMode}
+                                      onJumpToSource={(filePath, line, elementId) =>
+                                        void jumpToSemanticLocation(filePath, { line, elementId })
+                                      }
                                     />
                                   )}
                                 </Panel>
@@ -663,6 +749,9 @@ export function App() {
                                       sourceCursorOffsetRef.current = offset;
                                     }}
                                     onAnnounce={announce}
+                                    keyspace={keyspace}
+                                    topicIndices={topicIndices}
+                                    profilingCatalog={profilingCatalog}
                                   />
                                 </Panel>
                               ) : null}
@@ -700,6 +789,8 @@ export function App() {
                           selected={selectedMapNode}
                           mapBuffers={mapBuffers}
                           availableFiles={workspaceMountables}
+                          activeDitaval={activeDitaval}
+                          profilingCatalog={profilingCatalog}
                           onUpdateAttr={updateMapAttr}
                           onUpdateNavtitle={updateMapNavtitle}
                           onUpdateRootTitle={updateMapRootTitle}
@@ -711,6 +802,13 @@ export function App() {
                         <AttributesPanel
                           snapshot={snapshot}
                           docMetadata={docMeta}
+                          semanticOverlay={activeTab ? (documentOverlays[activeTab.path] ?? null) : null}
+                          activeDitaval={activeDitaval}
+                          profilingCatalog={profilingCatalog}
+                          onJumpToSource={(filePath, line, elementId) =>
+                            void jumpToSemanticLocation(filePath, { line, elementId })
+                          }
+                          onOpenConrefDialog={() => setConrefDialogOpen(true)}
                           onUpdateAttr={(pos, name, val) =>
                             visualRef.current?.updateAttr(pos, name, val)
                           }
@@ -797,11 +895,33 @@ export function App() {
         workspaceTopics={workspaceTopics}
         workspaceImages={workspaceImages}
         topicTitles={topicTitles}
+        keyspace={keyspace}
         onUploadImage={uploadWorkspaceImage}
         resolvePreviewUrl={resolveImageSrcForActiveTab}
         onClose={() => setRefDialogMode(null)}
         onConfirmXref={handleConfirmXref}
         onConfirmImage={handleConfirmImage}
+      />
+
+      <InsertKeyrefDialog
+        open={keyrefDialogOpen}
+        keyspace={keyspace}
+        rootMapPath={activeRootMapPath}
+        onClose={() => setKeyrefDialogOpen(false)}
+        onConfirm={handleConfirmKeyref}
+      />
+
+      <InsertConrefDialog
+        open={conrefDialogOpen}
+        activeDocPath={activeTab?.path ?? null}
+        selectedElementTag={snapshot?.activeItem?.tagName ?? null}
+        selectedTopicId={snapshot?.breadcrumbs[0]?.id ?? undefined}
+        selectedElementId={snapshot?.activeItem?.id ?? undefined}
+        keyspace={keyspace}
+        topicIndices={topicIndices}
+        onResolvePreview={resolveConrefPreview}
+        onClose={() => setConrefDialogOpen(false)}
+        onConfirm={handleConfirmConref}
       />
     </div>
   );

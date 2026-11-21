@@ -4,6 +4,7 @@ import {
   Bold,
   Code,
   Columns,
+  CopyPlus,
   FileCode2,
   FolderTree,
   Grid2x2,
@@ -44,6 +45,8 @@ export interface EditorToolbarProps {
   onInsertBlock: (tag: string) => void;
   onOpenXrefDialog: () => void;
   onOpenImageDialog: () => void;
+  onOpenKeyrefDialog?: () => void;
+  onOpenConrefDialog?: () => void;
   onTableAction: (
     action:
       | 'addRowBefore'
@@ -78,6 +81,8 @@ export function EditorToolbar({
   onInsertBlock,
   onOpenXrefDialog,
   onOpenImageDialog,
+  onOpenKeyrefDialog,
+  onOpenConrefDialog,
   onTableAction,
   disabled = false,
 }: EditorToolbarProps) {
@@ -275,6 +280,32 @@ export function EditorToolbar({
           >
             <ImageIcon className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
+          {onOpenKeyrefDialog ? (
+            <button
+              type="button"
+              className="dita-tb-btn px-2 text-[11px] text-violet-700"
+              aria-label="插入 Keyref 变量引用"
+              title="从 Root Map Keyspace 选择并插入 Keyref 变量"
+              aria-disabled={disabled || !canInsertInline('keyword')}
+              onClick={() => invokeIfEnabled(!canInsertInline('keyword'), onOpenKeyrefDialog)}
+            >
+              <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden lg:inline">Keyref</span>
+            </button>
+          ) : null}
+          {onOpenConrefDialog ? (
+            <button
+              type="button"
+              className="dita-tb-btn px-2 text-[11px] text-teal-700"
+              aria-label="插入内容复用 Conref / Conkeyref"
+              title="插入或绑定跨文档复用片段 (conref / conkeyref)"
+              aria-disabled={disabled}
+              onClick={() => invokeIfEnabled(false, onOpenConrefDialog)}
+            >
+              <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
+              <span className="hidden lg:inline">复用</span>
+            </button>
+          ) : null}
         </div>
 
         <span role="separator" aria-orientation="vertical" className="dita-tb-sep" />

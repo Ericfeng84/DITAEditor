@@ -24,14 +24,38 @@
       </keywords>
     </topicmeta>
   </keydef>
+  <keydef keys="deployment_mode" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>Cloud SaaS 多租户</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="common_reuse" href="shared/common-reuse.dita" processing-role="resource-only"/>
+  <keydef keys="gloss_dita" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>DITA (Darwin Information Typing Architecture)</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <topicgroup keyscope="cloud">
+    <keydef keys="endpoint_url" processing-role="resource-only">
+      <topicmeta>
+        <keywords>
+          <keyword>https://cloud.ditaeditor.dev/api</keyword>
+        </keywords>
+      </topicmeta>
+    </keydef>
+  </topicgroup>
   <topichead navtitle="核心概念与架构">
     <topicref href="concepts/dita-architecture.dita" type="concept" navtitle="DITA 结构化写作架构概述">
-      <topicref href="concepts/single-sourcing.dita" type="concept" navtitle="单一信息源与跨文档复用"/>
-      <topicref href="concepts/workspace-model.dita" type="concept" navtitle="多文件工作区与 Git 隔离模型"/>
+      <topicref href="concepts/single-sourcing.dita" type="concept" navtitle="单一信息源与跨文档复用" rev="2.4"/>
+      <topicref href="concepts/workspace-model.dita" type="concept" navtitle="多文件工作区与 Git 隔离模型" product="onprem"/>
     </topicref>
   </topichead>
-  <mapref href="maps/getting-started.ditamap" format="ditamap" navtitle="快速入门与运维任务"/>
-  <mapref href="maps/reference-guide.ditamap" format="ditamap" navtitle="规格参数与接口参考"/>
+  <mapref href="maps/getting-started.ditamap" format="ditamap" navtitle="快速入门与运维任务" audience="admin"/>
+  <mapref href="maps/reference-guide.ditamap" format="ditamap" navtitle="规格参数与接口参考" product="cloud"/>
   <reltable>
     <relheader>
       <relcolspec type="concept"/>

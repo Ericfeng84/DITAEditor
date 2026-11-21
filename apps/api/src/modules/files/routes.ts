@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
+import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
 import {
   WorkspaceConflictError,
   WorkspaceNotFoundError,
@@ -64,6 +65,7 @@ export function handleWorkspaceError(err: unknown, reply: FastifyReply) {
 export function registerWorkspaceFileRoutes(
   app: FastifyInstance,
   workspace: WorkspaceManager,
+  indexer?: WorkspaceSemanticIndexer,
 ): void {
   app.get('/api/workspace', async (_req, reply) => {
     try {
@@ -189,9 +191,11 @@ export function registerWorkspaceFileRoutes(
   });
 
   app.get('/api/diagnostics', async (req, reply) => {
-    const query = req.query as { rootMap?: string };
+    const query = req.query as { rootMap?: string; branch?: string };
     try {
-      const diagnostics = await workspace.collectDiagnostics(query.rootMap);
+      const diagnostics = indexer
+        ? await indexer.collectDiagnostics(query.rootMap ?? null, query.branch ?? 'default')
+        : await workspace.collectDiagnostics(query.rootMap);
       return { diagnostics };
     } catch (err) {
       return handleWorkspaceError(err, reply);

@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Tree, type TreeApi } from 'react-arborist';
+import type { DitavalDisplayMode, ParsedDitaval } from '@dita/core';
 import {
   AlertTriangle,
   ChevronsDownUp,
   ChevronsUpDown,
   Code2,
   FilePlus2,
+  Filter,
   FolderPlus,
   Link2,
   Network,
@@ -26,6 +28,9 @@ export interface MapTreePanelProps {
   mapBuffers: Record<string, MapBufferState>;
   fileSet: ReadonlySet<string>;
   topicTitles: Record<string, string>;
+  activeDitavalPath?: string | null;
+  activeDitaval?: ParsedDitaval | null;
+  ditavalDisplayMode?: DitavalDisplayMode;
   selectedMapNode: { mapPath: string; elementPath: number[] | null } | null;
   onSelectMapNode: (ref: { mapPath: string; elementPath: number[] | null }) => void;
   onMoveNodes: (
@@ -74,6 +79,9 @@ export function MapTreePanel({
   mapBuffers,
   fileSet,
   topicTitles,
+  activeDitavalPath = null,
+  activeDitaval = null,
+  ditavalDisplayMode = 'dim-excluded',
   selectedMapNode,
   onSelectMapNode,
   onMoveNodes,
@@ -94,8 +102,16 @@ export function MapTreePanel({
   const [menuTarget, setMenuTarget] = useState<MapNodeMenuTarget | null>(null);
 
   const treeResult = useMemo(
-    () => buildCompositeMapTree(rootMapPath, mapBuffers, fileSet, topicTitles),
-    [rootMapPath, mapBuffers, fileSet, topicTitles],
+    () =>
+      buildCompositeMapTree(rootMapPath, mapBuffers, fileSet, topicTitles, {
+        ditaval: activeDitaval,
+        ditavalDisplayMode,
+      }),
+    [rootMapPath, mapBuffers, fileSet, topicTitles, activeDitaval, ditavalDisplayMode],
+  );
+
+  const dragDisabled = Boolean(
+    activeDitaval && ditavalDisplayMode === 'hide-excluded' && treeResult.hiddenCount > 0,
   );
 
   const activeBuffer = rootMapPath ? mapBuffers[rootMapPath] : undefined;
@@ -125,6 +141,8 @@ export function MapTreePanel({
   const NodeRenderer = useMemo(
     () =>
       createMapTreeNodeRenderer({
+        ditavalActive: Boolean(activeDitaval),
+        ditavalDisplayMode,
         onOpenTarget: (node) => {
           if (node.resolvedTargetPath) {
             onOpenTopicOrMap(node.resolvedTargetPath);
@@ -137,7 +155,7 @@ export function MapTreePanel({
           onOpenCreateAndMount(getMountParentForNode(node));
         },
       }),
-    [onOpenTopicOrMap, onOpenCreateAndMount, getMountParentForNode],
+    [activeDitaval, ditavalDisplayMode, onOpenTopicOrMap, onOpenCreateAndMount, getMountParentForNode],
   );
 
   if (!rootMapPath) {
@@ -329,6 +347,24 @@ export function MapTreePanel({
         </div>
       ) : null}
 
+      {/* DITAVAL Projection Banner */}
+      {activeDitaval ? (
+        <div className="flex items-center justify-between gap-2 border-b border-teal-100 bg-teal-50/70 px-2.5 py-1 text-[10.5px] text-teal-900">
+          <span className="inline-flex min-w-0 items-center gap-1 truncate font-medium">
+            <Filter className="h-3 w-3 shrink-0 text-teal-600" aria-hidden="true" />
+            <span className="truncate">{activeDitavalPath?.split('/').pop()}</span>
+          </span>
+          <span className="shrink-0 font-mono text-[10px]">
+            {treeResult.hiddenCount > 0
+              ? `隐藏 ${treeResult.hiddenCount}`
+              : treeResult.excludedCount > 0
+                ? `排除 ${treeResult.excludedCount}`
+                : '全通过'}
+            {treeResult.flaggedCount > 0 ? ` · 标记 ${treeResult.flaggedCount}` : ''}
+          </span>
+        </div>
+      ) : null}
+
       {/* Virtualized Drag-and-Drop Map Tree (react-arborist) */}
       <div
         ref={treeHostRef}
@@ -336,8 +372,8 @@ export function MapTreePanel({
       >
         {!treeResult.parseError && treeResult.nodes.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400">
-            <p>当前 Map 暂无目录节点。</p>
-            <p className="mt-1">点击上方“新建挂载”或“挂载已有”开始编排。</p>
+            <p>当前 Map 暂无可显示的目录节点。</p>
+            <p className="mt-1">点击上方“新建挂载”或调整 DITAVAL 条件过滤。</p>
           </div>
         ) : (
           <Tree<CompositeMapTreeNode>
@@ -350,6 +386,8 @@ export function MapTreePanel({
             padding={6}
             openByDefault={true}
             disableEdit={true}
+            disableDrag={dragDisabled}
+            disableDrop={dragDisabled}
             searchTerm={search}
             searchMatch={(node, term) => {
               const q = term.toLowerCase();

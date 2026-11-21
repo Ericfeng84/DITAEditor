@@ -10,6 +10,7 @@ import {
   getNodeSourceRange,
   normalizePosixPath,
   parseDitaMap,
+  parseDitaval,
   parseXml,
   resolveDitaHref,
   type DitaFileKind,
@@ -36,11 +37,19 @@ export interface WorkspaceMapSummary {
   parseError?: XmlParseError;
 }
 
+export interface WorkspaceDitavalSummary {
+  path: string;
+  name: string;
+  ruleCount: number;
+  parseError?: XmlParseError;
+}
+
 export interface WorkspaceSnapshot {
   rootDir: string;
   defaultRootDir: string;
   name: string;
   maps: WorkspaceMapSummary[];
+  ditavals: WorkspaceDitavalSummary[];
   files: WorkspaceFileNode[];
   topicTitles: Record<string, string>;
   stats: {
@@ -217,15 +226,32 @@ export interface WorkspaceManagerOptions {
   importsRootDir?: string;
 }
 
+export interface WorkspaceMutationCallbacks {
+  onFileWritten?: (posixPath: string, content: string) => void | Promise<void>;
+  onAssetAdded?: (posixPath: string) => void | Promise<void>;
+  onFileDeleted?: (posixPath: string) => void | Promise<void>;
+  onFileRenamed?: (fromPath: string, toPath: string) => void | Promise<void>;
+  onWorkspaceChanged?: (newRootDir: string) => void | Promise<void>;
+}
+
 export class WorkspaceManager {
   readonly defaultRootDir: string;
   readonly importsRootDir: string;
   private activeRootDir: string;
+  private callbacks: WorkspaceMutationCallbacks = {};
 
   constructor(options: WorkspaceManagerOptions = {}) {
     this.defaultRootDir = path.resolve(options.workspaceDir ?? getDefaultWorkspaceDir());
     this.importsRootDir = path.resolve(options.importsRootDir ?? getDefaultImportsRootDir());
     this.activeRootDir = this.defaultRootDir;
+  }
+
+  setMutationCallbacks(callbacks: WorkspaceMutationCallbacks): void {
+    this.callbacks = callbacks;
+  }
+
+  async notifyAssetAdded(posixPath: string): Promise<void> {
+    await this.callbacks.onAssetAdded?.(posixPath);
   }
 
   getRootDir(): string {
@@ -249,6 +275,7 @@ export class WorkspaceManager {
     }
 
     this.activeRootDir = await fs.realpath(resolved);
+    await this.callbacks.onWorkspaceChanged?.(this.activeRootDir);
     return this.scanWorkspace();
   }
 
@@ -278,12 +305,14 @@ export class WorkspaceManager {
     }
 
     this.activeRootDir = await fs.realpath(destDir);
+    await this.callbacks.onWorkspaceChanged?.(this.activeRootDir);
     return this.scanWorkspace();
   }
 
   async scanWorkspace(): Promise<WorkspaceSnapshot> {
     const realRoot = await fs.realpath(this.activeRootDir);
     const maps: WorkspaceMapSummary[] = [];
+    const ditavals: WorkspaceDitavalSummary[] = [];
     const topicTitles: Record<string, string> = {};
     const stats = {
       totalFiles: 0,
@@ -363,6 +392,28 @@ export class WorkspaceManager {
               });
             }
           }
+        } else if (kind === 'ditaval') {
+          const xml = await fs.readFile(entryAbs, 'utf8');
+          try {
+            const parsedVal = parseDitaval(xml);
+            ditavals.push({
+              path: entryPosix,
+              name: entry.name,
+              ruleCount: parsedVal.rules.length,
+            });
+          } catch (err) {
+            ditavals.push({
+              path: entryPosix,
+              name: entry.name,
+              ruleCount: 0,
+              parseError: {
+                message: err instanceof Error ? err.message : String(err),
+                line: 1,
+                column: 1,
+                offset: 0,
+              },
+            });
+          }
         } else if (kind === 'topic') {
           stats.totalTopics++;
           const xml = await fs.readFile(entryAbs, 'utf8');
@@ -394,12 +445,14 @@ export class WorkspaceManager {
       if (aDepth !== bDepth) return aDepth - bDepth;
       return a.path.localeCompare(b.path);
     });
+    ditavals.sort((a, b) => a.path.localeCompare(b.path));
 
     return {
       rootDir: realRoot,
       defaultRootDir: this.defaultRootDir,
       name: path.basename(realRoot),
       maps,
+      ditavals,
       files,
       topicTitles,
       stats,
@@ -459,6 +512,7 @@ export class WorkspaceManager {
       await fs.mkdir(path.dirname(safe.absPath), { recursive: true });
     }
     await fs.writeFile(safe.absPath, content, 'utf8');
+    await this.callbacks.onFileWritten?.(safe.posixPath, content);
     return this.readFile(safe.posixPath);
   }
 
@@ -503,6 +557,7 @@ export class WorkspaceManager {
 
     await fs.mkdir(path.dirname(safe.absPath), { recursive: true });
     await fs.writeFile(safe.absPath, content, 'utf8');
+    await this.callbacks.onFileWritten?.(safe.posixPath, content);
     return this.readFile(safe.posixPath);
   }
 
@@ -525,6 +580,7 @@ export class WorkspaceManager {
 
     await fs.mkdir(path.dirname(safeTo.absPath), { recursive: true });
     await fs.rename(safeFrom.absPath, safeTo.absPath);
+    await this.callbacks.onFileRenamed?.(safeFrom.posixPath, safeTo.posixPath);
     return { fromPath: safeFrom.posixPath, toPath: safeTo.posixPath };
   }
 
@@ -539,6 +595,7 @@ export class WorkspaceManager {
     } else {
       await fs.unlink(safe.absPath);
     }
+    await this.callbacks.onFileDeleted?.(safe.posixPath);
     return { path: safe.posixPath };
   }
 

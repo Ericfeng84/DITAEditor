@@ -5,6 +5,8 @@ import { DITA_CORE_VERSION } from '@dita/core';
 import { registerAssetRoutes } from './modules/files/asset-routes.js';
 import { registerWorkspaceFileRoutes } from './modules/files/routes.js';
 import { WorkspaceManager } from './modules/files/workspace-fs.js';
+import { registerSemanticIndexerRoutes } from './modules/indexer/routes.js';
+import { WorkspaceSemanticIndexer } from './modules/indexer/semantic-indexer.js';
 
 export interface CreateServerOptions {
   workspaceDir?: string;
@@ -17,6 +19,14 @@ export function createServer(options: CreateServerOptions = {}) {
   const workspace = new WorkspaceManager({
     workspaceDir: options.workspaceDir,
     importsRootDir: options.importsRootDir,
+  });
+  const indexer = new WorkspaceSemanticIndexer(workspace);
+  workspace.setMutationCallbacks({
+    onFileWritten: (posixPath, content) => indexer.onFileWritten(posixPath, content),
+    onAssetAdded: (posixPath) => indexer.onAssetAdded(posixPath),
+    onFileDeleted: (posixPath) => indexer.onFileDeleted(posixPath),
+    onFileRenamed: (fromPath, toPath) => indexer.onFileRenamed(fromPath, toPath),
+    onWorkspaceChanged: (newRootDir) => indexer.onWorkspaceChanged(newRootDir),
   });
 
   app.register(cors, { origin: true });
@@ -33,8 +43,9 @@ export function createServer(options: CreateServerOptions = {}) {
     workspaceDir: workspace.getRootDir(),
   }));
 
-  registerWorkspaceFileRoutes(app, workspace);
+  registerWorkspaceFileRoutes(app, workspace, indexer);
   registerAssetRoutes(app, workspace);
+  registerSemanticIndexerRoutes(app, indexer);
 
   return app;
 }

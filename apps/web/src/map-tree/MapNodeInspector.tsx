@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import {
   computeRelativeDitaHref,
+  evaluateElementConditions,
   getAttributesForElement,
   getElementSpec,
   getRawAttr,
@@ -9,6 +10,8 @@ import {
   type DitaAttributeGroup,
   type DitaAttributeSpec,
   type DitaMapTreeNode,
+  type DitaProfilingAttrName,
+  type ParsedDitaval,
 } from '@dita/core';
 import {
   BookOpen,
@@ -21,12 +24,15 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import { ProfilingAttrEditor } from '../components/ProfilingAttrEditor';
 import type { MapBufferState } from './map-tree-utils';
 
 export interface MapNodeInspectorProps {
   selected: { mapPath: string; elementPath: number[] | null } | null;
   mapBuffers: Record<string, MapBufferState>;
   availableFiles: string[];
+  activeDitaval?: ParsedDitaval | null;
+  profilingCatalog?: Partial<Record<DitaProfilingAttrName, string[]>>;
   onUpdateAttr: (
     mapPath: string,
     elementPath: number[] | null,
@@ -71,6 +77,8 @@ export function MapNodeInspector({
   selected,
   mapBuffers,
   availableFiles,
+  activeDitaval = null,
+  profilingCatalog = {},
   onUpdateAttr,
   onUpdateNavtitle,
   onUpdateRootTitle,
@@ -132,6 +140,9 @@ export function MapNodeInspector({
   const spec = getElementSpec(tagName);
   const allAttrSpecs = getAttributesForElement(tagName);
   const knownNames = new Set(allAttrSpecs.map((a) => a.name));
+  const conditionEval = activeDitaval
+    ? evaluateElementConditions(rawAttrs, activeDitaval)
+    : null;
 
   const grouped = new Map<DitaAttributeGroup, DitaAttributeSpec[]>();
   for (const attrSpec of allAttrSpecs) {
@@ -366,7 +377,23 @@ export function MapNodeInspector({
                   )}
                   {meta.title}
                 </span>
-                {filledCount > 0 ? (
+                {groupKey === 'profiling' && conditionEval ? (
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                      conditionEval.status === 'exclude'
+                        ? 'bg-rose-100 text-rose-800'
+                        : conditionEval.status === 'flag'
+                          ? 'bg-indigo-100 text-indigo-800'
+                          : 'bg-emerald-100 text-emerald-800'
+                    }`}
+                  >
+                    {conditionEval.status === 'exclude'
+                      ? '已排除'
+                      : conditionEval.status === 'flag'
+                        ? '标记高亮'
+                        : '包含'}
+                  </span>
+                ) : filledCount > 0 ? (
                   <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700">
                     {filledCount}
                   </span>
@@ -405,7 +432,18 @@ export function MapNodeInspector({
                           ) : null}
                         </div>
 
-                        {attr.values && attr.values.length > 0 ? (
+                        {groupKey === 'profiling' ? (
+                          <ProfilingAttrEditor
+                            attrName={attr.name as DitaProfilingAttrName}
+                            inputId={inputId}
+                            value={currentVal}
+                            suggestions={profilingCatalog[attr.name as DitaProfilingAttrName] ?? []}
+                            placeholder={attr.placeholder ?? attr.label}
+                            onChange={(nextVal) =>
+                              onUpdateAttr(selected.mapPath, selected.elementPath, attr.name, nextVal)
+                            }
+                          />
+                        ) : attr.values && attr.values.length > 0 ? (
                           <select
                             id={inputId}
                             value={currentVal}

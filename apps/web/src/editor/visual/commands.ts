@@ -57,10 +57,18 @@ export function createDitaElementSkeleton(
   initialAttrs: RawAttrs = EMPTY_ATTRS,
   inlineContent?: Fragment,
 ): PMNode | null {
+  const isConrefSkeleton = initialAttrs.some(
+    (a) => (a.name === 'conref' || a.name === 'conkeyref') && a.value.trim().length > 0,
+  );
+
   // Inline modeled tags
   const inlineType = MODELED_INLINE_TAGS.get(tagName);
   if (inlineType) {
-    if (tagName === 'menucascade' && (!inlineContent || inlineContent.childCount === 0)) {
+    if (
+      !isConrefSkeleton &&
+      tagName === 'menucascade' &&
+      (!inlineContent || inlineContent.childCount === 0)
+    ) {
       return makeNode(inlineType, initialAttrs, [
         makeNode('dita_uicontrol', EMPTY_ATTRS, [textNode('菜单')]),
         makeNode('dita_uicontrol', EMPTY_ATTRS, [textNode('选项')]),
@@ -68,6 +76,58 @@ export function createDitaElementSkeleton(
     }
     const type = ditaSchema.nodes[inlineType]!;
     return type.create({ rawAttrs: initialAttrs, namespaceURI: null }, inlineContent);
+  }
+
+  // Empty-container skeleton when inserting a block element carrying conref/conkeyref
+  if (isConrefSkeleton) {
+    const blockTypeMap: Record<string, string> = {
+      p: 'dita_p',
+      title: 'dita_title',
+      shortdesc: 'dita_shortdesc',
+      cmd: 'dita_cmd',
+      dt: 'dita_dt',
+      desc: 'dita_desc',
+      dd: 'dita_dd',
+      codeblock: 'dita_codeblock',
+      pre: 'dita_pre',
+      section: 'dita_section',
+      example: 'dita_example',
+      refsyn: 'dita_refsyn',
+      note: 'dita_note',
+      ul: 'dita_ul',
+      ol: 'dita_ol',
+      li: 'dita_li',
+      dl: 'dita_dl',
+      dlentry: 'dita_dlentry',
+      fig: 'dita_fig',
+      image: 'dita_image_block',
+      prereq: 'dita_prereq',
+      context: 'dita_context',
+      steps: 'dita_steps',
+      'steps-unordered': 'dita_steps_unordered',
+      step: 'dita_step',
+      substeps: 'dita_substeps',
+      substep: 'dita_substep',
+      choices: 'dita_choices',
+      choice: 'dita_choice',
+      info: 'dita_info',
+      stepxmp: 'dita_stepxmp',
+      stepresult: 'dita_stepresult',
+      result: 'dita_result',
+      postreq: 'dita_postreq',
+      'related-links': 'dita_related_links',
+      link: 'dita_link',
+      prolog: 'dita_prolog',
+      simpletable: 'dita_simpletable',
+      table: 'cals_table',
+    };
+    const mappedType = blockTypeMap[tagName];
+    if (mappedType) {
+      const schemaType = ditaSchema.nodes[mappedType];
+      if (schemaType && schemaType.contentMatch.validEnd) {
+        return makeNode(mappedType, initialAttrs, []);
+      }
+    }
   }
 
   switch (tagName) {

@@ -19,6 +19,10 @@ const SOURCE_LABELS: Record<WorkspaceDiagnostic['source'], string> = {
   xml: 'XML 良构',
   'map-ref': 'Map 引用',
   'asset-ref': '图片资源',
+  keyref: 'Keyref',
+  conref: 'Conref',
+  'conref-cycle': '循环复用',
+  ditaval: 'DITAVAL',
 };
 
 export function ProblemsPanel({
@@ -119,7 +123,14 @@ export function ProblemsPanel({
                   <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
                     {SOURCE_LABELS[diag.source]}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-slate-800">{diag.message}</span>
+                  <span className="min-w-0 flex-1 truncate text-slate-800">
+                    {diag.message}
+                    {diag.cycleChain && diag.cycleChain.length > 0 ? (
+                      <span className="ml-2 font-mono text-[10px] text-rose-600">
+                        [{diag.cycleChain.join(' → ')}]
+                      </span>
+                    ) : null}
+                  </span>
                   <span className="shrink-0 font-mono text-[11px] text-slate-400">
                     {diag.filePath}:{diag.line}:{diag.column}
                   </span>

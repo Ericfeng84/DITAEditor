@@ -1,4 +1,5 @@
 import type { NodeRendererProps } from 'react-arborist';
+import type { DitavalDisplayMode } from '@dita/core';
 import {
   AlertTriangle,
   BookMarked,
@@ -13,9 +14,12 @@ import {
   MoreVertical,
   Network,
 } from 'lucide-react';
+import { sanitizeCssColor } from '../editor/visual/conref-renderer';
 import type { CompositeMapTreeNode } from './map-tree-utils';
 
 export interface MapNodeRowActions {
+  ditavalActive?: boolean;
+  ditavalDisplayMode?: DitavalDisplayMode;
   onOpenTarget: (node: CompositeMapTreeNode) => void;
   onOpenContextMenu: (
     node: CompositeMapTreeNode,
@@ -69,11 +73,25 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
     const hasExpandable = Boolean(data.children && data.children.length > 0);
     const hasBrokenTarget = Boolean(data.href && !data.targetExists);
     const tagPillStyle = TAG_PILL_STYLES[data.tagName] ?? 'bg-slate-100 text-slate-600';
+    const isExcluded = Boolean(data.isExcluded);
+    const isFlagged = !isExcluded && data.conditionEval?.status === 'flag';
+    const flagStyle = isFlagged ? data.conditionEval?.effectiveStyle : undefined;
+    const firstFlagBadge = isFlagged
+      ? data.conditionEval?.flags.find((f) => f.startFlag?.altText)?.startFlag?.altText
+      : undefined;
+    const flagColor = sanitizeCssColor(flagStyle?.color);
+    const flagBg = sanitizeCssColor(flagStyle?.backcolor);
+    const showProfilingChips =
+      Boolean(data.profilingSummary?.length) &&
+      (actions.ditavalDisplayMode === 'show-all' || Boolean(actions.ditavalActive));
 
     return (
       <div
         ref={dragHandle}
-        style={style}
+        style={{
+          ...style,
+          ...(isFlagged && !node.isSelected && flagBg ? { backgroundColor: flagBg } : {}),
+        }}
         onDoubleClick={() => {
           if (data.resolvedTargetPath) {
             actions.onOpenTarget(data);
@@ -98,7 +116,13 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
             : node.willReceiveDrop
               ? 'bg-sky-50 ring-1 ring-sky-400'
               : 'text-slate-700 hover:bg-slate-100/90'
-        } ${data.isSubmapChild ? 'border-l-2 border-sky-200' : ''}`}
+        } ${data.isSubmapChild ? 'border-l-2 border-sky-200' : ''} ${
+          isExcluded && actions.ditavalDisplayMode === 'dim-excluded'
+            ? 'opacity-40 line-through'
+            : isExcluded && actions.ditavalDisplayMode === 'show-all'
+              ? 'border border-dashed border-rose-300 bg-rose-50/40'
+              : ''
+        }`}
       >
         {/* Expand / Collapse Chevron */}
         <button
@@ -128,10 +152,15 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
           className={`min-w-0 flex-1 truncate font-medium ${
             hasBrokenTarget || data.isCyclicRef ? 'text-rose-700' : ''
           }`}
+          style={isFlagged && flagColor ? { color: flagColor } : undefined}
           title={[
             data.label,
             data.href ? `href: ${data.href}` : null,
             data.isSubmapChild ? `所属子地图: ${data.ownerMapPath}` : null,
+            data.profilingSummary
+              ? `条件属性: ${data.profilingSummary.map((p) => `${p.name}=${p.values.join(' ')}`).join(', ')}`
+              : null,
+            isExcluded ? '⛔ 已被当前 DITAVAL 条件排除' : null,
             hasBrokenTarget ? '⚠ 找不到目标文件' : null,
             data.isCyclicRef ? '⚠ 检测到循环 <mapref>' : null,
           ]
@@ -140,6 +169,30 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
         >
           {data.label}
         </span>
+
+        {/* DITAVAL Flag / Excluded / Profiling pills */}
+        {isExcluded ? (
+          <span className="shrink-0 rounded bg-rose-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-rose-700">
+            排除
+          </span>
+        ) : firstFlagBadge ? (
+          <span className="shrink-0 rounded bg-indigo-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-indigo-800">
+            {firstFlagBadge}
+          </span>
+        ) : null}
+
+        {showProfilingChips && data.profilingSummary ? (
+          <span className="hidden shrink-0 items-center gap-0.5 sm:inline-flex">
+            {data.profilingSummary.slice(0, 1).map((p) => (
+              <span
+                key={p.name}
+                className="rounded bg-lime-100 px-1 py-0.2 font-mono text-[9px] font-medium text-lime-900"
+              >
+                {p.name}={p.values.join(' ')}
+              </span>
+            ))}
+          </span>
+        ) : null}
 
         {/* Broken Link / Cycle Warning */}
         {hasBrokenTarget || data.isCyclicRef ? (

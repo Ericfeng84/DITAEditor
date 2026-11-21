@@ -21,10 +21,18 @@ import {
   keymap,
   lineNumbers,
 } from '@codemirror/view';
-import type { XmlParseError } from '@dita/core';
+import type {
+  DitaProfilingAttrName,
+  KeyspaceResult,
+  TopicIdIndexEntry,
+  XmlParseError,
+} from '@dita/core';
 import { AlertTriangle, Check, Copy, LocateFixed, Sparkles } from 'lucide-react';
 import { formatDitaXml } from '../bridge/xml-bridge';
-import { ditaXmlCompletionSource } from './dita-completion';
+import {
+  createDitaXmlCompletionSource,
+  type SourceSemanticCompletionContext,
+} from './dita-completion';
 import { createDitaXmlLinter } from './xml-linter';
 
 export interface SourceEditorProps {
@@ -36,6 +44,9 @@ export interface SourceEditorProps {
   onChange: (nextXml: string) => void;
   onCursorOffsetChange?: (offset: number) => void;
   onAnnounce?: (msg: string) => void;
+  keyspace?: KeyspaceResult | null;
+  topicIndices?: readonly TopicIdIndexEntry[];
+  profilingCatalog?: Partial<Record<DitaProfilingAttrName, readonly string[]>>;
 }
 
 const sourceEditorTheme = EditorView.theme({
@@ -107,14 +118,23 @@ export function SourceEditor({
   onChange,
   onCursorOffsetChange,
   onAnnounce,
+  keyspace,
+  topicIndices,
+  profilingCatalog,
 }: SourceEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isApplyingExternalRef = useRef(false);
   const onChangeRef = useRef(onChange);
   const onCursorRef = useRef(onCursorOffsetChange);
+  const completionCtxRef = useRef<SourceSemanticCompletionContext>({
+    keyspace,
+    topicIndices,
+    profilingCatalog,
+  });
   onChangeRef.current = onChange;
   onCursorRef.current = onCursorOffsetChange;
+  completionCtxRef.current = { keyspace, topicIndices, profilingCatalog };
 
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1 });
   const [copied, setCopied] = useState(false);
@@ -139,7 +159,7 @@ export function SourceEditor({
         xmlLang(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
         autocompletion({
-          override: [ditaXmlCompletionSource],
+          override: [createDitaXmlCompletionSource(() => completionCtxRef.current)],
           activateOnTyping: true,
         }),
         lintGutter(),

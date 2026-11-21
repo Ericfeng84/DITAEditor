@@ -97,6 +97,7 @@ export function registerAssetRoutes(
       }
 
       await fs.writeFile(safeTarget.absPath, fileBuffer);
+      await workspace.notifyAssetAdded(safeTarget.posixPath);
 
       const relativeHref = fromDocPath
         ? computeRelativeDitaHref(fromDocPath, safeTarget.posixPath)

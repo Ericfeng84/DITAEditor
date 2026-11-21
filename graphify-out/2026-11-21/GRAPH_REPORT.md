@@ -1,9 +1,9 @@
 # Graph Report - DITAEditor  (2026-11-21)
 
 ## Corpus Check
-- 92 files · ~81,806 words
+- 92 files · ~82,075 words
 - Verdict: corpus is large enough that graph structure adds value.
-- Unclassified: 26 file(s) not represented in the graph (top: .dita 19, .ditamap 3, (none) 1)
+- Unclassified: 35 file(s) not represented in the graph (top: .dita 25, .ditamap 4, .ditaval 3)
 
 ## Summary
 - 872 nodes · 2250 edges · 49 communities (37 shown, 12 thin omitted)

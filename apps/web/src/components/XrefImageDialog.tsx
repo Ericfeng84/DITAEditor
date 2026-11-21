@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { computeRelativeDitaHref, type RawAttrs } from '@dita/core';
+import { computeRelativeDitaHref, type KeyspaceResult, type RawAttrs } from '@dita/core';
 import { Image as ImageIcon, Link2, Upload, X } from 'lucide-react';
 import type { UploadAssetResult } from '../services/workspace-api';
 
@@ -10,6 +10,7 @@ export interface XrefImageDialogProps {
   workspaceTopics?: string[];
   workspaceImages?: string[];
   topicTitles?: Record<string, string>;
+  keyspace?: KeyspaceResult | null;
   onUploadImage?: (
     file: File,
     targetDir: string,
@@ -28,6 +29,7 @@ export function XrefImageDialog({
   workspaceTopics = [],
   workspaceImages = [],
   topicTitles = {},
+  keyspace = null,
   onUploadImage,
   resolvePreviewUrl,
   onClose,
@@ -298,14 +300,42 @@ export function XrefImageDialog({
           <label htmlFor="ref-keyref" className="mb-1 block font-medium text-slate-700">
             或 Key 引用 (keyref，可选)
           </label>
-          <input
-            id="ref-keyref"
-            type="text"
-            value={keyref}
-            onChange={(e) => setKeyref(e.target.value)}
-            placeholder="例如：key_api_guide"
-            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
-          />
+          <div className="space-y-1">
+            <input
+              id="ref-keyref"
+              type="text"
+              value={keyref}
+              onChange={(e) => setKeyref(e.target.value)}
+              placeholder="例如：key_api_guide"
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+            />
+            {keyspace && Object.keys(keyspace.keys).length > 0 ? (
+              <select
+                aria-label="从 Root Map Keyspace 选择 keyref"
+                value=""
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  setKeyref(e.target.value);
+                  setHref('');
+                  const def = keyspace.keys[e.target.value];
+                  if (def && !text.trim() && (def.inlineText || def.targetTitle)) {
+                    setText(def.inlineText ?? def.targetTitle ?? '');
+                  }
+                }}
+                className="w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] text-slate-700 focus:border-indigo-500 focus:outline-none"
+              >
+                <option value="">从当前 Root Map Keyspace 选取…</option>
+                {Object.values(keyspace.keys)
+                  .sort((a, b) => a.qualifiedKey.localeCompare(b.qualifiedKey))
+                  .map((def) => (
+                    <option key={def.qualifiedKey} value={def.qualifiedKey}>
+                      {def.qualifiedKey}
+                      {def.inlineText ? ` — ${def.inlineText}` : def.resolvedHref ? ` → ${def.resolvedHref}` : ''}
+                    </option>
+                  ))}
+              </select>
+            ) : null}
+          </div>
         </div>
 
         {mode === 'xref' ? (

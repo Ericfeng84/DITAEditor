@@ -4,8 +4,26 @@ import {
   getPmNodeRawAttrs,
   getRawAttr,
   pmHasMultipleTgroups,
+  type DocumentSemanticOverlay,
 } from '@dita/core';
 import { updateNodeRawAttr } from './commands';
+
+export class SemanticViewRegistry {
+  private readonly listeners = new Set<() => void>();
+
+  subscribe(fn: () => void): () => void {
+    this.listeners.add(fn);
+    return () => {
+      this.listeners.delete(fn);
+    };
+  }
+
+  notifyAll(): void {
+    for (const fn of this.listeners) {
+      fn();
+    }
+  }
+}
 
 const NOTE_TYPE_LABELS: Record<string, string> = {
   note: 'NOTE',
@@ -246,15 +264,20 @@ class DitaImageNodeView implements NodeView {
   private node: PMNode;
   private isBlock: boolean;
   private resolveImageSrc?: (href: string) => string | null;
+  private getSemanticOverlay?: () => DocumentSemanticOverlay | null;
+  private unsubscribe?: () => void;
 
   constructor(
     node: PMNode,
     isBlock: boolean,
     resolveImageSrc?: (href: string) => string | null,
+    getSemanticOverlay?: () => DocumentSemanticOverlay | null,
+    registry?: SemanticViewRegistry,
   ) {
     this.node = node;
     this.isBlock = isBlock;
     this.resolveImageSrc = resolveImageSrc;
+    this.getSemanticOverlay = getSemanticOverlay;
 
     this.dom = document.createElement(isBlock ? 'figure' : 'span');
     this.dom.className = isBlock ? 'dita-nv-image-block' : 'dita-nv-image-inline';
@@ -270,6 +293,7 @@ class DitaImageNodeView implements NodeView {
     this.dom.appendChild(this.previewEl);
     this.dom.appendChild(this.contentDOM);
     this.renderPreview(node);
+    this.unsubscribe = registry?.subscribe(() => this.renderPreview(this.node));
   }
 
   private renderPreview(node: PMNode) {
@@ -277,18 +301,22 @@ class DitaImageNodeView implements NodeView {
     const href = getRawAttr(attrs, 'href') ?? '';
     const keyref = getRawAttr(attrs, 'keyref') ?? '';
     const alt = getRawAttr(attrs, 'alt') ?? '';
-    const target = href || (keyref ? `keyref:${keyref}` : '(未设置 href)');
+
+    const keyResolvedPath =
+      !href && keyref ? this.getSemanticOverlay?.()?.keyrefs[keyref]?.targetFilePath : undefined;
+    const effectiveHref = href || keyResolvedPath || '';
+    const target = href || (keyref ? `keyref:${keyref}${keyResolvedPath ? ` → ${keyResolvedPath}` : ''}` : '(未设置 href)');
 
     this.previewEl.textContent = '';
 
     const isDirectUrl =
-      href.startsWith('http://') ||
-      href.startsWith('https://') ||
-      href.startsWith('data:image/') ||
-      href.startsWith('/');
+      effectiveHref.startsWith('http://') ||
+      effectiveHref.startsWith('https://') ||
+      effectiveHref.startsWith('data:image/') ||
+      effectiveHref.startsWith('/');
 
-    const resolvedSrc = href
-      ? (this.resolveImageSrc?.(href) ?? (isDirectUrl ? href : null))
+    const resolvedSrc = effectiveHref
+      ? (this.resolveImageSrc?.(effectiveHref) ?? (isDirectUrl ? effectiveHref : null))
       : null;
 
     const chip = document.createElement('span');
@@ -316,25 +344,47 @@ class DitaImageNodeView implements NodeView {
     this.renderPreview(node);
     return true;
   }
+
+  destroy(): void {
+    this.unsubscribe?.();
+  }
 }
 
 /**
- * Custom NodeView for `<keyword>` and `<xref>`: ensures empty `<keyword keyref="..."/>`
- * or `<xref href="..."/>` remain clearly visible, clickable, and identifiable.
+ * Custom NodeView for `<keyword>`, `<xref>`, `<ph>`, and `<term>`:
+ * - Resolves live `keyref` values from Root Map Keyspace with dashed underline & jump-to-definition
+ * - Flags unresolved `keyref`s cleanly in red
+ * - Leaves ordinary `<ph>` / `<term>` without `keyref` completely unobtrusive
  */
 class DitaRefInlineNodeView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
   private badge: HTMLElement;
+  private jumpBtn: HTMLButtonElement;
   private node: PMNode;
-  private tagName: 'keyword' | 'xref';
+  private tagName: 'keyword' | 'xref' | 'ph' | 'term';
+  private getSemanticOverlay?: () => DocumentSemanticOverlay | null;
+  private onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
+  private unsubscribe?: () => void;
+  private jumpTarget: { filePath: string; line?: number; elementId?: string } | null = null;
 
-  constructor(node: PMNode, tagName: 'keyword' | 'xref') {
+  constructor(
+    node: PMNode,
+    tagName: 'keyword' | 'xref' | 'ph' | 'term',
+    options: CreateDitaNodeViewsOptions,
+  ) {
     this.node = node;
     this.tagName = tagName;
+    this.getSemanticOverlay = options.getSemanticOverlay;
+    this.onJumpToSource = options.onJumpToSource;
 
     this.dom = document.createElement('span');
-    this.dom.className = tagName === 'xref' ? 'dita-nv-xref' : 'dita-nv-keyword';
+    this.dom.className =
+      tagName === 'xref'
+        ? 'dita-nv-xref'
+        : tagName === 'keyword'
+          ? 'dita-nv-keyword'
+          : `dita-nv-inline-ref dita-nv-${tagName}`;
     this.dom.dataset.ditaTag = tagName;
 
     this.badge = document.createElement('span');
@@ -344,34 +394,110 @@ class DitaRefInlineNodeView implements NodeView {
     this.contentDOM = document.createElement('span');
     this.contentDOM.className = 'dita-nv-ref-content';
 
+    this.jumpBtn = document.createElement('button');
+    this.jumpBtn.type = 'button';
+    this.jumpBtn.className = 'dita-nv-ref-jump';
+    this.jumpBtn.contentEditable = 'false';
+    this.jumpBtn.textContent = '↗';
+    this.jumpBtn.hidden = true;
+    this.jumpBtn.addEventListener('mousedown', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+    });
+    this.jumpBtn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      if (this.jumpTarget) {
+        this.onJumpToSource?.(
+          this.jumpTarget.filePath,
+          this.jumpTarget.line,
+          this.jumpTarget.elementId,
+        );
+      }
+    });
+
     this.dom.appendChild(this.badge);
     this.dom.appendChild(this.contentDOM);
+    this.dom.appendChild(this.jumpBtn);
     this.syncBadge(node);
+    this.unsubscribe = options.semanticRegistry?.subscribe(() => this.syncBadge(this.node));
   }
 
   private syncBadge(node: PMNode) {
     const attrs = getPmNodeRawAttrs(node);
-    const keyref = getRawAttr(attrs, 'keyref');
-    const href = getRawAttr(attrs, 'href');
+    const keyref = getRawAttr(attrs, 'keyref')?.trim() ?? '';
+    const href = getRawAttr(attrs, 'href')?.trim() ?? '';
     const isEmpty = node.content.size === 0;
 
     this.dom.dataset.empty = String(isEmpty);
-    if (this.tagName === 'keyword') {
-      if (keyref) {
-        this.badge.textContent = `key:${keyref}`;
+    this.dom.removeAttribute('data-keyref-status');
+    this.jumpTarget = null;
+    this.jumpBtn.hidden = true;
+
+    const overlay = this.getSemanticOverlay?.() ?? null;
+    const resolvedKey = keyref ? overlay?.keyrefs[keyref] : undefined;
+
+    if (keyref) {
+      if (resolvedKey?.status === 'resolved' && resolvedKey.definition) {
+        this.dom.dataset.keyrefStatus = 'resolved';
+        const displayVal =
+          resolvedKey.resolvedText ??
+          resolvedKey.targetFilePath ??
+          resolvedKey.definition.href ??
+          keyref;
+        const sourceHint = `${resolvedKey.definition.sourceMapPath}:${resolvedKey.definition.line}`;
+
+        this.badge.textContent = isEmpty ? displayVal : `key:${keyref}`;
+        this.badge.title = `Key: ${keyref}\n解析值: ${displayVal}\n定义来源: ${sourceHint}`;
         this.badge.hidden = false;
-      } else if (isEmpty) {
+
+        if (this.tagName === 'xref' && resolvedKey.targetFilePath) {
+          const fragParts = resolvedKey.targetFragment?.split('/');
+          this.jumpTarget = {
+            filePath: resolvedKey.targetFilePath,
+            elementId: fragParts && fragParts.length > 1 ? fragParts[1] : fragParts?.[0],
+          };
+          this.jumpBtn.title = `打开目标文件: ${resolvedKey.targetFilePath}`;
+        } else {
+          this.jumpTarget = {
+            filePath: resolvedKey.definition.sourceMapPath,
+            line: resolvedKey.definition.line,
+          };
+          this.jumpBtn.title = `跳转到 Key 定义 (${sourceHint})`;
+        }
+        this.jumpBtn.hidden = !this.onJumpToSource;
+      } else if (overlay && resolvedKey?.status === 'unresolved') {
+        this.dom.dataset.keyrefStatus = 'unresolved';
+        this.badge.textContent = `⚠ key:${keyref}`;
+        this.badge.title = resolvedKey.errorMessage ?? `未定义的 keyref: ${keyref}`;
+        this.badge.hidden = false;
+      } else {
+        this.badge.textContent = `key:${keyref}`;
+        this.badge.title = `keyref="${keyref}"`;
+        this.badge.hidden = false;
+      }
+      return;
+    }
+
+    if (this.tagName === 'keyword') {
+      if (isEmpty) {
         this.badge.textContent = '<keyword/>';
         this.badge.hidden = false;
       } else {
         this.badge.hidden = true;
       }
-    } else {
-      const target = href ?? (keyref ? `key:${keyref}` : '');
-      this.badge.textContent = target ? `↗ ${isEmpty ? target : ''}`.trim() : '↗';
-      this.badge.title = target || 'Cross-reference (set href in Inspector)';
-      this.badge.hidden = false;
+      return;
     }
+
+    if (this.tagName === 'xref') {
+      this.badge.textContent = href ? `↗ ${isEmpty ? href : ''}`.trim() : '↗';
+      this.badge.title = href || 'Cross-reference (set href in Inspector)';
+      this.badge.hidden = false;
+      return;
+    }
+
+    // Plain <ph> / <term> without keyref
+    this.badge.hidden = true;
   }
 
   update(node: PMNode): boolean {
@@ -379,6 +505,14 @@ class DitaRefInlineNodeView implements NodeView {
     this.node = node;
     this.syncBadge(node);
     return true;
+  }
+
+  stopEvent(event: Event): boolean {
+    return event.target === this.jumpBtn;
+  }
+
+  destroy(): void {
+    this.unsubscribe?.();
   }
 }
 
@@ -603,6 +737,9 @@ class XmlCommentNodeView implements NodeView {
 
 export interface CreateDitaNodeViewsOptions {
   resolveImageSrc?: (href: string) => string | null;
+  getSemanticOverlay?: () => DocumentSemanticOverlay | null;
+  semanticRegistry?: SemanticViewRegistry;
+  onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
 }
 
 export function createDitaNodeViews(
@@ -613,10 +750,26 @@ export function createDitaNodeViews(
     dita_codeblock: (node) => new DitaCodeblockNodeView(node, 'codeblock'),
     dita_pre: (node) => new DitaCodeblockNodeView(node, 'pre'),
     dita_prolog: (node) => new DitaPrologNodeView(node),
-    dita_image_block: (node) => new DitaImageNodeView(node, true, options.resolveImageSrc),
-    dita_image_inline: (node) => new DitaImageNodeView(node, false, options.resolveImageSrc),
-    dita_keyword: (node) => new DitaRefInlineNodeView(node, 'keyword'),
-    dita_xref: (node) => new DitaRefInlineNodeView(node, 'xref'),
+    dita_image_block: (node) =>
+      new DitaImageNodeView(
+        node,
+        true,
+        options.resolveImageSrc,
+        options.getSemanticOverlay,
+        options.semanticRegistry,
+      ),
+    dita_image_inline: (node) =>
+      new DitaImageNodeView(
+        node,
+        false,
+        options.resolveImageSrc,
+        options.getSemanticOverlay,
+        options.semanticRegistry,
+      ),
+    dita_keyword: (node) => new DitaRefInlineNodeView(node, 'keyword', options),
+    dita_xref: (node) => new DitaRefInlineNodeView(node, 'xref', options),
+    dita_ph: (node) => new DitaRefInlineNodeView(node, 'ph', options),
+    dita_term: (node) => new DitaRefInlineNodeView(node, 'term', options),
     cals_table: (node) => new CalsTableNodeView(node),
     cals_colspec: (node) => new CalsColspecNodeView(node),
     unknown_block: (node) => new UnknownPassthroughNodeView(node, 'block'),

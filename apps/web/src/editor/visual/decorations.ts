@@ -2,14 +2,22 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import {
+  evaluateElementConditions,
   getAllowedChildElements,
   getElementSpec,
   getPmNodeRawAttrs,
   getPmNodeTagName,
+  getRawAttr,
   isUnknownPmNode,
+  makeConrefOverlayKey,
+  type DitavalDisplayMode,
+  type DocumentSemanticOverlay,
+  type ParsedDitaval,
   type RawAttrs,
+  type ResolvedConrefResult,
 } from '@dita/core';
 import type { TagDisplayMode } from '../../store/editor-store';
+import { renderConrefPreviewDom, sanitizeCssColor } from './conref-renderer';
 
 export interface BlockGapOpenMenuPayload {
   containerTag: string;
@@ -22,17 +30,26 @@ export interface DitaDecorationsCallbacks {
   onSelectTagNode: (pos: number) => void;
   onQuickInsertBlock: (tagName: string, insertPos: number) => void;
   onOpenGapInsertMenu: (payload: BlockGapOpenMenuPayload) => void;
+  onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
+}
+
+export interface VisualSemanticContext {
+  overlay: DocumentSemanticOverlay | null;
+  ditaval: ParsedDitaval | null;
+  ditavalDisplayMode: DitavalDisplayMode;
 }
 
 export interface DitaDecorationPluginState {
   tagMode: TagDisplayMode;
   activeNodePos: number | null;
+  semantic?: VisualSemanticContext;
   decorations: DecorationSet;
 }
 
 export interface DitaDecorationMeta {
   tagMode?: TagDisplayMode;
   activeNodePos?: number | null;
+  semantic?: VisualSemanticContext;
 }
 
 export const DITA_DECORATIONS_KEY = new PluginKey<DitaDecorationPluginState>('ditaDecorations');
@@ -221,10 +238,149 @@ function createProfilingBadgeDom(profilingAttrs: { name: string; value: string }
   for (const attr of profilingAttrs) {
     const chip = document.createElement('span');
     chip.className = 'dita-ox-prof-badge';
+    chip.dataset.profAttr = attr.name;
     chip.textContent = `${attr.name} [${attr.value}]`;
     wrap.appendChild(chip);
   }
   return wrap;
+}
+
+function createDitavalFlagPillDom(text: string, color?: string | null, backcolor?: string | null): HTMLElement {
+  const pill = document.createElement('span');
+  pill.className = 'dita-ditaval-flag-pill';
+  pill.contentEditable = 'false';
+  pill.textContent = text;
+  if (color) pill.style.color = color;
+  if (backcolor) pill.style.backgroundColor = backcolor;
+  return pill;
+}
+
+function createConrefWidgetDom(
+  resolved: ResolvedConrefResult,
+  isInline: boolean,
+  onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void,
+): HTMLElement {
+  if (resolved.status !== 'resolved') {
+    const alert = document.createElement(isInline ? 'span' : 'div');
+    alert.contentEditable = 'false';
+    alert.className =
+      resolved.status === 'cycle'
+        ? isInline
+          ? 'dita-conref-inline-alert dita-conref-alert-cycle'
+          : 'dita-conref-alert dita-conref-alert-cycle'
+        : isInline
+          ? 'dita-conref-inline-alert dita-conref-alert-error'
+          : 'dita-conref-alert dita-conref-alert-error';
+
+    const title = document.createElement('span');
+    title.className = 'dita-conref-alert-title';
+    title.textContent =
+      resolved.status === 'cycle'
+        ? `⛔ 循环复用 (${resolved.attrName}="${resolved.rawValue}")`
+        : `⚠ 复用错误 (${resolved.attrName}="${resolved.rawValue}")`;
+    alert.appendChild(title);
+
+    const msg = document.createElement('span');
+    msg.className = 'dita-conref-alert-msg';
+    msg.textContent = resolved.errorMessage ?? '无法解析复用目标';
+    alert.appendChild(msg);
+
+    if (resolved.targetFilePath && onJumpToSource) {
+      const jumpBtn = document.createElement('button');
+      jumpBtn.type = 'button';
+      jumpBtn.className = 'dita-conref-jump-btn';
+      jumpBtn.textContent = '查看目标 ↗';
+      jumpBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      jumpBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onJumpToSource(resolved.targetFilePath!, resolved.targetLine, resolved.targetElementId);
+      });
+      alert.appendChild(jumpBtn);
+    }
+    return alert;
+  }
+
+  if (isInline) {
+    const pill = document.createElement('span');
+    pill.contentEditable = 'false';
+    pill.className = 'dita-conref-preview-inline';
+    pill.title = `${resolved.attrName}="${resolved.rawValue}"\n来源: ${resolved.targetFilePath}:${resolved.targetLine}`;
+
+    const badge = document.createElement('span');
+    badge.className = 'dita-conref-inline-badge';
+    badge.textContent = '复用';
+    pill.appendChild(badge);
+
+    pill.appendChild(renderConrefPreviewDom(resolved.resolvedXml ?? '', true));
+
+    if (resolved.targetFilePath && onJumpToSource) {
+      const jump = document.createElement('button');
+      jump.type = 'button';
+      jump.className = 'dita-conref-inline-jump';
+      jump.textContent = '↗';
+      jump.title = `跳转到源定义 (${resolved.targetFilePath}:${resolved.targetLine ?? 1})`;
+      jump.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      jump.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onJumpToSource(resolved.targetFilePath!, resolved.targetLine, resolved.targetElementId);
+      });
+      pill.appendChild(jump);
+    }
+    return pill;
+  }
+
+  const card = document.createElement('div');
+  card.contentEditable = 'false';
+  card.className = 'dita-conref-preview-block';
+
+  const header = document.createElement('div');
+  header.className = 'dita-conref-preview-header';
+
+  const pillTag = document.createElement('span');
+  pillTag.className = 'dita-conref-tag';
+  pillTag.textContent = `${resolved.attrName}="${resolved.rawValue}"`;
+  header.appendChild(pillTag);
+
+  const readonlyChip = document.createElement('span');
+  readonlyChip.className = 'dita-conref-ro-chip';
+  readonlyChip.textContent = '只读复用展开';
+  header.appendChild(readonlyChip);
+
+  if (resolved.targetFilePath) {
+    const srcLabel = document.createElement('span');
+    srcLabel.className = 'dita-conref-source-path';
+    srcLabel.textContent = `${resolved.targetFilePath}:${resolved.targetLine ?? 1}`;
+    header.appendChild(srcLabel);
+
+    if (onJumpToSource) {
+      const jumpBtn = document.createElement('button');
+      jumpBtn.type = 'button';
+      jumpBtn.className = 'dita-conref-jump-btn';
+      jumpBtn.textContent = '跳转源定义 ↗';
+      jumpBtn.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+      jumpBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onJumpToSource(resolved.targetFilePath!, resolved.targetLine, resolved.targetElementId);
+      });
+      header.appendChild(jumpBtn);
+    }
+  }
+
+  card.appendChild(header);
+  card.appendChild(renderConrefPreviewDom(resolved.resolvedXml ?? '', false));
+  return card;
 }
 
 /**
@@ -354,6 +510,7 @@ export function collectDitaDecorations(
   activeNodePos: number | null,
   callbacks: DitaDecorationsCallbacks,
   selectionPos: number | null = null,
+  semantic?: VisualSemanticContext,
 ): DecorationSet {
   const decorations: Decoration[] = [];
 
@@ -379,18 +536,147 @@ export function collectDitaDecorations(
     }
   }
 
-  const visit = (node: PMNode, pos: number, depth: number) => {
+  const ditaval = semantic?.ditaval ?? null;
+  const ditavalMode = semantic?.ditavalDisplayMode ?? 'dim-excluded';
+  const overlay = semantic?.overlay ?? null;
+
+  const visit = (node: PMNode, pos: number, depth: number, ancestorExcluded: boolean) => {
     const typeName = node.type.name;
     const tagName = getPmNodeTagName(node);
+    const rawAttrs = tagName ? getPmNodeRawAttrs(node) : [];
+    const profilingAttrs = tagName ? rawAttrs.filter((a) => PROFILING_ATTR_NAMES.has(a.name)) : [];
+
+    // 0. DITAVAL conditional profiling evaluation & projection
+    let nodeExcludedSelf = false;
+    if (tagName && !SKIP_TAG_DECORATION_NODES.has(typeName)) {
+      const evalRes = evaluateElementConditions(rawAttrs, ditaval);
+      nodeExcludedSelf = evalRes.status === 'exclude';
+
+      if (ditaval && nodeExcludedSelf && !ancestorExcluded) {
+        const cls =
+          ditavalMode === 'hide-excluded'
+            ? 'dita-ditaval-excluded-hide'
+            : ditavalMode === 'show-all'
+              ? 'dita-ditaval-excluded-outline'
+              : 'dita-ditaval-excluded-dim';
+        decorations.push(Decoration.node(pos, pos + node.nodeSize, { class: cls }));
+      } else if (ditaval && !ancestorExcluded && !nodeExcludedSelf && evalRes.status === 'flag') {
+        const fg = sanitizeCssColor(evalRes.effectiveStyle?.color);
+        const bg = sanitizeCssColor(evalRes.effectiveStyle?.backcolor);
+        const styleParts: string[] = [];
+        if (fg) styleParts.push(`color: ${fg}`);
+        if (bg) styleParts.push(`background-color: ${bg}`);
+        if (evalRes.effectiveStyle?.style === 'bold') styleParts.push('font-weight: 700');
+        else if (evalRes.effectiveStyle?.style === 'italics') styleParts.push('font-style: italic');
+        else if (evalRes.effectiveStyle?.style === 'underline') {
+          styleParts.push('text-decoration: underline');
+        }
+        decorations.push(
+          Decoration.node(pos, pos + node.nodeSize, {
+            class: 'dita-ditaval-flagged',
+            ...(styleParts.length > 0 ? { style: styleParts.join('; ') } : {}),
+          }),
+        );
+
+        const isOuterWrapped = OUTER_WRAPPED_TAG_NODES.has(typeName);
+        const flagStartPos = node.isAtom || isOuterWrapped ? pos : pos + 1;
+        const flagEndPos = node.isAtom || isOuterWrapped ? pos + node.nodeSize : pos + node.nodeSize - 1;
+        for (const fl of evalRes.flags) {
+          if (fl.startFlag?.altText) {
+            decorations.push(
+              Decoration.widget(
+                flagStartPos,
+                () =>
+                  createDitavalFlagPillDom(
+                    fl.startFlag!.altText!,
+                    sanitizeCssColor(fl.color),
+                    sanitizeCssColor(fl.backcolor),
+                  ),
+                {
+                  side: -3,
+                  key: `dv-start-${pos}-${fl.att}-${fl.val}`,
+                  ignoreSelection: true,
+                },
+              ),
+            );
+          }
+          if (fl.endFlag?.altText) {
+            decorations.push(
+              Decoration.widget(
+                flagEndPos,
+                () =>
+                  createDitavalFlagPillDom(
+                    fl.endFlag!.altText!,
+                    sanitizeCssColor(fl.color),
+                    sanitizeCssColor(fl.backcolor),
+                  ),
+                {
+                  side: 3,
+                  key: `dv-end-${pos}-${fl.att}-${fl.val}`,
+                  ignoreSelection: true,
+                },
+              ),
+            );
+          }
+        }
+      }
+    }
+
+    // 0.5 Conref / Conkeyref read-only expansion
+    if (tagName && overlay && !SKIP_TAG_DECORATION_NODES.has(typeName)) {
+      const conkeyref = getRawAttr(rawAttrs, 'conkeyref')?.trim();
+      const conref = getRawAttr(rawAttrs, 'conref')?.trim();
+      const conrefend = getRawAttr(rawAttrs, 'conrefend')?.trim() || undefined;
+      if (conkeyref || conref) {
+        const attrKind: 'conref' | 'conkeyref' = conkeyref ? 'conkeyref' : 'conref';
+        const rawVal = (conkeyref ?? conref)!;
+        const overlayKey = makeConrefOverlayKey(tagName, attrKind, rawVal, conrefend);
+        const resolved = overlay.conrefs[overlayKey];
+        if (resolved) {
+          const statusClass =
+            resolved.status === 'resolved'
+              ? 'dita-conref-resolved'
+              : resolved.status === 'cycle'
+                ? 'dita-conref-cycle'
+                : 'dita-conref-error';
+          decorations.push(
+            Decoration.node(pos, pos + node.nodeSize, {
+              class: `dita-conref-host ${statusClass}`,
+            }),
+          );
+
+          const placeOutside =
+            node.isAtom ||
+            OUTER_WRAPPED_TAG_NODES.has(typeName) ||
+            typeName === 'dita_codeblock' ||
+            typeName === 'dita_pre' ||
+            typeName === 'cals_table' ||
+            typeName === 'dita_simpletable';
+          const widgetPos = placeOutside ? pos + node.nodeSize : pos + 1;
+          const widgetSide = placeOutside ? -8 : -2;
+          const isInline = node.isInline || Boolean(resolved.isInline);
+
+          decorations.push(
+            Decoration.widget(
+              widgetPos,
+              () => createConrefWidgetDom(resolved, isInline, callbacks.onJumpToSource),
+              {
+                side: widgetSide,
+                key: `conref-${pos}-${overlayKey}-${resolved.status}-${resolved.resolvedXml?.length ?? 0}`,
+                ignoreSelection: true,
+              },
+            ),
+          );
+        }
+      }
+    }
 
     // 1. Oxygen-style opening & closing tags + profiling badges (when tagMode !== 'none')
     if (tagMode !== 'none' && tagName && !SKIP_TAG_DECORATION_NODES.has(typeName)) {
-      const rawAttrs = getPmNodeRawAttrs(node);
       const isSelected = activeNodePos === pos;
       const isUnknown = isUnknownPmNode(node);
       const isOuterWrapped = OUTER_WRAPPED_TAG_NODES.has(typeName);
 
-      const profilingAttrs = rawAttrs.filter((a) => PROFILING_ATTR_NAMES.has(a.name));
       if (profilingAttrs.length > 0 && !node.isInline) {
         decorations.push(
           Decoration.node(pos, pos + node.nodeSize, {
@@ -454,6 +740,27 @@ export function collectDitaDecorations(
           {
             side: closeSide,
             key: `ox-close-${pos}-${tagName}-${tagMode}-${isSelected}`,
+            ignoreSelection: true,
+          },
+        ),
+      );
+    } else if (
+      tagMode === 'none' &&
+      ditavalMode === 'show-all' &&
+      tagName &&
+      !SKIP_TAG_DECORATION_NODES.has(typeName) &&
+      profilingAttrs.length > 0
+    ) {
+      // In "全部显示" profiling view with hidden XML tags, still surface compact colored profiling badges
+      const isOuterWrapped = OUTER_WRAPPED_TAG_NODES.has(typeName);
+      const badgePos = node.isAtom || isOuterWrapped ? pos + node.nodeSize : pos + node.nodeSize - 1;
+      decorations.push(
+        Decoration.widget(
+          badgePos,
+          () => createProfilingBadgeDom(profilingAttrs),
+          {
+            side: isOuterWrapped ? -10 : 6,
+            key: `ox-prof-showall-${pos}-${profilingAttrs.map((a) => `${a.name}:${a.value}`).join(',')}`,
             ignoreSelection: true,
           },
         ),
@@ -537,10 +844,11 @@ export function collectDitaDecorations(
 
     // Recurse into children
     if (!node.isAtom && node.childCount > 0) {
+      const nextAncestorExcluded = ancestorExcluded || nodeExcludedSelf;
       let childPos = pos + 1;
       for (let i = 0; i < node.childCount; i++) {
         const child = node.child(i);
-        visit(child, childPos, depth + 1);
+        visit(child, childPos, depth + 1, nextAncestorExcluded);
         childPos += child.nodeSize;
       }
     }
@@ -550,7 +858,7 @@ export function collectDitaDecorations(
   let rootPos = 0;
   for (let i = 0; i < doc.childCount; i++) {
     const child = doc.child(i);
-    visit(child, rootPos, 1);
+    visit(child, rootPos, 1, false);
     rootPos += child.nodeSize;
   }
 
@@ -561,10 +869,12 @@ export function collectDitaDecorations(
  * ProseMirror plugin providing:
  * 1. Oxygen XML Author-style chevron opening/closing tags (toggleable: none / tags / full)
  * 2. Jupyter Notebook-style between-block `+` inserter dividers (schema-aware per DITA container)
+ * 3. Phase 3 Conref/Conkeyref read-only expansions + DITAVAL live filtering & flagging
  */
 export function createDitaDecorationsPlugin(
   initialTagMode: TagDisplayMode,
   callbacks: DitaDecorationsCallbacks,
+  initialSemantic?: VisualSemanticContext,
 ): Plugin<DitaDecorationPluginState> {
   return new Plugin<DitaDecorationPluginState>({
     key: DITA_DECORATIONS_KEY,
@@ -573,12 +883,14 @@ export function createDitaDecorationsPlugin(
         return {
           tagMode: initialTagMode,
           activeNodePos: null,
+          semantic: initialSemantic,
           decorations: collectDitaDecorations(
             state.doc,
             initialTagMode,
             null,
             callbacks,
             state.selection.from,
+            initialSemantic,
           ),
         };
       },
@@ -587,12 +899,15 @@ export function createDitaDecorationsPlugin(
         const nextTagMode = meta?.tagMode ?? prev.tagMode;
         const nextActivePos =
           meta && 'activeNodePos' in meta ? (meta.activeNodePos ?? null) : prev.activeNodePos;
+        const nextSemantic =
+          meta && 'semantic' in meta ? meta.semantic : prev.semantic;
 
         if (
           !tr.docChanged &&
           !tr.selectionSet &&
           nextTagMode === prev.tagMode &&
-          nextActivePos === prev.activeNodePos
+          nextActivePos === prev.activeNodePos &&
+          nextSemantic === prev.semantic
         ) {
           return prev;
         }
@@ -600,12 +915,14 @@ export function createDitaDecorationsPlugin(
         return {
           tagMode: nextTagMode,
           activeNodePos: nextActivePos,
+          semantic: nextSemantic,
           decorations: collectDitaDecorations(
             newState.doc,
             nextTagMode,
             nextActivePos,
             callbacks,
             newState.selection.from,
+            nextSemantic,
           ),
         };
       },

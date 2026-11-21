@@ -209,6 +209,28 @@ export function findPmPosByElementPath(pmDoc: PMNode, path: readonly number[]): 
   return currentNodeStart + 1;
 }
 
+/**
+ * Find the start position of the first DITA element node carrying `id === elementId`
+ * inside a ProseMirror Document, or `null` if not found.
+ */
+export function findPmPosByDitaId(pmDoc: PMNode, elementId: string): number | null {
+  const targetId = elementId.trim();
+  if (!targetId) return null;
+
+  let matchedPos: number | null = null;
+  pmDoc.descendants((node, pos) => {
+    if (matchedPos !== null) return false;
+    if (!isDitaElementPmNode(node)) return true;
+    const idVal = getRawAttr(getPmNodeRawAttrs(node), 'id');
+    if (idVal === targetId) {
+      matchedPos = pos;
+      return false;
+    }
+    return true;
+  });
+  return matchedPos;
+}
+
 function findNthDirectElementChild(
   parentNode: PMNode,
   parentContentStart: number,

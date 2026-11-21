@@ -26,3 +26,12 @@ export * from './cals/cals-table.js';
 export * from './prosemirror/schema.js';
 export * from './prosemirror/helpers.js';
 export * from './prosemirror/converter.js';
+
+// DITAVAL conditional profiling parser & evaluator
+export * from './ditaval/ditaval.js';
+
+// Root Map semantic engine (Keyspace, Topic ID index, Conref/Conkeyref, Diagnostics)
+export * from './semantics/types.js';
+export * from './semantics/keyspace.js';
+export * from './semantics/conref.js';
+export * from './semantics/semantic-engine.js';

@@ -7,16 +7,26 @@ import {
   createTopicTemplate,
   deleteMapNode,
   DITA_MAP_CONTAINER_NODE_TAGS,
+  DitaSemanticIndex,
   extractDitaDocumentTitle,
+  findPmPosByDitaId,
   insertMapNode,
   parseDitaMap,
   resolveDitaHref,
   updateMapNodeAttr,
   updateMapNodeNavtitle,
   updateMapTitle,
+  xmlToPmDoc,
   type DitaFileKind,
   type DitaMapTemplateType,
+  type DitaProfilingAttrName,
   type DitaTopicTemplateType,
+  type DitavalDisplayMode,
+  type DocumentSemanticOverlay,
+  type KeyspaceResult,
+  type ParsedDitaval,
+  type ResolvedConrefResult,
+  type TopicIdIndexEntry,
   type XmlAttributeEntry,
   type XmlParseError,
 } from '@dita/core';
@@ -33,13 +43,18 @@ import {
   createWorkspaceFile,
   deleteWorkspaceEntry,
   fetchFileContent,
+  fetchParsedDitaval,
+  fetchSemanticContext,
   fetchWorkspace,
   fetchWorkspaceDiagnostics,
   importWorkspaceProject,
   openWorkspaceDir,
   renameWorkspaceEntry,
+  resolveDocumentSemantics,
+  resolveSingleConref,
   saveFileContent,
   type WorkspaceDiagnostic,
+  type WorkspaceDitavalSummary,
   type WorkspaceFileNode,
   type WorkspaceMapSummary,
   type WorkspaceSnapshot,
@@ -47,7 +62,7 @@ import {
 
 export type EditorViewMode = 'visual' | 'split' | 'source';
 export type TagDisplayMode = 'none' | 'tags' | 'full';
-export type LeftSidebarTab = 'map' | 'files';
+export type LeftSidebarTab = 'map' | 'files' | 'keys';
 export type InspectorTarget = 'topic' | 'map-node';
 
 export interface OpenEditorTab {
@@ -78,8 +93,16 @@ export interface EditorWorkbenchState {
   fileTree: WorkspaceFileNode[];
   fileSet: Set<string>;
   workspaceMaps: WorkspaceMapSummary[];
+  workspaceDitavals: WorkspaceDitavalSummary[];
   topicTitles: Record<string, string>;
   activeRootMapPath: string | null;
+  activeDitavalPath: string | null;
+  activeDitaval: ParsedDitaval | null;
+  ditavalDisplayMode: DitavalDisplayMode;
+  keyspace: KeyspaceResult | null;
+  topicIndices: TopicIdIndexEntry[];
+  profilingCatalog: Record<DitaProfilingAttrName, string[]>;
+  documentOverlays: Record<string, DocumentSemanticOverlay>;
   memoryFiles: Record<string, string>;
   memoryAssets: Record<string, string>;
   mapBuffers: Record<string, MapBufferState>;
@@ -113,7 +136,24 @@ export interface EditorWorkbenchState {
   ) => Promise<void>;
   restoreOfflineDemo: () => void;
   selectRootMap: (mapPath: string) => Promise<void>;
+  selectDitaval: (ditavalPath: string | null) => Promise<void>;
+  setDitavalDisplayMode: (mode: DitavalDisplayMode) => void;
+  refreshSemantics: () => Promise<void>;
+  refreshDocumentOverlay: (filePath: string, overrideXml?: string) => Promise<void>;
   refreshDiagnostics: () => Promise<void>;
+  jumpToSemanticLocation: (
+    filePath: string,
+    options?: { line?: number; elementId?: string; mode?: EditorViewMode },
+  ) => Promise<void>;
+  resolveConrefPreview: (params: {
+    sourceFilePath: string;
+    sourceTagName: string;
+    attrName: 'conref' | 'conkeyref';
+    rawValue: string;
+    conrefend?: string;
+    sourceTopicId?: string;
+    sourceElementId?: string;
+  }) => Promise<ResolvedConrefResult>;
 
   // Multi-tab & file actions
   openFileTab: (
@@ -267,92 +307,32 @@ function lineNumberToOffset(text: string, line: number): number {
   return idx;
 }
 
+const EMPTY_PROFILING_CATALOG: Record<DitaProfilingAttrName, string[]> = {
+  audience: [],
+  platform: [],
+  product: [],
+  otherprops: [],
+  props: [],
+  rev: [],
+};
+
+const memorySemanticIndex = new DitaSemanticIndex();
+let overlayDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
 function computeMemoryDiagnostics(
   files: Record<string, string>,
   assets: Record<string, string>,
   rootMapPath: string | null,
 ): WorkspaceDiagnostic[] {
-  const diagnostics: WorkspaceDiagnostic[] = [];
-  const allPaths = new Set([...Object.keys(files), ...Object.keys(assets)]);
-
-  for (const [filePath, xml] of Object.entries(files)) {
-    const check = checkXmlWellFormed(xml, { position: false });
-    if (!check.ok) {
-      diagnostics.push({
-        id: `xml:${filePath}:${check.error.line}:${check.error.column}`,
-        filePath,
-        line: check.error.line,
-        column: check.error.column,
-        severity: 'error',
-        source: 'xml',
-        message: `XML 良构错误：${check.error.message}`,
-      });
-    }
-  }
-
-  if (rootMapPath && files[rootMapPath]) {
-    const visited = new Set<string>();
-    const stack = new Set<string>();
-    const walkMap = (mapPath: string) => {
-      if (visited.has(mapPath)) return;
-      visited.add(mapPath);
-      stack.add(mapPath);
-      const xml = files[mapPath];
-      if (!xml) {
-        stack.delete(mapPath);
-        return;
-      }
-      try {
-        const parsed = parseDitaMap(xml);
-        for (const ref of parsed.references) {
-          if (ref.scope === 'external' || ref.scope === 'peer') continue;
-          const res = resolveDitaHref(mapPath, ref.href);
-          if (res.isExternal) continue;
-          if (res.escapesRoot || !res.targetPath || !allPaths.has(res.targetPath)) {
-            diagnostics.push({
-              id: `map:${mapPath}:${ref.line ?? 1}:${ref.column ?? 1}:${ref.href}`,
-              filePath: mapPath,
-              line: ref.line ?? 1,
-              column: ref.column ?? 1,
-              severity: 'error',
-              source: 'map-ref',
-              message: `目标文件不存在：${ref.href}`,
-              targetHref: ref.href,
-              resolvedPath: res.targetPath || undefined,
-            });
-            continue;
-          }
-          if (ref.isSubmapRef) {
-            if (stack.has(res.targetPath)) {
-              diagnostics.push({
-                id: `cycle:${mapPath}:${res.targetPath}`,
-                filePath: mapPath,
-                line: ref.line ?? 1,
-                column: ref.column ?? 1,
-                severity: 'error',
-                source: 'map-ref',
-                message: `检测到循环子地图引用：${res.targetPath}`,
-                targetHref: ref.href,
-                resolvedPath: res.targetPath,
-              });
-            } else {
-              walkMap(res.targetPath);
-            }
-          }
-        }
-      } catch {
-        // XML errors already reported
-      }
-      stack.delete(mapPath);
-    };
-    walkMap(rootMapPath);
-  }
-
-  return diagnostics;
+  memorySemanticIndex.loadFiles(files);
+  return memorySemanticIndex.collectSemanticDiagnostics(rootMapPath, {
+    assetPaths: new Set(Object.keys(assets)),
+  });
 }
 
 const initialMemoryDemo = createInMemoryDemoWorkspace();
 const initialFileSet = collectFileSetFromTree(initialMemoryDemo.snapshot.files);
+memorySemanticIndex.loadFiles(initialMemoryDemo.files);
 
 export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
   const applySnapshotToState = (snapshot: WorkspaceSnapshot) => {
@@ -364,6 +344,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       fileTree: snapshot.files,
       fileSet: nextFileSet,
       workspaceMaps: snapshot.maps,
+      workspaceDitavals: snapshot.ditavals ?? [],
       topicTitles: snapshot.topicTitles,
     });
     return nextFileSet;
@@ -477,6 +458,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     const demo = createInMemoryDemoWorkspace();
     const fSet = collectFileSetFromTree(demo.snapshot.files);
     const defaultRootMap = demo.snapshot.maps[0]?.path ?? null;
+    memorySemanticIndex.loadFiles(demo.files);
 
     set({
       workspaceMode: 'memory',
@@ -486,8 +468,15 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       fileTree: demo.snapshot.files,
       fileSet: fSet,
       workspaceMaps: demo.snapshot.maps,
+      workspaceDitavals: demo.snapshot.ditavals,
       topicTitles: demo.snapshot.topicTitles,
       activeRootMapPath: defaultRootMap,
+      activeDitavalPath: null,
+      activeDitaval: null,
+      keyspace: defaultRootMap ? memorySemanticIndex.getKeyspace(defaultRootMap) : null,
+      topicIndices: memorySemanticIndex.getAllTopicIndices(),
+      profilingCatalog: memorySemanticIndex.getProfilingCatalog(),
+      documentOverlays: {},
       memoryFiles: { ...demo.files },
       memoryAssets: { ...demo.assets },
       mapBuffers: {},
@@ -522,8 +511,18 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     fileTree: initialMemoryDemo.snapshot.files,
     fileSet: initialFileSet,
     workspaceMaps: initialMemoryDemo.snapshot.maps,
+    workspaceDitavals: initialMemoryDemo.snapshot.ditavals,
     topicTitles: initialMemoryDemo.snapshot.topicTitles,
     activeRootMapPath: initialMemoryDemo.snapshot.maps[0]?.path ?? null,
+    activeDitavalPath: null,
+    activeDitaval: null,
+    ditavalDisplayMode: 'dim-excluded',
+    keyspace: initialMemoryDemo.snapshot.maps[0]?.path
+      ? memorySemanticIndex.getKeyspace(initialMemoryDemo.snapshot.maps[0]!.path)
+      : null,
+    topicIndices: memorySemanticIndex.getAllTopicIndices(),
+    profilingCatalog: memorySemanticIndex.getProfilingCatalog(),
+    documentOverlays: {},
     memoryFiles: { ...initialMemoryDemo.files },
     memoryAssets: { ...initialMemoryDemo.assets },
     mapBuffers: {},
@@ -561,6 +560,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           openTabs: [],
           activeTabPath: null,
           activeRootMapPath: firstMap,
+          activeDitavalPath: null,
+          activeDitaval: null,
+          documentOverlays: {},
           selectedMapNode: firstMap ? { mapPath: firstMap, elementPath: null } : null,
           loadingWorkspace: false,
           statusMessage: `已连接本地工作区：${snapshot.name}（${snapshot.stats.totalTopics} 篇 Topic，${snapshot.stats.totalMaps} 个 Map）`,
@@ -577,6 +579,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           const firstTopic = findFirstTopicInWorkspace(null, null, fSet);
           if (firstTopic) await get().openFileTab(firstTopic);
         }
+        await get().refreshSemantics();
         await get().refreshDiagnostics();
       } catch {
         activateMemoryFallback('未检测到本地 API 服务，已启用内置多文件离线示例工作区');
@@ -610,6 +613,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           openTabs: [],
           activeTabPath: null,
           activeRootMapPath: firstMap,
+          activeDitavalPath: null,
+          activeDitaval: null,
+          documentOverlays: {},
           selectedMapNode: firstMap ? { mapPath: firstMap, elementPath: null } : null,
           loadingWorkspace: false,
           statusMessage: `已打开本地项目：${snapshot.name}`,
@@ -626,6 +632,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           const firstTopic = findFirstTopicInWorkspace(null, null, fSet);
           if (firstTopic) await get().openFileTab(firstTopic);
         }
+        await get().refreshSemantics();
         await get().refreshDiagnostics();
       } catch (err) {
         set({
@@ -648,6 +655,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             openTabs: [],
             activeTabPath: null,
             activeRootMapPath: firstMap,
+            activeDitavalPath: null,
+            activeDitaval: null,
+            documentOverlays: {},
             selectedMapNode: firstMap ? { mapPath: firstMap, elementPath: null } : null,
             loadingWorkspace: false,
             statusMessage: `已导入本地文件夹项目：${projectName}（${snapshot.stats.totalTopics} 个主题）`,
@@ -661,6 +671,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             );
             if (firstTopic) await get().openFileTab(firstTopic);
           }
+          await get().refreshSemantics();
           await get().refreshDiagnostics();
           return;
         } catch {
@@ -683,6 +694,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const snap = buildSnapshotFromMemoryFiles(projectName, nextFiles, nextAssets);
       const fSet = applySnapshotToState(snap);
       const firstMap = snap.maps[0]?.path ?? null;
+      memorySemanticIndex.loadFiles(nextFiles);
       set({
         workspaceMode: 'memory',
         memoryFiles: nextFiles,
@@ -691,6 +703,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         openTabs: [],
         activeTabPath: null,
         activeRootMapPath: firstMap,
+        activeDitavalPath: null,
+        activeDitaval: null,
+        documentOverlays: {},
         loadingWorkspace: false,
         statusMessage: `已在离线内存工作区导入项目：${projectName}`,
       });
@@ -699,6 +714,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         const firstTopic = findFirstTopicInWorkspace(nextFiles[firstMap] ?? null, firstMap, fSet);
         if (firstTopic) await get().openFileTab(firstTopic);
       }
+      await get().refreshSemantics();
       await get().refreshDiagnostics();
     },
 
@@ -713,7 +729,194 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         statusMessage: `已激活 Root Map：${mapPath}`,
       });
       await loadMapTreeBuffers(mapPath, false);
+      await get().refreshSemantics();
       await get().refreshDiagnostics();
+    },
+
+    async selectDitaval(ditavalPath) {
+      if (!ditavalPath) {
+        set({
+          activeDitavalPath: null,
+          activeDitaval: null,
+          statusMessage: '已关闭 DITAVAL 条件过滤（显示完整文档）',
+        });
+        return;
+      }
+
+      const state = get();
+      if (state.workspaceMode === 'memory') {
+        const dv = memorySemanticIndex.getDitaval(ditavalPath);
+        if (!dv) {
+          set({ statusMessage: `未找到 DITAVAL 文件：${ditavalPath}` });
+          return;
+        }
+        if (!dv.ok) {
+          set({
+            activeDitavalPath: ditavalPath,
+            activeDitaval: null,
+            statusMessage: `DITAVAL 解析失败：${dv.error.message}`,
+          });
+          return;
+        }
+        set({
+          activeDitavalPath: ditavalPath,
+          activeDitaval: dv.parsed,
+          statusMessage: `已启用 DITAVAL 过滤配置：${ditavalPath}（${dv.parsed.rules.length} 条规则）`,
+        });
+        return;
+      }
+
+      try {
+        const res = await fetchParsedDitaval(ditavalPath);
+        set({
+          activeDitavalPath: ditavalPath,
+          activeDitaval: res.ditaval,
+          statusMessage: `已启用 DITAVAL 过滤配置：${ditavalPath}（${res.ditaval.rules.length} 条规则）`,
+        });
+      } catch (err) {
+        set({
+          activeDitavalPath: ditavalPath,
+          activeDitaval: null,
+          statusMessage: `加载 DITAVAL 失败：${err instanceof Error ? err.message : String(err)}`,
+        });
+      }
+    },
+
+    setDitavalDisplayMode(mode) {
+      const labelMap: Record<DitavalDisplayMode, string> = {
+        'show-all': '已切换为“全部显示 + 条件徽章”视图',
+        'dim-excluded': '已切换为“淡化被排除内容”视图',
+        'hide-excluded': '已切换为“隐藏被排除内容”视图',
+      };
+      set({ ditavalDisplayMode: mode, statusMessage: labelMap[mode] });
+    },
+
+    async refreshSemantics() {
+      const state = get();
+      if (state.workspaceMode === 'memory') {
+        memorySemanticIndex.loadFiles(state.memoryFiles);
+        const keyspace = state.activeRootMapPath
+          ? memorySemanticIndex.getKeyspace(state.activeRootMapPath)
+          : null;
+        const dv = state.activeDitavalPath
+          ? memorySemanticIndex.getDitaval(state.activeDitavalPath)
+          : null;
+        const activeDitaval = dv && dv.ok ? dv.parsed : null;
+
+        const nextOverlays: Record<string, DocumentSemanticOverlay> = {};
+        for (const tab of state.openTabs) {
+          if (tab.kind === 'topic') {
+            nextOverlays[tab.path] = memorySemanticIndex.buildDocumentOverlay(
+              tab.path,
+              state.activeRootMapPath,
+              tab.xml,
+            );
+          }
+        }
+
+        set({
+          keyspace,
+          topicIndices: memorySemanticIndex.getAllTopicIndices(),
+          profilingCatalog: memorySemanticIndex.getProfilingCatalog(),
+          activeDitaval,
+          documentOverlays: nextOverlays,
+        });
+        return;
+      }
+
+      try {
+        const ctx = await fetchSemanticContext(
+          state.activeRootMapPath,
+          state.activeDitavalPath,
+        );
+        set({
+          keyspace: ctx.keyspace,
+          topicIndices: ctx.topicIndices,
+          profilingCatalog: ctx.profilingCatalog ?? EMPTY_PROFILING_CATALOG,
+          workspaceDitavals: ctx.ditavals,
+          activeDitaval: ctx.activeDitaval,
+        });
+
+        const activeTab = selectActiveTab(get());
+        if (activeTab && activeTab.kind === 'topic') {
+          await get().refreshDocumentOverlay(activeTab.path, activeTab.xml);
+        }
+      } catch {
+        // Gracefully retain prior semantic context on transient API issues
+      }
+    },
+
+    async refreshDocumentOverlay(filePath, overrideXml) {
+      const state = get();
+      if (classifyDitaFileKind(filePath) !== 'topic') return;
+
+      if (state.workspaceMode === 'memory') {
+        const overlay = memorySemanticIndex.buildDocumentOverlay(
+          filePath,
+          state.activeRootMapPath,
+          overrideXml,
+        );
+        set((s) => ({
+          documentOverlays: {
+            ...s.documentOverlays,
+            [filePath]: overlay,
+          },
+        }));
+        return;
+      }
+
+      try {
+        const overlay = await resolveDocumentSemantics({
+          filePath,
+          rootMapPath: state.activeRootMapPath,
+          xml: overrideXml,
+        });
+        set((s) => ({
+          documentOverlays: {
+            ...s.documentOverlays,
+            [filePath]: overlay,
+          },
+        }));
+      } catch {
+        // Ignore transient network errors during live typing
+      }
+    },
+
+    async jumpToSemanticLocation(filePath, options = {}) {
+      const targetMode = options.mode;
+      await get().openFileTab(filePath, {
+        mode: targetMode,
+        jumpLine: options.line,
+      });
+
+      if (options.elementId) {
+        const tab = get().openTabs.find((t) => t.path === filePath);
+        if (tab && tab.mode !== 'source' && tab.kind === 'topic') {
+          try {
+            const { pmDoc } = xmlToPmDoc(tab.xml, { position: false });
+            const pmPos = findPmPosByDitaId(pmDoc, options.elementId);
+            if (pmPos !== null) {
+              get().requestVisualJump(pmPos + 1);
+            }
+          } catch {
+            // fallback cleanly if document isn't currently visual-parseable
+          }
+        }
+      }
+    },
+
+    async resolveConrefPreview(params) {
+      const state = get();
+      if (state.workspaceMode === 'memory') {
+        return memorySemanticIndex.resolveConref({
+          ...params,
+          rootMapPath: state.activeRootMapPath,
+        });
+      }
+      return resolveSingleConref({
+        ...params,
+        rootMapPath: state.activeRootMapPath,
+      });
     },
 
     async refreshDiagnostics() {
@@ -753,6 +956,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           pendingSourceOffset: nextMode !== 'visual' ? nextOffset : null,
           statusMessage: `已切换到 ${existing.fileName}`,
         });
+        if (existing.kind === 'topic') {
+          void get().refreshDocumentOverlay(filePath, existing.xml);
+        }
         return;
       }
 
@@ -805,6 +1011,10 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         pendingSourceOffset: defaultMode !== 'visual' ? jumpOffset : null,
         statusMessage: `已打开 ${fileName}`,
       }));
+
+      if (kind === 'topic') {
+        void get().refreshDocumentOverlay(filePath, xml);
+      }
     },
 
     activateTab(filePath) {
@@ -815,6 +1025,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         inspectorTarget: 'topic',
         statusMessage: `已切换到 ${tab.fileName}`,
       });
+      if (tab.kind === 'topic') {
+        void get().refreshDocumentOverlay(filePath, tab.xml);
+      }
     },
 
     closeTab(filePath) {
@@ -896,6 +1109,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         }));
 
         await get().refreshWorkspaceTree();
+        await get().refreshSemantics();
         await get().refreshDiagnostics();
         return true;
       } catch (err) {
@@ -1048,6 +1262,16 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             ? { ...s.topicTitles, [activePath]: nextTitle }
             : s.topicTitles,
       }));
+
+      if (state.workspaceMode === 'memory') {
+        memorySemanticIndex.updateFile(activePath, xml);
+        void get().refreshDocumentOverlay(activePath, xml);
+      } else {
+        if (overlayDebounceTimer) clearTimeout(overlayDebounceTimer);
+        overlayDebounceTimer = setTimeout(() => {
+          void get().refreshDocumentOverlay(activePath, xml);
+        }, 180);
+      }
     },
 
     updateXmlFromSource(xml) {
@@ -1096,6 +1320,20 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
 
       if (isMap && check.ok && get().activeRootMapPath) {
         void loadMapTreeBuffers(get().activeRootMapPath!, false);
+      }
+
+      if (state.workspaceMode === 'memory') {
+        memorySemanticIndex.updateFile(activePath, xml);
+        if (isMap && check.ok) {
+          void get().refreshSemantics();
+        } else if (active?.kind === 'topic') {
+          void get().refreshDocumentOverlay(activePath, xml);
+        }
+      } else if (active?.kind === 'topic') {
+        if (overlayDebounceTimer) clearTimeout(overlayDebounceTimer);
+        overlayDebounceTimer = setTimeout(() => {
+          void get().refreshDocumentOverlay(activePath, xml);
+        }, 180);
       }
     },
 
@@ -1148,6 +1386,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         set((s) => ({
           memoryFiles: { ...s.memoryFiles, [mapPath]: nextXml },
         }));
+        void get().refreshSemantics();
         void get().refreshDiagnostics();
       }
       if (get().activeRootMapPath) {
@@ -1182,8 +1421,13 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             ? { ...t, xml: previousXml, title: nextTitle, visualReloadToken: t.visualReloadToken + 1 }
             : t,
         ),
+        memoryFiles: s.workspaceMode === 'memory' ? { ...s.memoryFiles, [mapPath]: previousXml } : s.memoryFiles,
         statusMessage: `已撤销 ${mapPath} 结构修改`,
       }));
+      if (state.workspaceMode === 'memory') {
+        void get().refreshSemantics();
+        void get().refreshDiagnostics();
+      }
     },
 
     redoMap(mapPath) {
@@ -1213,8 +1457,13 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             ? { ...t, xml: nextXml, title: nextTitle, visualReloadToken: t.visualReloadToken + 1 }
             : t,
         ),
+        memoryFiles: s.workspaceMode === 'memory' ? { ...s.memoryFiles, [mapPath]: nextXml } : s.memoryFiles,
         statusMessage: `已重做 ${mapPath} 结构修改`,
       }));
+      if (state.workspaceMode === 'memory') {
+        void get().refreshSemantics();
+        void get().refreshDiagnostics();
+      }
     },
 
     selectMapNode(ref, switchInspector = true) {
@@ -1312,6 +1561,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       });
 
       await get().openFileTab(relPath, { mode: 'visual' });
+      await get().refreshSemantics();
       await get().refreshDiagnostics();
     },
 
@@ -1441,6 +1691,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         set((s) => ({ memoryFiles: { ...s.memoryFiles, [relPath]: xml } }));
       }
       await get().refreshWorkspaceTree();
+      await get().refreshSemantics();
       await get().openFileTab(relPath, { mode: 'visual' });
       set({ statusMessage: `已新建 ${relPath}` });
     },
@@ -1484,6 +1735,8 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       await get().refreshWorkspaceTree();
       if (kind === 'ditamap' || kind === 'bookmap') {
         await get().selectRootMap(relPath);
+      } else {
+        await get().refreshSemantics();
       }
       await get().openFileTab(relPath);
       set({ statusMessage: `已导入 ${relPath}` });
@@ -1521,6 +1774,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         activeRootMapPath: s.activeRootMapPath === fromPath ? toPath : s.activeRootMapPath,
       }));
       await get().refreshWorkspaceTree();
+      await get().refreshSemantics();
       await get().refreshDiagnostics();
       set({ statusMessage: `已重命名 ${fromPath} -> ${toPath}` });
     },
@@ -1536,6 +1790,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
 
       get().closeTab(filePath);
       await get().refreshWorkspaceTree();
+      await get().refreshSemantics();
       await get().refreshDiagnostics();
       set({ statusMessage: `已删除 ${filePath}` });
     },

@@ -2,12 +2,16 @@ import {
   checkXmlWellFormed,
   computeRelativeDitaHref,
   DITA_MAP_CONTAINER_NODE_TAGS,
+  evaluateElementConditions,
   moveMapNodes,
   parseDitaMap,
   resolveDitaHref,
   transferMapNode,
   type DitaMapTreeNode,
+  type DitavalDisplayMode,
+  type ElementConditionEvaluation,
   type ParsedDitaMap,
+  type ParsedDitaval,
   type XmlAttributeEntry,
   type XmlParseError,
 } from '@dita/core';
@@ -45,6 +49,9 @@ export interface CompositeMapTreeNode {
   isCyclicRef?: boolean;
   line?: number;
   column?: number;
+  conditionEval?: ElementConditionEvaluation;
+  isExcluded?: boolean;
+  profilingSummary?: { name: string; values: string[] }[];
   children?: CompositeMapTreeNode[];
 }
 
@@ -52,31 +59,64 @@ export interface CompositeMapTreeResult {
   parsedRoot: ParsedDitaMap | null;
   nodes: CompositeMapTreeNode[];
   parseError: XmlParseError | null;
+  hiddenCount: number;
+  excludedCount: number;
+  flaggedCount: number;
+}
+
+export interface BuildCompositeMapTreeOptions {
+  ditaval?: ParsedDitaval | null;
+  ditavalDisplayMode?: DitavalDisplayMode;
 }
 
 /**
  * Build a unified composite tree for `react-arborist` starting from `rootMapPath`,
  * recursively expanding `<mapref>` entries whose target map exists in `mapBuffers`
- * while guarding against circular `<mapref>` cycles.
+ * while guarding against circular `<mapref>` cycles and projecting active DITAVAL conditions.
  */
 export function buildCompositeMapTree(
   rootMapPath: string | null,
   mapBuffers: Record<string, { xml: string }>,
   fileSet: ReadonlySet<string>,
   topicTitles: Record<string, string>,
+  options: BuildCompositeMapTreeOptions = {},
 ): CompositeMapTreeResult {
+  const ditaval = options.ditaval ?? null;
+  const ditavalDisplayMode = options.ditavalDisplayMode ?? 'dim-excluded';
+
   if (!rootMapPath) {
-    return { parsedRoot: null, nodes: [], parseError: null };
+    return {
+      parsedRoot: null,
+      nodes: [],
+      parseError: null,
+      hiddenCount: 0,
+      excludedCount: 0,
+      flaggedCount: 0,
+    };
   }
 
   const rootBuffer = mapBuffers[rootMapPath];
   if (!rootBuffer) {
-    return { parsedRoot: null, nodes: [], parseError: null };
+    return {
+      parsedRoot: null,
+      nodes: [],
+      parseError: null,
+      hiddenCount: 0,
+      excludedCount: 0,
+      flaggedCount: 0,
+    };
   }
 
   const check = checkXmlWellFormed(rootBuffer.xml, { position: false });
   if (!check.ok) {
-    return { parsedRoot: null, nodes: [], parseError: check.error };
+    return {
+      parsedRoot: null,
+      nodes: [],
+      parseError: check.error,
+      hiddenCount: 0,
+      excludedCount: 0,
+      flaggedCount: 0,
+    };
   }
 
   let parsedRoot: ParsedDitaMap;
@@ -92,8 +132,18 @@ export function buildCompositeMapTree(
         column: 1,
         offset: 0,
       },
+      hiddenCount: 0,
+      excludedCount: 0,
+      flaggedCount: 0,
     };
   }
+
+  let hiddenCount = 0;
+  let excludedCount = 0;
+  let flaggedCount = 0;
+
+  const rootEval = evaluateElementConditions(parsedRoot.rootAttrs, ditaval);
+  const rootExcluded = rootEval.status === 'exclude';
 
   const convertMapNodes = (
     rawNodes: readonly DitaMapTreeNode[],
@@ -101,10 +151,28 @@ export function buildCompositeMapTree(
     instancePrefix: string,
     isSubmapChild: boolean,
     visitedStack: ReadonlySet<string>,
+    inheritedExcluded: boolean,
   ): CompositeMapTreeNode[] => {
-    return rawNodes.map((node) => {
+    const out: CompositeMapTreeNode[] = [];
+
+    for (const node of rawNodes) {
       const nodeId = `${instancePrefix}${ownerMapPath}::${node.elementPath.join('.')}`;
       const isExternal = node.scope === 'external' || node.scope === 'peer';
+
+      const condEval = evaluateElementConditions(node.rawAttrs, ditaval);
+      const isExcluded = inheritedExcluded || condEval.status === 'exclude';
+      if (isExcluded) excludedCount++;
+      else if (condEval.status === 'flag') flaggedCount++;
+
+      if (isExcluded && ditaval && ditavalDisplayMode === 'hide-excluded') {
+        hiddenCount++;
+        continue;
+      }
+
+      const profilingSummary = Object.entries(condEval.presentAttrs).map(([name, values]) => ({
+        name,
+        values: values ?? [],
+      }));
 
       let resolvedTargetPath: string | undefined;
       let targetExists = true;
@@ -137,6 +205,7 @@ export function buildCompositeMapTree(
               `${nodeId}>>`,
               true,
               nextVisited,
+              isExcluded,
             );
           } catch {
             children = undefined;
@@ -149,6 +218,7 @@ export function buildCompositeMapTree(
           instancePrefix,
           isSubmapChild,
           visitedStack,
+          isExcluded,
         );
       } else if (DITA_MAP_CONTAINER_NODE_TAGS.has(node.tagName)) {
         children = [];
@@ -161,7 +231,7 @@ export function buildCompositeMapTree(
         resolvedTitle ||
         node.label;
 
-      return {
+      out.push({
         id: nodeId,
         ownerMapPath,
         elementPath: node.elementPath,
@@ -185,18 +255,26 @@ export function buildCompositeMapTree(
         isCyclicRef,
         line: node.line,
         column: node.column,
+        conditionEval: condEval,
+        isExcluded,
+        profilingSummary: profilingSummary.length > 0 ? profilingSummary : undefined,
         children,
-      };
-    });
+      });
+    }
+
+    return out;
   };
 
   const visited = new Set<string>([rootMapPath]);
-  const nodes = convertMapNodes(parsedRoot.nodes, rootMapPath, '', false, visited);
+  const nodes = convertMapNodes(parsedRoot.nodes, rootMapPath, '', false, visited, rootExcluded);
 
   return {
     parsedRoot,
     nodes,
     parseError: null,
+    hiddenCount,
+    excludedCount,
+    flaggedCount,
   };
 }
 

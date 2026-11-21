@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<val>
+  <prop att="audience" val="admin" action="include"/>
+  <prop att="product" val="onprem" action="include"/>
+  <prop att="product" val="enterprise" action="include"/>
+  <prop att="product" val="cloud" action="exclude"/>
+  <prop att="otherprops" val="internal" action="exclude"/>
+  <prop att="platform" val="linux" action="flag" color="#065f46" backcolor="#d1fae5">
+    <startflag><alt-text>Linux</alt-text></startflag>
+  </prop>
+  <revprop val="2.4" action="flag" color="#1d4ed8" backcolor="#dbeafe" style="bold">
+    <startflag><alt-text>NEW v2.4</alt-text></startflag>
+  </revprop>
+</val>

@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="single_sourcing_model" xml:lang="zh-CN">
-  <title>单一信息源与跨文档复用</title>
-  <shortdesc>理解如何利用 Map 组合、Keyspace 变量替换与 Conref 片段复用降低维护成本。</shortdesc>
+  <title>单一信息源与跨文档复用（<keyword keyref="prod_name"/>）</title>
+  <shortdesc>理解如何利用 Root Map Keyspace 变量替换、Conref/Conkeyref 片段复用与 DITAVAL 条件过滤实现多版本交付。</shortdesc>
   <conbody>
-    <p>通过将产品文档拆分为独立可复用的 Topic，并在不同的 <codeph>.ditamap</codeph> 或 <codeph>.bookmap</codeph> 中引用同一份主题，团队只需维护一份核心事实。</p>
+    <p>当前激活的产品版本为 <keyword keyref="prod_name"/> <keyword keyref="api_version"/>，运行形态：<ph keyref="deployment_mode"/>，API 端点：<keyword keyref="cloud.endpoint_url"/>。</p>
     <section id="sec_mechanisms">
       <title>三大核心机制</title>
       <ul>
@@ -12,6 +12,18 @@
         <li><b>Keydef / Keyref</b>：在 Root Map 中绑定产品名、版本号与链接目标，避免硬编码路径。</li>
         <li><b>DITAVAL 条件过滤</b>：基于 <codeph>audience</codeph>、<codeph>platform</codeph>、<codeph>product</codeph> 属性按需裁剪输出。</li>
       </ul>
+    </section>
+    <section id="sec_conref_demo">
+      <title>内容复用实时展开示例</title>
+      <note conkeyref="common_reuse/backup_warning" type="caution"/>
+      <p conref="../shared/common-reuse.dita#common_reuse/sla_notice"/>
+      <p>如需协助，请联系 <ph conkeyref="common_reuse/support_email"/>。</p>
+    </section>
+    <section id="sec_profiling_demo">
+      <title>DITAVAL 条件发布多版本分支</title>
+      <p product="cloud" rev="2.4">【云原生版】多租户工作区由托管控制面自动分配隔离存储与弹性校验节点。</p>
+      <p product="onprem" platform="linux" audience="admin">【私有化部署版】管理员需在 Linux 节点部署常驻 Java 21 Worker 并挂载共享磁盘卷。</p>
+      <p otherprops="internal">【内部研发备注】本地调试可使用环境变量 DITA_WORKSPACE_DIR 覆盖默认示例工作区。</p>
     </section>
   </conbody>
 </concept>

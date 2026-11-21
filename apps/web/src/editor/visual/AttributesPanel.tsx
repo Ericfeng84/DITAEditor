@@ -1,10 +1,15 @@
 import { useState } from 'react';
 import {
+  evaluateElementConditions,
   getAttributesForElement,
   getElementSpec,
   getRawAttr,
+  makeConrefOverlayKey,
   type DitaAttributeGroup,
   type DitaAttributeSpec,
+  type DitaProfilingAttrName,
+  type DocumentSemanticOverlay,
+  type ParsedDitaval,
   type XmlDeclaration,
   type XmlPrologItem,
 } from '@dita/core';
@@ -14,12 +19,15 @@ import {
   ArrowUpLeft,
   ChevronDown,
   ChevronRight,
+  CopyPlus,
+  ExternalLink,
   Plus,
   ShieldCheck,
   Tag,
   Trash2,
   X,
 } from 'lucide-react';
+import { ProfilingAttrEditor } from '../../components/ProfilingAttrEditor';
 import type { EditorSelectionSnapshot } from './selection-info';
 
 export interface AttributesPanelProps {
@@ -29,6 +37,11 @@ export interface AttributesPanelProps {
     prolog: XmlPrologItem[];
     epilog: XmlPrologItem[];
   } | null;
+  semanticOverlay?: DocumentSemanticOverlay | null;
+  activeDitaval?: ParsedDitaval | null;
+  profilingCatalog?: Partial<Record<DitaProfilingAttrName, string[]>>;
+  onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
+  onOpenConrefDialog?: () => void;
   onUpdateAttr: (nodePos: number, attrName: string, value: string | null) => void;
   onSelectBreadcrumb: (pos: number) => void;
   onMoveNode: (nodePos: number, direction: 'up' | 'down') => void;
@@ -46,6 +59,11 @@ const GROUP_LABELS: Record<DitaAttributeGroup, { title: string; subtitle: string
 export function AttributesPanel({
   snapshot,
   docMetadata,
+  semanticOverlay = null,
+  activeDitaval = null,
+  profilingCatalog = {},
+  onJumpToSource,
+  onOpenConrefDialog,
   onUpdateAttr,
   onSelectBreadcrumb,
   onMoveNode,
@@ -86,6 +104,25 @@ export function AttributesPanel({
   const rawAttrs = snapshot.rawAttrs;
   const allAttrSpecs = getAttributesForElement(tagName);
   const knownNames = new Set(allAttrSpecs.map((a) => a.name));
+
+  const keyrefVal = getRawAttr(rawAttrs, 'keyref')?.trim();
+  const resolvedKeyref = keyrefVal ? semanticOverlay?.keyrefs[keyrefVal] : undefined;
+
+  const conkeyrefVal = getRawAttr(rawAttrs, 'conkeyref')?.trim();
+  const conrefVal = getRawAttr(rawAttrs, 'conref')?.trim();
+  const conrefendVal = getRawAttr(rawAttrs, 'conrefend')?.trim() || undefined;
+  const activeConrefAttr = conkeyrefVal ? 'conkeyref' : conrefVal ? 'conref' : null;
+  const activeConrefVal = conkeyrefVal ?? conrefVal ?? '';
+  const resolvedConref =
+    activeConrefAttr && activeConrefVal
+      ? semanticOverlay?.conrefs[
+          makeConrefOverlayKey(tagName, activeConrefAttr, activeConrefVal, conrefendVal)
+        ]
+      : undefined;
+
+  const conditionEval = activeDitaval
+    ? evaluateElementConditions(rawAttrs, activeDitaval)
+    : null;
 
   // Group schema attributes cleanly
   const grouped = new Map<DitaAttributeGroup, DitaAttributeSpec[]>();
@@ -312,7 +349,23 @@ export function AttributesPanel({
                     )}
                     {meta.title}
                   </span>
-                  {filledCount > 0 ? (
+                  {groupKey === 'profiling' && conditionEval ? (
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+                        conditionEval.status === 'exclude'
+                          ? 'bg-rose-100 text-rose-800'
+                          : conditionEval.status === 'flag'
+                            ? 'bg-indigo-100 text-indigo-800'
+                            : 'bg-emerald-100 text-emerald-800'
+                      }`}
+                    >
+                      {conditionEval.status === 'exclude'
+                        ? '已排除'
+                        : conditionEval.status === 'flag'
+                          ? '标记高亮'
+                          : '包含'}
+                    </span>
+                  ) : filledCount > 0 ? (
                     <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700">
                       {filledCount}
                     </span>
@@ -323,6 +376,87 @@ export function AttributesPanel({
 
                 {isOpen ? (
                   <div className="mt-2.5 space-y-2.5">
+                    {groupKey === 'element' && keyrefVal && resolvedKeyref ? (
+                      <div
+                        className={`rounded-md border p-2 text-[11px] ${
+                          resolvedKeyref.status === 'resolved'
+                            ? 'border-violet-200 bg-violet-50/70 text-violet-950'
+                            : 'border-rose-200 bg-rose-50 text-rose-800'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="font-semibold">
+                            {resolvedKeyref.status === 'resolved'
+                              ? `Key 解析：${resolvedKeyref.resolvedText ?? resolvedKeyref.targetFilePath ?? '有效'}`
+                              : resolvedKeyref.errorMessage}
+                          </span>
+                          {resolvedKeyref.definition && onJumpToSource ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                onJumpToSource(
+                                  resolvedKeyref.definition!.sourceMapPath,
+                                  resolvedKeyref.definition!.line,
+                                )
+                              }
+                              className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100"
+                            >
+                              <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                              定义
+                            </button>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {groupKey === 'reuse' ? (
+                      <div className="space-y-2">
+                        {onOpenConrefDialog ? (
+                          <button
+                            type="button"
+                            onClick={onOpenConrefDialog}
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-[11px] font-medium text-teal-800 hover:bg-teal-100"
+                          >
+                            <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
+                            从项目 ID 列表选取复用目标…
+                          </button>
+                        ) : null}
+                        {resolvedConref ? (
+                          <div
+                            className={`rounded-md border p-2 text-[11px] ${
+                              resolvedConref.status === 'resolved'
+                                ? 'border-teal-200 bg-teal-50/60 text-teal-900'
+                                : 'border-rose-200 bg-rose-50 text-rose-800'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="font-semibold">
+                                {resolvedConref.status === 'resolved'
+                                  ? `已解析：${resolvedConref.targetFilePath}`
+                                  : resolvedConref.errorMessage}
+                              </span>
+                              {resolvedConref.targetFilePath && onJumpToSource ? (
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    onJumpToSource(
+                                      resolvedConref.targetFilePath!,
+                                      resolvedConref.targetLine,
+                                      resolvedConref.targetElementId,
+                                    )
+                                  }
+                                  className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-teal-700 ring-1 ring-teal-200 hover:bg-teal-100"
+                                >
+                                  <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                                  源定义
+                                </button>
+                              ) : null}
+                            </div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
                     {attrs.map((attr) => {
                       const currentVal = getRawAttr(rawAttrs, attr.name) ?? '';
                       const hasValue = getRawAttr(rawAttrs, attr.name) !== undefined;
@@ -354,7 +488,16 @@ export function AttributesPanel({
                             ) : null}
                           </div>
 
-                          {attr.values && attr.values.length > 0 ? (
+                          {groupKey === 'profiling' ? (
+                            <ProfilingAttrEditor
+                              attrName={attr.name as DitaProfilingAttrName}
+                              inputId={inputId}
+                              value={currentVal}
+                              suggestions={profilingCatalog[attr.name as DitaProfilingAttrName] ?? []}
+                              placeholder={attr.placeholder ?? attr.label}
+                              onChange={(nextVal) => onUpdateAttr(activeItem.pos, attr.name, nextVal)}
+                            />
+                          ) : attr.values && attr.values.length > 0 ? (
                             <select
                               id={inputId}
                               value={currentVal}
