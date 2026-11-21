@@ -4,6 +4,8 @@
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
+> 当前版本 **v0.5.0**（覆盖 Phase 0–3），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
 ---
 
 ## 界面预览

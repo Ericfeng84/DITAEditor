@@ -1,4 +1,4 @@
-export const DITA_CORE_VERSION = '0.1.0';
+export const DITA_CORE_VERSION = '0.5.0';
 
 // XML layer
 export * from './xml/types.js';
