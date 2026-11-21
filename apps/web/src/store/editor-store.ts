@@ -67,7 +67,7 @@ import {
 
 export type EditorViewMode = 'visual' | 'split' | 'source';
 export type TagDisplayMode = 'none' | 'tags' | 'full';
-export type LeftSidebarTab = 'map' | 'files' | 'keys';
+export type LeftSidebarTab = 'map' | 'files' | 'keys' | 'git';
 export type InspectorTarget = 'topic' | 'map-node';
 
 export interface OpenEditorTab {
@@ -137,6 +137,8 @@ export interface EditorWorkbenchState {
   // Workspace actions
   initWorkspace: () => Promise<void>;
   refreshWorkspaceTree: () => Promise<void>;
+  reloadWorkspaceFromSnapshot: (snapshot: WorkspaceSnapshot, statusMessage?: string) => Promise<void>;
+  reloadFilesFromDisk: (filePaths: string[]) => Promise<void>;
   openLocalWorkspace: (target: { rootDir: string } | { useDefault: true }) => Promise<void>;
   refreshRecentWorkspaces: () => Promise<void>;
   createBlankWorkspace: (options: {
@@ -656,6 +658,100 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       }
       const snap = await fetchWorkspace();
       applySnapshotToState(snap);
+    },
+
+    async reloadWorkspaceFromSnapshot(snapshot, statusMessage) {
+      const previousActive = get().activeTabPath;
+      const fSet = applySnapshotToState(snapshot);
+      const firstMap = snapshot.maps[0]?.path ?? null;
+      const nextRootMap =
+        get().activeRootMapPath && fSet.has(get().activeRootMapPath!)
+          ? get().activeRootMapPath
+          : firstMap;
+      set({
+        workspaceMode: 'api',
+        mapBuffers: {},
+        openTabs: [],
+        activeTabPath: null,
+        activeRootMapPath: nextRootMap,
+        activeDitavalPath: null,
+        activeDitaval: null,
+        documentOverlays: {},
+        selectedMapNode: nextRootMap ? { mapPath: nextRootMap, elementPath: null } : null,
+        loadingWorkspace: false,
+        statusMessage: statusMessage ?? `已切换到分支工作区：${snapshot.rootDir}`,
+      });
+
+      if (nextRootMap) {
+        await loadMapTreeBuffers(nextRootMap, true);
+        const preferred =
+          previousActive && fSet.has(previousActive) ? previousActive : null;
+        const firstTopic = preferred ?? findFirstTopicInWorkspace(
+          get().mapBuffers[nextRootMap]?.xml ?? null,
+          nextRootMap,
+          fSet,
+        );
+        if (firstTopic) await get().openFileTab(firstTopic);
+      } else {
+        const firstTopic = findFirstTopicInWorkspace(null, null, fSet);
+        if (firstTopic) await get().openFileTab(firstTopic);
+      }
+
+      await get().refreshSemantics();
+      await get().refreshDiagnostics();
+    },
+
+    async reloadFilesFromDisk(filePaths) {
+      if (get().workspaceMode === 'memory') return;
+      const uniquePaths = Array.from(new Set(filePaths));
+      const tabs = get().openTabs;
+      const buffers = get().mapBuffers;
+      const nextTabs = [...tabs];
+      const nextBuffers = { ...buffers };
+
+      for (const filePath of uniquePaths) {
+        let content: string;
+        try {
+          const res = await fetchFileContent(filePath);
+          content = res.content;
+        } catch {
+          continue;
+        }
+        const check = checkXmlWellFormed(content, { position: false });
+        const xmlError = check.ok ? null : check.error;
+        const tabIndex = nextTabs.findIndex((tab) => tab.path === filePath);
+        if (tabIndex >= 0) {
+          const tab = nextTabs[tabIndex]!;
+          nextTabs[tabIndex] = {
+            ...tab,
+            xml: content,
+            baselineXml: content,
+            xmlError,
+            switchBlockedReason: null,
+            visualReloadToken: tab.visualReloadToken + 1,
+            title: extractTitleSafe(content, tab.fileName),
+          };
+        }
+        if (nextBuffers[filePath]) {
+          const buffer = nextBuffers[filePath]!;
+          nextBuffers[filePath] = {
+            ...buffer,
+            xml: content,
+            baselineXml: content,
+            undoStack: [],
+            redoStack: [],
+            xmlError,
+          };
+        }
+      }
+
+      set({
+        openTabs: nextTabs,
+        mapBuffers: nextBuffers,
+        statusMessage: `已从磁盘重新加载 ${uniquePaths.length} 个文件`,
+      });
+      await get().refreshSemantics();
+      await get().refreshDiagnostics();
     },
 
     async openLocalWorkspace(target) {

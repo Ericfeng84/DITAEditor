@@ -12,6 +12,8 @@ import {
   Save,
 } from 'lucide-react';
 import type { EditorViewMode, OpenEditorTab } from '../store/editor-store';
+import type { IdentityResponse, IdentityUser } from '../services/identity-api';
+import { IdentitySwitcher } from './IdentitySwitcher';
 
 export interface WorkbenchHeaderProps {
   /** Brand lockup is rendered in the sidebar strip while it is open; the header takes over when collapsed. */
@@ -27,6 +29,9 @@ export interface WorkbenchHeaderProps {
   dirtyCount: number;
   isCurrentDirty: boolean;
   saving: boolean;
+  identity: IdentityResponse | null;
+  currentUser: IdentityUser | null;
+  onSwitchIdentity: (userId: string) => void;
   onToggleLeftSidebar: () => void;
   onResetBaseline: () => void;
   onSaveActive: () => void;
@@ -49,6 +54,9 @@ export function WorkbenchHeader({
   dirtyCount,
   isCurrentDirty,
   saving,
+  identity,
+  currentUser,
+  onSwitchIdentity,
   onToggleLeftSidebar,
   onResetBaseline,
   onSaveActive,
@@ -83,7 +91,7 @@ export function WorkbenchHeader({
             </div>
             <div className="hidden leading-tight xl:block">
               <div className="text-xs font-bold tracking-tight text-slate-900">DITAEditor</div>
-              <div className="text-[10px] font-medium text-slate-400">DITA 1.3 · Phase 3</div>
+              <div className="text-[10px] font-medium text-slate-400">DITA 1.3 · Phase 4</div>
             </div>
           </div>
         ) : null}
@@ -134,6 +142,7 @@ export function WorkbenchHeader({
 
       {/* Right: Save, Diagnostics, XML Status, Inspector */}
       <div className="flex shrink-0 items-center gap-1.5">
+        <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
         {dirtyCount > 0 ? (
           <div className="flex items-center gap-1">
             <button

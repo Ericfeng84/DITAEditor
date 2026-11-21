@@ -12,7 +12,7 @@ Guidance for AI coding agents working in the **DITAEditor** repository.
   - **Standard DITA XML is the single source of truth** (100% lossless round-trip, deterministic formatting, minimal Git Diff).
   - Core DITA 1.3 elements are finely modeled; unknown/specialized elements pass through losslessly via `unknown_block` / `unknown_inline`.
   - Concurrency model: **Check-out exclusive file lock** per `(project, branch, file_path)` with branch-isolated `git worktree` (no CRDT real-time co-editing).
-  - Validation & Publishing: Frontend real-time constraints + persistent **Java 21 Worker** (Xerces2 + Jing + DITA 1.3 XML Catalog + DITA-OT 4.x with Noto CJK fonts).
+  - Validation & Publishing: Frontend real-time constraints + TS semantic indexer + **DITA-OT 4.x CLI** invoked from `@dita/api` (built-in OASIS DITA 1.3 DTD/RNG validation & HTML5/PDF publishing with pure-XML Noto CJK font-mappings plugin; zero custom Java service code).
 
 ## 2. Repository Layout
 
@@ -30,8 +30,9 @@ DITAEditor/
 │           └── *.test.ts   # Vitest golden, passthrough, CALS, parser/XPath tests
 ├── apps/
 │   ├── web/                # @dita/web — React 19 + TypeScript + Vite frontend workbench
-│   └── api/                # @dita/api — Fastify + TypeScript + Zod backend API
-├── services/               # (Phase 5) dita-worker — Java 21 + Javalin + Xerces2/Jing + DITA-OT 4.x
+│   └── api/                # @dita/api — Fastify + Zod API, SQLite/Drizzle identities & locks, simple-git
+│       └── src/modules/{git,identity,locks,files,indexer}/
+├── dita-ot-plugins/        # (Phase 5) Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
 ├── docs/                   # Architecture baseline, ADRs, and contracts
 └── graphify-out/           # Persistent codebase knowledge graph (graph.json, GRAPH_REPORT.md, graph.html)
 ```
@@ -110,5 +111,5 @@ This repository maintains a persistent knowledge graph at `graphify-out/`:
 - [x] **Phase 1**: Dual-mode Topic Editor MVP (ProseMirror visual editing + NodeViews + DITA-aware commands/keymap + CALS & simpletable editing + context-aware `/` insert menu + attributes inspector + clickable breadcrumb bar + CodeMirror 6 XML source with `@dita/core`-driven completion/lint & guarded Source ↔ Visual switching; 49/49 Vitest tests passing across `@dita/core` & `@dita/web`).
 - [x] **Phase 2**: Visual Map/Bookmap tree (`react-arborist`), lossless `@dita/core` Map/Bookmap DOM engine & POSIX path utilities, multi-tab workbench, Fastify local workspace/file CRUD/multipart asset APIs & diagnostics, curated demo project (`samples/demo-dita-project/`), and 85/85 Vitest tests passing across `@dita/core` (39), `@dita/api` (2), & `@dita/web` (44).
 - [x] **Phase 3**: Root Map semantic engine (`keydef/keyref` BFS + `keyscope`, `conref/conkeyref`/`conrefend` with DFS cycle detection & specialization checks, `.ditaval` parser/evaluator & live filtering/flagging across Map Tree + Visual Editor without mutating XML, incremental Fastify `/api/semantics/*` indexer, `Keys` panel, Insert Keyref/Conref dialogs, profiling attribute editor, CodeMirror 6 semantic autocomplete; 107/107 Vitest tests passing across `@dita/core` (54), `@dita/api` (4), & `@dita/web` (49)).
-- [ ] **Phase 4**: SQLite + Drizzle ORM, lightweight toolbar identity/role switcher (Admin/Writer/Viewer), local Git workspace (`simple-git` + branch-isolated `git worktree`, no external GitHub/GitLab/Gitee dependency), Check-out exclusive locks, commit history & visual version Diff.
-- [ ] **Phase 5**: Persistent Java 21 Worker (Xerces2 + Jing + DITA 1.3 Catalog + DITA-OT 4.x + Noto CJK), BullMQ + SSE async publishing, Docker Compose deployment.
+- [x] **Phase 4**: SQLite + Drizzle ORM (`better-sqlite3`) identity/role switcher (Admin/Writer/Viewer), local Git workspace (`simple-git` + branch-isolated `git worktree`, no external GitHub/GitLab/Gitee dependency), Check-out exclusive locks with admin force-unlock patch backups, commit history & CodeMirror 6 MergeView visual version Diff (126/126 Vitest tests passing across `@dita/core` 54, `@dita/api` 7, `@dita/web` 65).
+- [ ] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (built-in DITA 1.3 DTD/RNG strict validation + HTML5/PDF publishing, zero custom Java code), pure-XML Noto CJK PDF font-mappings plugin, BullMQ + SSE async publishing, Docker Compose deployment.

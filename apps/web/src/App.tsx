@@ -8,11 +8,15 @@ import {
   type XmlPrologItem,
 } from '@dita/core';
 import { FilePlus2, FolderOpen, Network } from 'lucide-react';
+import { CheckinDialog, type CheckinCandidate } from './components/CheckinDialog';
+import { DiffDialog } from './components/DiffDialog';
 import { EditorTabBar } from './components/EditorTabBar';
 import { FileExplorerPanel } from './components/FileExplorerPanel';
+import { GitPanel } from './components/GitPanel';
 import { InsertKeyrefDialog } from './components/InsertKeyrefDialog';
 import { KeyspacePanel } from './components/KeyspacePanel';
 import { LeftSidebar } from './components/LeftSidebar';
+import { LockStatusBar } from './components/LockStatusBar';
 import { NewMapDialog } from './components/NewMapDialog';
 import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopicDialog';
 import { ProblemsPanel } from './components/ProblemsPanel';
@@ -35,6 +39,7 @@ import {
   collectWorkspaceFilesByKind,
 } from './map-tree/map-tree-utils';
 import { MountExistingDialog } from './map-tree/MountExistingDialog';
+import { resolveFileEditability } from './services/lock-helpers';
 import {
   resolveWorkspaceAssetUrl,
   uploadWorkspaceImage,
@@ -46,6 +51,7 @@ import {
   useEditorStore,
   type EditorViewMode,
 } from './store/editor-store';
+import { useGitStore } from './store/git-store';
 
 export function App() {
   const workspaceMode = useEditorStore((s) => s.workspaceMode);
@@ -143,10 +149,58 @@ export function App() {
   const requestSourceJump = useEditorStore((s) => s.requestSourceJump);
   const requestVisualJump = useEditorStore((s) => s.requestVisualJump);
 
+  const identity = useGitStore((s) => s.identity);
+  const currentUser = useGitStore((s) => s.currentUser);
+  const locks = useGitStore((s) => s.locks);
+  const gitStatus = useGitStore((s) => s.status);
+  const gitLoading = useGitStore((s) => s.loading);
+  const gitDiff = useGitStore((s) => s.diff);
+  const gitDiffLoading = useGitStore((s) => s.diffLoading);
+  const initializeGit = useGitStore((s) => s.initialize);
+  const loadGitHistory = useGitStore((s) => s.loadHistory);
+  const switchUser = useGitStore((s) => s.switchUser);
+  const refreshAllGit = useGitStore((s) => s.refreshAll);
+  const checkoutFile = useGitStore((s) => s.checkout);
+  const releaseFileLock = useGitStore((s) => s.release);
+  const cancelFileCheckout = useGitStore((s) => s.cancel);
+  const forceUnlockFile = useGitStore((s) => s.forceUnlock);
+  const checkinFiles = useGitStore((s) => s.checkin);
+  const refreshLocksGit = useGitStore((s) => s.refreshLocks);
+  const loadGitDiff = useGitStore((s) => s.loadDiff);
+  const clearGitDiff = useGitStore((s) => s.clearDiff);
+
   // Initialize workspace on mount
   useEffect(() => {
     void initWorkspace();
   }, [initWorkspace]);
+
+  useEffect(() => {
+    void initializeGit();
+  }, [initializeGit]);
+
+  // A different workspace root or branch worktree means entirely new Git state.
+  useEffect(() => {
+    if (!currentUser || workspaceMode !== 'api' || !workspaceRootDir) return;
+    void refreshAllGit();
+  }, [workspaceRootDir, workspaceMode, currentUser?.id, refreshAllGit]);
+
+  // Newly created files are auto-locked by the API; refresh when the active file changes.
+  useEffect(() => {
+    if (workspaceMode !== 'api' || !activeTabPath) return;
+    void refreshLocksGit();
+  }, [activeTabPath, workspaceMode, refreshLocksGit]);
+
+  // A save is the only moment disk changes, so refresh Git status right after it finishes.
+  const wasSavingRef = useRef(false);
+  useEffect(() => {
+    if (savingPaths.length > 0) {
+      wasSavingRef.current = true;
+      return;
+    }
+    if (!wasSavingRef.current) return;
+    wasSavingRef.current = false;
+    if (workspaceMode === 'api') void refreshAllGit();
+  }, [savingPaths.length, workspaceMode, refreshAllGit]);
 
   // Global Cmd/Ctrl+S shortcut to persist changes cleanly
   useEffect(() => {
@@ -177,6 +231,62 @@ export function App() {
     [openTabs, activeTabPath],
   );
   const diffStats = useMemo(() => getTabDiffStats(activeTab), [activeTab]);
+  const [diffDialogOpen, setDiffDialogOpen] = useState(false);
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const [checkinPaths, setCheckinPaths] = useState<string[]>([]);
+
+  const activeLock = useMemo(
+    () => locks.find((lock) => lock.filePath === activeTabPath) ?? null,
+    [locks, activeTabPath],
+  );
+  const editability = useMemo(
+    () =>
+      resolveFileEditability({
+        role: currentUser?.role,
+        userId: currentUser?.id,
+        filePath: activeTabPath,
+        locks,
+      }),
+    [currentUser?.role, currentUser?.id, activeTabPath, locks],
+  );
+  const canEdit = workspaceMode === 'memory' ? true : editability.editable;
+  const dirtyPathSet = useMemo(
+    () => new Set((gitStatus?.dirtyFiles ?? []).map((file) => file.path)),
+    [gitStatus],
+  );
+  const activeLockDirty = Boolean(activeTabPath && dirtyPathSet.has(activeTabPath));
+  const checkinCandidates = useMemo<CheckinCandidate[]>(() => {
+    const paths =
+      checkinPaths.length > 0
+        ? checkinPaths
+        : locks
+            .filter((lock) => lock.userId === currentUser?.id && dirtyPathSet.has(lock.filePath))
+            .map((lock) => lock.filePath);
+    return paths
+      .map((path) => {
+        const lock = locks.find((item) => item.filePath === path);
+        return lock ? { path, lock } : null;
+      })
+      .filter((item): item is CheckinCandidate => item !== null);
+  }, [checkinPaths, locks, currentUser?.id, dirtyPathSet]);
+
+  const openGitDiff = useCallback(
+    async (options: { path: string; from?: string; to?: string }) => {
+      setDiffDialogOpen(true);
+      await loadGitDiff(options);
+    },
+    [loadGitDiff],
+  );
+
+  const closeGitDiff = useCallback(() => {
+    setDiffDialogOpen(false);
+    clearGitDiff();
+  }, [clearGitDiff]);
+
+  const openCheckin = useCallback((paths: string[]) => {
+    setCheckinPaths(paths);
+    setCheckinOpen(true);
+  }, []);
 
   const dirtyCount = useMemo(() => {
     const dirty = new Set<string>();
@@ -562,6 +672,13 @@ export function App() {
                     onDeleteFile={(path) => void deleteWorkspaceFile(path)}
                   />
                 }
+                gitSlot={
+                  <GitPanel
+                    activePath={activeTabPath}
+                    onOpenDiff={(options) => void openGitDiff(options)}
+                    onOpenCheckin={openCheckin}
+                  />
+                }
               />
             </Panel>
             <Separator className="dita-resize-handle" aria-label="调整左侧边栏宽度" />
@@ -583,6 +700,9 @@ export function App() {
               dirtyCount={dirtyCount}
               isCurrentDirty={!diffStats.isIdentical}
               saving={savingPaths.length > 0}
+              identity={identity}
+              currentUser={currentUser}
+              onSwitchIdentity={(userId) => void switchUser(userId)}
               onToggleLeftSidebar={() => setLeftSidebarOpen(!leftSidebarOpen)}
               onResetBaseline={resetCurrentToBaseline}
               onSaveActive={() => void saveActiveFile()}
@@ -592,8 +712,38 @@ export function App() {
               onToggleInspector={() => setInspectorOpen(!inspectorOpen)}
             />
 
+            {workspaceMode === 'api' && activeTab ? (
+              <LockStatusBar
+                filePath={activeTabPath}
+                editability={editability}
+                lock={activeLock}
+                busy={gitLoading}
+                canCheckin={activeLockDirty}
+                onCheckout={() => {
+                  if (activeTabPath) void checkoutFile(activeTabPath);
+                }}
+                onRelease={() => {
+                  if (activeTabPath) void releaseFileLock(activeTabPath);
+                }}
+                onCancelCheckout={() => {
+                  if (activeTabPath) void cancelFileCheckout(activeTabPath);
+                }}
+                onOpenCheckin={() => {
+                  if (activeTabPath) openCheckin([activeTabPath]);
+                }}
+                onForceUnlock={() => {
+                  if (!activeTabPath) return;
+                  const reason = window.prompt(
+                    `强制解锁 ${activeTabPath}？\n当前内容与补丁会写入备份表。请输入原因：`,
+                    '管理员强制解锁',
+                  );
+                  if (reason !== null) void forceUnlockFile(activeTabPath, reason);
+                }}
+              />
+            ) : null}
+
             {/* Contextual Topic Formatting Toolbar */}
-            {showTopicVisual ? (
+            {showTopicVisual && canEdit ? (
               <EditorToolbar
                 snapshot={snapshot}
                 canUndo={historyFlags.canUndo}
@@ -719,6 +869,7 @@ export function App() {
                                       onJumpToSource={(filePath, line, elementId) =>
                                         void jumpToSemanticLocation(filePath, { line, elementId })
                                       }
+                                      readOnly={!canEdit}
                                     />
                                   )}
                                 </Panel>
@@ -751,6 +902,7 @@ export function App() {
                                     keyspace={keyspace}
                                     topicIndices={topicIndices}
                                     profilingCatalog={profilingCatalog}
+                                    readOnly={!canEdit}
                                   />
                                 </Panel>
                               ) : null}
@@ -929,6 +1081,24 @@ export function App() {
         rootMapPath={activeRootMapPath}
         onClose={() => setKeyrefDialogOpen(false)}
         onConfirm={handleConfirmKeyref}
+      />
+
+      <DiffDialog
+        open={diffDialogOpen}
+        diff={gitDiff}
+        loading={gitDiffLoading}
+        onClose={closeGitDiff}
+      />
+
+      <CheckinDialog
+        open={checkinOpen}
+        candidates={checkinCandidates}
+        onClose={() => setCheckinOpen(false)}
+        onConfirm={async (paths, message) => {
+          const result = await checkinFiles(paths, message);
+          if (result) await loadGitHistory(activeTabPath);
+          return result !== null;
+        }}
       />
     </div>
   );

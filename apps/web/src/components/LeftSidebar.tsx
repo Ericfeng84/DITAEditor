@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { ChevronDown, FolderOpen, FolderTree, KeyRound, Network, PanelLeftClose } from 'lucide-react';
+import { ChevronDown, FolderOpen, FolderTree, GitBranch, KeyRound, Network, PanelLeftClose } from 'lucide-react';
 import type { LeftSidebarTab } from '../store/editor-store';
 
 export interface LeftSidebarProps {
@@ -12,6 +12,7 @@ export interface LeftSidebarProps {
   mapTreeSlot: ReactNode;
   fileExplorerSlot: ReactNode;
   keyspaceSlot: ReactNode;
+  gitSlot: ReactNode;
 }
 
 /**
@@ -31,14 +32,17 @@ export function LeftSidebar({
   mapTreeSlot,
   fileExplorerSlot,
   keyspaceSlot,
+  gitSlot,
 }: LeftSidebarProps) {
   const mapTabId = useId();
   const filesTabId = useId();
   const keysTabId = useId();
+  const gitTabId = useId();
   const tablistRef = useRef<HTMLDivElement | null>(null);
   const mapPanelRef = useRef<HTMLDivElement | null>(null);
   const filesPanelRef = useRef<HTMLDivElement | null>(null);
   const keysPanelRef = useRef<HTMLDivElement | null>(null);
+  const gitPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Roving-tabindex fallback when native `focusgroup` is unavailable
   useEffect(() => {
@@ -88,22 +92,27 @@ export function LeftSidebar({
     syncPanel(mapPanelRef.current, 'map');
     syncPanel(filesPanelRef.current, 'files');
     syncPanel(keysPanelRef.current, 'keys');
+    syncPanel(gitPanelRef.current, 'git');
   }, [activeTab]);
 
   useEffect(() => {
     const mapEl = mapPanelRef.current;
     const filesEl = filesPanelRef.current;
     const keysEl = keysPanelRef.current;
+    const gitEl = gitPanelRef.current;
     const onMatchMap = () => onChangeTab('map');
     const onMatchFiles = () => onChangeTab('files');
     const onMatchKeys = () => onChangeTab('keys');
+    const onMatchGit = () => onChangeTab('git');
     mapEl?.addEventListener('beforematch', onMatchMap);
     filesEl?.addEventListener('beforematch', onMatchFiles);
     keysEl?.addEventListener('beforematch', onMatchKeys);
+    gitEl?.addEventListener('beforematch', onMatchGit);
     return () => {
       mapEl?.removeEventListener('beforematch', onMatchMap);
       filesEl?.removeEventListener('beforematch', onMatchFiles);
       keysEl?.removeEventListener('beforematch', onMatchKeys);
+      gitEl?.removeEventListener('beforematch', onMatchGit);
     };
   }, [onChangeTab]);
 
@@ -150,7 +159,7 @@ export function LeftSidebar({
         ref={tablistRef}
         {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
         aria-label="导航视图切换"
-        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-3 border-b border-slate-200 bg-slate-50"
+        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-4 border-b border-slate-200 bg-slate-50"
       >
         <button
           type="button"
@@ -185,6 +194,17 @@ export function LeftSidebar({
           <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
           <span>Keys</span>
         </button>
+        <button
+          type="button"
+          id={gitTabId}
+          aria-selected={activeTab === 'git'}
+          {...(activeTab === 'git' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
+          onClick={() => onChangeTab('git')}
+          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
+        >
+          <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
+          <span>版本</span>
+        </button>
       </div>
 
       {/* Single stacked grid cell holds all panels cleanly without padding/border on tabpanel */}
@@ -214,6 +234,15 @@ export function LeftSidebar({
           className="dita-sidebar-panel col-start-1 row-start-1"
         >
           <div className="h-full w-full overflow-hidden">{keyspaceSlot}</div>
+        </div>
+        <div
+          ref={gitPanelRef}
+          role="tabpanel"
+          aria-labelledby={gitTabId}
+          hidden
+          className="dita-sidebar-panel col-start-1 row-start-1"
+        >
+          <div className="h-full w-full overflow-hidden">{gitSlot}</div>
         </div>
       </div>
     </aside>

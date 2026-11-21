@@ -15,9 +15,9 @@
 | **核心 DITA 语义 (V1)** | `keydef/keyref`、`conref/conkeyref`、`DITAVAL` 条件过滤 | 必须构建围绕 **Root Map** 的项目级语义解析引擎与循环引用检测 |
 | **存储与版本控制** | 服务端托管本地 Git 工作区（不依赖外部 Git 平台） | 保留原生目录结构，支持本地仓库初始化、分支管理、Commit 历史与版本 Diff 对比，与本地工具互通 |
 | **多人并发机制** | **仅支持 Check-out 独占锁**（单文件同时仅 1 人编辑） | 不做 CRDT 实时协同；按分支维度隔离 worktree，文件级悲观锁 + 管理员强解 |
-| **校验策略** | 双层校验（前端实时约束 + 后端权威 DTD/RNG + 跨文件语义） | 常驻 JVM 校验池返回精准行/列号，联合语义索引器报断链与循环引用 |
-| **发布与预览** | 服务端 DITA-OT 异步发布（Root Map + DITAVAL → HTML5 / PDF） | 异步构建队列、实时日志流、产物在线预览与打包下载，需预置中文字体 |
-| **前后端技术栈** | React + TS + Vite / TS 主后端 + 轻量 Java Worker | pnpm Monorepo 前后端共享 `@dita/core`，JVM 仅隔离在轻量 Worker |
+| **校验策略** | 双层校验（前端实时约束 + 语义索引 + DITA-OT CLI 权威校验） | 日常编辑 0 延迟由 `@dita/core` 与语义索引器校验；按需/检入前/发布前调用 `dita` CLI 跑官方 DITA 1.3 DTD/RNG 严格校验 |
+| **发布与预览** | 服务端 DITA-OT CLI 异步发布（Root Map + DITAVAL → HTML5 / PDF） | 异步构建队列、实时日志流、产物在线预览与打包下载，预置 Noto CJK 字体与纯 XML 字体插件 |
+| **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
 | **部署与权限** | 私有化/团队内网单组织部署（Docker Compose / K8s） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证依赖 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
 
@@ -25,7 +25,7 @@
 
 ## 二、系统总体架构
 
-系统采用 **TypeScript 全栈 Monorepo + 独立轻量 Java Worker** 的分层架构。核心设计原则是：**把 DITA 词法/AST 模型与基础语义规则沉淀在共享包 `@dita/core` 中，把必须依赖 JVM 生态的“权威 DTD/RNG 校验”和“DITA-OT 发布”严格隔离在独立 Java Worker 内。**
+系统采用 **纯 TypeScript 全栈 Monorepo + DITA-OT 4.x CLI 外部工具** 的分层架构。核心设计原则是：**把 DITA 词法/AST 模型与基础语义规则沉淀在共享包 `@dita/core` 中，不自建 Java 微服务，由 TS 后端通过子进程直接调度预装的 `dita` CLI 完成官方 DITA 1.3 DTD/RNG 权威校验与 HTML5/PDF 发布。**
 
 ```mermaid
 flowchart TB
@@ -56,9 +56,9 @@ flowchart TB
         Indexer --> CoreBE
     end
 
-    subgraph JavaWorker["Java Worker 容器 (JVM 17/21 常驻)"]
-        ValSvc["权威校验服务 (Xerces2 + Jing + DITA 1.3 XML Catalog 缓存池)"]
-        PubSvc["DITA-OT 4.x 发布执行器 (HTML5 / PDF2 + Noto CJK 字体)"]
+    subgraph DitaCLI["DITA-OT 4.x CLI 运行时 (容器/本机预装 JRE + dita 命令)"]
+        ValSvc["内置权威校验 (OASIS DITA 1.3 DTD/RNG + XML Catalog, processing-mode=strict)"]
+        PubSvc["DITA-OT 4.x 发布执行器 (HTML5 / PDF2 + Noto CJK 纯 XML 字体插件)"]
     end
 
     subgraph Infra["基础设施"]
@@ -73,8 +73,8 @@ flowchart TB
     Queue <--> Redis
     GitMgr <--> FS
     Indexer --> FS
-    API -->|"HTTP 内网低延迟校验"| ValSvc
-    Queue -->|"任务派发 / 状态回调"| PubSvc
+    API -->|"spawn dita CLI (按需/检入前严格校验)"| ValSvc
+    Queue -->|"spawn dita CLI (异步快照构建 + SSE 日志)"| PubSvc
     ValSvc --> FS
     PubSvc --> FS
 ```
@@ -84,9 +84,9 @@ flowchart TB
 1. **为什么按分支建 `git worktree`，而不是整个仓库共用一个工作目录？**
    - 协作模型采用单文件 Check-out 独占锁，但团队里完全可能出现“A 在 `main` 分支检出 `install.dita`，B 切到 `release/2.0` 分支查看文档或触发发布”。
    - 后端使用一个 bare/主克隆目录，为每个活跃分支按需维护独立的 `git worktree` 目录。Check-out 锁的粒度精确到 `(repo_id, branch, file_path)`，分支之间互不干扰，且 DITA-OT 发布前会对目标分支工作区做只读快照，避免发布途中文件变更导致构建失败。
-2. **为什么用独立常驻 Java Worker，而不是在 Node 里 `child_process` 每次启动 Java？**
-   - 每次通过命令行拉起 JVM 做 DTD/RNG 校验会有 **1–2 秒冷启动开销**，编辑器内保存校验会明显卡顿。
-   - 常驻 Java Worker 预先加载并缓存 DITA 1.3 Grammar Pool（Xerces `XMLGrammarPool` + OASIS `XMLResolver`），单文件校验延迟可压到 **20–80ms**；同时该容器内置 DITA-OT 4.x 与中文字体，负责重型异步发布。
+2. **为什么直接由 Node 后端调度 `dita` CLI，而不单独开发维护常驻 Java Worker？**
+   - 编辑器日常输入与保存时的实时反馈，已由前端 ProseMirror/CodeMirror 约束、`@dita/core` 规则表与 TS 跨文件语义索引器（断链、`keyref`、`conref` 环路）以 0 延迟覆盖。
+   - DITA-OT 4.x 本身已内置官方 OASIS DITA 1.3 DTD/RNG 校验器与发布引擎，且中文 PDF 字体映射插件仅为纯 XML 配置（`plugin.xml` + `font-mappings.xml` + `fop.xconf`）。通过 `spawn('dita', ...)` 按需在检入前/发布前做严格校验和异步构建，可实现**零 Java 业务代码**、免去独立 JVM 微服务的开发与运维；若未来确需 50ms 级保存期 DTD 校验，再平滑外挂常驻校验服务即可。
 
 ---
 
@@ -169,12 +169,12 @@ flowchart LR
 ### 5. 双层校验与 DITA-OT 异步发布（含中文 PDF 关键处理）
 
 - **双层校验闭环**：
-  - **第一层（前端实时，0 延迟）**：ProseMirror Schema 限制合法子节点与属性；CodeMirror 6 基于 `@dita/core` 规则表做标签与属性自动补全及 XML 良构检查。
-  - **第二层（后端权威，保存/手动触发）**：调用常驻 Java Worker 的 `/validate` 接口（Xerces2 + Jing + DITA 1.3 DTD/RNG Catalog 缓存池），同时合并 TS 语义索引器的跨文件诊断（断链 `href`、未定义 `keyref`、无效/循环 `conref`），统一归一为 `{ filePath, line, column, severity, source, message }` 结构，在底部“问题面板”、源码红线和可视化节点旁同步高亮。
-- **DITA-OT 异步发布流水线**：
-  - 用户选择 `Root Map` + `Output Format (HTML5 / PDF)` + 可选 `DITAVAL` → TS 后端将当前分支工作区文件快照到独立构建目录 → 写入 BullMQ 任务 → Java Worker 调用 `dita` 命令构建并通过 SSE 实时回传构建日志。
+  - **第一层（日常实时，0 延迟）**：ProseMirror Schema 限制合法子节点与属性；CodeMirror 6 基于 `@dita/core` 规则表做标签与属性自动补全及 XML 良构检查；TS 语义索引器实时报出断链 `href`、未定义 `keyref`、无效/循环 `conref`。
+  - **第二层（官方权威，手动触发 / 检入前 / 发布前）**：TS 后端通过子进程调用 `dita` CLI（启用 `-Dvalidate=true -Dprocessing-mode=strict`，使用 DITA-OT 内置 OASIS DITA 1.3 DTD/RNG 与 XML Catalog），解析 DOTJ/DOTX 诊断日志并合并 TS 语义诊断，统一归一为 `{ filePath, line, column, severity, source, message }` 结构，在底部“问题面板”、源码红线和可视化节点旁同步高亮。
+- **DITA-OT CLI 异步发布流水线**：
+  - 用户选择 `Root Map` + `Output Format (HTML5 / PDF)` + 可选 `DITAVAL` → TS 后端将当前分支工作区文件快照到独立构建目录 → 写入 BullMQ 任务 → 后端 Worker 进程调用 `dita` CLI 执行构建，将 stdout/stderr 实时通过 SSE 回传前端构建日志抽屉。
   - HTML5 产物通过受鉴权的静态预览路由直接在浏览器新标签页/抽屉内在线预览，同时提供 `.zip` 打包下载；PDF 支持在线预览与下载。
-  - **中文 PDF 避坑方案（必做）**：DITA-OT 默认 `pdf2`（Apache FOP）不含中文字体，中文会全部渲染成 `###`。必须在 Java Worker 的 Docker 镜像内预装 **Noto Sans CJK SC / Noto Serif CJK SC**，并内置一个轻量定制 DITA-OT PDF 字体映射插件（配置 `fop.xconf` 与 `font-mappings.xml`），确保开箱即可正确导出中文 PDF。
+  - **中文 PDF 避坑方案（必做）**：DITA-OT 默认 `pdf2`（Apache FOP）不含中文字体，中文会全部渲染成 `###`。在 `api` 容器镜像内预装 **Noto Sans CJK SC / Noto Serif CJK SC**，并在仓库内置纯 XML 的 DITA-OT PDF 字体映射插件（`dita-ot-plugins/com.ditaeditor.pdf-cjk/`，含 `plugin.xml`、`fop.xconf` 与 `font-mappings.xml`），通过 `dita install` 注册（或通过 `-Dcustomization.dir` / `-Dargs.fo.userconfig` 传入），确保零 Java 代码即可开箱导出中文 PDF。
 
 ---
 
@@ -194,8 +194,8 @@ flowchart LR
 | **Git 引擎** | **`simple-git`**（封装系统 git） | 原生支持本地仓库初始化、`git worktree`、分支、历史日志与 Diff，零外部平台依赖 | `isomorphic-git`（大仓库和 worktree 支持较弱） |
 | **数据库 & ORM** | **SQLite + Drizzle ORM** | 零外部服务依赖、单文件开箱即用，强事务唯一索引支撑 Check-out 独占锁，Drizzle 类型安全轻量 | PostgreSQL（若后期多实例横向扩展可平滑迁移） |
 | **队列与实时通信** | **Redis 7 + BullMQ + SSE** | 异步调度 DITA-OT 构建，SSE 轻量推送日志与锁状态变更 | WebSocket（若后期加协同再升级） |
-| **Java Worker** | **Java 21 + Javalin（极简 HTTP）+ Xerces2 + Jing + DITA-OT 4.x** | 内存占用远低于完整 Spring Boot，常驻校验池 + 官方发布引擎 | Spring Boot 3（熟悉 Spring 生态时可选） |
-| **部署交付** | **Docker Compose**（`web` + `api` + `dita-worker` + `redis`） | 私有化内网一键启动，SQLite 与本地 Git 仓库持久化在共享卷，后续可平滑拆成 K8s Manifest | 单机裸部署（环境依赖 DITA-OT/字体难维护） |
+| **DITA-OT 发布与校验运行时** | **DITA-OT 4.x CLI + JRE 21 + 纯 XML 中文 PDF 插件** | 零 Java 业务代码，直接复用官方 DITA 1.3 DTD/RNG 校验与 HTML5/PDF2 发布引擎 | 独立常驻 Java Worker（仅在强需求 50ms 级保存期 DTD 校验时按需扩展） |
+| **部署交付** | **Docker Compose**（`web` + `api`（内置 JRE/DITA-OT/Noto CJK）+ `redis`） | 私有化内网一键启动，SQLite 与本地 Git 仓库持久化在共享卷，后续可平滑拆成 K8s Manifest | 单机裸部署（本机安装 `dita` CLI 与 Noto CJK 字体亦可直接运行） |
 
 ---
 
@@ -222,8 +222,8 @@ DITAEditor/
 │       │   │   ├── locks/      # Check-out 独占锁与管理员强制解锁
 │       │   │   ├── files/      # 文件读写、图片资产、重命名与引用影响检查
 │       │   │   ├── indexer/    # Root Map Keyspace / Conref / ID / DITAVAL 语义引擎
-│       │   │   ├── validate/   # 校验编排（转发 Java Worker + 合并语义诊断）
-│       │   │   └── publish/    # BullMQ 任务派发、工作区快照、静态预览路由
+│       │   │   ├── validate/   # 校验编排（调用 dita CLI 严格校验 + 解析日志 + 合并语义诊断）
+│       │   │   └── publish/    # BullMQ 任务派发、工作区快照、spawn dita CLI、SSE 日志与静态预览路由
 │       │   └── db/             # Drizzle Schema & Migrations
 ├── packages/
 │   └── dita-core/              # @dita/core 前后端共享核心库
@@ -232,11 +232,8 @@ DITAEditor/
 │       ├── cals/               # CALS 表格 <-> 矩阵模型双向转换
 │       ├── ditaval/            # .ditaval 解析与元素条件求值器
 │       └── templates/          # concept / task / reference / topic / map 新建模板
-├── services/
-│   └── dita-worker/            # 轻量 Java 21 服务 + Docker 镜像
-│       ├── src/                # Javalin HTTP 服务、Xerces2/Jing Grammar 校验池、DITA-OT 执行器
-│       ├── dita-ot-plugins/    # 内置中文 PDF 字体映射插件 (Noto CJK + fop.xconf)
-│       └── Dockerfile          # 打包 JDK 21 + DITA-OT 4.x + 官方 DITA 1.3 DTD/RNG + 中文字体
+└── dita-ot-plugins/            # 纯 XML DITA-OT 定制插件（零 Java 代码）
+    └── com.ditaeditor.pdf-cjk/ # 内置中文 PDF 字体映射插件 (plugin.xml + fop.xconf + font-mappings.xml)
 ├── docker-compose.yml          # 一键拉起全套服务
 └── docs/                       # 架构文档、ADR 与接口契约
 ```
@@ -283,13 +280,13 @@ DITAEditor/
 - 实现 **Check-out 独占锁服务**：打开默认只读、点击检出加锁、编辑草稿自动保存、检入前预览 Diff 并仅提交本人检出文件后释放锁、撤销检出回滚、管理员强制解锁（带补丁备份）。
 - **验收标准**：在工具栏切换两个不同作者身份打开同一仓库同一分支，验证同一文件互斥检出、不同文件互不干扰、跨分支互不阻塞，以及完整 Check-out → 编辑 → Diff 对比 → Check-in（本地 Commit）→ 历史版本对比链路。
 
-### Phase 5：Java Worker、权威校验与 DITA-OT 异步发布（第 12–14 周）
-> **目标**：打通权威合规校验与一键发布交付，达到团队生产可用状态。
-- 构建 `services/dita-worker`（Java 21 + Javalin + Xerces2/Jing + 官方 DITA 1.3 DTD/RNG Catalog + DITA-OT 4.x + Noto CJK 中文 PDF 字体插件）。
-- 打通**双层校验**：保存或源码防抖触发后端 `/validate` + 跨文件语义诊断，统一汇总到底部问题面板，点击报错精准定位到可视化节点或源码对应行/列。
-- 接入 Redis + BullMQ 异步发布流水线：工作区快照隔离构建、SSE 实时构建日志流、HTML5 在线预览与 ZIP 导出、中文 PDF 正确渲染与下载、历史发布记录管理。
-- 编写 `docker-compose.yml` 编排全套服务，补齐内网部署文档与备份说明。
-- **验收标准**：通过 `docker compose up` 一键拉起全套服务；故意写入违反 DITA 1.3 DTD 的标签可在 100ms 内标红定位；选定 Root Map + DITAVAL 一键产出排版正常、中文无乱码的 HTML5 与 PDF。
+### Phase 5：DITA-OT CLI 权威校验、异步发布与容器部署（第 12–14 周）
+> **目标**：零 Java 业务代码打通 DITA-OT 4.x 官方严格校验与 HTML5 / 中文 PDF 一键发布交付，达到团队生产可用状态。
+- 构建纯 XML 的中文 PDF 字体插件 `dita-ot-plugins/com.ditaeditor.pdf-cjk/`（`plugin.xml` + `fop.xconf` + `font-mappings.xml`），并在后端运行镜像中预装 JRE 21 + DITA-OT 4.x + Noto CJK 字体（通过 `dita install` 注册或 CLI 参数加载）。
+- 打通**双层校验**：在现有实时前端约束与 TS 语义索引之上，新增 `/api/validate/strict`（手动触发 / Check-in 前 / 发布前调用 `dita` CLI `-Dvalidate=true -Dprocessing-mode=strict`），解析 DOTJ/DOTX 报错并统一汇总到底部问题面板，点击精准定位到可视化节点或源码对应行/列。
+- 接入 Redis + BullMQ 异步发布流水线（`apps/api/src/modules/publish/`）：工作区快照隔离构建、子进程调度 `dita` CLI、SSE 实时构建日志流、HTML5 在线预览与 ZIP 导出、中文 PDF 正确渲染与下载、历史发布记录管理。
+- 编写 `docker-compose.yml`（`web` + 内置 DITA-OT CLI 的 `api` + `redis`），补齐内网部署文档、本机 `dita` CLI 配置说明与备份方案。
+- **验收标准**：通过 `docker compose up`（或本机安装 DITA-OT CLI）一键运行；故意写入违反 DITA 1.3 DTD 的标签可在严格校验中准确标红定位；选定 Root Map + DITAVAL 一键产出排版正常、中文无乱码的 HTML5 与 PDF。
 
 ---
 
@@ -300,5 +297,5 @@ DITAEditor/
 | **Git Diff 污染** | 可视化编辑改了一个字，保存后整篇 XML 缩进、属性顺序全变 | Phase 0 即引入确定性序列化器，严格保留属性顺序、注释与未改动节点格式，并建立 Round-trip 回归测试集 |
 | **CALS 复杂表格损坏** | 带多行跨列（`namest`/`nameend`/`morerows`）与多 `tgroup` 的技术规格表 | 编写独立 `@dita/core/cals` 单元测试；对含多个 `tgroup` 等极端结构自动降级为源码编辑提示，绝不静默丢数据 |
 | **DITA-OT 构建阻塞与磁盘膨胀** | 多人同时发布大手册，临时构建目录和历史产物占满磁盘 | BullMQ 限制并发度（如 1–2 个构建并发），构建超时强制 kill，定时清理超过 N 天的历史构建产物 |
-| **DITA-OT 中文 PDF 乱码** | 默认 FOP 找不到 CJK 字形导致方块/`###` | Java Worker 镜像内置 Noto CJK 字体 + 定制 font-mappings 插件，纳入 Phase 5 必检验收项 |
+| **DITA-OT 中文 PDF 乱码** | 默认 FOP 找不到 CJK 字形导致方块/`###` | 后端镜像内置 Noto CJK 字体 + 纯 XML 定制 `font-mappings` 插件（`dita install` 注册），纳入 Phase 5 必检验收项 |
 | **Check-out 死锁** | 成员检出文件后长期休假或忘记检入 | 提供清晰的锁定人/锁定时间展示、锁到期提醒，以及管理员带补丁备份的一键强制解锁 |

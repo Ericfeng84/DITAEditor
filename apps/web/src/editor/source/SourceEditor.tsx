@@ -12,7 +12,7 @@ import {
 } from '@codemirror/language';
 import { lintGutter } from '@codemirror/lint';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
-import { EditorState } from '@codemirror/state';
+import { Compartment, EditorState } from '@codemirror/state';
 import {
   drawSelection,
   EditorView,
@@ -47,6 +47,8 @@ export interface SourceEditorProps {
   keyspace?: KeyspaceResult | null;
   topicIndices?: readonly TopicIdIndexEntry[];
   profilingCatalog?: Partial<Record<DitaProfilingAttrName, readonly string[]>>;
+  /** Read-only mode for viewers or files checked out by another identity. */
+  readOnly?: boolean;
 }
 
 const sourceEditorTheme = EditorView.theme({
@@ -121,10 +123,12 @@ export function SourceEditor({
   keyspace,
   topicIndices,
   profilingCatalog,
+  readOnly = false,
 }: SourceEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isApplyingExternalRef = useRef(false);
+  const editableCompartmentRef = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
   const onCursorRef = useRef(onCursorOffsetChange);
   const completionCtxRef = useRef<SourceSemanticCompletionContext>({
@@ -147,6 +151,7 @@ export function SourceEditor({
     const state = EditorState.create({
       doc: xml,
       extensions: [
+        editableCompartmentRef.current.of(EditorView.editable.of(!readOnly)),
         lineNumbers(),
         highlightActiveLineGutter(),
         highlightActiveLine(),
@@ -199,6 +204,15 @@ export function SourceEditor({
     // Intentionally mounted once; external `xml` updates are synced incrementally below
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Toggle editability without rebuilding the CodeMirror instance.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    view.dispatch({
+      effects: editableCompartmentRef.current.reconfigure(EditorView.editable.of(!readOnly)),
+    });
+  }, [readOnly]);
 
   // Sync external XML updates (from Visual edits or document switch) without losing scroll/focus unnecessarily
   useEffect(() => {

@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/App.tsx": {
-    "mtime": 1795270959.0884132,
-    "seen": 1795271040.5302348,
-    "ast_hash": "65ec2e41d921e5a2ead1d5682eaefc58",
+    "mtime": 1795271106.7588274,
+    "seen": 1795271161.592459,
+    "ast_hash": "69a0a346ed5d5dda40d054a3eb709b95",
     "semantic_hash": ""
   },
   "apps/web/src/main.tsx": {
@@ -210,9 +210,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/WorkbenchHeader.tsx": {
-    "mtime": 1795270943.7300494,
-    "seen": 1795271040.530245,
-    "ast_hash": "4c2bd0bc088e1861dabe78d1d8bd7836",
+    "mtime": 1795271106.7205007,
+    "seen": 1795271161.59247,
+    "ast_hash": "2a22645bc220a8cf79a8754d512601ca",
     "semantic_hash": ""
   },
   "apps/web/src/components/XrefImageDialog.tsx": {
@@ -456,9 +456,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/LeftSidebar.tsx": {
-    "mtime": 1795261189.5180154,
-    "seen": 1795263708.767195,
-    "ast_hash": "e8d46b7fc6243f8937dff3457423d037",
+    "mtime": 1795271094.993976,
+    "seen": 1795271161.592465,
+    "ast_hash": "8ea6cb0a670d5d092b0d58fdfbbb7d2a",
     "semantic_hash": ""
   },
   "apps/web/src/components/NewMapDialog.tsx": {

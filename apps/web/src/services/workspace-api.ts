@@ -18,6 +18,7 @@ import {
   type TopicIdIndexEntry,
   type XmlParseError,
 } from '@dita/core';
+import { getCurrentUserId } from './identity-api.js';
 
 export interface WorkspaceFileNode {
   name: string;
@@ -45,6 +46,7 @@ export interface WorkspaceDitavalSummary {
 }
 
 export interface WorkspaceSnapshot {
+  projectRootDir?: string;
   rootDir: string;
   defaultRootDir: string;
   name: string;
@@ -114,8 +116,11 @@ export interface UploadAssetResult {
   size: number;
 }
 
-async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init);
+export async function requestJson<T>(url: string, init?: RequestInit): Promise<T> {
+  const headers = new Headers(init?.headers ?? {});
+  const userId = getCurrentUserId();
+  if (userId) headers.set('x-dita-user-id', userId);
+  const res = await fetch(url, { ...init, headers });
   const text = await res.text();
   let data: unknown = null;
   try {

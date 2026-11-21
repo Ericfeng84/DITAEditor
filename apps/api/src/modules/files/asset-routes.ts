@@ -5,6 +5,7 @@ import {
   computeRelativeDitaHref,
   resolveDitaHref,
 } from '@dita/core';
+import type { IdentityService } from '../identity/identity-service.js';
 import { handleWorkspaceError } from './routes.js';
 import { resolveSafeWorkspacePath, type WorkspaceManager } from './workspace-fs.js';
 
@@ -42,9 +43,14 @@ function sanitizeAssetFilename(rawName: string): string {
 export function registerAssetRoutes(
   app: FastifyInstance,
   workspace: WorkspaceManager,
+  identity?: IdentityService,
 ): void {
   app.post('/api/assets/upload', async (req, reply) => {
     try {
+      if (identity) {
+        const user = identity.resolve(req.headers['x-dita-user-id']);
+        identity.requireRole(user, ['admin', 'writer']);
+      }
       let targetDir = 'images';
       let fromDocPath = '';
       let uploadedFileName = '';

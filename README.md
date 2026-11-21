@@ -2,37 +2,43 @@
 
 **简体中文** · [English](README.en.md)
 
-面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，支持 **ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排** 与 **单一信息源语义引擎（Keys / Conref / DITAVAL）**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
+面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，支持 **ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排**、**单一信息源语义引擎（Keys / Conref / DITAVAL）** 与 **本地 Git 版本管理 / Check-out 独占锁 / 可视化 Diff**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
-> 当前版本 **v0.5.0**（覆盖 Phase 0–3），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+> 当前版本 **v0.6.0**（覆盖 Phase 0–4），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
 
 ---
 
 ## 界面预览
 
-### 三栏工作台与可视化 Map 结构树
+### 三栏工作台与 Phase 4 版本协作面板
 
-左侧支持在「项目文件」「Map 结构树」与「Keys 键空间」间切换，中间为多 Tab 可视化编辑区（支持无标签 / 标签 / 含属性三种视图、实时 `keyref`/`conref` 展开与 DITAVAL 条件过滤），右侧提供按原始 XML 属性顺序排列的属性检查器与条件标签编辑器，底部显示可点击的元素面包屑路径。
+左侧在「项目文件」「Map 结构树」「Keys 键空间」与「版本」之间切换：「版本」面板集中展示当前分支、身份、Check-out 检出锁、工作区改动与提交历史。中间为多 Tab 可视化编辑区，顶部状态条实时提示当前文件的检出 / 编辑 / 签入权限；右侧为按原始 XML 属性顺序排列的属性检查器。
 
-![三栏工作台与可视化 Map 结构树](docs/pic/e4fb9295-8531-49bf-9905-c29ea4551cb1.png)
+![三栏工作台与 Phase 4 版本协作面板](docs/pic/phase4-workbench.png)
 
 ### 可视化与 XML 源码双栏对比模式
 
 支持「可视化」「双栏对比」「XML 源码」三种视图实时切换，可视化区提供选中文本悬浮格式工具栏、Notion 风格块级操作手柄与块间 `+` 插块；源码区接入 DITA 1.3 标签/属性智能补全与良构性检查。
 
-![可视化与 XML 源码双栏对比模式](docs/pic/841e8029-186e-4e00-a655-25f7ffde2e04.png)
+![可视化与 XML 源码双栏对比模式](docs/pic/phase4-dual-view.png)
+
+### 本地 Git 版本、Check-out 独占锁与可视化 Diff
+
+阅读默认只读，点击「检出」后获得 `(项目, 分支, 文件)` 维度的独占写锁；保存后可预览工作区 Diff、填写提交说明并签入到本地 Git 仓库，提交后自动释放锁。版本面板可查看单文件提交历史、切换任意两个版本，并通过 CodeMirror 6 MergeView 展示行级差异。不同分支使用独立 `git worktree`，同一文件在不同分支上的检出互不阻塞。
+
+![本地 Git 版本、Check-out 独占锁与可视化 Diff](docs/pic/phase4-git-diff.png)
 
 ### 单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）
 
 在保持底层 XML 100% 无损的前提下，可视化区实时展开块级与行内 `conref`/`conkeyref` 只读预览（含嵌套 `keyref` 解析与一键跳转源定义），并联动左侧 Map 树实时应用 `.ditaval` 规则（支持「全部 / 淡化 / 隐藏」三态投影与 Flag 标记高亮）。
 
-![单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）](docs/pic/phase3-single-sourcing.png)
+![单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）](docs/pic/phase4-single-sourcing.png)
 
 ---
 
-## 核心特性（已实现：Phase 0–3）
+## 核心特性（已实现：Phase 0–4）
 
 ### 1. 100% 无损 XML 往返内核（`@dita/core`）
 - 基于 `slimdom` + `slimdom-sax-parser` + `fontoxpath` 构建前后端同构的 DITA XML 内核，解析时同步记录节点源码起止行列号。
@@ -77,25 +83,36 @@
 - **路径安全防护**：`resolveSafeWorkspacePath` 严格校验并拦截路径穿越（`..`）、绝对路径、空字节及符号链接逃逸。
 - **图片资产管线**：支持 Multipart 图片上传（`.png` / `.jpg` / `.jpeg` / `.gif` / `.svg` / `.webp` / `.avif`，单文件上限 10 MB），自动计算相对文档的 POSIX `href` 并提供预览路由。
 
+### 6. 本地 Git 版本管理与 Check-out 独占锁（Phase 4）
+- **零外部依赖的版本管理**：基于 `simple-git` 直接在项目目录初始化本地 Git 仓库，无需 GitHub / GitLab / Gitee；按分支隔离 `git worktree`，切换分支时自动重定向工作区根目录而不复制项目。
+- **轻量身份与角色**：SQLite + Drizzle ORM 持久化作者身份（管理员 / 编辑者 / 只读），工具栏免密码一键切换；写接口在服务端强制校验角色与检出锁，前端只读身份与未检出文件自动禁用可视化/源码编辑。
+- **Check-out 独占锁**：默认只读打开，检出后本人可编辑，同一 `(project, branch, file_path)` 互斥；不同文件、不同分支互不阻塞。仅能提交本人已检出且有改动的文件，提交成功后自动释放锁；支持撤销检出（回滚到 `HEAD`）、释放锁保留草稿，以及管理员强制解锁并把当前内容与补丁写入 `lock_backups` 备份表。
+- **可视化 Diff 与历史**：左侧「版本」面板展示分支、检出锁、工作区改动与提交历史；基于 CodeMirror 6 `MergeView` 对比工作区改动或任意两个历史版本，签入前先预览 Diff 并填写本地提交说明。
+
 ---
 
 ## 系统架构与技术栈
 
-系统采用 **pnpm Workspace + Turborepo** 组织的 TypeScript 全栈 Monorepo，核心设计是将 XML 解析、无损序列化、DITA 1.3 元素规则、CALS 表格模型与 Map DOM 操作沉淀在共享包 `@dita/core` 中，由前端 `@dita/web` 与后端 `@dita/api` 共同复用（权威 DTD/RNG 校验与 DITA-OT 异步发布将在后续阶段接入独立 Java 21 Worker）。
+系统采用 **pnpm Workspace + Turborepo** 组织的纯 TypeScript 全栈 Monorepo，核心设计是将 XML 解析、无损序列化、DITA 1.3 元素规则、CALS 表格模型与 Map DOM 操作沉淀在共享包 `@dita/core` 中，由前端 `@dita/web` 与后端 `@dita/api` 共同复用（官方 DITA 1.3 DTD/RNG 严格校验与 HTML5/PDF 异步发布将在 Phase 5 由 `@dita/api` 直接调用 DITA-OT 4.x CLI 完成，零 Java 业务代码）。
 
 ```mermaid
 flowchart LR
     Web["@dita/web (React 19 + Vite)<br/>ProseMirror 可视化 / CodeMirror 6 / Map 树 / Keys & DITAVAL"]
-    API["@dita/api (Fastify 5 + Zod)<br/>工作区 CRUD / 增量语义索引 / Multipart 资产 / 诊断"]
+    API["@dita/api (Fastify 5 + Zod)<br/>工作区 CRUD / 增量语义索引 / 资产 / 身份 / Git / 检出锁"]
     Core["@dita/core (Isomorphic Kernel)<br/>slimdom + fontoxpath / PM Schema / CALS / Map / Keyspace / Conref / DITAVAL"]
     FS[("本地 DITA 工作区<br/>默认 samples/demo-dita-project")]
-    Worker["services/dita-worker (Phase 5 规划)<br/>Java 21 + Xerces2/Jing + DITA-OT 4.x"]
+    DB[("SQLite + Drizzle<br/>身份 / 仓库 / 检出锁 / 解锁备份")]
+    GIT[("本地 Git 仓库 + 分支 worktree<br/>无外部托管平台")]
+    CLI["DITA-OT 4.x CLI (Phase 5 规划)<br/>官方 DITA 1.3 校验 + HTML5/PDF + Noto CJK 插件"]
 
     Web <-->|"/api 代理 (HTTP)"| API
     Web --> Core
     API --> Core
     API <--> FS
-    API -.->|"后续集成"| Worker
+    API <--> DB
+    API <--> GIT
+    GIT <--> FS
+    API -.->|"spawn dita CLI"| CLI
 ```
 
 | 层级 / 模块 | 技术选型 | 说明 |
@@ -107,7 +124,9 @@ flowchart LR
 | **Map 树与状态** | `react-arborist` + `react-resizable-panels` + Zustand | 虚拟化结构树、拖拽调层级、分栏布局与多 Tab 状态管理 |
 | **XML 无损内核** | `slimdom` + `slimdom-sax-parser` + `fontoxpath` | 无损 DOM 表示、节点位置追踪与 XPath 3.1 查询 |
 | **后端 API** | Fastify 5 + `@fastify/multipart` + Zod | 本地磁盘工作区管理、资产上传预览与项目诊断接口 |
-| **测试框架** | Vitest 3 | 覆盖核心 round-trip 黄金样本、编辑器交互命令与工作区 API |
+| **持久化与协作** | SQLite + Drizzle ORM + `better-sqlite3` | 轻量身份/角色、检出锁与管理员解锁补丁备份，零外部数据库依赖 |
+| **版本管理** | `simple-git` + `git worktree` | 本地仓库初始化、分支隔离工作区、提交历史与工作区/历史 Diff |
+| **测试框架** | Vitest 3 | 覆盖核心 round-trip 黄金样本、编辑器交互命令、工作区 API 与 Git/锁全链路 |
 
 ---
 
@@ -144,7 +163,7 @@ DITAEditor/
 ├── docs/
 │   ├── architecture-and-plan.md # 完整架构设计基线与 Phase 0–5 实施路线
 │   └── pic/                    # 工作台界面截图
-├── services/                   # （Phase 5 规划）Java 21 权威校验与 DITA-OT 4.x 发布 Worker
+├── dita-ot-plugins/            # （Phase 5 规划）纯 XML DITA-OT 4.x 中文 PDF 字体映射插件（Noto CJK）
 └── graphify-out/               # 项目代码库知识图谱
 ```
 
@@ -186,7 +205,8 @@ pnpm --filter @dita/web dev
 | :--- | :--- | :--- |
 | `PORT` | `3001` | Fastify 服务监听端口 |
 | `DITA_WORKSPACE_DIR` | `samples/demo-dita-project` | 启动时默认打开的本地 DITA 项目目录 |
-| `DITA_IMPORTS_DIR` | `.dita-workspaces` | 通过前端「导入目录」批量上传的项目存放根目录 |
+| `DITA_IMPORTS_DIR` | `.dita-workspaces` | 导入项目、SQLite 数据库（`dita-editor.sqlite`）与分支 `git worktree` 的存放根目录 |
+| `DITA_LOCK_TTL_HOURS` | `72` | 检出锁过期提示阈值（小时，仅用于界面提醒，不自动删除锁） |
 
 ---
 
@@ -215,6 +235,18 @@ pnpm --filter @dita/web dev
 | `POST /api/semantics/resolve-document` | 计算单篇文档（含未保存草稿 XML）的实时 `keyref` / `conref` 覆盖层与诊断 |
 | `POST /api/semantics/resolve-conref` | 按需展开单条 `conref` / `conkeyref` 预览（含 DFS 循环检测） |
 | `GET /api/diagnostics?rootMap=...` | 扫描工作区 XML 良构、断链 `href`、循环 `<mapref>`、缺失图片、未定义 `keyref`、`conref` 环路与 `.ditaval` 错误 |
+| `GET /api/identity` | 返回可切换作者、当前身份与三档角色说明 |
+| `GET /api/locks` | 当前分支检出锁、作者目录与 Git 工作区信息 |
+| `POST /api/locks/checkout` | 检出并独占锁定单个文件（同一文件其他作者返回 409） |
+| `POST /api/locks/release` / `cancel` | 释放锁保留草稿 / 撤销检出并回滚到 `HEAD` |
+| `POST /api/locks/checkin` | 提交本人已检出且有改动的文件，创建本地 Commit 后释放锁 |
+| `POST /api/locks/force-unlock` | 管理员强制解锁，并把内容与补丁写入 `lock_backups` |
+| `GET /api/git/status` | 仓库初始化状态、当前分支、`git status` 改动与锁列表 |
+| `POST /api/git/init` | 初始化本地仓库、`.gitignore` 与首个提交（管理员/编辑者） |
+| `GET /api/git/branches` / `POST /api/git/branches` | 分支列表（含 worktree 路径）/ 新建分支 |
+| `POST /api/git/switch-branch` | 切换到主工作区或分支隔离 worktree 并返回新快照 |
+| `GET /api/git/log` / `diff` / `file` | 提交历史、任意两版本差异与指定版本文件内容 |
+| `POST /api/git/commit` / `discard` | 本地提交（校验锁归属）/ 丢弃单文件改动 |
 
 ---
 
@@ -232,10 +264,10 @@ pnpm typecheck
 pnpm test
 ```
 
-当前测试覆盖（**117/117 Vitest 测试通过**）：
+当前测试覆盖（**126/126 Vitest 测试通过**）：
 - `@dita/core`（54 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测。
-- `@dita/web`（59 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言，以及复用属性值组装（conkeyref / 相对路径 / 同文件片段）。
-- `@dita/api`（4 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试，以及 `/api/semantics/*` Root Map 切换、实时 `conkeyref` 展开与增量更新环路诊断集成测试。
+- `@dita/web`（65 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，以及 Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥）。
+- `@dita/api`（7 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，以及 Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份集成测试。
 
 ---
 
@@ -245,5 +277,5 @@ pnpm test
 - [x] **Phase 1**：双模式 Topic 编辑器 MVP（ProseMirror 可视化编辑 + NodeView + CALS/simpletable 编辑 + `/` 上下文插入 + 属性面板 + 面包屑 + CodeMirror 6 XML 源码补全/Lint 与切换保护）。
 - [x] **Phase 2**：可视化 Map / Bookmap 树（`react-arborist`）、无损 Map DOM 引擎、三栏多 Tab 工作台、Fastify 本地工作区/资产 API 与示例项目 `samples/demo-dita-project/`。
 - [x] **Phase 3**：Root Map 跨文件语义引擎（`keydef/keyref` BFS + `keyscope`、`conref/conkeyref`/`conrefend` 与 DFS 循环引用检测、`DITAVAL` 三态条件过滤与 Flag 标记、增量 `/api/semantics/*` 索引服务、`Keys` 面板、语义插入弹窗、条件属性编辑器与 CodeMirror 6 语义补全）。
-- [ ] **Phase 4**：PostgreSQL + Drizzle ORM、GitHub / GitLab / Gitee OAuth/PAT、按分支隔离 `git worktree`、Check-out 独占锁与 PR/MR 工作流。
-- [ ] **Phase 5**：常驻 Java 21 Worker（Xerces2 + Jing + DITA 1.3 Catalog + DITA-OT 4.x + Noto CJK 中文 PDF 字体）、BullMQ + SSE 异步发布与 Docker Compose 一键部署。
+- [x] **Phase 4**：SQLite + Drizzle ORM 轻量身份与三档角色、本地 `simple-git` 仓库与按分支隔离 `git worktree`、Check-out 独占锁/签入/撤销/管理员强制解锁备份、CodeMirror 6 MergeView 工作区与历史版本 Diff、左侧「版本」面板。
+- [ ] **Phase 5**：基于 `@dita/api` 直接调度 DITA-OT 4.x CLI（零 Java 业务代码，内置 DITA 1.3 DTD/RNG 严格校验 + 纯 XML Noto CJK 中文 PDF 字体插件）、BullMQ + SSE 异步发布与 Docker Compose 一键部署。

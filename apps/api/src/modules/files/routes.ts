@@ -1,12 +1,20 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
+import type { IdentityService } from '../identity/identity-service.js';
+import type { LockService } from '../locks/lock-service.js';
+import { isHttpError } from '../errors.js';
 import {
   WorkspaceConflictError,
   WorkspaceNotFoundError,
   WorkspacePathError,
+  resolveSafeWorkspacePath,
   type WorkspaceManager,
 } from './workspace-fs.js';
+
+async function resolveSafeWorkspacePathFor(workspace: WorkspaceManager, relPath: string) {
+  return resolveSafeWorkspacePath(workspace.getRootDir(), relPath);
+}
 
 const openWorkspaceSchema = z.union([
   z.object({ useDefault: z.literal(true) }),
@@ -62,6 +70,9 @@ const renameSchema = z.object({
 });
 
 export function handleWorkspaceError(err: unknown, reply: FastifyReply) {
+  if (isHttpError(err)) {
+    return reply.status(err.statusCode).send({ error: err.message, ...(err.details ?? {}) });
+  }
   if (
     err instanceof WorkspacePathError ||
     err instanceof WorkspaceNotFoundError ||
@@ -72,11 +83,44 @@ export function handleWorkspaceError(err: unknown, reply: FastifyReply) {
   throw err;
 }
 
+export interface WorkspaceRouteSecurity {
+  identity: IdentityService;
+  locks: LockService;
+}
+
 export function registerWorkspaceFileRoutes(
   app: FastifyInstance,
   workspace: WorkspaceManager,
   indexer?: WorkspaceSemanticIndexer,
+  security?: WorkspaceRouteSecurity,
 ): void {
+  const requireWriterOrAdmin = (req: FastifyRequest) => {
+    if (!security) return undefined;
+    const user = security.identity.resolve(req.headers['x-dita-user-id']);
+    security.identity.requireRole(user, ['admin', 'writer']);
+    return user;
+  };
+
+  const authorizeWrite = async (req: FastifyRequest, relPath: string, exists: boolean) => {
+    if (!security) return;
+    const user = security.identity.resolve(req.headers['x-dita-user-id']);
+    await security.locks.authorizeWrite({
+      workDir: workspace.getRootDir(),
+      projectRootDir: workspace.getProjectRootDir(),
+      filePath: relPath,
+      user,
+      exists,
+    });
+  };
+
+  const currentScope = async (req: FastifyRequest) => {
+    if (!security) return null;
+    const user = security.identity.resolve(req.headers['x-dita-user-id']);
+    const projectRootDir = workspace.getProjectRootDir();
+    const projectId = security.locks.ensureRepository(projectRootDir);
+    const branch = await security.locks.currentBranch(workspace.getRootDir());
+    return { user, projectId, branch, workDir: workspace.getRootDir() };
+  };
   app.get('/api/workspace', async (_req, reply) => {
     try {
       return await workspace.scanWorkspace();
@@ -99,6 +143,7 @@ export function registerWorkspaceFileRoutes(
   });
 
   app.post('/api/workspace/import', async (req, reply) => {
+    requireWriterOrAdmin(req);
     const parsed = importWorkspaceSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: parsed.error.message });
@@ -119,6 +164,7 @@ export function registerWorkspaceFileRoutes(
   });
 
   app.post('/api/workspaces/create', async (req, reply) => {
+    requireWriterOrAdmin(req);
     const parsed = createWorkspaceSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: parsed.error.message });
@@ -131,6 +177,7 @@ export function registerWorkspaceFileRoutes(
   });
 
   app.post('/api/workspaces/forget', async (req, reply) => {
+    requireWriterOrAdmin(req);
     const parsed = forgetWorkspaceSchema.safeParse(req.body);
     if (!parsed.success) {
       return reply.status(400).send({ error: parsed.error.message });
@@ -174,6 +221,8 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
+      const safePath = (await resolveSafeWorkspacePathFor(workspace, parsed.data.path)).posixPath;
+      await authorizeWrite(req, safePath, await workspace.fileExists(safePath));
       return await workspace.writeFile(
         parsed.data.path,
         parsed.data.content,
@@ -190,6 +239,11 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
+      const exists = await workspace.fileExists(parsed.data.path);
+      if (!exists || parsed.data.overwrite) {
+        const safePath = (await resolveSafeWorkspacePathFor(workspace, parsed.data.path)).posixPath;
+        await authorizeWrite(req, safePath, exists);
+      }
       return await workspace.createFromTemplate(parsed.data);
     } catch (err) {
       return handleWorkspaceError(err, reply);
@@ -202,6 +256,7 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
+      requireWriterOrAdmin(req);
       return await workspace.mkdir(parsed.data.path);
     } catch (err) {
       return handleWorkspaceError(err, reply);
@@ -214,7 +269,20 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      return await workspace.renamePath(parsed.data.fromPath, parsed.data.toPath);
+      const safeFrom = (await resolveSafeWorkspacePathFor(workspace, parsed.data.fromPath)).posixPath;
+      await authorizeWrite(req, safeFrom, true);
+      const result = await workspace.renamePath(parsed.data.fromPath, parsed.data.toPath);
+      const scope = await currentScope(req);
+      if (scope) {
+        await security!.locks.transferLock({
+          projectId: scope.projectId,
+          branch: scope.branch,
+          fromPath: result.fromPath,
+          toPath: result.toPath,
+          user: scope.user,
+        });
+      }
+      return result;
     } catch (err) {
       return handleWorkspaceError(err, reply);
     }
@@ -226,7 +294,17 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: 'Missing required query parameter: path' });
     }
     try {
-      return await workspace.deletePath(query.path);
+      const safePath = (await resolveSafeWorkspacePathFor(workspace, query.path)).posixPath;
+      await authorizeWrite(req, safePath, true);
+      const result = await workspace.deletePath(query.path);
+      const scope = await currentScope(req);
+      if (scope) {
+        const lock = security!.locks.find(scope.projectId, scope.branch, safePath);
+        if (lock) {
+          security!.locks.release(scope.projectId, scope.branch, safePath, scope.user);
+        }
+      }
+      return result;
     } catch (err) {
       return handleWorkspaceError(err, reply);
     }

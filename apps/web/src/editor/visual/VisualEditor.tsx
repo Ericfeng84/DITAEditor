@@ -156,6 +156,8 @@ export interface VisualEditorProps {
   onOpenXrefDialog: () => void;
   onAnnounce?: (msg: string) => void;
   resolveImageSrc?: (href: string) => string | null;
+  /** Read-only mode for viewers or files checked out by another identity. */
+  readOnly?: boolean;
 }
 
 export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
@@ -177,6 +179,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onOpenXrefDialog,
       onAnnounce,
       resolveImageSrc,
+      readOnly = false,
     },
     ref,
   ) {
@@ -186,6 +189,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     const slashPosRef = useRef<number | null>(null);
     const tagModeRef = useRef<TagDisplayMode>(tagDisplayMode);
     tagModeRef.current = tagDisplayMode;
+    const readOnlyRef = useRef(readOnly);
+    readOnlyRef.current = readOnly;
 
     const semanticOverlayRef = useRef<DocumentSemanticOverlay | null>(semanticOverlay);
     const activeDitavalRef = useRef<ParsedDitaval | null>(activeDitaval);
@@ -655,6 +660,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           class: 'dita-prosemirror-doc',
           spellcheck: 'false',
         },
+        editable: () => !readOnlyRef.current,
         handleTextInput(editorView, from, to, text) {
           // Trigger floating Context-Aware Insert Menu when typing `/` at start of textblock or after space
           if (text === '/') {
@@ -694,6 +700,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           return false;
         },
         dispatchTransaction(tr) {
+          // Readers and non-owners must never mutate XML, even via keyboard shortcuts.
+          if (readOnlyRef.current && tr.docChanged) return;
           const nextState = view.state.apply(tr);
           view.updateState(nextState);
 
@@ -739,6 +747,17 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       // Only rebuild ProseMirror view on explicit reloadToken changes
       // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [reloadToken]);
+
+    // Toggle editability in place when the check-out state or identity changes.
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      view.setProps({ editable: () => !readOnlyRef.current });
+      setInlineBubble(null);
+      setBlockHandle(null);
+      setBlockMenuOpen(false);
+      setBlockDropGap(null);
+    }, [readOnly]);
 
     // Live-update Oxygen tag display mode WITHOUT recreating ProseMirror view or losing undo history!
     useEffect(() => {

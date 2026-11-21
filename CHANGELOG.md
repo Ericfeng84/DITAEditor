@@ -3,6 +3,44 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.6.0] — 2026-11-21
+
+覆盖架构基线中的 **Phase 4**：零外部依赖的本地 Git 版本管理、SQLite + Drizzle 轻量身份与三档角色，
+以及 Check-out 独占锁与可视化版本对比闭环。
+
+### Added
+
+- **本地 Git 与版本对比（Phase 4）**
+  - `simple-git` 本地仓库自动初始化（`.gitignore` + 首个提交）与绑定，分支按 `git worktree` 隔离，
+    切换分支自动重定向工作区且不复制项目；支持分支新建、项目与单文件提交历史、指定版本文件读取。
+  - 基于 CodeMirror 6 `MergeView` 的工作区改动 / 任意两版本可视化 Diff，签入前预览差异。
+  - 左侧「版本」面板：分支切换与新建、检出锁、工作区改动、提交历史与快速差异入口。
+- **轻量身份与权限**
+  - SQLite + Drizzle ORM（`better-sqlite3`）持久化作者身份、仓库、检出锁与解锁备份，零外部数据库依赖。
+  - 工具栏免密码身份切换（管理员 / 编辑者 / 只读），前端对只读身份与未检出文件自动禁用可视化/源码编辑；
+    服务端对保存、创建、重命名、删除、上传与 Git 操作强制校验角色与锁归属。
+- **Check-out 独占锁**
+  - 以 `(project, branch, file_path)` 唯一约束实现同文件互斥，不同文件与不同分支互不阻塞。
+  - 检出加锁、编辑草稿保存、仅提交本人检出且有改动的文件并在签入后自动释放锁。
+  - 取消检出回滚到 `HEAD`；释放锁保留草稿；管理员强制解锁会把当前内容与补丁写入 `lock_backups`。
+- **测试与文档**
+  - 新增 `apps/api/test/phase4-git-locks.test.ts` 端到端覆盖身份角色、Git 初始化、同文件互斥/异文件并行、
+    签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份；新增 `apps/web/test/lock-helpers.test.ts`
+    覆盖管理员/编辑者/只读与跨作者锁的编辑权限投影。全仓 **126/126** Vitest 测试通过。
+
+### Changed
+
+- 保存接口 `PUT /api/files/content` 及文件创建/目录/重命名/删除/上传接口增加身份与检出锁授权；
+  既有 API 测试默认以管理员身份运行。
+- 顶栏新增身份切换器，品牌副标题更新为 `DITA 1.3 · Phase 4`；左侧边栏新增「版本」页签。
+
+### Known limitations
+
+- Phase 4 仅实现本地 Git，不包含 GitHub / GitLab / Gitee OAuth、PAT 与 PR/MR 工作流。
+- Phase 5（Java 21 Worker + Xerces2/Jing + DITA 1.3 Catalog + DITA-OT 4.x 发布、BullMQ + SSE、Docker Compose）尚未实现。
+
+[0.6.0]: https://github.com/Ericfeng84/DITAEditor/releases/tag/v0.6.0
+
 ## [0.5.0] — 2026-11-21
 
 首个里程碑版本，覆盖架构基线中的 **Phase 0–3**：无损 XML 内核、双模式 Topic 编辑器、
@@ -57,7 +95,6 @@ DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepa
 
 ### Known limitations
 
-- Phase 4（PostgreSQL + Drizzle、OAuth/PAT、`git worktree` 分支隔离、Check-out 独占锁与 PR/MR 流程）尚未实现。
 - Phase 5（Java 21 Worker + Xerces2/Jing + DITA 1.3 Catalog + DITA-OT 4.x 发布、BullMQ + SSE、Docker Compose）尚未实现。
 - 当前为单机本地工作区模式，无多用户协作与文件锁。
 

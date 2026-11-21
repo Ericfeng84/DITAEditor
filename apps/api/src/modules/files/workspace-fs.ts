@@ -47,6 +47,7 @@ export interface WorkspaceDitavalSummary {
 
 export interface WorkspaceSnapshot {
   rootDir: string;
+  projectRootDir: string;
   defaultRootDir: string;
   name: string;
   maps: WorkspaceMapSummary[];
@@ -285,6 +286,7 @@ export class WorkspaceManager {
   readonly importsRootDir: string;
   readonly registryPath: string;
   private activeRootDir: string;
+  private projectRootDir: string;
   private callbacks: WorkspaceMutationCallbacks = {};
   private registryChain: Promise<void> = Promise.resolve();
 
@@ -297,6 +299,7 @@ export class WorkspaceManager {
         path.join(this.importsRootDir, WORKSPACE_REGISTRY_FILENAME),
     );
     this.activeRootDir = this.defaultRootDir;
+    this.projectRootDir = this.defaultRootDir;
   }
 
   setMutationCallbacks(callbacks: WorkspaceMutationCallbacks): void {
@@ -309,6 +312,29 @@ export class WorkspaceManager {
 
   getRootDir(): string {
     return this.activeRootDir;
+  }
+
+  /** The primary project checkout; branch worktrees share this identity. */
+  getProjectRootDir(): string {
+    return this.projectRootDir;
+  }
+
+  /**
+   * Repoints the active root at a linked `git worktree` without touching the workspace registry.
+   * The project root stays stable so locks and repository IDs remain shared across branches.
+   */
+  async setActiveRootDirForBranch(targetDir: string): Promise<void> {
+    const resolved = path.resolve(targetDir);
+    let stat;
+    try {
+      stat = await fs.stat(resolved);
+    } catch {
+      throw new WorkspaceNotFoundError(`Branch worktree does not exist: ${resolved}`);
+    }
+    if (!stat.isDirectory()) {
+      throw new WorkspacePathError(`Branch worktree is not a directory: ${resolved}`);
+    }
+    this.activeRootDir = await fs.realpath(resolved);
   }
 
   async openWorkspace(targetDir: string | { useDefault: true }): Promise<WorkspaceSnapshot> {
@@ -328,6 +354,7 @@ export class WorkspaceManager {
     }
 
     this.activeRootDir = await fs.realpath(resolved);
+    this.projectRootDir = this.activeRootDir;
     await this.recordWorkspace(this.activeRootDir);
     await this.callbacks.onWorkspaceChanged?.(this.activeRootDir);
     return this.scanWorkspace();
@@ -359,6 +386,7 @@ export class WorkspaceManager {
     }
 
     this.activeRootDir = await fs.realpath(destDir);
+    this.projectRootDir = this.activeRootDir;
     await this.recordWorkspace(this.activeRootDir, projectName);
     await this.callbacks.onWorkspaceChanged?.(this.activeRootDir);
     return this.scanWorkspace();
@@ -590,6 +618,7 @@ export class WorkspaceManager {
 
     const realRoot = await fs.realpath(targetDir);
     this.activeRootDir = realRoot;
+    this.projectRootDir = realRoot;
     await this.recordWorkspace(realRoot, displayName);
     await this.callbacks.onWorkspaceChanged?.(realRoot);
     return this.scanWorkspace();
@@ -765,6 +794,7 @@ export class WorkspaceManager {
 
     return {
       rootDir: realRoot,
+      projectRootDir: this.projectRootDir,
       defaultRootDir: this.defaultRootDir,
       name: path.basename(realRoot),
       maps,
@@ -773,6 +803,11 @@ export class WorkspaceManager {
       topicTitles,
       stats,
     };
+  }
+
+  async fileExists(relPath: string): Promise<boolean> {
+    const safe = await resolveSafeWorkspacePath(this.activeRootDir, relPath);
+    return existsSync(safe.absPath);
   }
 
   async readFile(relPath: string): Promise<FileContentResult> {

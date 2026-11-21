@@ -10,18 +10,21 @@ const DEMO_SOURCE_DIR = path.resolve(__dirname, '../../../samples/demo-dita-proj
 
 describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', () => {
   let tempDir: string;
+  let importsDir: string;
 
   beforeEach(() => {
     tempDir = mkdtempSync(path.join(os.tmpdir(), 'dita-semantics-api-'));
+    importsDir = mkdtempSync(path.join(os.tmpdir(), 'dita-semantics-imports-'));
     cpSync(DEMO_SOURCE_DIR, tempDir, { recursive: true });
   });
 
   afterEach(() => {
     rmSync(tempDir, { recursive: true, force: true });
+    rmSync(importsDir, { recursive: true, force: true });
   });
 
   it('returns workspace ditavals, root-map keyspaces, conref resolution, and zero demo diagnostics', async () => {
-    const app = createServer({ workspaceDir: tempDir, logger: false });
+    const app = createServer({ workspaceDir: tempDir, importsRootDir: importsDir, logger: false });
     await app.ready();
 
     try {
@@ -119,7 +122,7 @@ describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', (
   });
 
   it('incrementally updates keyspace and flags injected conref cycles & undefined keyrefs', async () => {
-    const app = createServer({ workspaceDir: tempDir, logger: false });
+    const app = createServer({ workspaceDir: tempDir, importsRootDir: importsDir, logger: false });
     await app.ready();
 
     try {
