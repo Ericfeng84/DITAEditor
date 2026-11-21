@@ -11,8 +11,13 @@ export * from './xml/compare.js';
 export * from './model/dita-elements.js';
 export * from './model/dita-rules.js';
 
-// Topic templates & built-in Phase 1 samples
+// Topic & Map templates + built-in samples
 export * from './templates/topic-templates.js';
+export * from './templates/map-templates.js';
+
+// Map/Bookmap tree engine & isomorphic POSIX path utils
+export * from './map/path-utils.js';
+export * from './map/dita-map.js';
 
 // OASIS CALS table adapter
 export * from './cals/cals-table.js';

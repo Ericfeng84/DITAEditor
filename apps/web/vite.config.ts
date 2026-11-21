@@ -30,6 +30,12 @@ export default defineConfig({
   plugins: [browserStreamStubPlugin(), tailwindcss(), react()],
   server: {
     port: 5173,
+    proxy: {
+      '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     rollupOptions: {
@@ -40,6 +46,13 @@ export default defineConfig({
           }
           if (id.includes('node_modules/prosemirror-')) {
             return 'vendor-prosemirror';
+          }
+          if (
+            id.includes('node_modules/react-arborist/') ||
+            id.includes('node_modules/react-dnd') ||
+            id.includes('node_modules/react-window')
+          ) {
+            return 'vendor-tree';
           }
           if (
             id.includes('node_modules/slimdom') ||

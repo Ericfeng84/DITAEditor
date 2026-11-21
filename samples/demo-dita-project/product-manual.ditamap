@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<!-- Root product manual map demonstrating nested topicrefs, keydefs, sub-maps, and reltable -->
+<map id="product_manual" xml:lang="zh-CN">
+  <title>DITAEditor 产品开发与使用手册</title>
+  <topicmeta>
+    <author type="creator">Documentation Engineering</author>
+    <keywords>
+      <keyword>DITA 1.3</keyword>
+      <keyword>DITAEditor</keyword>
+    </keywords>
+  </topicmeta>
+  <keydef keys="prod_name" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>DITAEditor Enterprise</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="api_version" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>v2.4</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <topichead navtitle="核心概念与架构">
+    <topicref href="concepts/dita-architecture.dita" type="concept" navtitle="DITA 结构化写作架构概述">
+      <topicref href="concepts/single-sourcing.dita" type="concept" navtitle="单一信息源与跨文档复用"/>
+      <topicref href="concepts/workspace-model.dita" type="concept" navtitle="多文件工作区与 Git 隔离模型"/>
+    </topicref>
+  </topichead>
+  <mapref href="maps/getting-started.ditamap" format="ditamap" navtitle="快速入门与运维任务"/>
+  <mapref href="maps/reference-guide.ditamap" format="ditamap" navtitle="规格参数与接口参考"/>
+  <reltable>
+    <relheader>
+      <relcolspec type="concept"/>
+      <relcolspec type="task"/>
+      <relcolspec type="reference"/>
+    </relheader>
+    <relrow>
+      <relcell>
+        <topicref href="concepts/dita-architecture.dita"/>
+      </relcell>
+      <relcell>
+        <topicref href="tasks/deploy-worker.dita"/>
+      </relcell>
+      <relcell>
+        <topicref href="references/server-sizing-cals.dita"/>
+      </relcell>
+    </relrow>
+  </reltable>
+</map>

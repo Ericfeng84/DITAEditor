@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="dita_architecture_overview" xml:lang="zh-CN">
+  <title>DITA 结构化写作架构概述</title>
+  <shortdesc>介绍 DITA 1.3 的主题化写作模型、单一信息源机制与无损 XML 往返原则。</shortdesc>
+  <prolog>
+    <author type="creator">Zhang San</author>
+    <critdates>
+      <created date="2026-01-15"/>
+      <revised modified="2026-11-18"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>DITA 1.3</keyword>
+        <keyword>Structured Authoring</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
+  <conbody>
+    <!-- 段落标签与块间加号插入演示 -->
+    <p>DITA（Darwin Information Typing Architecture）是一套基于 XML 的开放技术文档标准，核心强调<b>模块化</b>、<i>语义化</i>与<u>多渠道发布</u>。</p>
+    <fig id="fig_arch">
+      <title>DITAEditor 双模内核与工作台架构</title>
+      <desc>可视化编辑器与 XML 源码编辑器共用 @dita/core 无损内核。</desc>
+      <image href="../images/architecture.svg" placement="break" alt="DITAEditor 架构示意图"/>
+    </fig>
+    <section id="sec_core_types">
+      <title>核心信息类型</title>
+      <dl>
+        <dlentry>
+          <dt>Concept</dt>
+          <dd>用于解释背景原理、架构设计或业务概念，回答“是什么”与“为什么”。</dd>
+        </dlentry>
+        <dlentry>
+          <dt>Task</dt>
+          <dd>
+            <p>面向操作流程与分步指南，包含前置条件与验证结果。</p>
+            <p>通常配合 <codeph>steps</codeph> 元素使用。</p>
+          </dd>
+        </dlentry>
+        <dlentry>
+          <dt>Reference</dt>
+          <dd>提供 API 参数、配置项和规格表格的快速查询。</dd>
+        </dlentry>
+      </dl>
+    </section>
+    <section id="sec_benefits">
+      <title>关键优势</title>
+      <ul>
+        <li>支持跨文档 <codeph>conref</codeph> 片段复用</li>
+        <li>
+          <p>通过 <filepath>product-manual.ditamap</filepath> 灵活组装不同产品版本的手册。</p>
+          <ol>
+            <li>统一管理 <keyword keyref="prod_name"/> 变量键值</li>
+            <li>参考 <xref href="../tasks/create-map-structure.dita" scope="local" format="dita">Map 结构编排指南</xref> 组织章节层级</li>
+          </ol>
+        </li>
+      </ul>
+      <note type="tip">在多人协作仓库中，保持确定性 XML 缩进可显著降低 Git Diff 评审噪声。</note>
+    </section>
+  </conbody>
+</concept>

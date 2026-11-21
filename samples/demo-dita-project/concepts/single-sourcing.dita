@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="single_sourcing_model" xml:lang="zh-CN">
+  <title>单一信息源与跨文档复用</title>
+  <shortdesc>理解如何利用 Map 组合、Keyspace 变量替换与 Conref 片段复用降低维护成本。</shortdesc>
+  <conbody>
+    <p>通过将产品文档拆分为独立可复用的 Topic，并在不同的 <codeph>.ditamap</codeph> 或 <codeph>.bookmap</codeph> 中引用同一份主题，团队只需维护一份核心事实。</p>
+    <section id="sec_mechanisms">
+      <title>三大核心机制</title>
+      <ul>
+        <li><b>Map 组装</b>：通过 <codeph>&lt;topicref&gt;</codeph> 与 <codeph>&lt;mapref&gt;</codeph> 决定最终目录结构与上下篇关系。</li>
+        <li><b>Keydef / Keyref</b>：在 Root Map 中绑定产品名、版本号与链接目标，避免硬编码路径。</li>
+        <li><b>DITAVAL 条件过滤</b>：基于 <codeph>audience</codeph>、<codeph>platform</codeph>、<codeph>product</codeph> 属性按需裁剪输出。</li>
+      </ul>
+    </section>
+  </conbody>
+</concept>

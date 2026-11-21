@@ -1,11 +1,12 @@
-import {
-  evaluateXPathToBoolean as fxEvalBoolean,
-  evaluateXPathToFirstNode as fxEvalFirstNode,
-  evaluateXPathToNodes as fxEvalNodes,
-  evaluateXPathToString as fxEvalString,
-  evaluateXPathToStrings as fxEvalStrings,
-} from 'fontoxpath';
+import * as fontoxpathNamespace from 'fontoxpath';
 import type * as slimdom from 'slimdom';
+
+type FontoXPathApi = typeof fontoxpathNamespace;
+
+const fontoxpath: FontoXPathApi =
+  typeof fontoxpathNamespace.evaluateXPathToNodes === 'function'
+    ? fontoxpathNamespace
+    : ((fontoxpathNamespace as unknown as { default: FontoXPathApi }).default ?? fontoxpathNamespace);
 
 export type XPathVariables = Record<string, unknown>;
 
@@ -14,7 +15,7 @@ export function evaluateXPathToNodes<T extends slimdom.Node = slimdom.Node>(
   contextNode: slimdom.Node,
   variables?: XPathVariables,
 ): T[] {
-  return fxEvalNodes(selector, contextNode, null, variables) as unknown as T[];
+  return fontoxpath.evaluateXPathToNodes(selector, contextNode, null, variables) as unknown as T[];
 }
 
 export function evaluateXPathToFirstNode<T extends slimdom.Node = slimdom.Node>(
@@ -22,7 +23,14 @@ export function evaluateXPathToFirstNode<T extends slimdom.Node = slimdom.Node>(
   contextNode: slimdom.Node,
   variables?: XPathVariables,
 ): T | null {
-  return (fxEvalFirstNode(selector, contextNode, null, variables) as unknown as T | null) ?? null;
+  return (
+    (fontoxpath.evaluateXPathToFirstNode(
+      selector,
+      contextNode,
+      null,
+      variables,
+    ) as unknown as T | null) ?? null
+  );
 }
 
 export function evaluateXPathToStrings(
@@ -30,7 +38,7 @@ export function evaluateXPathToStrings(
   contextNode: slimdom.Node,
   variables?: XPathVariables,
 ): string[] {
-  return fxEvalStrings(selector, contextNode, null, variables);
+  return fontoxpath.evaluateXPathToStrings(selector, contextNode, null, variables);
 }
 
 export function evaluateXPathToString(
@@ -38,7 +46,7 @@ export function evaluateXPathToString(
   contextNode: slimdom.Node,
   variables?: XPathVariables,
 ): string {
-  return fxEvalString(selector, contextNode, null, variables);
+  return fontoxpath.evaluateXPathToString(selector, contextNode, null, variables);
 }
 
 export function evaluateXPathToBoolean(
@@ -46,7 +54,7 @@ export function evaluateXPathToBoolean(
   contextNode: slimdom.Node,
   variables?: XPathVariables,
 ): boolean {
-  return fxEvalBoolean(selector, contextNode, null, variables);
+  return fontoxpath.evaluateXPathToBoolean(selector, contextNode, null, variables);
 }
 
 /**

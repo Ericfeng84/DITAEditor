@@ -12,6 +12,9 @@ export interface BreadcrumbBarProps {
     isIdentical: boolean;
   };
   mode: 'visual' | 'split' | 'source';
+  activePath?: string | null;
+  diagnosticsCount?: number;
+  onToggleProblems?: () => void;
 }
 
 export function BreadcrumbBar({
@@ -20,6 +23,9 @@ export function BreadcrumbBar({
   onSelectCrumb,
   diffStats,
   mode,
+  activePath,
+  diagnosticsCount = 0,
+  onToggleProblems,
 }: BreadcrumbBarProps) {
   return (
     <footer className="flex h-7 shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-3 text-[11px] text-slate-600">
@@ -71,6 +77,22 @@ export function BreadcrumbBar({
       </nav>
 
       <div className="flex shrink-0 items-center gap-3 text-[11px]">
+        {activePath ? (
+          <span className="hidden font-mono text-slate-400 lg:inline">{activePath}</span>
+        ) : null}
+        {onToggleProblems ? (
+          <button
+            type="button"
+            onClick={onToggleProblems}
+            className={`rounded px-1.5 py-0.5 font-mono text-[10.5px] ${
+              diagnosticsCount > 0
+                ? 'bg-rose-50 font-semibold text-rose-700 hover:bg-rose-100'
+                : 'text-slate-500 hover:bg-slate-200/70'
+            }`}
+          >
+            诊断: {diagnosticsCount}
+          </button>
+        ) : null}
         <span className="font-mono text-slate-500">
           {diffStats.isIdentical
             ? '与基线 0 行差异'

@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task_create_map_structure" xml:lang="zh-CN">
+  <title>使用 Map 树编排文档目录</title>
+  <shortdesc>通过可视化 Map 树拖拽调整章节层级、按模板新建并挂载 Topic，以及切换查看 Map XML 源码。</shortdesc>
+  <taskbody>
+    <context>
+      <p>左侧边栏支持浏览与编排完整的 <codeph>.ditamap</codeph> 与 <codeph>.bookmap</codeph> 层级结构，包括嵌套的子地图（<codeph>&lt;mapref&gt;</codeph>）。</p>
+      <fig id="fig_workflow">
+        <title>Map 树编排与多 Tab 协同流程</title>
+        <image href="../images/workflow.svg" placement="break" alt="Map 编排工作流示意图"/>
+      </fig>
+    </context>
+    <steps>
+      <step>
+        <cmd>在顶部选择当前激活的 Root Map（如 <filepath>product-manual.ditamap</filepath> 或 <filepath>admin-book.bookmap</filepath>）。</cmd>
+      </step>
+      <step>
+        <cmd>拖拽树节点调整同级顺序，或拖入其他容器节点下建立子章节。</cmd>
+        <info>
+          <p>所有拖拽操作均直接驱动底层 <codeph>slimdom</codeph> 节点移动，不会破坏 <codeph>&lt;reltable&gt;</codeph>、注释或 DOCTYPE。</p>
+        </info>
+      </step>
+      <step>
+        <cmd>右键任意树节点，选择“新建 Topic 并挂载”，自动创建标准 <codeph>.dita</codeph> 文件并写入相对路径 <codeph>href</codeph>。</cmd>
+      </step>
+    </steps>
+    <result>
+      <p>按下 <userinput>⌘S</userinput> 保存后，Map 结构与 Topic 文件将同步持久化到本地工作区磁盘。</p>
+    </result>
+  </taskbody>
+</task>

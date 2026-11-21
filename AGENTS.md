@@ -108,7 +108,7 @@ This repository maintains a persistent knowledge graph at `graphify-out/`:
 
 - [x] **Phase 0**: Monorepo foundation, `@dita/core` (`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS adapter), and 10 golden round-trip fixtures (21/21 Vitest tests passing).
 - [x] **Phase 1**: Dual-mode Topic Editor MVP (ProseMirror visual editing + NodeViews + DITA-aware commands/keymap + CALS & simpletable editing + context-aware `/` insert menu + attributes inspector + clickable breadcrumb bar + CodeMirror 6 XML source with `@dita/core`-driven completion/lint & guarded Source ↔ Visual switching; 49/49 Vitest tests passing across `@dita/core` & `@dita/web`).
-- [ ] **Phase 2**: Visual Map/Bookmap tree (`react-arborist`), multi-tab workbench, Fastify local file & asset APIs.
+- [x] **Phase 2**: Visual Map/Bookmap tree (`react-arborist`), lossless `@dita/core` Map/Bookmap DOM engine & POSIX path utilities, multi-tab workbench, Fastify local workspace/file CRUD/multipart asset APIs & diagnostics, curated demo project (`samples/demo-dita-project/`), and 85/85 Vitest tests passing across `@dita/core` (39), `@dita/api` (2), & `@dita/web` (44).
 - [ ] **Phase 3**: Root Map semantic engine (`keydef/keyref`, `conref/conkeyref` with DFS cycle detection, `DITAVAL` profiling & live filtering).
 - [ ] **Phase 4**: PostgreSQL + Drizzle ORM, GitHub/GitLab/Gitee OAuth/PAT, branch-isolated `git worktree`, Check-out exclusive locks & PR/MR workflow.
 - [ ] **Phase 5**: Persistent Java 21 Worker (Xerces2 + Jing + DITA 1.3 Catalog + DITA-OT 4.x + Noto CJK), BullMQ + SSE async publishing, Docker Compose deployment.

@@ -245,10 +245,16 @@ class DitaImageNodeView implements NodeView {
   private previewEl: HTMLElement;
   private node: PMNode;
   private isBlock: boolean;
+  private resolveImageSrc?: (href: string) => string | null;
 
-  constructor(node: PMNode, isBlock: boolean) {
+  constructor(
+    node: PMNode,
+    isBlock: boolean,
+    resolveImageSrc?: (href: string) => string | null,
+  ) {
     this.node = node;
     this.isBlock = isBlock;
+    this.resolveImageSrc = resolveImageSrc;
 
     this.dom = document.createElement(isBlock ? 'figure' : 'span');
     this.dom.className = isBlock ? 'dita-nv-image-block' : 'dita-nv-image-inline';
@@ -275,26 +281,32 @@ class DitaImageNodeView implements NodeView {
 
     this.previewEl.textContent = '';
 
-    const canLoadImage =
+    const isDirectUrl =
       href.startsWith('http://') ||
       href.startsWith('https://') ||
       href.startsWith('data:image/') ||
       href.startsWith('/');
 
-    if (this.isBlock && canLoadImage) {
-      const img = document.createElement('img');
-      img.src = href;
-      img.alt = alt || target;
-      img.className = 'dita-nv-image-img';
-      img.onerror = () => {
-        img.remove();
-      };
-      this.previewEl.appendChild(img);
-    }
+    const resolvedSrc = href
+      ? (this.resolveImageSrc?.(href) ?? (isDirectUrl ? href : null))
+      : null;
 
     const chip = document.createElement('span');
     chip.className = 'dita-nv-image-meta';
     chip.textContent = `IMG · ${target}${alt ? ` — "${alt}"` : ''}`;
+
+    if (resolvedSrc) {
+      const img = document.createElement('img');
+      img.src = resolvedSrc;
+      img.alt = alt || target;
+      img.className = this.isBlock ? 'dita-nv-image-img' : 'dita-nv-image-inline-img';
+      img.onerror = () => {
+        img.remove();
+        chip.textContent = `IMG (资源未找到) · ${target}${alt ? ` — "${alt}"` : ''}`;
+      };
+      this.previewEl.appendChild(img);
+    }
+
     this.previewEl.appendChild(chip);
   }
 
@@ -589,14 +601,20 @@ class XmlCommentNodeView implements NodeView {
   }
 }
 
-export function createDitaNodeViews(): Record<string, NodeViewConstructor> {
+export interface CreateDitaNodeViewsOptions {
+  resolveImageSrc?: (href: string) => string | null;
+}
+
+export function createDitaNodeViews(
+  options: CreateDitaNodeViewsOptions = {},
+): Record<string, NodeViewConstructor> {
   return {
     dita_note: (node, view, getPos) => new DitaNoteNodeView(node, view, getPos),
     dita_codeblock: (node) => new DitaCodeblockNodeView(node, 'codeblock'),
     dita_pre: (node) => new DitaCodeblockNodeView(node, 'pre'),
     dita_prolog: (node) => new DitaPrologNodeView(node),
-    dita_image_block: (node) => new DitaImageNodeView(node, true),
-    dita_image_inline: (node) => new DitaImageNodeView(node, false),
+    dita_image_block: (node) => new DitaImageNodeView(node, true, options.resolveImageSrc),
+    dita_image_inline: (node) => new DitaImageNodeView(node, false, options.resolveImageSrc),
     dita_keyword: (node) => new DitaRefInlineNodeView(node, 'keyword'),
     dita_xref: (node) => new DitaRefInlineNodeView(node, 'xref'),
     cals_table: (node) => new CalsTableNodeView(node),

@@ -1,0 +1,33 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 260" width="720" height="260">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="100%" stop-color="#eef2ff"/>
+    </linearGradient>
+    <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+      <path d="M 0 1 L 10 5 L 0 9 z" fill="#4f46e5"/>
+    </marker>
+  </defs>
+  <rect width="720" height="260" rx="14" fill="url(#bg)" stroke="#c7d2fe" stroke-width="1.5"/>
+  <text x="28" y="34" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="700" fill="#1e293b">DITAEditor Phase 2 Architecture</text>
+  <rect x="28" y="60" width="180" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="44" y="88" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="700" fill="#4338ca">Map / Bookmap Tree</text>
+  <text x="44" y="112" font-family="monospace" font-size="11" fill="#475569">react-arborist</text>
+  <text x="44" y="134" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#64748b">• Drag &amp; Drop Hierarchy</text>
+  <text x="44" y="154" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#64748b">• Nested &lt;mapref&gt;</text>
+  <text x="44" y="174" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#64748b">• Create &amp; Mount Topic</text>
+  <rect x="270" y="60" width="180" height="150" rx="10" fill="#0f172a" stroke="#334155"/>
+  <text x="286" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#38bdf8">@dita/core</text>
+  <text x="286" y="112" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#cbd5e1">slimdom + sax-parser</text>
+  <text x="286" y="134" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">• Lossless XML DOM</text>
+  <text x="286" y="154" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">• Deterministic Serializer</text>
+  <text x="286" y="174" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#94a3b8">• POSIX href Resolver</text>
+  <rect x="512" y="60" width="180" height="150" rx="10" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="528" y="88" font-family="Inter, system-ui, sans-serif" font-size="12" font-weight="700" fill="#047857">Fastify Workspace API</text>
+  <text x="528" y="112" font-family="monospace" font-size="11" fill="#475569">@dita/api</text>
+  <text x="528" y="134" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#64748b">• Local File CRUD</text>
+  <text x="528" y="154" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#64748b">• Asset Upload &amp; Preview</text>
+  <text x="528" y="174" font-family="Inter, system-ui, sans-serif" font-size="11" fill="#64748b">• Broken Link Diagnostics</text>
+  <line x1="208" y1="135" x2="266" y2="135" stroke="#4f46e5" stroke-width="2" marker-end="url(#arrow)"/>
+  <line x1="450" y1="135" x2="508" y2="135" stroke="#4f46e5" stroke-width="2" marker-end="url(#arrow)"/>
+</svg>

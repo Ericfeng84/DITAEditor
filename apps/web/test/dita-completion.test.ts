@@ -43,4 +43,23 @@ describe('CodeMirror 6 DITA 1.3 XML Autocomplete', () => {
     expect(values).toContain('warning');
     expect(values).toContain('danger');
   });
+
+  it('suggests legal Map / Bookmap child tags and topicref attributes', () => {
+    const mapChildren = completeAtEnd('<map id="m1"><');
+    expect(mapChildren).not.toBeNull();
+    const mapTags = mapChildren!.options.map((o) => o.label);
+    expect(mapTags).toContain('topicref');
+    expect(mapTags).toContain('mapref');
+    expect(mapTags).toContain('topichead');
+    expect(mapTags).toContain('keydef');
+
+    const bookChildren = completeAtEnd('<bookmap id="b1"><');
+    const bookTags = bookChildren!.options.map((o) => o.label);
+    expect(bookTags).toContain('chapter');
+    expect(bookTags).toContain('part');
+    expect(bookTags).toContain('appendix');
+
+    const topicrefAttrs = completeAtEnd('<topicref proc');
+    expect(topicrefAttrs!.options.some((o) => o.label === 'processing-role')).toBe(true);
+  });
 });

@@ -1,11 +1,28 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { DitaTopicTemplateType } from '@dita/core';
-import { BookOpen, FileCode, ListChecks, TableProperties, X } from 'lucide-react';
+import { BookOpen, FileCode, ListChecks, Network, TableProperties, X } from 'lucide-react';
+
+export interface NewTopicMountContext {
+  mapPath: string;
+  parentLabel: string;
+  defaultDir: string;
+  defaultTagName: string;
+  isBookmap: boolean;
+}
 
 export interface NewTopicDialogProps {
   open: boolean;
+  mountContext?: NewTopicMountContext | null;
+  directories?: string[];
   onClose: () => void;
-  onCreate: (type: DitaTopicTemplateType, id: string, title: string, lang: string) => void;
+  onCreate: (
+    type: DitaTopicTemplateType,
+    id: string,
+    title: string,
+    lang: string,
+    targetDir: string,
+    mountTagName: string,
+  ) => void;
 }
 
 const TOPIC_OPTIONS: {
@@ -45,19 +62,29 @@ const TOPIC_OPTIONS: {
   },
 ];
 
-/**
- * Native modal `<dialog>` implementing modern-web-guidance `dialog`:
- * - Opened with `showModal()`, no redundant `role="dialog"` or `aria-modal`
- * - `closedby="any"` + pointerdown/pointerup outside-rect fallback where unsupported
- * - Resets `dialog.returnValue = ''` on close
- */
-export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps) {
+const DEFAULT_DIR_FOR_TYPE: Record<DitaTopicTemplateType, string> = {
+  concept: 'concepts',
+  task: 'tasks',
+  reference: 'references',
+  topic: 'topics',
+};
+
+export function NewTopicDialog({
+  open,
+  mountContext,
+  directories = ['', 'concepts', 'tasks', 'references', 'topics'],
+  onClose,
+  onCreate,
+}: NewTopicDialogProps) {
   const titleId = useId();
+  const dirListId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [topicType, setTopicType] = useState<DitaTopicTemplateType>('concept');
   const [docId, setDocId] = useState('');
   const [docTitle, setDocTitle] = useState('');
   const [lang, setLang] = useState('zh-CN');
+  const [targetDir, setTargetDir] = useState('concepts');
+  const [mountTagName, setMountTagName] = useState('topicref');
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -68,13 +95,15 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
       setDocId(`concept_${Date.now().toString(36).slice(-4)}`);
       setDocTitle('');
       setLang('zh-CN');
+      setTargetDir(mountContext?.defaultDir ?? 'concepts');
+      setMountTagName(mountContext?.defaultTagName ?? 'topicref');
       if (!dialog.open) {
         dialog.showModal();
       }
     } else if (dialog.open) {
       dialog.close();
     }
-  }, [open]);
+  }, [open, mountContext]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -86,7 +115,6 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
     };
     dialog.addEventListener('close', handleClose);
 
-    // Light-dismiss fallback when `closedby` is unsupported (e.g. Safari)
     let cleanupBackdrop: (() => void) | undefined;
     if (!('closedBy' in HTMLDialogElement.prototype)) {
       let pressedOutside = false;
@@ -123,7 +151,14 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onCreate(topicType, docId || `${topicType}_new`, docTitle || `新建 ${topicType} 文档`, lang);
+    onCreate(
+      topicType,
+      docId || `${topicType}_new`,
+      docTitle || `新建 ${topicType} 文档`,
+      lang,
+      targetDir,
+      mountTagName,
+    );
     dialogRef.current?.close('create');
   };
 
@@ -137,10 +172,12 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
         <div>
           <h2 id={titleId} className="text-sm font-semibold text-slate-900">
-            新建标准 DITA 1.3 文档
+            {mountContext ? '新建 Topic 并挂载到 Map' : '新建标准 DITA 1.3 文档'}
           </h2>
           <p className="mt-0.5 text-xs text-slate-500">
-            自动生成带 OASIS DOCTYPE 与标准内容骨架的 .dita 文件
+            {mountContext
+              ? `将在 ${mountContext.mapPath}（${mountContext.parentLabel}）下自动写入相对 href`
+              : '自动生成带 OASIS DOCTYPE 与标准内容骨架的 .dita 文件'}
           </p>
         </div>
         <button
@@ -154,6 +191,15 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4 p-5">
+        {mountContext ? (
+          <div className="flex items-center gap-2 rounded-lg border border-sky-200 bg-sky-50/70 px-3 py-2 text-xs text-sky-900">
+            <Network className="h-4 w-4 shrink-0 text-sky-600" aria-hidden="true" />
+            <span className="truncate">
+              挂载目标：<code className="font-mono font-semibold">{mountContext.parentLabel}</code>
+            </span>
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-2.5">
           {TOPIC_OPTIONS.map((opt) => {
             const Icon = opt.icon;
@@ -165,6 +211,9 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
                 onClick={() => {
                   setTopicType(opt.type);
                   setDocId(`${opt.type}_${Date.now().toString(36).slice(-4)}`);
+                  if (!mountContext) {
+                    setTargetDir(DEFAULT_DIR_FOR_TYPE[opt.type]);
+                  }
                 }}
                 className={`rounded-lg border p-3 text-left transition-colors ${
                   selected
@@ -205,7 +254,7 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
           <div className="grid grid-cols-3 gap-3">
             <div className="col-span-2">
               <label htmlFor="new-topic-id" className="mb-1 block text-xs font-medium text-slate-700">
-                Topic ID (根元素 id 属性)
+                Topic ID / 文件名
               </label>
               <input
                 id="new-topic-id"
@@ -234,6 +283,53 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
               </select>
             </div>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="new-topic-dir" className="mb-1 block text-xs font-medium text-slate-700">
+                保存目录（工作区相对路径）
+              </label>
+              <input
+                id="new-topic-dir"
+                type="text"
+                list={dirListId}
+                value={targetDir}
+                onChange={(e) => setTargetDir(e.target.value)}
+                placeholder="例如：concepts（留空放根目录）"
+                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
+              />
+              <datalist id={dirListId}>
+                {directories
+                  .filter(Boolean)
+                  .map((d) => (
+                    <option key={d} value={d} />
+                  ))}
+              </datalist>
+            </div>
+
+            {mountContext ? (
+              <div>
+                <label htmlFor="new-topic-mount-tag" className="mb-1 block text-xs font-medium text-slate-700">
+                  Map 挂载标签
+                </label>
+                <select
+                  id="new-topic-mount-tag"
+                  value={mountTagName}
+                  onChange={(e) => setMountTagName(e.target.value)}
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                >
+                  <option value="topicref">&lt;topicref&gt;</option>
+                  {mountContext.isBookmap ? (
+                    <>
+                      <option value="chapter">&lt;chapter&gt;</option>
+                      <option value="appendix">&lt;appendix&gt;</option>
+                      <option value="preface">&lt;preface&gt;</option>
+                    </>
+                  ) : null}
+                </select>
+              </div>
+            ) : null}
+          </div>
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
@@ -248,7 +344,7 @@ export function NewTopicDialog({ open, onClose, onCreate }: NewTopicDialogProps)
             type="submit"
             className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
           >
-            创建并打开
+            {mountContext ? '创建并挂载' : '创建并打开'}
           </button>
         </div>
       </form>

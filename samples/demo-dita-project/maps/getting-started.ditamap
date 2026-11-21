@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="submap_getting_started" xml:lang="zh-CN">
+  <title>快速入门与运维任务子地图</title>
+  <topicref href="../tasks/create-map-structure.dita" type="task" navtitle="使用 Map 树编排文档目录"/>
+  <topicref href="../tasks/deploy-worker.dita" type="task" navtitle="部署 Java Worker 校验与发布服务">
+    <topicref href="../tasks/configure-cjk-pdf.dita" type="task" navtitle="配置 Noto CJK 中文 PDF 字体"/>
+  </topicref>
+</map>

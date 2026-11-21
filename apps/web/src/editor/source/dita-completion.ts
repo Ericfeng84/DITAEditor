@@ -85,14 +85,20 @@ export function ditaXmlCompletionSource(context: CompletionContext): CompletionR
 
     const allowedTags = parentTag
       ? getAllowedChildElementTags(parentTag)
-      : ['concept', 'task', 'reference', 'topic'];
+      : ['concept', 'task', 'reference', 'topic', 'map', 'bookmap'];
 
     const candidateTags =
       allowedTags.length > 0 ? allowedTags : Array.from(DITA_ELEMENT_SPECS.keys());
 
     const options: Completion[] = candidateTags.map((tag) => {
       const spec = DITA_ELEMENT_SPECS.get(tag);
-      const isVoidStyle = tag === 'colspec' || tag === 'link';
+      const isVoidStyle =
+        tag === 'colspec' ||
+        tag === 'link' ||
+        tag === 'topicref' ||
+        tag === 'mapref' ||
+        tag === 'keydef' ||
+        tag === 'toc';
       return {
         label: tag,
         type: 'type',

@@ -39,6 +39,20 @@ export const DITA_STRUCTURAL_ELEMENT_CONTAINERS = new Set<string>([
   'related-links',
   'linklist',
   'linkpool',
+  // Map & Bookmap element-only containers
+  'map',
+  'bookmap',
+  'topicmeta',
+  'bookmeta',
+  'booktitle',
+  'frontmatter',
+  'backmatter',
+  'booklists',
+  'reltable',
+  'relheader',
+  'relrow',
+  'relcell',
+  'topicgroup',
 ]);
 
 export const DITA_TOPIC_ROOT_TAGS = new Set<string>([
@@ -46,6 +60,57 @@ export const DITA_TOPIC_ROOT_TAGS = new Set<string>([
   'concept',
   'task',
   'reference',
+]);
+
+export const DITA_MAP_ROOT_TAGS = new Set<string>([
+  'map',
+  'bookmap',
+]);
+
+/**
+ * Elements inside a `.ditamap` or `.bookmap` that appear as structural/navigation nodes
+ * in the visual Map Tree editor.
+ */
+export const DITA_MAP_TREE_NODE_TAGS = new Set<string>([
+  'topicref',
+  'mapref',
+  'topichead',
+  'topicgroup',
+  'keydef',
+  'chapter',
+  'part',
+  'appendix',
+  'frontmatter',
+  'backmatter',
+  'preface',
+  'notices',
+  'booklists',
+  'glossarylist',
+  'topicset',
+  'topicsetref',
+  'anchorref',
+  'navref',
+  'ditavalref',
+]);
+
+/**
+ * Map tree node elements that can accept nested child map entries (e.g. via drag-and-drop),
+ * even when currently childless.
+ */
+export const DITA_MAP_CONTAINER_NODE_TAGS = new Set<string>([
+  'topicref',
+  'topichead',
+  'topicgroup',
+  'chapter',
+  'part',
+  'appendix',
+  'frontmatter',
+  'backmatter',
+  'preface',
+  'notices',
+  'booklists',
+  'glossarylist',
+  'topicset',
 ]);
 
 /**
@@ -59,9 +124,43 @@ export const DITA_BLOCK_TAGS = new Set<string>([
   'concept',
   'task',
   'reference',
-  // Map roots & entries (for map XML formatting support)
+  // Map roots & entries (for map & bookmap XML formatting support)
   'map',
   'bookmap',
+  'booktitle',
+  'mainbooktitle',
+  'booktitlealt',
+  'booklibrary',
+  'bookmeta',
+  'bookid',
+  'booknumber',
+  'edition',
+  'isbn',
+  'bookrights',
+  'frontmatter',
+  'backmatter',
+  'booklists',
+  'toc',
+  'figurelist',
+  'tablelist',
+  'abbrevlist',
+  'trademarklist',
+  'bibliolist',
+  'glossarylist',
+  'indexlist',
+  'notices',
+  'preface',
+  'colophon',
+  'dedication',
+  'amendments',
+  'draftintro',
+  'bookabstract',
+  'topicset',
+  'topicsetref',
+  'anchorref',
+  'navref',
+  'anchor',
+  'ditavalref',
   'topicref',
   'mapref',
   'topichead',

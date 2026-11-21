@@ -1,8 +1,21 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
-import type { RawAttrs, XmlDeclaration, XmlPrologItem } from '@dita/core';
-import { NewTopicDialog } from './components/NewTopicDialog';
+import {
+  dirnamePosix,
+  type DitaTopicTemplateType,
+  type RawAttrs,
+  type XmlDeclaration,
+  type XmlPrologItem,
+} from '@dita/core';
+import { FilePlus2, FolderOpen, Network } from 'lucide-react';
+import { EditorTabBar } from './components/EditorTabBar';
+import { FileExplorerPanel } from './components/FileExplorerPanel';
+import { LeftSidebar } from './components/LeftSidebar';
+import { NewMapDialog } from './components/NewMapDialog';
+import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopicDialog';
+import { ProblemsPanel } from './components/ProblemsPanel';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
+import { WorkspaceDialog } from './components/WorkspaceDialog';
 import { XrefImageDialog } from './components/XrefImageDialog';
 import { syncSourceToVisual, syncVisualToSource } from './editor/bridge/xml-bridge';
 import { SourceEditor } from './editor/source/SourceEditor';
@@ -11,47 +24,175 @@ import { BreadcrumbBar } from './editor/visual/BreadcrumbBar';
 import { EditorToolbar } from './editor/visual/EditorToolbar';
 import type { BreadcrumbItem, EditorSelectionSnapshot } from './editor/visual/selection-info';
 import { VisualEditor, type VisualEditorHandle } from './editor/visual/VisualEditor';
+import { MapNodeInspector } from './map-tree/MapNodeInspector';
+import { MapOverviewPane } from './map-tree/MapOverviewPane';
+import { MapTreePanel } from './map-tree/MapTreePanel';
 import {
-  getActiveDocDiffStats,
-  selectActiveDocument,
+  collectWorkspaceDirectoryPaths,
+  collectWorkspaceFilesByKind,
+} from './map-tree/map-tree-utils';
+import { MountExistingDialog } from './map-tree/MountExistingDialog';
+import {
+  resolveWorkspaceAssetUrl,
+  uploadWorkspaceImage,
+  type WorkspaceDiagnostic,
+} from './services/workspace-api';
+import {
+  getTabDiffStats,
+  selectActiveTab,
   useEditorStore,
   type EditorViewMode,
 } from './store/editor-store';
 
 export function App() {
-  const documents = useEditorStore((s) => s.documents);
-  const activeDocId = useEditorStore((s) => s.activeDocId);
-  const mode = useEditorStore((s) => s.mode);
-  const xmlError = useEditorStore((s) => s.xmlError);
-  const switchBlockedReason = useEditorStore((s) => s.switchBlockedReason);
-  const tagDisplayMode = useEditorStore((s) => s.tagDisplayMode);
+  const workspaceMode = useEditorStore((s) => s.workspaceMode);
+  const workspaceRootDir = useEditorStore((s) => s.workspaceRootDir);
+  const workspaceDefaultRootDir = useEditorStore((s) => s.workspaceDefaultRootDir);
+  const workspaceName = useEditorStore((s) => s.workspaceName);
+  const fileTree = useEditorStore((s) => s.fileTree);
+  const fileSet = useEditorStore((s) => s.fileSet);
+  const workspaceMaps = useEditorStore((s) => s.workspaceMaps);
+  const topicTitles = useEditorStore((s) => s.topicTitles);
+  const activeRootMapPath = useEditorStore((s) => s.activeRootMapPath);
+  const memoryAssets = useEditorStore((s) => s.memoryAssets);
+  const mapBuffers = useEditorStore((s) => s.mapBuffers);
+  const diagnostics = useEditorStore((s) => s.diagnostics);
+  const savingPaths = useEditorStore((s) => s.savingPaths);
+
+  const openTabs = useEditorStore((s) => s.openTabs);
+  const activeTabPath = useEditorStore((s) => s.activeTabPath);
+
+  const leftSidebarOpen = useEditorStore((s) => s.leftSidebarOpen);
+  const leftSidebarTab = useEditorStore((s) => s.leftSidebarTab);
   const inspectorOpen = useEditorStore((s) => s.inspectorOpen);
+  const inspectorTarget = useEditorStore((s) => s.inspectorTarget);
+  const selectedMapNode = useEditorStore((s) => s.selectedMapNode);
+  const problemsOpen = useEditorStore((s) => s.problemsOpen);
+  const tagDisplayMode = useEditorStore((s) => s.tagDisplayMode);
   const statusMessage = useEditorStore((s) => s.statusMessage);
-  const visualReloadToken = useEditorStore((s) => s.visualReloadToken);
   const pendingSourceOffset = useEditorStore((s) => s.pendingSourceOffset);
   const pendingVisualPmPos = useEditorStore((s) => s.pendingVisualPmPos);
 
-  const selectDocument = useEditorStore((s) => s.selectDocument);
-  const createNewDocument = useEditorStore((s) => s.createNewDocument);
-  const importLocalDocument = useEditorStore((s) => s.importLocalDocument);
+  const initWorkspace = useEditorStore((s) => s.initWorkspace);
+  const openLocalWorkspace = useEditorStore((s) => s.openLocalWorkspace);
+  const importFolderWorkspace = useEditorStore((s) => s.importFolderWorkspace);
+  const restoreOfflineDemo = useEditorStore((s) => s.restoreOfflineDemo);
+  const selectRootMap = useEditorStore((s) => s.selectRootMap);
+  const refreshDiagnostics = useEditorStore((s) => s.refreshDiagnostics);
+  const openFileTab = useEditorStore((s) => s.openFileTab);
+  const activateTab = useEditorStore((s) => s.activateTab);
+  const closeTab = useEditorStore((s) => s.closeTab);
+  const closeOtherTabs = useEditorStore((s) => s.closeOtherTabs);
+  const closeSavedTabs = useEditorStore((s) => s.closeSavedTabs);
+  const saveActiveFile = useEditorStore((s) => s.saveActiveFile);
+  const saveAllDirtyFiles = useEditorStore((s) => s.saveAllDirtyFiles);
   const resetCurrentToBaseline = useEditorStore((s) => s.resetCurrentToBaseline);
-  const markBaselineSaved = useEditorStore((s) => s.markBaselineSaved);
   const setMode = useEditorStore((s) => s.setMode);
   const updateXmlFromVisual = useEditorStore((s) => s.updateXmlFromVisual);
   const updateXmlFromSource = useEditorStore((s) => s.updateXmlFromSource);
   const setTagDisplayMode = useEditorStore((s) => s.setTagDisplayMode);
+
+  const selectMapNode = useEditorStore((s) => s.selectMapNode);
+  const moveMapTreeNodes = useEditorStore((s) => s.moveMapTreeNodes);
+  const createTopicAndMountInMap = useEditorStore((s) => s.createTopicAndMountInMap);
+  const mountExistingFileInMap = useEditorStore((s) => s.mountExistingFileInMap);
+  const insertMapStructureNode = useEditorStore((s) => s.insertMapStructureNode);
+  const updateMapAttr = useEditorStore((s) => s.updateMapAttr);
+  const updateMapNavtitle = useEditorStore((s) => s.updateMapNavtitle);
+  const updateMapRootTitle = useEditorStore((s) => s.updateMapRootTitle);
+  const deleteMapTreeNode = useEditorStore((s) => s.deleteMapTreeNode);
+  const jumpToMapNodeSource = useEditorStore((s) => s.jumpToMapNodeSource);
+  const undoMap = useEditorStore((s) => s.undoMap);
+  const redoMap = useEditorStore((s) => s.redoMap);
+
+  const createStandaloneTopic = useEditorStore((s) => s.createStandaloneTopic);
+  const createNewMapFile = useEditorStore((s) => s.createNewMapFile);
+  const importSingleLocalFile = useEditorStore((s) => s.importSingleLocalFile);
+  const createWorkspaceFolder = useEditorStore((s) => s.createWorkspaceFolder);
+  const renameWorkspaceFile = useEditorStore((s) => s.renameWorkspaceFile);
+  const deleteWorkspaceFile = useEditorStore((s) => s.deleteWorkspaceFile);
+
+  const setLeftSidebarOpen = useEditorStore((s) => s.setLeftSidebarOpen);
+  const setLeftSidebarTab = useEditorStore((s) => s.setLeftSidebarTab);
   const setInspectorOpen = useEditorStore((s) => s.setInspectorOpen);
+  const setProblemsOpen = useEditorStore((s) => s.setProblemsOpen);
   const announce = useEditorStore((s) => s.announce);
   const clearPendingSourceOffset = useEditorStore((s) => s.clearPendingSourceOffset);
   const clearPendingVisualPmPos = useEditorStore((s) => s.clearPendingVisualPmPos);
   const requestSourceJump = useEditorStore((s) => s.requestSourceJump);
   const requestVisualJump = useEditorStore((s) => s.requestVisualJump);
 
-  const activeDoc = useMemo(
-    () => selectActiveDocument({ documents, activeDocId } as Parameters<typeof selectActiveDocument>[0]),
-    [documents, activeDocId],
+  // Initialize workspace on mount
+  useEffect(() => {
+    void initWorkspace();
+  }, [initWorkspace]);
+
+  // Global Cmd/Ctrl+S shortcut to persist changes cleanly
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === 's') {
+        ev.preventDefault();
+        void saveActiveFile();
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [saveActiveFile]);
+
+  // Global Cmd/Ctrl+\ shortcut to collapse / expand the 项目 · Map navigation column
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if ((ev.metaKey || ev.ctrlKey) && ev.key === '\\') {
+        ev.preventDefault();
+        setLeftSidebarOpen(!leftSidebarOpen);
+      }
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [leftSidebarOpen, setLeftSidebarOpen]);
+
+  const activeTab = useMemo(
+    () => selectActiveTab({ openTabs, activeTabPath }),
+    [openTabs, activeTabPath],
   );
-  const diffStats = useMemo(() => getActiveDocDiffStats(activeDoc), [activeDoc]);
+  const diffStats = useMemo(() => getTabDiffStats(activeTab), [activeTab]);
+
+  const dirtyCount = useMemo(() => {
+    const dirty = new Set<string>();
+    for (const t of openTabs) {
+      if (t.xml !== t.baselineXml) dirty.add(t.path);
+    }
+    for (const [p, buf] of Object.entries(mapBuffers)) {
+      if (buf.xml !== buf.baselineXml) dirty.add(p);
+    }
+    return dirty.size;
+  }, [openTabs, mapBuffers]);
+
+  const errorCount = useMemo(
+    () => diagnostics.filter((d) => d.severity === 'error').length,
+    [diagnostics],
+  );
+  const warningCount = useMemo(
+    () => diagnostics.filter((d) => d.severity === 'warning').length,
+    [diagnostics],
+  );
+
+  const workspaceDirectories = useMemo(
+    () => collectWorkspaceDirectoryPaths(fileTree),
+    [fileTree],
+  );
+  const workspaceTopics = useMemo(
+    () => collectWorkspaceFilesByKind(fileTree, new Set(['topic'])),
+    [fileTree],
+  );
+  const workspaceImages = useMemo(
+    () => collectWorkspaceFilesByKind(fileTree, new Set(['image'])),
+    [fileTree],
+  );
+  const workspaceMountables = useMemo(
+    () => collectWorkspaceFilesByKind(fileTree, new Set(['topic', 'ditamap', 'bookmap'])),
+    [fileTree],
+  );
 
   const visualRef = useRef<VisualEditorHandle | null>(null);
   const sourceCursorOffsetRef = useRef<number>(0);
@@ -65,6 +206,18 @@ export function App() {
   } | null>(null);
 
   const [newTopicOpen, setNewTopicOpen] = useState(false);
+  const [topicMountContext, setTopicMountContext] = useState<{
+    mount: NewTopicMountContext;
+    parentPath: number[] | null;
+  } | null>(null);
+  const [newMapOpen, setNewMapOpen] = useState(false);
+  const [workspaceDialogOpen, setWorkspaceDialogOpen] = useState(false);
+  const [mountExistingTarget, setMountExistingTarget] = useState<{
+    mapPath: string;
+    parentPath: number[] | null;
+    parentLabel: string;
+    isBookmap: boolean;
+  } | null>(null);
   const [refDialogMode, setRefDialogMode] = useState<'xref' | 'image' | null>(null);
 
   const handleSnapshotChange = useCallback(
@@ -84,12 +237,20 @@ export function App() {
     [],
   );
 
+  const isActiveMapTab =
+    activeTab?.kind === 'ditamap' || activeTab?.kind === 'bookmap';
+  const mode: EditorViewMode = activeTab?.mode ?? 'visual';
+
   const handleChangeMode = useCallback(
     (nextMode: EditorViewMode) => {
-      if (nextMode === mode) return;
+      if (!activeTab || nextMode === activeTab.mode) return;
 
-      // Visual -> Source / Split: sync exact element offset into CodeMirror
-      if (mode === 'visual' && (nextMode === 'source' || nextMode === 'split')) {
+      if (
+        !isActiveMapTab &&
+        activeTab.kind === 'topic' &&
+        activeTab.mode === 'visual' &&
+        (nextMode === 'source' || nextMode === 'split')
+      ) {
         const pmState = visualRef.current?.getCurrentPmState();
         if (pmState) {
           const synced = syncVisualToSource(pmState.doc, pmState.selection.from);
@@ -102,11 +263,14 @@ export function App() {
         return;
       }
 
-      // Source -> Visual / Split: guard well-formedness & map CodeMirror offset back to ProseMirror pos
-      if (mode === 'source' && (nextMode === 'visual' || nextMode === 'split')) {
-        const res = syncSourceToVisual(activeDoc.xml, sourceCursorOffsetRef.current);
+      if (
+        !isActiveMapTab &&
+        activeTab.kind === 'topic' &&
+        activeTab.mode === 'source' &&
+        (nextMode === 'visual' || nextMode === 'split')
+      ) {
+        const res = syncSourceToVisual(activeTab.xml, sourceCursorOffsetRef.current);
         if (!res.ok) {
-          // Let store record exact blocked state and keep user in Source mode
           setMode(nextMode);
           return;
         }
@@ -120,8 +284,8 @@ export function App() {
       setMode(nextMode);
     },
     [
-      mode,
-      activeDoc.xml,
+      activeTab,
+      isActiveMapTab,
       setMode,
       updateXmlFromVisual,
       requestSourceJump,
@@ -130,17 +294,16 @@ export function App() {
   );
 
   const handleExportFile = useCallback(() => {
-    const blob = new Blob([activeDoc.xml], { type: 'application/xml;charset=utf-8' });
+    if (!activeTab) return;
+    const blob = new Blob([activeTab.xml], { type: 'application/xml;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = activeDoc.fileName.endsWith('.dita') || activeDoc.fileName.endsWith('.xml')
-      ? activeDoc.fileName
-      : `${activeDoc.fileName}.dita`;
+    a.download = activeTab.fileName;
     a.click();
     URL.revokeObjectURL(url);
     announce(`已导出 ${a.download}`);
-  }, [activeDoc, announce]);
+  }, [activeTab, announce]);
 
   const handleConfirmXref = useCallback((attrs: RawAttrs, linkText: string) => {
     visualRef.current?.toggleInline('xref', attrs, linkText || undefined);
@@ -158,159 +321,484 @@ export function App() {
     visualRef.current?.selectNode(crumb.pos, true);
   }, []);
 
-  const showVisual = mode === 'visual' || mode === 'split';
-  const showSource = mode === 'source' || mode === 'split';
-  const showRightInspector = inspectorOpen && showVisual;
+  const resolveImageSrcForActiveTab = useCallback(
+    (href: string) => {
+      if (!activeTab) return null;
+      return resolveWorkspaceAssetUrl(activeTab.path, href, workspaceMode, memoryAssets);
+    },
+    [activeTab, workspaceMode, memoryAssets],
+  );
+
+  const handleOpenCreateAndMount = useCallback(
+    (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => {
+      const isBook = parent.mapPath.toLowerCase().endsWith('.bookmap');
+      const mapDir = dirnamePosix(parent.mapPath);
+      setTopicMountContext({
+        mount: {
+          mapPath: parent.mapPath,
+          parentLabel: parent.parentLabel,
+          defaultDir: mapDir ? `${mapDir}/topics` : 'concepts',
+          defaultTagName: isBook && !parent.parentPath ? 'chapter' : 'topicref',
+          isBookmap: isBook,
+        },
+        parentPath: parent.parentPath,
+      });
+      setNewTopicOpen(true);
+    },
+    [],
+  );
+
+  const handleOpenMountExisting = useCallback(
+    (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => {
+      setMountExistingTarget({
+        ...parent,
+        isBookmap: parent.mapPath.toLowerCase().endsWith('.bookmap'),
+      });
+    },
+    [],
+  );
+
+  const handleCreateTopicConfirm = useCallback(
+    (
+      type: DitaTopicTemplateType,
+      id: string,
+      title: string,
+      lang: string,
+      targetDir: string,
+      mountTagName: string,
+    ) => {
+      if (topicMountContext) {
+        void createTopicAndMountInMap({
+          mapPath: topicMountContext.mount.mapPath,
+          parentPath: topicMountContext.parentPath,
+          tagName: mountTagName,
+          topicType: type,
+          id,
+          title,
+          lang,
+          targetDir,
+        });
+        setTopicMountContext(null);
+      } else {
+        void createStandaloneTopic(type, id, title, lang, targetDir);
+      }
+    },
+    [topicMountContext, createTopicAndMountInMap, createStandaloneTopic],
+  );
+
+  const handleJumpToDiagnostic = useCallback(
+    (diag: WorkspaceDiagnostic) => {
+      void openFileTab(diag.filePath, {
+        mode: 'source',
+        jumpLine: diag.line,
+      });
+    },
+    [openFileTab],
+  );
+
+  const showTopicVisual =
+    Boolean(activeTab) &&
+    activeTab!.kind === 'topic' &&
+    (mode === 'visual' || mode === 'split');
+  const showMapOverview =
+    Boolean(activeTab) &&
+    isActiveMapTab &&
+    (mode === 'visual' || mode === 'split');
+  const showVisualPane = showTopicVisual || showMapOverview;
+  const showSourcePane = Boolean(activeTab) && (mode === 'source' || mode === 'split');
+  const showRightInspector =
+    inspectorOpen && (inspectorTarget === 'map-node' || showTopicVisual);
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden bg-slate-50 text-slate-900">
-      <WorkbenchHeader
-        documents={documents}
-        activeDoc={activeDoc}
-        mode={mode}
-        xmlError={xmlError}
-        inspectorOpen={inspectorOpen}
-        isDirty={!diffStats.isIdentical}
-        onSelectDoc={selectDocument}
-        onOpenNewTopic={() => setNewTopicOpen(true)}
-        onImportFile={importLocalDocument}
-        onExportFile={handleExportFile}
-        onResetBaseline={resetCurrentToBaseline}
-        onSaveSnapshot={markBaselineSaved}
-        onChangeMode={handleChangeMode}
-        onToggleInspector={() => setInspectorOpen(!inspectorOpen)}
-      />
-
-      {/* Contextual Formatting & Element Insert Toolbar (shown in Visual & Split modes) */}
-      {showVisual ? (
-        <EditorToolbar
-          snapshot={snapshot}
-          canUndo={historyFlags.canUndo}
-          canRedo={historyFlags.canRedo}
-          canInsertBlock={(tag) => visualRef.current?.canInsertBlock(tag) ?? false}
-          canInsertInline={(tag) => visualRef.current?.canInsertInline(tag) ?? false}
-          onUndo={() => visualRef.current?.undo()}
-          onRedo={() => visualRef.current?.redo()}
-          onOpenInsertMenu={(el) => visualRef.current?.openInsertMenuAtElement(el)}
-          onToggleInline={(tag) => visualRef.current?.toggleInline(tag)}
-          onInsertBlock={(tag) => visualRef.current?.insertBlock(tag)}
-          onOpenXrefDialog={() => setRefDialogMode('xref')}
-          onOpenImageDialog={() => setRefDialogMode('image')}
-          onTableAction={(action) => visualRef.current?.runTableAction(action)}
-        />
-      ) : null}
-
-      {/* Accessible live region outside the toolbar for screen reader feedback */}
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900">
+      {/* Accessible live status region */}
       <p role="status" className="sr-only">
         {statusMessage}
       </p>
 
-      {/* Main Resizable Split Workbench Area */}
-      <main className="min-h-0 flex-1 overflow-hidden">
-        <Group
-          key={`${mode}-${showRightInspector ? 'insp' : 'noinsp'}`}
-          orientation="horizontal"
-          className="h-full w-full"
-        >
-          {showVisual ? (
-            <Panel
-              id="visual-pane"
-              defaultSize={
-                mode === 'split'
-                  ? showRightInspector
-                    ? '42%'
-                    : '52%'
-                  : showRightInspector
-                    ? '74%'
-                    : '100%'
-              }
-              minSize="25%"
-            >
-              <VisualEditor
-                ref={visualRef}
-                xml={activeDoc.xml}
-                reloadToken={visualReloadToken}
-                tagDisplayMode={tagDisplayMode}
-                onChangeTagDisplayMode={setTagDisplayMode}
-                pendingJumpPos={pendingVisualPmPos}
-                onJumpHandled={clearPendingVisualPmPos}
-                onXmlChange={updateXmlFromVisual}
-                onSnapshotChange={handleSnapshotChange}
+      {/* Full-height workbench shell: the 项目 / Map navigation column runs to the top
+          edge of the window, and collapses back so the header regains the full width. */}
+      <Group
+        key={`outer-${leftSidebarOpen ? 'L' : 'noL'}`}
+        orientation="horizontal"
+        className="h-full w-full"
+      >
+        {leftSidebarOpen ? (
+          <>
+            <Panel id="left-sidebar-pane" defaultSize="22%" minSize="16%" maxSize="36%">
+              <LeftSidebar
+                activeTab={leftSidebarTab}
+                onChangeTab={setLeftSidebarTab}
+                onCollapse={() => setLeftSidebarOpen(false)}
+                mapTreeSlot={
+                  <MapTreePanel
+                    rootMapPath={activeRootMapPath}
+                    mapBuffers={mapBuffers}
+                    fileSet={fileSet}
+                    topicTitles={topicTitles}
+                    selectedMapNode={selectedMapNode}
+                    onSelectMapNode={(ref) => selectMapNode(ref, true)}
+                    onMoveNodes={moveMapTreeNodes}
+                    onOpenTopicOrMap={(path) => void openFileTab(path)}
+                    onJumpToSource={(mapPath, line) => void jumpToMapNodeSource(mapPath, line)}
+                    onOpenCreateAndMount={handleOpenCreateAndMount}
+                    onOpenMountExisting={handleOpenMountExisting}
+                    onInsertStructure={(mapPath, parentPath, tagName) =>
+                      insertMapStructureNode({
+                        mapPath,
+                        parentPath,
+                        tagName,
+                        navtitle: tagName === 'chapter' ? '新建章节' : '新建分组',
+                      })
+                    }
+                    onDeleteNode={deleteMapTreeNode}
+                    onUndoMap={undoMap}
+                    onRedoMap={redoMap}
+                  />
+                }
+                fileExplorerSlot={
+                  <FileExplorerPanel
+                    files={fileTree}
+                    activeTabPath={activeTabPath}
+                    activeRootMapPath={activeRootMapPath}
+                    topicTitles={topicTitles}
+                    onOpenFile={(path) => void openFileTab(path)}
+                    onActivateMap={(path) => void selectRootMap(path)}
+                    onNewTopic={() => {
+                      setTopicMountContext(null);
+                      setNewTopicOpen(true);
+                    }}
+                    onNewMap={() => setNewMapOpen(true)}
+                    onCreateFolder={(dir) => void createWorkspaceFolder(dir)}
+                    onRenameFile={(from, to) => void renameWorkspaceFile(from, to)}
+                    onDeleteFile={(path) => void deleteWorkspaceFile(path)}
+                  />
+                }
+              />
+            </Panel>
+            <Separator className="dita-resize-handle" aria-label="调整左侧边栏宽度" />
+          </>
+        ) : null}
+
+        <Panel id="workbench-main-pane" minSize="38%">
+          <div className="flex h-full flex-col overflow-hidden">
+            <WorkbenchHeader
+              showBrand={!leftSidebarOpen}
+              workspaceName={workspaceName}
+              workspaceMode={workspaceMode}
+              maps={workspaceMaps}
+              activeRootMapPath={activeRootMapPath}
+              activeTab={activeTab}
+              mode={mode}
+              xmlError={activeTab?.xmlError ?? null}
+              leftSidebarOpen={leftSidebarOpen}
+              inspectorOpen={inspectorOpen}
+              problemsOpen={problemsOpen}
+              errorCount={errorCount}
+              warningCount={warningCount}
+              dirtyCount={dirtyCount}
+              isCurrentDirty={!diffStats.isIdentical}
+              saving={savingPaths.length > 0}
+              onToggleLeftSidebar={() => setLeftSidebarOpen(!leftSidebarOpen)}
+              onOpenWorkspaceDialog={() => setWorkspaceDialogOpen(true)}
+              onSelectRootMap={(mapPath) => void selectRootMap(mapPath)}
+              onOpenNewTopic={() => {
+                setTopicMountContext(null);
+                setNewTopicOpen(true);
+              }}
+              onImportFile={(name, content) => void importSingleLocalFile(name, content)}
+              onExportFile={handleExportFile}
+              onResetBaseline={resetCurrentToBaseline}
+              onSaveActive={() => void saveActiveFile()}
+              onSaveAll={() => void saveAllDirtyFiles()}
+              onChangeMode={handleChangeMode}
+              onToggleProblems={() => setProblemsOpen(!problemsOpen)}
+              onToggleInspector={() => setInspectorOpen(!inspectorOpen)}
+            />
+
+            {/* Contextual Topic Formatting Toolbar */}
+            {showTopicVisual ? (
+              <EditorToolbar
+                snapshot={snapshot}
+                canUndo={historyFlags.canUndo}
+                canRedo={historyFlags.canRedo}
+                canInsertBlock={(tag) => visualRef.current?.canInsertBlock(tag) ?? false}
+                canInsertInline={(tag) => visualRef.current?.canInsertInline(tag) ?? false}
+                onUndo={() => visualRef.current?.undo()}
+                onRedo={() => visualRef.current?.redo()}
+                onOpenInsertMenu={(el) => visualRef.current?.openInsertMenuAtElement(el)}
+                onToggleInline={(tag) => visualRef.current?.toggleInline(tag)}
+                onInsertBlock={(tag) => visualRef.current?.insertBlock(tag)}
                 onOpenXrefDialog={() => setRefDialogMode('xref')}
-                onAnnounce={announce}
+                onOpenImageDialog={() => setRefDialogMode('image')}
+                onTableAction={(action) => visualRef.current?.runTableAction(action)}
               />
-            </Panel>
-          ) : null}
+            ) : null}
 
-          {showVisual && showSource ? (
-            <Separator className="dita-resize-handle" aria-label="调整可视化与源码分栏宽度" />
-          ) : null}
+            <main className="min-h-0 flex-1 overflow-hidden">
+              <Group
+                key={`main-${showRightInspector ? 'R' : 'noR'}`}
+                orientation="horizontal"
+                className="h-full w-full"
+              >
+                {/* Center Column: Tab Bar + Editor + Optional Bottom Problems Panel */}
+                <Panel id="center-workbench-pane" defaultSize={showRightInspector ? '76%' : '100%'} minSize="34%">
+                  <div className="flex h-full flex-col overflow-hidden">
+                    <EditorTabBar
+                      tabs={openTabs}
+                      activeTabPath={activeTabPath}
+                      onSelectTab={activateTab}
+                      onCloseTab={closeTab}
+                      onCloseOtherTabs={closeOtherTabs}
+                      onCloseSavedTabs={closeSavedTabs}
+                    />
 
-          {showSource ? (
-            <Panel
-              id="source-pane"
-              defaultSize={
-                mode === 'split'
-                  ? showRightInspector
-                    ? '36%'
-                    : '48%'
-                  : '100%'
-              }
-              minSize="24%"
-            >
-              <SourceEditor
-                xml={activeDoc.xml}
-                xmlError={xmlError}
-                switchBlockedReason={switchBlockedReason}
-                pendingJumpOffset={pendingSourceOffset}
-                onJumpHandled={clearPendingSourceOffset}
-                onChange={updateXmlFromSource}
-                onCursorOffsetChange={(offset) => {
-                  sourceCursorOffsetRef.current = offset;
-                }}
-                onAnnounce={announce}
-              />
-            </Panel>
-          ) : null}
+                    <div className="min-h-0 flex-1 overflow-hidden">
+                      <Group
+                        key={`center-v-${problemsOpen ? 'prob' : 'noprob'}`}
+                        orientation="vertical"
+                        className="h-full w-full"
+                      >
+                        <Panel id="editor-stage-pane" defaultSize={problemsOpen ? '72%' : '100%'} minSize="35%">
+                          {!activeTab ? (
+                            <div className="flex h-full flex-col items-center justify-center bg-slate-100/70 p-8 text-center">
+                              <Network className="mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
+                              <h2 className="text-sm font-semibold text-slate-800">
+                                从左侧 Map 树或文件浏览器打开文档
+                              </h2>
+                              <p className="mt-1 max-w-md text-xs text-slate-500">
+                                双击任意章节节点打开 Topic 可视化编辑，或点击顶栏切换 Root Map 与工作区。
+                              </p>
+                              <div className="mt-4 flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setTopicMountContext(null);
+                                    setNewTopicOpen(true);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                                >
+                                  <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                  新建 Topic
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setWorkspaceDialogOpen(true)}
+                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                >
+                                  <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                                  管理本地工作区
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <Group
+                              key={`editor-${activeTab.path}-${mode}-${showVisualPane ? 'V' : 'noV'}-${showSourcePane ? 'S' : 'noS'}`}
+                              orientation="horizontal"
+                              className="h-full w-full"
+                            >
+                              {showVisualPane ? (
+                                <Panel
+                                  id="visual-pane"
+                                  defaultSize={showSourcePane ? '52%' : '100%'}
+                                  minSize="25%"
+                                >
+                                  {showMapOverview ? (
+                                    <MapOverviewPane
+                                      mapPath={activeTab.path}
+                                      xml={activeTab.xml}
+                                      fileSet={fileSet}
+                                      onUpdateRootTitle={updateMapRootTitle}
+                                      onActivateRootMap={(p) => void selectRootMap(p)}
+                                      onOpenSourceMode={() => handleChangeMode('source')}
+                                      onOpenTopic={(p) => void openFileTab(p)}
+                                      onCreateAndMount={(mapPath, title) =>
+                                        handleOpenCreateAndMount({
+                                          mapPath,
+                                          parentPath: null,
+                                          parentLabel: title,
+                                        })
+                                      }
+                                    />
+                                  ) : (
+                                    <VisualEditor
+                                      ref={visualRef}
+                                      xml={activeTab.xml}
+                                      reloadToken={activeTab.visualReloadToken}
+                                      tagDisplayMode={tagDisplayMode}
+                                      onChangeTagDisplayMode={setTagDisplayMode}
+                                      pendingJumpPos={pendingVisualPmPos}
+                                      onJumpHandled={clearPendingVisualPmPos}
+                                      onXmlChange={updateXmlFromVisual}
+                                      onSnapshotChange={handleSnapshotChange}
+                                      onOpenXrefDialog={() => setRefDialogMode('xref')}
+                                      onAnnounce={announce}
+                                      resolveImageSrc={resolveImageSrcForActiveTab}
+                                    />
+                                  )}
+                                </Panel>
+                              ) : null}
 
-          {showRightInspector ? (
-            <>
-              <Separator className="dita-resize-handle" aria-label="调整属性检查器宽度" />
-              <Panel id="inspector-pane" defaultSize="24%" minSize="18%" maxSize="40%">
-                <AttributesPanel
-                  snapshot={snapshot}
-                  docMetadata={docMeta}
-                  onUpdateAttr={(pos, name, val) =>
-                    visualRef.current?.updateAttr(pos, name, val)
-                  }
-                  onSelectBreadcrumb={(pos) => visualRef.current?.selectNode(pos, true)}
-                  onMoveNode={(pos, dir) => visualRef.current?.moveNode(pos, dir)}
-                  onDeleteNode={(pos) => visualRef.current?.deleteNode(pos)}
-                />
-              </Panel>
-            </>
-          ) : null}
-        </Group>
-      </main>
+                              {showVisualPane && showSourcePane ? (
+                                <Separator
+                                  className="dita-resize-handle"
+                                  aria-label="调整可视化与源码分栏宽度"
+                                />
+                              ) : null}
 
-      {/* Bottom Clickable Element Breadcrumb & Diff Status Bar */}
-      <BreadcrumbBar
-        breadcrumbs={snapshot?.breadcrumbs ?? []}
-        activePos={snapshot?.activeItem?.pos ?? null}
-        onSelectCrumb={handleSelectBreadcrumb}
-        diffStats={diffStats}
-        mode={mode}
-      />
+                              {showSourcePane ? (
+                                <Panel
+                                  id="source-pane"
+                                  defaultSize={showVisualPane ? '48%' : '100%'}
+                                  minSize="24%"
+                                >
+                                  <SourceEditor
+                                    xml={activeTab.xml}
+                                    xmlError={activeTab.xmlError}
+                                    switchBlockedReason={activeTab.switchBlockedReason}
+                                    pendingJumpOffset={pendingSourceOffset}
+                                    onJumpHandled={clearPendingSourceOffset}
+                                    onChange={updateXmlFromSource}
+                                    onCursorOffsetChange={(offset) => {
+                                      sourceCursorOffsetRef.current = offset;
+                                    }}
+                                    onAnnounce={announce}
+                                  />
+                                </Panel>
+                              ) : null}
+                            </Group>
+                          )}
+                        </Panel>
+
+                        {problemsOpen ? (
+                          <>
+                            <Separator
+                              className="dita-resize-handle-y"
+                              aria-label="调整问题诊断面板高度"
+                            />
+                            <Panel id="problems-pane" defaultSize="28%" minSize="16%" maxSize="55%">
+                              <ProblemsPanel
+                                diagnostics={diagnostics}
+                                onRefresh={() => void refreshDiagnostics()}
+                                onJumpToDiagnostic={handleJumpToDiagnostic}
+                                onClose={() => setProblemsOpen(false)}
+                              />
+                            </Panel>
+                          </>
+                        ) : null}
+                      </Group>
+                    </div>
+                  </div>
+                </Panel>
+
+                {showRightInspector ? (
+                  <>
+                    <Separator className="dita-resize-handle" aria-label="调整属性检查器宽度" />
+                    <Panel id="inspector-pane" defaultSize="24%" minSize="18%" maxSize="38%">
+                      {inspectorTarget === 'map-node' || !showTopicVisual ? (
+                        <MapNodeInspector
+                          selected={selectedMapNode}
+                          mapBuffers={mapBuffers}
+                          availableFiles={workspaceMountables}
+                          onUpdateAttr={updateMapAttr}
+                          onUpdateNavtitle={updateMapNavtitle}
+                          onUpdateRootTitle={updateMapRootTitle}
+                          onOpenTargetFile={(path) => void openFileTab(path)}
+                          onJumpToSource={(mapPath, line) => void jumpToMapNodeSource(mapPath, line)}
+                          onDeleteNode={deleteMapTreeNode}
+                        />
+                      ) : (
+                        <AttributesPanel
+                          snapshot={snapshot}
+                          docMetadata={docMeta}
+                          onUpdateAttr={(pos, name, val) =>
+                            visualRef.current?.updateAttr(pos, name, val)
+                          }
+                          onSelectBreadcrumb={(pos) => visualRef.current?.selectNode(pos, true)}
+                          onMoveNode={(pos, dir) => visualRef.current?.moveNode(pos, dir)}
+                          onDeleteNode={(pos) => visualRef.current?.deleteNode(pos)}
+                        />
+                      )}
+                    </Panel>
+                  </>
+                ) : null}
+              </Group>
+            </main>
+
+            <BreadcrumbBar
+              breadcrumbs={showTopicVisual ? (snapshot?.breadcrumbs ?? []) : []}
+              activePos={showTopicVisual ? (snapshot?.activeItem?.pos ?? null) : null}
+              onSelectCrumb={handleSelectBreadcrumb}
+              diffStats={diffStats}
+              mode={mode}
+              activePath={activeTab?.path ?? activeRootMapPath}
+              diagnosticsCount={diagnostics.length}
+              onToggleProblems={() => setProblemsOpen(!problemsOpen)}
+            />
+          </div>
+        </Panel>
+      </Group>
 
       {/* Native Modal Dialogs */}
       <NewTopicDialog
         open={newTopicOpen}
-        onClose={() => setNewTopicOpen(false)}
-        onCreate={createNewDocument}
+        mountContext={topicMountContext?.mount ?? null}
+        directories={workspaceDirectories}
+        onClose={() => {
+          setNewTopicOpen(false);
+          setTopicMountContext(null);
+        }}
+        onCreate={handleCreateTopicConfirm}
       />
+
+      <NewMapDialog
+        open={newMapOpen}
+        onClose={() => setNewMapOpen(false)}
+        onCreate={(opts) => void createNewMapFile(opts)}
+      />
+
+      <WorkspaceDialog
+        open={workspaceDialogOpen}
+        workspaceMode={workspaceMode}
+        rootDir={workspaceRootDir}
+        defaultRootDir={workspaceDefaultRootDir}
+        onClose={() => setWorkspaceDialogOpen(false)}
+        onOpenLocalDir={openLocalWorkspace}
+        onImportFolder={importFolderWorkspace}
+        onRestoreOfflineDemo={restoreOfflineDemo}
+      />
+
+      {mountExistingTarget ? (
+        <MountExistingDialog
+          open={Boolean(mountExistingTarget)}
+          mapPath={mountExistingTarget.mapPath}
+          parentLabel={mountExistingTarget.parentLabel}
+          isBookmap={mountExistingTarget.isBookmap}
+          availableFiles={workspaceMountables}
+          topicTitles={topicTitles}
+          onClose={() => setMountExistingTarget(null)}
+          onConfirm={(opts) => {
+            mountExistingFileInMap({
+              mapPath: mountExistingTarget.mapPath,
+              parentPath: mountExistingTarget.parentPath,
+              targetFilePath: opts.targetFilePath,
+              tagName: opts.tagName,
+              navtitle: opts.navtitle,
+            });
+            setMountExistingTarget(null);
+          }}
+        />
+      ) : null}
 
       <XrefImageDialog
         mode={refDialogMode}
+        activeDocPath={activeTab?.path ?? null}
+        workspaceMode={workspaceMode}
+        workspaceTopics={workspaceTopics}
+        workspaceImages={workspaceImages}
+        topicTitles={topicTitles}
+        onUploadImage={uploadWorkspaceImage}
+        resolvePreviewUrl={resolveImageSrcForActiveTab}
         onClose={() => setRefDialogMode(null)}
         onConfirmXref={handleConfirmXref}
         onConfirmImage={handleConfirmImage}

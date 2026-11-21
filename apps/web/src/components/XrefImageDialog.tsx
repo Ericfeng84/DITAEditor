@@ -1,9 +1,21 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import type { RawAttrs } from '@dita/core';
-import { Image as ImageIcon, Link2, X } from 'lucide-react';
+import { computeRelativeDitaHref, type RawAttrs } from '@dita/core';
+import { Image as ImageIcon, Link2, Upload, X } from 'lucide-react';
+import type { UploadAssetResult } from '../services/workspace-api';
 
 export interface XrefImageDialogProps {
   mode: 'xref' | 'image' | null;
+  activeDocPath?: string | null;
+  workspaceMode?: 'api' | 'memory';
+  workspaceTopics?: string[];
+  workspaceImages?: string[];
+  topicTitles?: Record<string, string>;
+  onUploadImage?: (
+    file: File,
+    targetDir: string,
+    fromDocPath?: string,
+  ) => Promise<UploadAssetResult>;
+  resolvePreviewUrl?: (href: string) => string | null;
   onClose: () => void;
   onConfirmXref: (attrs: RawAttrs, linkText: string) => void;
   onConfirmImage: (attrs: RawAttrs, placement: 'inline' | 'break') => void;
@@ -11,12 +23,20 @@ export interface XrefImageDialogProps {
 
 export function XrefImageDialog({
   mode,
+  activeDocPath,
+  workspaceMode = 'memory',
+  workspaceTopics = [],
+  workspaceImages = [],
+  topicTitles = {},
+  onUploadImage,
+  resolvePreviewUrl,
   onClose,
   onConfirmXref,
   onConfirmImage,
 }: XrefImageDialogProps) {
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const [href, setHref] = useState('');
   const [keyref, setKeyref] = useState('');
@@ -25,26 +45,46 @@ export function XrefImageDialog({
   const [format, setFormat] = useState('dita');
   const [placement, setPlacement] = useState<'break' | 'inline'>('break');
   const [alt, setAlt] = useState('');
+  const [uploading, setUploading] = useState(false);
+  const [uploadErr, setUploadErr] = useState<string | null>(null);
 
   useEffect(() => {
     const dialog = dialogRef.current;
     if (!dialog) return;
 
     if (mode) {
-      setHref(mode === 'xref' ? '../concepts/dita-architecture.dita' : '../images/architecture.svg');
+      const defaultTopic = workspaceTopics.find((t) => t !== activeDocPath) ?? workspaceTopics[0];
+      const defaultImage = workspaceImages[0];
+
+      if (mode === 'xref') {
+        const rel =
+          defaultTopic && activeDocPath
+            ? computeRelativeDitaHref(activeDocPath, defaultTopic)
+            : '../concepts/dita-architecture.dita';
+        setHref(rel);
+        setText(defaultTopic && topicTitles[defaultTopic] ? topicTitles[defaultTopic]! : '参考文档');
+      } else {
+        const relImg =
+          defaultImage && activeDocPath
+            ? computeRelativeDitaHref(activeDocPath, defaultImage)
+            : '../images/architecture.svg';
+        setHref(relImg);
+        setText('');
+      }
+
       setKeyref('');
-      setText(mode === 'xref' ? '参考文档' : '');
       setScope('local');
       setFormat('dita');
       setPlacement('break');
       setAlt('架构示意图');
+      setUploadErr(null);
       if (!dialog.open) {
         dialog.showModal();
       }
     } else if (dialog.open) {
       dialog.close();
     }
-  }, [mode]);
+  }, [mode, activeDocPath, workspaceTopics, workspaceImages, topicTitles]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -57,6 +97,40 @@ export function XrefImageDialog({
     dialog.addEventListener('close', handleClose);
     return () => dialog.removeEventListener('close', handleClose);
   }, [onClose]);
+
+  const handleUploadPicked = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadErr(null);
+
+    if (workspaceMode === 'api' && onUploadImage) {
+      setUploading(true);
+      try {
+        const res = await onUploadImage(file, 'images', activeDocPath ?? undefined);
+        setHref(res.relativeHref);
+        if (!alt || alt === '架构示意图') {
+          setAlt(file.name.replace(/\.[^.]+$/, ''));
+        }
+      } catch (err) {
+        setUploadErr(err instanceof Error ? err.message : String(err));
+      } finally {
+        setUploading(false);
+        e.target.value = '';
+      }
+      return;
+    }
+
+    // Memory mode fallback: embed uploaded image as data URL
+    const reader = new FileReader();
+    reader.onload = () => {
+      if (typeof reader.result === 'string') {
+        setHref(reader.result);
+        setAlt(file.name.replace(/\.[^.]+$/, ''));
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = '';
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -77,6 +151,9 @@ export function XrefImageDialog({
     }
     dialogRef.current?.close('ok');
   };
+
+  const previewUrl =
+    mode === 'image' && href.trim() ? (resolvePreviewUrl?.(href.trim()) ?? null) : null;
 
   return (
     <dialog
@@ -110,6 +187,84 @@ export function XrefImageDialog({
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3 p-5 text-xs">
+        {/* Quick workspace picker + image upload */}
+        {mode === 'image' ? (
+          <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium text-slate-700">上传图片或从工作区选取</span>
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => uploadInputRef.current?.click()}
+                className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+              >
+                <Upload className="h-3 w-3" aria-hidden="true" />
+                {uploading ? '上传中…' : '上传图片'}
+              </button>
+              <input
+                ref={uploadInputRef}
+                type="file"
+                accept=".png,.jpg,.jpeg,.gif,.svg,.webp,.avif"
+                onChange={handleUploadPicked}
+                className="hidden"
+                aria-hidden="true"
+              />
+            </div>
+
+            {workspaceImages.length > 0 ? (
+              <select
+                aria-label="选择工作区已有图片"
+                value=""
+                onChange={(e) => {
+                  if (!e.target.value) return;
+                  const rel = activeDocPath
+                    ? computeRelativeDitaHref(activeDocPath, e.target.value)
+                    : e.target.value;
+                  setHref(rel);
+                }}
+                className="w-full rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+              >
+                <option value="">从工作区 images/ 选择已有图片…</option>
+                {workspaceImages.map((img) => (
+                  <option key={img} value={img}>
+                    {img}
+                  </option>
+                ))}
+              </select>
+            ) : null}
+
+            {uploadErr ? <p className="text-[11px] text-rose-600">{uploadErr}</p> : null}
+          </div>
+        ) : workspaceTopics.length > 0 ? (
+          <div>
+            <label htmlFor="xref-ws-topic" className="mb-1 block font-medium text-slate-700">
+              从工作区快速选择目标 Topic
+            </label>
+            <select
+              id="xref-ws-topic"
+              value=""
+              onChange={(e) => {
+                if (!e.target.value) return;
+                const rel = activeDocPath
+                  ? computeRelativeDitaHref(activeDocPath, e.target.value)
+                  : e.target.value;
+                setHref(rel);
+                if (topicTitles[e.target.value]) {
+                  setText(topicTitles[e.target.value]!);
+                }
+              }}
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+            >
+              <option value="">选择工作区 Topic 自动计算相对 href…</option>
+              {workspaceTopics.map((t) => (
+                <option key={t} value={t}>
+                  {t} {topicTitles[t] ? `— ${topicTitles[t]}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : null}
+
         <div>
           <label htmlFor="ref-href" className="mb-1 block font-medium text-slate-700">
             目标路径 (href)
@@ -120,10 +275,24 @@ export function XrefImageDialog({
             autoFocus
             value={href}
             onChange={(e) => setHref(e.target.value)}
-            placeholder={mode === 'xref' ? 'target.dita#topicId/elemId 或 https://...' : '../images/diagram.svg'}
+            placeholder={
+              mode === 'xref'
+                ? 'target.dita#topicId/elemId 或 https://...'
+                : '../images/diagram.svg'
+            }
             className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
           />
         </div>
+
+        {previewUrl ? (
+          <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-2">
+            <img
+              src={previewUrl}
+              alt={alt || '图片预览'}
+              className="max-h-28 max-w-full rounded object-contain"
+            />
+          </div>
+        ) : null}
 
         <div>
           <label htmlFor="ref-keyref" className="mb-1 block font-medium text-slate-700">

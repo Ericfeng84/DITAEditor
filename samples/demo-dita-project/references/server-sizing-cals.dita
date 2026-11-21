@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="ref_hardware_specs" xml:lang="en-US">
+  <title>Server Sizing and CALS Matrix</title>
+  <shortdesc>Hardware recommendations and OASIS CALS table layout reference for team deployments.</shortdesc>
+  <refbody>
+    <refsyn>
+      <title>Endpoint Base URL</title>
+      <codeblock outputclass="language-bash">https://docs-api.internal.example.com/api/v1</codeblock>
+    </refsyn>
+    <section id="sec_cals_matrix">
+      <title>Deployment Sizing Matrix (CALS Table)</title>
+      <table id="tbl_sizing" frame="all" colsep="1" rowsep="1">
+        <title>Recommended Resources by Team Size</title>
+        <desc>Includes combined horizontal and vertical cell spans.</desc>
+        <tgroup cols="4">
+          <colspec colnum="1" colname="c1" colwidth="1.5*" align="left"/>
+          <colspec colnum="2" colname="c2" colwidth="1*" align="center"/>
+          <colspec colnum="3" colname="c3" colwidth="1.5*" align="right"/>
+          <colspec colnum="4" colname="c4" colwidth="2*" align="left"/>
+          <thead>
+            <row>
+              <entry colname="c1" morerows="1">Component</entry>
+              <entry namest="c2" nameend="c3">Resource Allocation</entry>
+              <entry colname="c4" morerows="1">Notes</entry>
+            </row>
+            <row>
+              <entry colname="c2">CPU</entry>
+              <entry colname="c3">Memory</entry>
+            </row>
+          </thead>
+          <tbody>
+            <row>
+              <entry morerows="1">Java Worker</entry>
+              <entry>2 vCPU</entry>
+              <entry>2 GB</entry>
+              <entry>
+                <p>Small teams (up to 10 authors).</p>
+                <p>Supports 1 concurrent PDF build.</p>
+              </entry>
+            </row>
+            <row>
+              <entry>4 vCPU</entry>
+              <entry>4 GB</entry>
+              <entry>Medium teams (10–50 authors).</entry>
+            </row>
+            <row>
+              <entry namest="c1" nameend="c2">PostgreSQL + Redis</entry>
+              <entry>2 GB</entry>
+              <entry/>
+            </row>
+          </tbody>
+        </tgroup>
+      </table>
+    </section>
+  </refbody>
+</reference>

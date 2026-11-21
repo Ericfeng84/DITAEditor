@@ -143,6 +143,7 @@ export interface VisualEditorProps {
   ) => void;
   onOpenXrefDialog: () => void;
   onAnnounce?: (msg: string) => void;
+  resolveImageSrc?: (href: string) => string | null;
 }
 
 export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
@@ -158,6 +159,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onSnapshotChange,
       onOpenXrefDialog,
       onAnnounce,
+      resolveImageSrc,
     },
     ref,
   ) {
@@ -172,10 +174,12 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     const onSnapshotRef = useRef(onSnapshotChange);
     const onXrefRef = useRef(onOpenXrefDialog);
     const onAnnounceRef = useRef(onAnnounce);
+    const resolveImageSrcRef = useRef(resolveImageSrc);
     onXmlChangeRef.current = onXmlChange;
     onSnapshotRef.current = onSnapshotChange;
     onXrefRef.current = onOpenXrefDialog;
     onAnnounceRef.current = onAnnounce;
+    resolveImageSrcRef.current = resolveImageSrc;
 
     const [insertMenuOpen, setInsertMenuOpen] = useState(false);
     const [insertMenuAnchor, setInsertMenuAnchor] = useState<{ top: number; left: number } | null>(
@@ -603,7 +607,9 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
       const view = new EditorView(container, {
         state,
-        nodeViews: createDitaNodeViews(),
+        nodeViews: createDitaNodeViews({
+          resolveImageSrc: (href) => resolveImageSrcRef.current?.(href) ?? null,
+        }),
         attributes: {
           class: 'dita-prosemirror-doc',
           spellcheck: 'false',

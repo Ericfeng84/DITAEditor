@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task_configure_cjk_pdf" xml:lang="zh-CN">
+  <title>配置 Noto CJK 中文 PDF 字体</title>
+  <shortdesc>确保 DITA-OT Apache FOP 在导出中文技术手册 PDF 时正确渲染全部汉字字形。</shortdesc>
+  <taskbody>
+    <steps>
+      <step>
+        <cmd>在容器镜像中安装 <filepath>NotoSansCJKsc-Regular.otf</filepath> 与 <filepath>NotoSerifCJKsc-Regular.otf</filepath>。</cmd>
+      </step>
+      <step>
+        <cmd>配置 DITA-OT 定制字体映射插件的 <filepath>fop.xconf</filepath> 与 <filepath>font-mappings.xml</filepath>。</cmd>
+      </step>
+      <step>
+        <cmd>使用 <cmdname>dita --input=admin-book.bookmap --format=pdf</cmdname> 验证导出结果无 <codeph>###</codeph> 缺字。</cmd>
+      </step>
+    </steps>
+  </taskbody>
+</task>

@@ -8,6 +8,7 @@ import type { XmlAttributeEntry } from '../xml/types.js';
 
 export type DitaElementCategory =
   | 'topic'
+  | 'map'
   | 'structure'
   | 'task'
   | 'block'
@@ -114,6 +115,29 @@ export const DITA_CONTENT_MODEL: Readonly<Record<string, readonly string[]>> = {
   task: ['title', 'shortdesc', 'prolog', 'taskbody', 'related-links'],
   reference: ['title', 'shortdesc', 'prolog', 'refbody', 'related-links'],
 
+  // Map & Bookmap roots and hierarchy containers
+  map: ['title', 'topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef', 'topicset', 'ditavalref', 'reltable'],
+  bookmap: ['booktitle', 'bookmeta', 'frontmatter', 'chapter', 'part', 'appendix', 'backmatter', 'mapref', 'keydef', 'reltable'],
+  booktitle: ['booklibrary', 'mainbooktitle', 'booktitlealt'],
+  frontmatter: ['booklists', 'notices', 'preface', 'bookabstract', 'draftintro', 'topicref', 'mapref', 'keydef'],
+  backmatter: ['booklists', 'notices', 'colophon', 'amendments', 'topicref', 'mapref'],
+  booklists: ['toc', 'figurelist', 'tablelist', 'glossarylist', 'indexlist'],
+  part: ['topicmeta', 'chapter', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  chapter: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  appendix: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  preface: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  notices: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  topicref: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  topichead: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  topicgroup: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  topicset: ['topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef'],
+  topicmeta: ['navtitle', 'linktext', 'shortdesc', 'keywords', 'author', 'critdates', 'othermeta'],
+  keydef: ['topicmeta'],
+  reltable: ['title', 'relheader', 'relrow'],
+  relheader: ['relcolspec'],
+  relrow: ['relcell'],
+  relcell: ['topicref', 'topicgroup'],
+
   // Bodies
   body: BODY_BLOCKS,
   conbody: BODY_BLOCKS,
@@ -213,6 +237,30 @@ const ELEMENT_SPEC_LIST: readonly DitaElementSpec[] = [
   { tag: 'concept', label: 'Concept', labelZh: '概念主题', description: 'Conceptual overview answering "what" and "why"', category: 'topic', kind: 'block', pmNodeType: 'dita_concept' },
   { tag: 'task', label: 'Task', labelZh: '任务主题', description: 'Step-by-step procedural guide', category: 'topic', kind: 'block', pmNodeType: 'dita_task' },
   { tag: 'reference', label: 'Reference', labelZh: '参考主题', description: 'Structured specifications, parameters, and tables', category: 'topic', kind: 'block', pmNodeType: 'dita_reference' },
+
+  // Map & Bookmap elements
+  { tag: 'map', label: 'DITA Map', labelZh: 'DITA 地图', description: 'Root navigation map assembling topics and sub-maps', category: 'map', kind: 'block', keywords: ['ditamap', 'toc', '目录'] },
+  { tag: 'bookmap', label: 'DITA Bookmap', labelZh: 'DITA 书籍地图', description: 'Book-oriented map with frontmatter, parts, chapters, and appendices', category: 'map', kind: 'block', keywords: ['book', 'manual', '书籍'] },
+  { tag: 'booktitle', label: 'Book Title', labelZh: '书籍标题组', description: 'Container for book library, main title, and subtitle', category: 'map', kind: 'block' },
+  { tag: 'mainbooktitle', label: 'Main Book Title', labelZh: '书籍主标题', description: 'Primary title of a bookmap', category: 'map', kind: 'block' },
+  { tag: 'booktitlealt', label: 'Book Subtitle', labelZh: '书籍副标题', description: 'Subtitle or edition tagline of a bookmap', category: 'map', kind: 'block' },
+  { tag: 'bookmeta', label: 'Book Metadata', labelZh: '书籍元数据', description: 'Publication metadata for a bookmap', category: 'map', kind: 'block' },
+  { tag: 'frontmatter', label: 'Frontmatter', labelZh: '前置部分', description: 'TOC, notices, and preface before chapters', category: 'map', kind: 'block' },
+  { tag: 'backmatter', label: 'Backmatter', labelZh: '后置部分', description: 'Colophon, index, and closing lists after chapters', category: 'map', kind: 'block' },
+  { tag: 'booklists', label: 'Book Lists', labelZh: '自动目录清单', description: 'Container for generated TOC, figure list, or index', category: 'map', kind: 'block' },
+  { tag: 'chapter', label: 'Chapter', labelZh: '章 (Chapter)', description: 'Top-level book chapter pointing to a topic or grouping sub-topics', category: 'map', kind: 'block' },
+  { tag: 'part', label: 'Part', labelZh: '篇 (Part)', description: 'Major book division grouping multiple chapters', category: 'map', kind: 'block' },
+  { tag: 'appendix', label: 'Appendix', labelZh: '附录 (Appendix)', description: 'Supplementary reference chapter at the end of a book', category: 'map', kind: 'block' },
+  { tag: 'preface', label: 'Preface', labelZh: '序言 (Preface)', description: 'Introductory narrative in book frontmatter', category: 'map', kind: 'block' },
+  { tag: 'notices', label: 'Notices', labelZh: '声明与版权', description: 'Legal notices or safety disclosures', category: 'map', kind: 'block' },
+  { tag: 'topicref', label: 'Topic Reference', labelZh: '主题引用', description: 'References a DITA topic or nests child topicrefs', category: 'map', kind: 'block', keywords: ['href', 'topic', '引用'] },
+  { tag: 'mapref', label: 'Sub-map Reference', labelZh: '子 Map 引用', description: 'Includes a child .ditamap or .bookmap at this hierarchy position', category: 'map', kind: 'block', keywords: ['submap', 'ditamap', '子地图'] },
+  { tag: 'topichead', label: 'Topic Heading', labelZh: '导航分组标题', description: 'Title-only navigation node without a target topic file', category: 'map', kind: 'block', keywords: ['folder', 'heading', '分组'] },
+  { tag: 'topicgroup', label: 'Topic Group', labelZh: '无标题逻辑组', description: 'Groups topicrefs to share attributes or collection-type without adding a TOC heading', category: 'map', kind: 'block', keywords: ['group', '组'] },
+  { tag: 'keydef', label: 'Key Definition', labelZh: 'Key 变量定义', description: 'Resource-only key definition binding a key name to a target or inline keyword', category: 'map', kind: 'block', keywords: ['keys', 'variable', '键值'] },
+  { tag: 'topicmeta', label: 'Topic Metadata', labelZh: '节点元数据', description: 'Navigation title, keywords, and metadata for a map entry', category: 'map', kind: 'block' },
+  { tag: 'navtitle', label: 'Navigation Title', labelZh: '导航标题', description: 'Override title shown in TOC and Map tree', category: 'map', kind: 'block' },
+  { tag: 'reltable', label: 'Relationship Table', labelZh: '关联关系表', description: 'Defines non-hierarchical related links between topics', category: 'map', kind: 'block' },
 
   // Header & metadata
   { tag: 'title', label: 'Title', labelZh: '标题', description: 'Heading for a topic, section, figure, or table', category: 'structure', kind: 'block', pmNodeType: 'dita_title', keywords: ['heading', 'h1', '标题'] },
@@ -363,7 +411,73 @@ const REUSE_ATTRS: readonly DitaAttributeSpec[] = [
   { name: 'conaction', label: 'Conaction', group: 'reuse', description: 'Content reference push action', values: ['mark', 'pushafter', 'pushbefore', 'pushreplace', '-dita-use-conref-target'] },
 ];
 
+const MAP_ENTRY_COMMON_ATTRS: readonly DitaAttributeSpec[] = [
+  { name: 'href', label: 'Target Href', group: 'element', description: 'Relative path to target .dita topic, sub-map, or resource', placeholder: 'concepts/overview.dita' },
+  { name: 'navtitle', label: 'Navigation Title', group: 'element', description: 'Display title in Table of Contents (TOC)', placeholder: '章节导航标题' },
+  { name: 'keys', label: 'Keys', group: 'element', description: 'Space-separated key names bound to this entry', placeholder: 'e.g. prod_overview' },
+  { name: 'keyref', label: 'Keyref', group: 'element', description: 'Indirect key reference resolved via Root Map', placeholder: 'key_name' },
+  { name: 'keyscope', label: 'Key Scope', group: 'element', description: 'Scoped namespace prefix for nested key definitions', placeholder: 'e.g. cloud' },
+  { name: 'format', label: 'Format', group: 'element', description: 'Target document format', values: ['dita', 'ditamap', 'html', 'pdf', 'markdown', 'png', 'svg'] },
+  { name: 'scope', label: 'Scope', group: 'element', description: 'Target resource scope', values: ['local', 'peer', 'external'] },
+  { name: 'type', label: 'Target Type', group: 'element', description: 'Target topic root type', values: ['topic', 'concept', 'task', 'reference', 'glossentry'] },
+  { name: 'processing-role', label: 'Processing Role', group: 'element', description: 'Whether entry appears in normal output or is resource-only', values: ['normal', 'resource-only'] },
+  { name: 'toc', label: 'Include in TOC', group: 'element', description: 'Whether entry is included in Table of Contents', values: ['yes', 'no'] },
+  { name: 'linking', label: 'Linking', group: 'element', description: 'Controls automatic related-links generation', values: ['targetonly', 'sourceonly', 'normal', 'none'] },
+  { name: 'collection-type', label: 'Collection Type', group: 'element', description: 'Sibling relationship semantics for child topicrefs', values: ['unordered', 'sequence', 'choice', 'family'] },
+  { name: 'chunk', label: 'Chunk', group: 'element', description: 'Output chunking directive (e.g. to-content, by-topic)', values: ['to-content', 'to-navigation', 'by-topic', 'by-document', 'select-topic', 'select-document', 'select-branch'] },
+  { name: 'copy-to', label: 'Copy To', group: 'element', description: 'Alternate output filename for reused topic instances', placeholder: 'reuse-alias.dita' },
+  { name: 'locktitle', label: 'Lock Title', group: 'element', description: 'Use navtitle instead of target topic title in TOC', values: ['yes', 'no'] },
+];
+
 const ELEMENT_SPECIFIC_ATTRS: Readonly<Record<string, readonly DitaAttributeSpec[]>> = {
+  map: [
+    { name: 'id', label: 'Map ID', group: 'element', description: 'Root map identifier', placeholder: 'product_manual' },
+    { name: 'title', label: 'Map Title Attr', group: 'element', description: 'Legacy @title attribute (prefer <title> element)', placeholder: 'Product Guide' },
+    { name: 'collection-type', label: 'Collection Type', group: 'element', description: 'Default sibling linking behavior', values: ['unordered', 'sequence', 'choice', 'family'] },
+    { name: 'linking', label: 'Linking', group: 'element', description: 'Default linking rule', values: ['normal', 'targetonly', 'sourceonly', 'none'] },
+    { name: 'chunk', label: 'Chunk', group: 'element', description: 'Root chunking directive', values: ['to-content', 'to-navigation', 'by-topic', 'by-document'] },
+  ],
+  bookmap: [
+    { name: 'id', label: 'Bookmap ID', group: 'element', description: 'Root bookmap identifier', placeholder: 'admin_book' },
+    { name: 'collection-type', label: 'Collection Type', group: 'element', description: 'Default sibling linking behavior', values: ['unordered', 'sequence', 'choice', 'family'] },
+    { name: 'linking', label: 'Linking', group: 'element', description: 'Default linking rule', values: ['normal', 'targetonly', 'sourceonly', 'none'] },
+  ],
+  topicref: MAP_ENTRY_COMMON_ATTRS,
+  chapter: MAP_ENTRY_COMMON_ATTRS,
+  part: MAP_ENTRY_COMMON_ATTRS,
+  appendix: MAP_ENTRY_COMMON_ATTRS,
+  preface: MAP_ENTRY_COMMON_ATTRS,
+  notices: MAP_ENTRY_COMMON_ATTRS,
+  topicset: MAP_ENTRY_COMMON_ATTRS,
+  mapref: [
+    { name: 'href', label: 'Sub-map Href', group: 'element', required: true, description: 'Relative path to child .ditamap or .bookmap', placeholder: 'maps/getting-started.ditamap' },
+    { name: 'format', label: 'Format', group: 'element', description: 'Sub-map format (typically ditamap)', values: ['ditamap', 'dita'] },
+    { name: 'navtitle', label: 'Navigation Title', group: 'element', description: 'Optional display title' },
+    { name: 'keyscope', label: 'Key Scope', group: 'element', description: 'Scoped namespace prefix for included map' },
+    { name: 'scope', label: 'Scope', group: 'element', description: 'Target resource scope', values: ['local', 'peer', 'external'] },
+    { name: 'processing-role', label: 'Processing Role', group: 'element', description: 'Processing role', values: ['normal', 'resource-only'] },
+    { name: 'toc', label: 'Include in TOC', group: 'element', description: 'Include sub-map entries in TOC', values: ['yes', 'no'] },
+  ],
+  topichead: [
+    { name: 'navtitle', label: 'Heading Title', group: 'element', required: true, description: 'Navigation heading label', placeholder: '快速入门' },
+    { name: 'toc', label: 'Include in TOC', group: 'element', description: 'Include heading in TOC', values: ['yes', 'no'] },
+    { name: 'collection-type', label: 'Collection Type', group: 'element', description: 'Relationship between child topics', values: ['unordered', 'sequence', 'choice', 'family'] },
+    { name: 'linking', label: 'Linking', group: 'element', description: 'Automatic linking mode', values: ['normal', 'targetonly', 'sourceonly', 'none'] },
+    { name: 'locktitle', label: 'Lock Title', group: 'element', description: 'Lock navtitle', values: ['yes', 'no'] },
+  ],
+  topicgroup: [
+    { name: 'collection-type', label: 'Collection Type', group: 'element', description: 'Relationship between grouped entries', values: ['unordered', 'sequence', 'choice', 'family'] },
+    { name: 'linking', label: 'Linking', group: 'element', description: 'Automatic linking mode', values: ['normal', 'targetonly', 'sourceonly', 'none'] },
+    { name: 'toc', label: 'Include in TOC', group: 'element', description: 'Propagated TOC setting', values: ['yes', 'no'] },
+  ],
+  keydef: [
+    { name: 'keys', label: 'Keys', group: 'element', required: true, description: 'Key name(s) defined by this entry', placeholder: 'prod_name' },
+    { name: 'href', label: 'Target Href', group: 'element', description: 'Optional target topic, image, or external URL', placeholder: 'https://example.com' },
+    { name: 'format', label: 'Format', group: 'element', description: 'Target format', values: ['dita', 'ditamap', 'html', 'pdf', 'png', 'svg'] },
+    { name: 'scope', label: 'Scope', group: 'element', description: 'Target scope', values: ['local', 'peer', 'external'] },
+    { name: 'processing-role', label: 'Processing Role', group: 'element', description: 'Typically resource-only for keydef', values: ['resource-only', 'normal'] },
+    { name: 'navtitle', label: 'Navigation Title', group: 'element', description: 'Optional descriptive label' },
+  ],
   topic: [
     { name: 'id', label: 'Topic ID', group: 'element', required: true, description: 'Required root topic identifier', placeholder: 'topic_id' },
   ],
