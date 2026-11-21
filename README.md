@@ -20,6 +20,12 @@
 
 ![可视化与 XML 源码双栏对比模式](docs/pic/841e8029-186e-4e00-a655-25f7ffde2e04.png)
 
+### 单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）
+
+在保持底层 XML 100% 无损的前提下，可视化区实时展开块级与行内 `conref`/`conkeyref` 只读预览（含嵌套 `keyref` 解析与一键跳转源定义），并联动左侧 Map 树实时应用 `.ditaval` 规则（支持「全部 / 淡化 / 隐藏」三态投影与 Flag 标记高亮）。
+
+![单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）](docs/pic/phase3-single-sourcing.png)
+
 ---
 
 ## 核心特性（已实现：Phase 0–3）
