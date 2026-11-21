@@ -13,12 +13,12 @@
 | **DITA 规范** | DITA 1.3 核心精渲染 + 未知/特化元素通用结构块兜底 | 核心类型精细建模，未知标签用通用容器节点保真透传，源码全量编辑 |
 | **Map 编辑形态** | 双栏工作台（左侧可视化 Map 树 + 右侧多 Tab 单 Topic 编辑） | Map 树支持拖拽调层级、新建/挂载 Topic、属性编辑与源码切换 |
 | **核心 DITA 语义 (V1)** | `keydef/keyref`、`conref/conkeyref`、`DITAVAL` 条件过滤 | 必须构建围绕 **Root Map** 的项目级语义解析引擎与循环引用检测 |
-| **存储与版本控制** | 服务端托管 Git 工作区（对接 GitHub / GitLab / Gitee） | 保留原生目录结构，支持分支、Diff、Commit/Push、PR/MR，与本地工具互通 |
+| **存储与版本控制** | 服务端托管本地 Git 工作区（不依赖外部 Git 平台） | 保留原生目录结构，支持本地仓库初始化、分支管理、Commit 历史与版本 Diff 对比，与本地工具互通 |
 | **多人并发机制** | **仅支持 Check-out 独占锁**（单文件同时仅 1 人编辑） | 不做 CRDT 实时协同；按分支维度隔离 worktree，文件级悲观锁 + 管理员强解 |
 | **校验策略** | 双层校验（前端实时约束 + 后端权威 DTD/RNG + 跨文件语义） | 常驻 JVM 校验池返回精准行/列号，联合语义索引器报断链与循环引用 |
 | **发布与预览** | 服务端 DITA-OT 异步发布（Root Map + DITAVAL → HTML5 / PDF） | 异步构建队列、实时日志流、产物在线预览与打包下载，需预置中文字体 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + 轻量 Java Worker | pnpm Monorepo 前后端共享 `@dita/core`，JVM 仅隔离在轻量 Worker |
-| **部署与权限** | 私有化/团队内网单组织部署（Docker Compose / K8s） | Git 平台 OAuth / PAT 鉴权，简洁角色（管理员 / 编辑者 / 只读） |
+| **部署与权限** | 私有化/团队内网单组织部署（Docker Compose / K8s） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证依赖 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
 
 ---
@@ -42,9 +42,9 @@ flowchart TB
 
     subgraph Server["TS 主后端 (Fastify + TypeScript)"]
         API["REST API & SSE 日志/事件推送"]
-        Auth["认证与角色权限 (Git OAuth / PAT / Admin-Writer-Viewer)"]
+        Auth["轻量身份与角色切换 (免密码本地身份 / Admin-Writer-Viewer)"]
         Lock["Check-out 文件独占锁服务 (DB 唯一约束 + 强制解锁)"]
-        GitMgr["Git 工作区管理 (按分支隔离 git worktree / Diff / PR-MR)"]
+        GitMgr["本地 Git 工作区管理 (按分支隔离 git worktree / 版本历史 / Diff 对比)"]
         Indexer["项目级语义索引器 (Root Map Keyspace / Conref / ID / DITAVAL)"]
         Queue["异步任务调度 (BullMQ)"]
         CoreBE["共享内核 @dita/core"]
@@ -62,18 +62,16 @@ flowchart TB
     end
 
     subgraph Infra["基础设施"]
-        PG[("PostgreSQL (用户/项目/Check-out 锁/发布记录)")]
+        DB[("SQLite (身份/项目/Check-out 锁/发布记录)")]
         Redis[("Redis (BullMQ 队列 / 构建日志流 / 索引缓存)")]
-        FS[("共享磁盘卷 (Git Repos / Worktrees / 发布产物)")]
-        GitRemote["远端 Git 平台 (GitHub / GitLab / Gitee)"]
+        FS[("共享磁盘卷 (本地 Git Repos / Worktrees / 发布产物)")]
     end
 
     Client <-->|"HTTP / SSE"| API
-    Lock --> PG
-    Auth --> PG
+    Lock --> DB
+    Auth --> DB
     Queue <--> Redis
     GitMgr <--> FS
-    GitMgr <-->|"HTTPS / SSH"| GitRemote
     Indexer --> FS
     API -->|"HTTP 内网低延迟校验"| ValSvc
     Queue -->|"任务派发 / 状态回调"| PubSvc
@@ -156,16 +154,17 @@ flowchart LR
   - 所有支持过滤的元素在右侧属性面板均提供 `audience`、`platform`、`product`、`otherprops`、`props`、`rev` 的结构化多值编辑（支持从项目内已有值自动提示，减少拼写错误）。
   - 工具栏可选择项目中的 `.ditaval` 文件（或关闭过滤），实时在左侧 Map 树和右侧 Topic 编辑器中切换三种视觉模式：**全部显示（带属性彩色标签） / 淡化被排除内容 / 完全隐藏被排除内容**（外加 `flag` 规则的颜色/标记高亮）。整个过滤仅为视图层投影，不改动底层 XML。
 
-### 4. Check-out 独占锁与 Git 工作流状态机
+### 4. Check-out 独占锁与本地 Git 版本管理状态机
 
-- **锁模型**：在 PostgreSQL `file_locks` 表建立唯一索引 `UNIQUE(project_id, branch, file_path)`，彻底杜绝并发抢锁竞态。
+- **锁模型**：在 SQLite（Drizzle ORM）`file_locks` 表建立唯一索引 `UNIQUE(project_id, branch, file_path)`，彻底杜绝并发抢锁竞态，零外部数据库依赖。
+- **轻量身份切换**：免密码登录门槛，工具栏直接切换当前作者身份与角色（管理员 / 编辑者 / 只读），Check-out 锁归属与本地 Git Commit 作者信息均自动关联当前身份。
 - **单文件生命周期**：
   1. **打开文件**：默认以**只读模式**打开（可直接浏览、复制、预览 `conref`/DITAVAL），顶部状态栏显示当前锁定人（若已被他人检出）。
-  2. **Check out（检出）**：点击检出 → 后端检查当前分支工作区与远端/锁状态 → 写入锁记录 → 编辑器切换为可编辑态。编辑过程中的自动保存写入工作区文件并标记为未提交（Dirty）。
-  3. **Check in（检入）**：点击检入 → 可选先跑一次权威校验（有 Error 时拦截或二次确认）→ 展示单文件/批量 Git Diff → 填写 Commit Message → 仅 `git add` 当前用户检出的文件并 `git commit`（支持勾选“提交并推送”）→ 释放数据库锁。
+  2. **Check out（检出）**：点击检出 → 后端检查当前分支工作区与锁状态 → 写入锁记录 → 编辑器切换为可编辑态。编辑过程中的自动保存写入工作区文件并标记为未提交（Dirty）。
+  3. **Check in（检入）**：点击检入 → 可选先跑一次权威校验（有 Error 时拦截或二次确认）→ 展示单文件/批量 Git Diff → 填写 Commit Message → 仅 `git add` 当前身份检出的文件并执行本地 `git commit` → 释放数据库锁。
   4. **Cancel Check-out（撤销检出）**：执行 `git checkout -- <file>` 回滚本地改动并释放锁。
-  5. **管理员强制解锁**：管理员在锁管理面板可强制释放离职/忘解锁成员的锁（默认先备份未提交内容为补丁/草稿，防止误删他人工作）。
-- **分支与远端同步**：提供拉取（Pull/Rebase，仅当当前分支无未提交检出冲突时允许）、切换/新建分支、查看 Commit 历史、一键向 GitHub/GitLab/Gitee 发起 PR/MR。
+  5. **管理员强制解锁**：管理员在锁管理面板可强制释放他人占用的锁（默认先备份未提交内容为补丁/草稿，防止误删他人工作）。
+- **版本管理与对比（无外部平台依赖）**：提供本地仓库自动初始化、分支切换/新建、项目级与单文件 Commit 历史浏览、工作区未提交改动与任意两个历史版本之间的可视化并排/行内 Diff 对比（基于 CodeMirror 6 MergeView），以及查看历史只读快照或按版本回滚。
 
 ### 5. 双层校验与 DITA-OT 异步发布（含中文 PDF 关键处理）
 
@@ -192,11 +191,11 @@ flowchart LR
 | **前端状态管理** | **Zustand + TanStack Query** | 区分本地工作台状态（Tab/锁/DITAVAL）与服务端异步缓存 | Redux Toolkit（样板代码偏多） |
 | **XML 无损内核 (`@dita/core`)** | **`slimdom` + `slimdom-sax-parser` + `fontoxpath`** | Fonto 开源技术栈，完整保留 DOCTYPE/注释/PI/位置信息，支持 XPath 3.1 | `@xml-tools/parser`（纯 CST，缺少 DOM 与 XPath 生态） |
 | **TS 主后端** | **Fastify + TypeScript + Zod** | 轻量高性能、开发心智负担低，非常适合个人/AI 快速迭代 | NestJS（多人强约束规范团队可选） |
-| **Git 引擎与平台集成** | **`simple-git`**（封装系统 git）+ 平台 Adapter（Octokit / GitBeaker / Gitee REST） | 原生支持 `git worktree`、SSH/HTTPS 鉴权、稳定可靠 | `isomorphic-git`（大仓库和 worktree 支持较弱） |
-| **数据库 & ORM** | **PostgreSQL 16 + Drizzle ORM** | 强事务唯一索引支撑 Check-out 独占锁，Drizzle 类型安全轻量 | Prisma（迁移重一点，也可替代） |
+| **Git 引擎** | **`simple-git`**（封装系统 git） | 原生支持本地仓库初始化、`git worktree`、分支、历史日志与 Diff，零外部平台依赖 | `isomorphic-git`（大仓库和 worktree 支持较弱） |
+| **数据库 & ORM** | **SQLite + Drizzle ORM** | 零外部服务依赖、单文件开箱即用，强事务唯一索引支撑 Check-out 独占锁，Drizzle 类型安全轻量 | PostgreSQL（若后期多实例横向扩展可平滑迁移） |
 | **队列与实时通信** | **Redis 7 + BullMQ + SSE** | 异步调度 DITA-OT 构建，SSE 轻量推送日志与锁状态变更 | WebSocket（若后期加协同再升级） |
 | **Java Worker** | **Java 21 + Javalin（极简 HTTP）+ Xerces2 + Jing + DITA-OT 4.x** | 内存占用远低于完整 Spring Boot，常驻校验池 + 官方发布引擎 | Spring Boot 3（熟悉 Spring 生态时可选） |
-| **部署交付** | **Docker Compose**（`web` + `api` + `dita-worker` + `postgres` + `redis`） | 私有化内网一键启动，后续可平滑拆成 K8s Manifest | 单机裸部署（环境依赖 DITA-OT/字体难维护） |
+| **部署交付** | **Docker Compose**（`web` + `api` + `dita-worker` + `redis`） | 私有化内网一键启动，SQLite 与本地 Git 仓库持久化在共享卷，后续可平滑拆成 K8s Manifest | 单机裸部署（环境依赖 DITA-OT/字体难维护） |
 
 ---
 
@@ -213,13 +212,13 @@ DITAEditor/
 │   │   │   │   ├── source/     # CodeMirror 6 XML 编辑器、补全、Lint 桥接
 │   │   │   │   └── bridge/     # Visual <-> Source 双模无损同步与光标映射
 │   │   │   ├── map-tree/       # 可视化 Map/Bookmap 树形编辑器
-│   │   │   ├── git-panel/      # 分支管理、Check-out 状态、Diff、Commit、PR/MR
+│   │   │   ├── git-panel/      # 分支管理、Check-out 状态、版本历史、Diff 对比、Commit
 │   │   │   └── publish/        # DITA-OT 发布配置、实时日志抽屉、产物预览
 │   └── api/                    # Fastify + TypeScript 主后端
 │       ├── src/
 │       │   ├── modules/
-│       │   │   ├── auth/       # Git OAuth / PAT / RBAC
-│       │   │   ├── projects/   # 项目配置、Git 克隆与分支 worktree 管理
+│       │   │   ├── identity/   # 轻量身份与角色切换 (Admin / Writer / Viewer)
+│       │   │   ├── projects/   # 项目配置、本地 Git 仓库与分支 worktree 管理
 │       │   │   ├── locks/      # Check-out 独占锁与管理员强制解锁
 │       │   │   ├── files/      # 文件读写、图片资产、重命名与引用影响检查
 │       │   │   ├── indexer/    # Root Map Keyspace / Conref / ID / DITAVAL 语义引擎
@@ -277,12 +276,12 @@ DITAEditor/
 - **DITAVAL 条件过滤能力**：实现 `.ditaval` 解析与求值器；右侧面板支持编辑条件属性；工作台顶部支持切换激活 `.ditaval` 文件并在 Map 树与 Topic 编辑器内实时高亮/淡化/隐藏条件内容。
 - **验收标准**：在真实单源多版本测试项目中，切换不同 Root Map 或 DITAVAL 时，变量值、复用片段和条件显示均能毫秒级准确更新，循环引用能被精准拦截告警。
 
-### Phase 4：Git 工作区、Check-out 独占锁与团队权限（第 10–11 周）
-> **目标**：落地团队协作闭环，支持多人安全接入同一个 Git 仓库。
-- 接入 PostgreSQL + Drizzle ORM，实现 GitHub / GitLab / Gitee OAuth 及 PAT 认证，落地三档角色权限（管理员 / 编辑者 / 只读）。
-- 实现后端 Git 工作区管理器（基于 `simple-git` + 按分支隔离 `git worktree`）：支持绑定仓库、分支切换/新建、拉取同步、文件级 Diff 查看、Commit/Push 与创建 PR/MR。
-- 实现 **Check-out 独占锁服务**：打开默认只读、点击检出加锁、编辑草稿自动保存、检入仅提交本人检出文件并释放锁、撤销检出回滚、管理员强制解锁（带补丁备份）。
-- **验收标准**：模拟两个账号同时打开同一仓库同一分支，验证同一文件互斥检出、不同文件互不干扰、跨分支互不阻塞，以及完整 Git Commit → Push → PR/MR 链路。
+### Phase 4：本地 Git 版本管理、Check-out 独占锁与版本对比（第 10–11 周）
+> **目标**：不依赖 GitHub / GitLab / Gitee 等外部平台，落地开箱即用的本地 Git 版本管理、Check-out 独占锁与可视化版本对比闭环。
+- 接入 SQLite + Drizzle ORM，实现轻量身份切换（免密码在工具栏切换当前作者与三档角色：管理员 / 编辑者 / 只读），零外部服务依赖。
+- 实现后端本地 Git 工作区管理器（基于 `simple-git` + 按分支隔离 `git worktree`）：支持为项目自动初始化或绑定本地 Git 仓库、分支切换/新建、项目与单文件 Commit 历史浏览，以及工作区未提交改动或任意两版本之间的可视化 Diff 对比（CodeMirror 6 MergeView）。
+- 实现 **Check-out 独占锁服务**：打开默认只读、点击检出加锁、编辑草稿自动保存、检入前预览 Diff 并仅提交本人检出文件后释放锁、撤销检出回滚、管理员强制解锁（带补丁备份）。
+- **验收标准**：在工具栏切换两个不同作者身份打开同一仓库同一分支，验证同一文件互斥检出、不同文件互不干扰、跨分支互不阻塞，以及完整 Check-out → 编辑 → Diff 对比 → Check-in（本地 Commit）→ 历史版本对比链路。
 
 ### Phase 5：Java Worker、权威校验与 DITA-OT 异步发布（第 12–14 周）
 > **目标**：打通权威合规校验与一键发布交付，达到团队生产可用状态。
