@@ -10,13 +10,13 @@ import {
 import { FilePlus2, FolderOpen, Network } from 'lucide-react';
 import { EditorTabBar } from './components/EditorTabBar';
 import { FileExplorerPanel } from './components/FileExplorerPanel';
-import { InsertConrefDialog } from './components/InsertConrefDialog';
 import { InsertKeyrefDialog } from './components/InsertKeyrefDialog';
 import { KeyspacePanel } from './components/KeyspacePanel';
 import { LeftSidebar } from './components/LeftSidebar';
 import { NewMapDialog } from './components/NewMapDialog';
 import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopicDialog';
 import { ProblemsPanel } from './components/ProblemsPanel';
+import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
 import { XrefImageDialog } from './components/XrefImageDialog';
@@ -129,6 +129,7 @@ export function App() {
   const setLeftSidebarOpen = useEditorStore((s) => s.setLeftSidebarOpen);
   const setLeftSidebarTab = useEditorStore((s) => s.setLeftSidebarTab);
   const setInspectorOpen = useEditorStore((s) => s.setInspectorOpen);
+  const setInspectorTarget = useEditorStore((s) => s.setInspectorTarget);
   const setProblemsOpen = useEditorStore((s) => s.setProblemsOpen);
   const announce = useEditorStore((s) => s.announce);
   const clearPendingSourceOffset = useEditorStore((s) => s.clearPendingSourceOffset);
@@ -234,7 +235,7 @@ export function App() {
   } | null>(null);
   const [refDialogMode, setRefDialogMode] = useState<'xref' | 'image' | null>(null);
   const [keyrefDialogOpen, setKeyrefDialogOpen] = useState(false);
-  const [conrefDialogOpen, setConrefDialogOpen] = useState(false);
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('attributes');
 
   const handleSnapshotChange = useCallback(
     (
@@ -328,6 +329,13 @@ export function App() {
     [],
   );
 
+  /** Right-inspector "复用" tab is the single entry point for conref / conkeyref work. */
+  const openReuseTab = useCallback(() => {
+    setInspectorOpen(true);
+    setInspectorTarget('topic');
+    setInspectorTab('reuse');
+  }, [setInspectorOpen, setInspectorTarget]);
+
   const handleConfirmConref = useCallback(
     (opts: {
       action: 'insert-new' | 'bind-selected';
@@ -345,10 +353,17 @@ export function App() {
       }
 
       const initialAttrs: RawAttrs = [{ name: opts.attrName, value: opts.value, namespaceURI: null }];
-      if (visualRef.current?.canInsertInline(opts.tagName)) {
-        visualRef.current.toggleInline(opts.tagName, initialAttrs);
-      } else {
-        visualRef.current?.insertBlock(opts.tagName, undefined, initialAttrs);
+      const editor = visualRef.current;
+      const inserted =
+        editor === null
+          ? false
+          : editor.canInsertInline(opts.tagName)
+            ? editor.toggleInline(opts.tagName, initialAttrs)
+            : editor.insertBlock(opts.tagName, undefined, initialAttrs);
+
+      if (!inserted) {
+        announce(`无法插入 <${opts.tagName}>：请先把光标放到正文段落中再试`);
+        return;
       }
       announce(`已插入复用节点 <${opts.tagName} ${opts.attrName}="${opts.value}"/>`);
     },
@@ -587,7 +602,7 @@ export function App() {
                 onOpenXrefDialog={() => setRefDialogMode('xref')}
                 onOpenImageDialog={() => setRefDialogMode('image')}
                 onOpenKeyrefDialog={() => setKeyrefDialogOpen(true)}
-                onOpenConrefDialog={() => setConrefDialogOpen(true)}
+                onOpenConrefDialog={openReuseTab}
                 onTableAction={(action) => visualRef.current?.runTableAction(action)}
               />
             ) : null}
@@ -777,22 +792,37 @@ export function App() {
                           onDeleteNode={deleteMapTreeNode}
                         />
                       ) : (
-                        <AttributesPanel
-                          snapshot={snapshot}
-                          docMetadata={docMeta}
-                          semanticOverlay={activeTab ? (documentOverlays[activeTab.path] ?? null) : null}
-                          activeDitaval={activeDitaval}
-                          profilingCatalog={profilingCatalog}
-                          onJumpToSource={(filePath, line, elementId) =>
-                            void jumpToSemanticLocation(filePath, { line, elementId })
-                          }
-                          onOpenConrefDialog={() => setConrefDialogOpen(true)}
-                          onUpdateAttr={(pos, name, val) =>
-                            visualRef.current?.updateAttr(pos, name, val)
-                          }
-                          onSelectBreadcrumb={(pos) => visualRef.current?.selectNode(pos, true)}
-                          onMoveNode={(pos, dir) => visualRef.current?.moveNode(pos, dir)}
-                          onDeleteNode={(pos) => visualRef.current?.deleteNode(pos)}
+                        <TopicInspector
+                          tab={inspectorTab}
+                          onTabChange={setInspectorTab}
+                          attributes={{
+                            snapshot,
+                            docMetadata: docMeta,
+                            semanticOverlay: activeTab
+                              ? (documentOverlays[activeTab.path] ?? null)
+                              : null,
+                            activeDitaval,
+                            profilingCatalog,
+                            onJumpToSource: (filePath, line, elementId) =>
+                              void jumpToSemanticLocation(filePath, { line, elementId }),
+                            onOpenConrefDialog: openReuseTab,
+                            onUpdateAttr: (pos, name, val) =>
+                              visualRef.current?.updateAttr(pos, name, val),
+                            onSelectBreadcrumb: (pos) => visualRef.current?.selectNode(pos, true),
+                            onMoveNode: (pos, dir) => visualRef.current?.moveNode(pos, dir),
+                            onDeleteNode: (pos) => visualRef.current?.deleteNode(pos),
+                          }}
+                          reuse={{
+                            activeDocPath: activeTab?.path ?? null,
+                            selectedElementTag: snapshot?.activeItem?.tagName ?? null,
+                            selectedTopicId: snapshot?.breadcrumbs[0]?.id ?? undefined,
+                            selectedElementId: snapshot?.activeItem?.id ?? undefined,
+                            keyspace,
+                            topicIndices,
+                            onResolvePreview: resolveConrefPreview,
+                            onConfirm: handleConfirmConref,
+                            onConfirmed: () => setInspectorTab('attributes'),
+                          }}
                         />
                       )}
                     </Panel>
@@ -887,19 +917,6 @@ export function App() {
         rootMapPath={activeRootMapPath}
         onClose={() => setKeyrefDialogOpen(false)}
         onConfirm={handleConfirmKeyref}
-      />
-
-      <InsertConrefDialog
-        open={conrefDialogOpen}
-        activeDocPath={activeTab?.path ?? null}
-        selectedElementTag={snapshot?.activeItem?.tagName ?? null}
-        selectedTopicId={snapshot?.breadcrumbs[0]?.id ?? undefined}
-        selectedElementId={snapshot?.activeItem?.id ?? undefined}
-        keyspace={keyspace}
-        topicIndices={topicIndices}
-        onResolvePreview={resolveConrefPreview}
-        onClose={() => setConrefDialogOpen(false)}
-        onConfirm={handleConfirmConref}
       />
     </div>
   );

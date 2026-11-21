@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/App.tsx": {
-    "mtime": 1795264802.7369926,
-    "seen": 1795264883.7468958,
-    "ast_hash": "fb7341d78d859cc9242732e009e33586",
+    "mtime": 1795266333.8503664,
+    "seen": 1795266484.540447,
+    "ast_hash": "d5c6d553a3457914feea6e40b3b5342f",
     "semantic_hash": ""
   },
   "apps/web/src/main.tsx": {
@@ -587,12 +587,6 @@
     "ast_hash": "7cdfd1177656a7c3a4e3063f22f18500",
     "semantic_hash": ""
   },
-  "apps/web/src/components/InsertConrefDialog.tsx": {
-    "mtime": 1795261739.538267,
-    "seen": 1795263708.767193,
-    "ast_hash": "be4a8a5be87a29015bde1433473c92fb",
-    "semantic_hash": ""
-  },
   "apps/web/src/components/InsertKeyrefDialog.tsx": {
     "mtime": 1795261737.3461401,
     "seen": 1795263708.767193,
@@ -687,6 +681,30 @@
     "mtime": 1795264051.9943955,
     "seen": 1795264582.891262,
     "ast_hash": "01495ec808c6e44c6fc31d7231f5fa22",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/ConrefReusePanel.tsx": {
+    "mtime": 1795266438.2853336,
+    "seen": 1795266484.5404491,
+    "ast_hash": "4895a32468a186379e2c4aded5c94c55",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/TopicInspector.tsx": {
+    "mtime": 1795265870.5726547,
+    "seen": 1795266484.540457,
+    "ast_hash": "87d76a1fe569b37b83a2af93f1745d58",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/conref-reuse-model.ts": {
+    "mtime": 1795266432.2155511,
+    "seen": 1795266484.54046,
+    "ast_hash": "e1a1e911d7912a6a10a866e5c43676eb",
+    "semantic_hash": ""
+  },
+  "apps/web/test/conref-reuse-model.test.ts": {
+    "mtime": 1795266456.0252762,
+    "seen": 1795266484.5404859,
+    "ast_hash": "f963ae9a1507581afc65514f0e43c8bf",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
