@@ -9,7 +9,7 @@ import {
   docsIndexPath,
   docsPath,
   localePath,
-  playgroundPath,
+  workbenchPath,
 } from '../i18n/locales.js';
 import { SITE } from '../lib/site.js';
 
@@ -48,7 +48,7 @@ let cardNumber = 0;
       <div class="docs-index__actions">
         <a
           class="btn btn-blue btn-sm"
-          href={playgroundPath(locale, SITE.base)}
+          href={workbenchPath(SITE.base)}
         >
           {dict.nav.playground}
           <Icon name="arrow-right" size={13} />

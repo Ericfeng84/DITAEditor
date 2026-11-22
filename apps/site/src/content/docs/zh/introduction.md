@@ -56,6 +56,6 @@ Root Map 的 `keydef` 会被 BFS 解析成键空间；`conref` / `conkeyref` 在
 
 ## 下一步
 
-- 想在浏览器里先改一段真实 XML：[打开交互沙箱](/playground)。
+- 想在浏览器里直接体验多文件工作台：[打开离线版工作台](../../workbench/)。
 - 想直接部署：[快速开始与 Docker 部署](/docs/getting-started)。
 - 想读代码：[架构参考](/docs/architecture)。

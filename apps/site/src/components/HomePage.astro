@@ -9,7 +9,7 @@ import {
   type Locale,
   docsIndexPath,
   docsPath,
-  playgroundPath,
+  workbenchPath,
 } from '../i18n/locales.js';
 import { CAPABILITIES } from '../data/features.js';
 import { SITE, assetUrl } from '../lib/site.js';
@@ -69,7 +69,7 @@ const jsonLd = {
         <div class="hero__actions">
           <a
             class="btn btn-blue btn-lg"
-            href={playgroundPath(locale, base)}
+            href={workbenchPath(base)}
           >
             {dict.hero.primaryCta}
             <Icon name="arrow-right" size={14} />
@@ -172,7 +172,7 @@ const jsonLd = {
     <MiniRoundTripDemo
       client:visible
       dict={dict}
-      playgroundHref={playgroundPath(locale, base)}
+      playgroundHref={workbenchPath(base)}
     />
   </section>
 
@@ -324,7 +324,7 @@ const jsonLd = {
       <div class="cta__actions">
         <a
           class="btn btn-blue btn-lg"
-          href={playgroundPath(locale, base)}
+          href={workbenchPath(base)}
         >
           {dict.cta.playground}
           <Icon name="arrow-right" size={14} />

@@ -78,4 +78,4 @@ AI only proposes fragments:
 
 ## Try it now
 
-[Open the playground](/en/playground) to switch presets, edit text, and watch the diff. For model configuration, read [AI setup and security boundaries](/en/docs/ai-setup).
+[Open the offline workbench](../../../workbench/) to browse the demo map tree, edit topics, and test single sourcing. For model configuration, read [AI setup and security boundaries](/en/docs/ai-setup).

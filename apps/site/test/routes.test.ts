@@ -7,10 +7,10 @@ import {
   localeFromPath,
   localePath,
   normalizeBase,
-  playgroundPath,
   stripBase,
   switchLocalePath,
   withBase,
+  workbenchPath,
 } from '../src/i18n/locales.js';
 
 describe('withBase', () => {
@@ -38,8 +38,8 @@ describe('locale routing', () => {
   it('keeps zh at the root and en under /en', () => {
     expect(homePath('zh')).toBe('/');
     expect(homePath('en')).toBe('/en/');
-    expect(playgroundPath('zh')).toBe('/playground');
-    expect(playgroundPath('en')).toBe('/en/playground');
+    expect(workbenchPath()).toBe('/workbench/');
+    expect(workbenchPath('/DITAEditor/')).toBe('/DITAEditor/workbench/');
     expect(docsIndexPath('en')).toBe('/en/docs');
     expect(docsPath('en', 'ai-setup')).toBe('/en/docs/ai-setup');
   });

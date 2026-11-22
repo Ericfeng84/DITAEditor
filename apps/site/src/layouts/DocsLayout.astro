@@ -2,7 +2,7 @@
 import BaseLayout from './BaseLayout.astro';
 import Icon from '../components/Icon.astro';
 import { getDictionary } from '../i18n/index.js';
-import { DOC_SLUGS, type DocSlug, type Locale, docsIndexPath, docsPath, localePath, playgroundPath } from '../i18n/locales.js';
+import { DOC_SLUGS, type DocSlug, type Locale, docsIndexPath, docsPath, localePath, workbenchPath } from '../i18n/locales.js';
 import { SITE } from '../lib/site.js';
 
 export interface Props {
@@ -134,7 +134,7 @@ const jsonLd = {
         )
       }
       <a
-        href={playgroundPath(locale, SITE.base)}
+        href={workbenchPath(SITE.base)}
         class="docs-toc__cta"
       >
         <Icon name="code" size={11} />

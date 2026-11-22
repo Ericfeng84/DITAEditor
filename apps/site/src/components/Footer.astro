@@ -1,6 +1,6 @@
 ---
 import { getDictionary } from '../i18n/index.js';
-import { type Locale, docsIndexPath, docsPath, homePath, localePath, playgroundPath } from '../i18n/locales.js';
+import { type Locale, docsIndexPath, docsPath, homePath, localePath, workbenchPath } from '../i18n/locales.js';
 import { SITE } from '../lib/site.js';
 
 export interface Props {
@@ -38,7 +38,7 @@ const columns = [
     links: [
       { label: dict.footer.github, href: SITE.repo },
       { label: dict.footer.license, href: SITE.licenseUrl },
-      { label: dict.nav.playground, href: playgroundPath(locale, SITE.base) },
+      { label: dict.nav.playground, href: workbenchPath(SITE.base) },
       { label: dict.footer.samples, href: `${SITE.repo}/tree/main/samples/demo-dita-project` },
     ],
   },

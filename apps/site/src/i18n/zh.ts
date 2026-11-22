@@ -14,13 +14,13 @@ export const zh = {
   },
   nav: {
     features: '核心能力',
-    playground: '在线试玩',
+    playground: '在线工作台',
     docs: '文档',
     architecture: '架构',
     github: 'GitHub 仓库',
     star: 'Star',
     quickStart: '快速开始',
-    cta: '在线试玩',
+    cta: '在线工作台',
     menu: '导航菜单',
     language: '切换语言',
     search: '搜索',
@@ -32,7 +32,7 @@ export const zh = {
     titleAccent: '团队级轻量 Web 结构化写作工作台。',
     subtitle:
       '在浏览器中同时拥有 ProseMirror 可视化结构化编辑、CodeMirror 6 源码控制、Keys / Conref / DITAVAL 单一信息源、本地 Git Check-out 独占锁、DITA-OT 4.x 中文 PDF 发布与 AI 片段级校验辅助 —— 零 Java 业务代码，单容器开箱即用。',
-    primaryCta: '立即在线试玩（免部署）',
+    primaryCta: '打开在线工作台（离线版）',
     secondaryCta: 'Docker 快速部署',
     stats: [
       { value: '100%', label: '无损 XML 往返' },
@@ -126,7 +126,7 @@ export const zh = {
     presets: { body: '正文', note: '提示', command: '命令' },
     hint: '试着修改「备份目录」，或把开头改成「归档工作区数据」',
     reset: '重置样本',
-    openFull: '打开完整 DITA 1.3 交互沙箱 →',
+    openFull: '打开三栏离线工作台 →',
     unchanged: '尚未改动：序列化结果与初始样本逐字节一致。',
     changed: '仅变动 {count} 行，其余 XML 逐字节一致。',
     preserve: ['DOCTYPE 保留', '注释保留', 'PI 保留', '属性顺序一致'],
@@ -181,8 +181,8 @@ export const zh = {
   },
   cta: {
     title: '先用十分钟，验证它是否真的无损。',
-    body: '沙箱在浏览器内运行真实的解析与序列化内核：改一个字，看 Diff 是否只亮起一行。',
-    playground: '进入交互沙箱',
+    body: '浏览器内直接运行多文件离线工作台：支持 Map 树、可视化/源码双模编辑与 Keys/Conref/DITAVAL 单一信息源。',
+    playground: '打开在线工作台',
     docs: '阅读部署文档',
   },
   footer: {
@@ -307,11 +307,11 @@ export const zh = {
   },
   notFound: {
     title: '页面不存在',
-    description: '链接可能已经迁移。回到首页，或直接进入交互沙箱。',
+    description: '链接可能已经迁移。回到首页，或直接打开在线离线工作台。',
     home: '返回首页',
     switchLocale: 'English?',
     switchLocaleLink: '前往英文站点 →',
-    playground: '打开在线沙箱',
+    playground: '打开在线工作台',
   },
   common: {
     copy: '复制',

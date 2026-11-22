@@ -8,8 +8,8 @@ import {
   docsIndexPath,
   homePath,
   localePath,
-  playgroundPath,
   switchLocalePath,
+  workbenchPath,
 } from '../i18n/locales.js';
 import { SITE } from '../lib/site.js';
 
@@ -22,14 +22,13 @@ export interface Props {
 const { locale, path } = Astro.props;
 const dict = getDictionary(locale);
 const isDocs = path.startsWith('/docs');
-const isPlayground = path.startsWith('/playground');
 
 const navItems = [
   { href: docsIndexPath(locale, SITE.base), label: dict.nav.docs, active: isDocs },
   {
-    href: playgroundPath(locale, SITE.base),
+    href: workbenchPath(SITE.base),
     label: dict.nav.playground,
-    active: isPlayground,
+    active: false,
   },
   { href: localePath(locale, '/#capabilities', SITE.base), label: dict.nav.features, active: false },
   { href: localePath(locale, '/#architecture', SITE.base), label: dict.nav.architecture, active: false },

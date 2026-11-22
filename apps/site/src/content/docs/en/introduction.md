@@ -56,6 +56,6 @@ Each `(project, branch, file_path)` permits exactly one exclusive check-out. Bra
 
 ## Next steps
 
-- Edit a real XML fragment in the browser: [open the playground](/en/playground).
+- Try the multi-file workbench directly in your browser: [open the offline workbench](../../../workbench/).
 - Deploy it: [Getting started with Docker](/en/docs/getting-started).
 - Read the code: [Architecture reference](/en/docs/architecture).

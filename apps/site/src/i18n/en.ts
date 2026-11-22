@@ -17,13 +17,13 @@ export const en: typeof zh = {
   },
   nav: {
     features: 'Capabilities',
-    playground: 'Playground',
+    playground: 'Workbench',
     docs: 'Docs',
     architecture: 'Architecture',
     github: 'GitHub repository',
     star: 'Star',
     quickStart: 'Quick start',
-    cta: 'Try the sandbox',
+    cta: 'Open workbench',
     menu: 'Menu',
     language: 'Language',
     search: 'Search',
@@ -35,7 +35,7 @@ export const en: typeof zh = {
     titleAccent: 'in a lightweight web workbench built for teams.',
     subtitle:
       'In one browser tab: ProseMirror structured visual editing, CodeMirror 6 source control, single-sourced keys, conrefs and DITAVAL, check-out locks on local Git worktrees, DITA-OT 4.x PDF output with Noto CJK, and fragment-scoped AI assistance — no Java business code, one container.',
-    primaryCta: 'Try the sandbox (no install)',
+    primaryCta: 'Open offline workbench (browser)',
     secondaryCta: 'Deploy with Docker',
     stats: [
       { value: '100%', label: 'Lossless XML round-trip' },
@@ -129,7 +129,7 @@ export const en: typeof zh = {
     presets: { body: 'Body', note: 'Note', command: 'Command' },
     hint: 'Try changing the backup path, or retitle it “Archive the workspace”',
     reset: 'Reset sample',
-    openFull: 'Open the full DITA 1.3 sandbox →',
+    openFull: 'Open the 3-pane offline workbench →',
     unchanged: 'Untouched: the serialized XML is byte-identical to the original.',
     changed: 'Only {count} lines changed; everything else is byte-identical.',
     preserve: ['DOCTYPE kept', 'Comments kept', 'PI kept', 'Attribute order kept'],
@@ -184,8 +184,8 @@ export const en: typeof zh = {
   },
   cta: {
     title: 'Spend ten minutes proving it is actually lossless.',
-    body: 'The sandbox runs the real parser and serializer in your browser: change one word and check whether the diff lights up exactly one line.',
-    playground: 'Open the sandbox',
+    body: 'Run the multi-file offline workbench in your browser: map tree, dual-mode editing, and single-sourced keys, conrefs, and DITAVAL.',
+    playground: 'Open offline workbench',
     docs: 'Read the docs',
   },
   footer: {
@@ -310,11 +310,11 @@ export const en: typeof zh = {
   },
   notFound: {
     title: 'Page not found',
-    description: 'This link may have moved. Go back home, or jump into the interactive sandbox.',
+    description: 'This link may have moved. Go back home, or open the offline browser workbench.',
     home: 'Back to home',
     switchLocale: '简体中文？',
     switchLocaleLink: '前往中文站点 →',
-    playground: 'Open the sandbox',
+    playground: 'Open workbench',
   },
   common: {
     copy: 'Copy',
