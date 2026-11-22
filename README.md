@@ -10,21 +10,24 @@
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
-> 当前版本 **v1.1.0**（覆盖 Phase 0–7：工作台 + 官网 / 浏览器交互沙箱 / 双语文档站），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
+> 当前版本 **v1.1.0**（覆盖 Phase 0–7：工作台 + 官网 / 离线三栏工作台 / 双语文档站），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
+
+- **项目官网与双语文档（GitHub Pages）**：https://ericfeng84.github.io/DITAEditor/ （英文版：`/en/`）
+- **在线工作台（纯前端离线版）**：https://ericfeng84.github.io/DITAEditor/workbench/ （内置 `demo-dita-project` 内存工作区，免部署体验三栏工作台、Map 树、双模编辑与 Keys/Conref/DITAVAL）
 
 ---
 
-## 官网与浏览器沙箱（Phase 7）
+## 官网与 GitHub Pages 在线体验（Phase 7）
 
 独立静态站 `apps/site`（`@dita/site`，Astro 5 + React 19 Islands + Tailwind CSS 4），与单容器工作台镜像完全解耦、可托管在任意 CDN：
 
 | 入口 | 内容 |
 | :--- | :--- |
-| `/` · `/en/` | 中英双语官网首页：Hero、真实工作台多 Tab 展台、CCMS / Markdown 对照表、六大能力深度展台、单容器架构全景、Docker / pnpm / AI 三条快速启动路径 |
-| `/playground` · `/en/playground` | **零后端** DITA 1.3 交互沙箱：真实 `@dita/core` 解析 / 序列化 / CALS / Keyspace / DITAVAL / 行级 Diff，含 4 个场景预设、可视化 · 双栏 · XML 源码切换与良构错误拦截演示 |
+| `/` · `/en/` | 中英双语官网首页：Hero、真实工作台多 Tab 展台、CCMS / Markdown 对照表、首页「改一字仅变一行 XML」微演示、六大能力深度展台、单容器架构全景、Docker / pnpm / AI 三条快速启动路径 |
+| `/workbench/` | **非完整版三栏离线工作台**：由 `@dita/web` 以 `VITE_STATIC_DEMO=true` 构建并合包发布，纯浏览器运行多文件示例项目、Map 树、可视化/源码双模编辑与 Keys/Conref/DITAVAL（不含服务端 Git、DITA-OT 发布与 AI 代理） |
 | `/docs/*` · `/en/docs/*` | 六篇对称文档（简介、Docker 快速开始、本地开发与字体配置、功能导览、AI 配置、架构参考），带页内 TOC、代码一键复制与中英静态全文检索（`Cmd/Ctrl+K`，Pagefind） |
 
-首页「改一个字，只变一行 XML」微沙箱以 `client:visible` 懒加载，首屏不加载 ProseMirror / CodeMirror chunk。
+首页「改一个字，只变一行 XML」微演示以 `client:visible` 懒加载，首屏不加载 ProseMirror / CodeMirror chunk。
 
 ```bash
 pnpm --filter @dita/site dev      # http://localhost:4321
@@ -32,7 +35,7 @@ pnpm --filter @dita/site build    # 静态产物 + Pagefind 索引
 pnpm --filter @dita/site test     # 双语字典/文档 slug 对称性与预设往返无损
 ```
 
-部署：`.github/workflows/deploy-site.yml` 在 `main` 推送时构建并发布到 GitHub Pages，`SITE_URL` / `SITE_BASE` 通过仓库变量覆盖根路径或子路径（如 `/DITAEditor/`）。
+部署：`.github/workflows/deploy-site.yml` 在 `main` 推送时构建 `@dita/site` 与离线版 `@dita/web`（输出至 `/workbench/`）并发布到 GitHub Pages（详见 [docs/deploy-github-pages.md](docs/deploy-github-pages.md)）；`SITE_URL` / `SITE_BASE` 通过仓库变量覆盖根路径或子路径（如 `/DITAEditor/`）。
 
 ---
 
@@ -232,12 +235,12 @@ DITAEditor/
 │           ├── publish/        # SQLite 发布任务、快照构建、SSE 日志与产物下载
 │           ├── ai/             # AI 配置/用量、Prompt 构建、LangChain 模型工厂、SSE 编排与重试
 │           └── dita-ot/        # dita CLI 运行时探测、子进程调度与 DOTJ/DOTX 日志解析
-│   └── site/                   # @dita/site — Astro 5 双语官网、浏览器交互沙箱与文档站
+│   └── site/                   # @dita/site — Astro 5 双语官网与文档站（GitHub Pages 同步打包 /workbench/ 离线工作台）
 │       └── src/
-│           ├── pages/          # 双语首页、/playground、/docs/*、404 与 robots/sitemap
+│           ├── pages/          # 双语首页、/docs/*、404 与 robots/sitemap
 │           ├── content/docs/   # 中英对称的 6 篇文档（Content Collections）
-│           ├── components/     # 首屏/首页区块、playground 与 mini-demo 岛屿、搜索弹窗
-│           ├── lib/            # 行级 Diff、沙箱诊断、CodeMirror 主题、页面路径辅助
+│           ├── components/     # 首屏/首页区块、mini-demo 岛屿与 Pagefind 搜索弹窗
+│           ├── lib/            # 行级 Diff、站点配置与页面路径辅助
 │           └── styles/         # Tailwind 4 CSS-first 设计令牌与组件样式
 ├── samples/
 │   └── demo-dita-project/      # 开箱即用的多变体 DITA 1.3 演示项目（Map/Bookmap/复用库/DITAVAL/SVG）
@@ -413,10 +416,11 @@ pnpm typecheck
 pnpm test
 ```
 
-当前测试覆盖（**201/201 Vitest 测试通过**）：
+当前测试覆盖（**231/231 Vitest 测试通过**）：
 - `@dita/core`（81 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因（26 项）。
 - `@dita/web`（92 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，以及 Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥）。
 - `@dita/api`（28 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份，Phase 5 运行时探测、DOTJ/DOTX/file URL 日志归一化、严格校验成功/失败/只读放行、HTML5 ZIP 与预览、PDF 下载、取消与历史排序，以及 Phase 6 AI 配置与 Key 掩码、用量账本聚合、SSE 事件序列、重试与非管理员 403、真实 socket 上的 SSE 回归，以及 DITAVAL 路径必须位于工作区内的安全约束。
+- `@dita/site`（30 项）：中英双语字典键对称校验、双语文档 slug 对称校验、子路径（`SITE_BASE`）与离线工作台路由辅助单测，以及核心 `@dita/core` 预设无损往返验证。
 
 ---
 
@@ -429,6 +433,8 @@ pnpm test
 - [x] **Phase 4**：SQLite + Drizzle ORM 轻量身份与三档角色、本地 `simple-git` 仓库与按分支隔离 `git worktree`、Check-out 独占锁/签入/撤销/管理员强制解锁备份、CodeMirror 6 MergeView 工作区与历史版本 Diff、左侧「版本」面板。
 - [x] **Phase 5**：基于 `@dita/api` 直接调度 DITA-OT 4.x CLI（零 Java 业务代码，内置 DITA 1.3 DTD/RNG 严格校验 + 纯 XML Noto CJK 中文 PDF 字体插件）、零 Redis 的 SQLite + 进程内并发限流异步发布与 SSE 实时日志，以及单容器 `Dockerfile` 一键部署。
 - [x] **Phase 6**：LangChain.js AI 辅助（DeepSeek / OpenAI 兼容端点）、`@dita/core` 片段级无损替换与自动校验重试、SSE 流式写作/标签优化/错误修复、强制 Diff 确认与 Check-out 锁守卫、SQLite 配置与 token 用量审计、AI 配置/用量面板；含真实端点端到端脚本 `apps/api/scripts/e2e-ai-live.mts`。
+- [x] **Phase 7**：独立静态官网 `@dita/site`（Astro 5 + React 19 + Tailwind CSS 4，中英双语 + 6 篇对称文档 + Pagefind 搜索 + 首页微演示），并通过 GitHub Pages 同步托管纯前端离线版三栏工作台（`/workbench/`）。
+- [ ] **Phase 8**：全栈英文版界面与双语国际化（规划见 [docs/phase8-i18n-plan.md](docs/phase8-i18n-plan.md)）。
 
 ---
 

@@ -8,23 +8,26 @@ A lightweight **web-based DITA 1.3 structured authoring workbench** for technica
 
 > For the full architecture, technology rationale, and phased implementation baseline, see [docs/architecture-and-plan.md](docs/architecture-and-plan.md) and [AGENTS.md](AGENTS.md).
 
-> Current release **v1.1.0** (Phase 0–7: the workbench plus the marketing site, in-browser sandbox and bilingual docs). Changelog in [CHANGELOG.md](CHANGELOG.md), license in [LICENSE](LICENSE) (MIT).
+> Current release **v1.1.0** (Phase 0–7: the workbench plus the marketing site, browser-only offline workbench, and bilingual docs). Changelog in [CHANGELOG.md](CHANGELOG.md), license in [LICENSE](LICENSE) (MIT).
+
+- **Website & Bilingual Docs (GitHub Pages)**: https://ericfeng84.github.io/DITAEditor/ (English: `/en/`)
+- **Online Workbench (Browser Offline Demo)**: https://ericfeng84.github.io/DITAEditor/workbench/ (runs the in-memory `demo-dita-project` with the 3-pane workbench, Map tree, dual-mode editing, and Keys/Conref/DITAVAL)
 
 **English** · [简体中文](README.md)
 
 ---
 
-## Website and in-browser sandbox (Phase 7)
+## Website and GitHub Pages online demo (Phase 7)
 
 A separate static site, `apps/site` (`@dita/site`, Astro 5 + React 19 islands + Tailwind CSS 4), fully decoupled from the single-container workbench image and hostable on any CDN:
 
 | Route | Contents |
 | :--- | :--- |
-| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase, CCMS / Markdown comparison, six capability deep-dives, single-container architecture, Docker / pnpm / AI quick starts |
-| `/playground` · `/en/playground` | **Backend-free** DITA 1.3 sandbox running the real `@dita/core` parser, serializer, CALS, keyspace, DITAVAL evaluation and line diff, with four presets, visual/split/source modes and a well-formedness guard demo |
+| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase, CCMS / Markdown comparison, "one changed word, one changed XML line" live round-trip widget, six capability deep-dives, single-container architecture, Docker / pnpm / AI quick starts |
+| `/workbench/` | **Browser-only offline 3-pane workbench**: `@dita/web` built with `VITE_STATIC_DEMO=true` and bundled alongside the site, running the multi-file demo project, Map tree, visual/source dual-mode editor, and Keys/Conref/DITAVAL (no server-side Git, DITA-OT publishing, or AI proxy) |
 | `/docs/*` · `/en/docs/*` | Six mirrored docs (introduction, Docker quick start, local development and fonts, feature tour, AI setup, architecture) with in-page TOC, copy buttons and bilingual Pagefind search (`Cmd/Ctrl+K`) |
 
-The home-page "one changed word, one changed XML line" mini sandbox loads with `client:visible`, so ProseMirror and CodeMirror never enter the first paint.
+The home-page "one changed word, one changed XML line" widget loads with `client:visible`, so ProseMirror never enters the first paint.
 
 ```bash
 pnpm --filter @dita/site dev      # http://localhost:4321
@@ -32,7 +35,7 @@ pnpm --filter @dita/site build    # static output + Pagefind index
 pnpm --filter @dita/site test     # dictionary/doc-slug symmetry and preset round-trips
 ```
 
-Deployment: `.github/workflows/deploy-site.yml` builds and publishes to GitHub Pages on every push to `main`; `SITE_URL` / `SITE_BASE` repo variables cover the root path or a sub-path such as `/DITAEditor/`.
+Deployment: `.github/workflows/deploy-site.yml` builds `@dita/site` and the offline `@dita/web` bundle (published under `/workbench/`) to GitHub Pages on every push to `main` (see [docs/deploy-github-pages.md](docs/deploy-github-pages.md)); `SITE_URL` / `SITE_BASE` repo variables cover the root path or a sub-path such as `/DITAEditor/`.
 
 ---
 
