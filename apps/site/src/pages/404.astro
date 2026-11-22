@@ -1,0 +1,18 @@
+---
+import NotFound from '../components/NotFound.astro';
+import { SITE } from '../lib/site.js';
+
+// Static hosts (GitHub Pages, S3, nginx) serve this one file for every unknown path, including
+// `/en/*`, so English visitors are handed to the English 404 before it renders.
+const enNotFound = `${SITE.base.replace(/\/$/, '')}/en/404/`;
+---
+
+<NotFound locale="zh" />
+
+<script is:inline define:vars={{ base: SITE.base, enNotFound }}>
+  try {
+    if (location.pathname.slice(base.length).startsWith('en/')) location.replace(enNotFound);
+  } catch {
+    /* ignore */
+  }
+</script>

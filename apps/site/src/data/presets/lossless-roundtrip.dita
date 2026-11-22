@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="urn:oasis:names:tc:dita:rng:topic.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<!-- Preset 1: every byte of metadata must survive a visual edit -->
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="concept_roundtrip" xml:lang="zh-CN" outputclass="preset" audience="author">
+  <title>无损往返：改一字只变一行</title>
+  <shortdesc>XML 声明、DOCTYPE、注释、PI、属性顺序与未知特化元素都必须原样穿过 ProseMirror 再回到 XML。</shortdesc>
+  <prolog>
+    <author>DITAEditor</author>
+    <!-- prolog 内的注释同样需要保留 -->
+    <metadata>
+      <keywords>
+        <keyword>lossless</keyword>
+        <keyword>round-trip</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
+  <conbody>
+    <p audience="writer" outputclass="intro">这段文字刻意把 audience 写在 outputclass 之前，属性顺序不得被重排。</p>
+    <!-- 块级注释：编辑正文时不得消失 -->
+    <p>尝试把下面这句话里的“三行”改成“四行”，右侧 Diff 只会亮起一行。</p>
+    <hazardstatement type="danger">
+      <messagepanel>
+        <typeofhazard>数据丢失风险</typeofhazard>
+      </messagepanel>
+      <hazardsymbol href="images/hazard.svg"/>
+      <consequence>未提交的改动可能被覆盖。</consequence>
+      <howtoavoid>先 Check-out 文件，再进行编辑。</howtoavoid>
+    </hazardstatement>
+    <section id="sec_unknown">
+      <title>未知与特化元素</title>
+      <p>下面的 <codeph>acme:review</codeph> 是未建模的特化元素，序列化时保持标签、命名空间与属性顺序。</p>
+      <acme:review xmlns:acme="urn:acme:review" status="pending" reviewer="li.ming">等待架构组确认</acme:review>
+    </section>
+    <note type="tip" otherprops="draft">
+      <p>编辑完成后无需手动格式化，序列化器始终保持幂等。</p>
+    </note>
+  </conbody>
+</concept>

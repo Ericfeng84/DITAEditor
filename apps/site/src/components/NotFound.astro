@@ -1,0 +1,48 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import { getDictionary } from '../i18n/index.js';
+import { homePath, playgroundPath, type Locale } from '../i18n/locales.js';
+import { SITE } from '../lib/site.js';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const dict = getDictionary(locale);
+const otherLocale: Locale = locale === 'zh' ? 'en' : 'zh';
+const otherHref = `${SITE.base.replace(/\/$/, '')}/${otherLocale === 'en' ? 'en/' : ''}`;
+---
+
+<BaseLayout
+  locale={locale}
+  title={`404 — ${dict.notFound.title} · DITAEditor`}
+  description={dict.notFound.description}
+  path={locale === 'zh' ? '/404' : '/en/404'}
+  noindex
+>
+  <section class="not-found shell">
+    <div>
+      <div class="not-found__code">HTTP 404</div>
+      <h1 class="display-xl" style="margin-top:18px">{dict.notFound.title}</h1>
+      <p class="lede" style="max-width:52ch; margin:16px auto 0">{dict.notFound.description}</p>
+      <div class="not-found__actions">
+        <a
+          class="btn btn-blue"
+          href={homePath(locale, SITE.base)}
+        >
+          {dict.notFound.home}
+        </a>
+        <a
+          class="btn btn-secondary"
+          href={playgroundPath(locale, SITE.base)}
+        >
+          {dict.notFound.playground}
+        </a>
+      </div>
+      <p class="not-found__alt">
+        {dict.notFound.switchLocale} <a href={otherHref}>{dict.notFound.switchLocaleLink}</a>
+      </p>
+    </div>
+  </section>
+</BaseLayout>

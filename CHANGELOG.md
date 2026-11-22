@@ -3,6 +3,39 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.1.0] — 2026-11-22
+
+Phase 7 交付：独立静态官网 `@dita/site`、零后端浏览器交互式 DITA 1.3 沙箱与中英双语文档站；工作台侧代码零改动，
+单容器镜像不包含官网产物。全仓测试 231 项全绿（`@dita/core` 81 / `@dita/api` 28 / `@dita/web` 92 / `@dita/site` 30）。
+
+### Added
+
+- **`apps/site`（`@dita/site`）静态站**：Astro 5（`output: 'static'`）+ React 19 Islands + Tailwind CSS 4（`@theme`
+  设计令牌 + 手写组件样式）+ Shiki + Pagefind；`astro.config.ts` 复用 `browserStreamStubPlugin()`，并保留
+  `vendor-codemirror` / `vendor-prosemirror` / `vendor-xml-core` / `vendor-react` 手动分块。
+- **双语首页（`/` · `/en/`）**：Hero、真实工作台多 Tab 展台（`client:visible`）、CCMS/Markdown 可验证事实对照表、
+  首页「改一个字只变一行 XML」微沙箱、六大能力深度展台、深色架构全景（HTML/CSS，零图片依赖）、Docker / pnpm / AI
+  三条快速启动路径与 CTA。
+- **浏览器内交互式沙箱（`/playground` · `/en/playground`）**：真实 `@dita/core` 解析/序列化/ProseMirror 映射/CALS/
+  Keyspace/DITAVAL；4 个场景预设；可视化 / 双栏 / XML 源码三态；良构错误拦截并阻止切回可视化；DITAVAL 三态投影与
+  Flag 着色；`keyref` 空元素以键值 chip 内联显示解析结果；诊断卡（元素数、未知标签、往返幂等、行列）；
+  行级 Diff 抽屉与 XML 一键复制。
+- **中英双语文档站（`/docs/*` · `/en/docs/*`）**：Astro Content Collections 6×2 篇对称文档（简介、Docker 快速开始、
+  本地开发与 DITA-OT 字体、功能导览、AI 接入与安全边界、架构参考），页内 TOC 滚动高亮、代码复制按钮、上一篇/下一篇、
+  「在 GitHub 上编辑」、Pagefind 双语检索（`Cmd/Ctrl+K`，`lang` 过滤器隔离中英文结果）。
+- **SEO 与部署**：`@astrojs/sitemap`（含 `hreflang` 语言对）、per-locale OG 封面（1200×630）、favicon / apple-touch-icon、
+  `robots.txt`、`SoftwareApplication` 结构化数据、中英双语 404（静态托管下 `/en/*` 未知路径自动落到英文 404）；`.github/workflows/deploy-site.yml` 在 `main` 推送时发布到
+  GitHub Pages（`SITE_URL` / `SITE_BASE` 支持子路径）。
+
+### Changed
+
+- 根 `package.json` 与各 workspace 包版本升至 `1.1.0`；README / README.en 增加「官网与浏览器沙箱」章节、目录树与版本徽章。
+- `AGENTS.md` 增补 `apps/site` 目录、站点命令与「静态站不变量」（双语对称、路径辅助函数、首屏不加载编辑器 chunk、
+  Tailwind CSS-first、沙箱不得 mock）；路线图补齐 Phase 7。
+- `docs/architecture-and-plan.md` Phase 7 状态更新为已完成；`docs/phase7-site-plan.md` 增补交付结果与两处实现差异说明
+  （自研零依赖行级 Diff 取代 MergeView、HTML/CSS 架构图取代 SVG）。
+- `Dockerfile` 保持不变：构建阶段仍只 `--filter @dita/core --filter @dita/web --filter @dita/api`，官网单独托管。
+
 ## [1.0.0] — 2026-11-22
 
 DITAEditor 的首个正式发布（1.0）：Phase 0–6 全部落地，测试 201 项全绿（`@dita/core` 81 / `@dita/web` 92 /

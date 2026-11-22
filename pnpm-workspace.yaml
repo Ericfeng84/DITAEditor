@@ -5,3 +5,5 @@ packages:
 allowBuilds:
   esbuild: true
   better-sqlite3: true
+  # Astro ships sharp as an optional dependency for image optimisation; we ship pre-built assets.
+  sharp: true

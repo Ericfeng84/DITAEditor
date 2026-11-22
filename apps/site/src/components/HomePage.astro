@@ -1,0 +1,341 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import HeroShowcase from '../components/HeroShowcase.js';
+import MiniRoundTripDemo from '../components/MiniRoundTripDemo.js';
+import QuickStartTabs from '../components/QuickStartTabs.js';
+import Icon from '../components/Icon.astro';
+import { getDictionary, pickText } from '../i18n/index.js';
+import {
+  type Locale,
+  docsIndexPath,
+  docsPath,
+  playgroundPath,
+} from '../i18n/locales.js';
+import { CAPABILITIES } from '../data/features.js';
+import { SITE, assetUrl } from '../lib/site.js';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const dict = getDictionary(locale);
+const base = SITE.base;
+
+const showcaseImages: Record<string, string> = {
+  workbench: assetUrl('/images/workbench.webp'),
+  dual: assetUrl('/images/dual-view.webp'),
+  sourcing: assetUrl('/images/single-sourcing.webp'),
+  publish: assetUrl('/images/pdf-output.webp'),
+  ai: assetUrl('/images/ai-diff.webp'),
+};
+
+const layerRows = [
+  { key: 'web', label: dict.architecture.layers.web, rows: ['ProseMirror', 'CodeMirror 6', 'React 19'] },
+  { key: 'api', label: dict.architecture.layers.api, rows: ['Fastify', 'Drizzle + SQLite', 'simple-git'] },
+  { key: 'core', label: dict.architecture.layers.core, rows: ['slimdom + SAX', 'CALS', 'Keyspace', 'DITAVAL'] },
+];
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'SoftwareApplication',
+  name: 'DITAEditor',
+  applicationCategory: 'DeveloperApplication',
+  operatingSystem: 'Web, Docker',
+  description: dict.meta.homeDescription,
+  url: SITE.url,
+  license: SITE.licenseUrl,
+  offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' },
+  featureList: CAPABILITIES.map((capability) => pickText(capability.title, locale)),
+};
+---
+
+<BaseLayout
+  locale={locale}
+  title={dict.meta.homeTitle}
+  description={dict.meta.homeDescription}
+  path={locale === 'zh' ? '/' : '/en/'}
+  jsonLd={jsonLd}
+>
+  <section class="hero shell">
+    <div class="hero__intro">
+      <div class="eyebrow reveal">{dict.hero.eyebrow}</div>
+      <h1 class="display-xl reveal">
+        {dict.hero.titleLead}<br />
+        <em>{dict.hero.titleAccent}</em>
+      </h1>
+      <div class="hero__meta reveal">
+        <p class="lede">{dict.hero.subtitle}</p>
+        <div class="hero__actions">
+          <a
+            class="btn btn-blue btn-lg"
+            href={playgroundPath(locale, base)}
+          >
+            {dict.hero.primaryCta}
+            <Icon name="arrow-right" size={14} />
+          </a>
+          <a
+            class="btn btn-ghost btn-lg"
+            href={`${docsPath(locale, 'getting-started', base)}#docker`}
+          >
+            {dict.hero.secondaryCta}
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <dl class="hero__stats reveal">
+      {
+        dict.hero.stats.map((stat) => (
+          <div>
+            <dt>{stat.value}</dt>
+            <dd>{stat.label}</dd>
+          </div>
+        ))
+      }
+    </dl>
+  </section>
+
+  <section class="shell shell--wide" aria-label={dict.hero.showcaseLabel}>
+    <HeroShowcase
+      client:visible
+      tabs={dict.hero.showcaseTabs}
+      images={showcaseImages}
+      label={dict.hero.showcaseLabel}
+      hint={dict.hero.showcaseHint}
+    />
+  </section>
+
+  <section
+    id="engineering"
+    class="section shell"
+  >
+    <header class="section__head reveal">
+      <div class="eyebrow">{dict.compare.eyebrow}</div>
+      <h2 class="display-md">{dict.compare.title}</h2>
+      <p class="lede">{dict.compare.description}</p>
+    </header>
+
+    <div class="compare reveal" role="table" aria-label={dict.compare.title}>
+      <div class="compare__head" role="row">
+        <span role="columnheader" />
+        {
+          dict.compare.columns.map((column, index) => (
+            <span
+              role="columnheader"
+              class={index === 2 ? 'is-own' : ''}
+            >
+              {column}
+            </span>
+          ))
+        }
+      </div>
+      {
+        dict.compare.rows.map((row) => (
+          <div
+            class="compare__row"
+            role="row"
+          >
+            <span class="compare__topic" role="rowheader">
+              {row.topic}
+            </span>
+            <span class="compare__cell" role="cell">
+              <span class="compare__label">{dict.compare.columns[0]}</span>
+              {row.legacy}
+            </span>
+            <span class="compare__cell" role="cell">
+              <span class="compare__label">{dict.compare.columns[1]}</span>
+              {row.generic}
+            </span>
+            <span class="compare__cell compare__cell--own" role="cell">
+              <span class="compare__label">{dict.compare.columns[2]}</span>
+              <span class="compare__own">
+                <Icon name="check" size={13} />
+                {row.dita}
+              </span>
+            </span>
+          </div>
+        ))
+      }
+    </div>
+  </section>
+
+  <section
+    id="verify"
+    class="section section--tight shell"
+  >
+    <header class="section__head reveal">
+      <div class="eyebrow">{dict.miniDemo.eyebrow}</div>
+      <h2 class="display-md">{dict.miniDemo.title}</h2>
+      <p class="lede">{dict.miniDemo.description}</p>
+    </header>
+    <MiniRoundTripDemo
+      client:visible
+      dict={dict}
+      playgroundHref={playgroundPath(locale, base)}
+    />
+  </section>
+
+  <section
+    id="capabilities"
+    class="section shell"
+  >
+    <header class="section__head reveal">
+      <div class="eyebrow">{dict.features.eyebrow}</div>
+      <h2 class="display-md">{dict.features.title}</h2>
+      <p class="lede">{dict.features.description}</p>
+    </header>
+
+    <div class="feature-grid">
+      {
+        CAPABILITIES.map((capability) => (
+          <article class="feature-card reveal">
+            <div class="feature-card__media">
+              {capability.screenshot ? (
+                <img
+                  src={assetUrl(capability.screenshot.src)}
+                  alt={pickText(capability.screenshot.alt, locale)}
+                  width={1400}
+                  height={875}
+                  loading="lazy"
+                  decoding="async"
+                />
+              ) : (
+                <span class="feature-card__placeholder">{dict.features.screenshotLabel}</span>
+              )}
+            </div>
+            <div class="feature-card__body">
+              <div class="feature-card__index">{capability.index}</div>
+              <h3>{pickText(capability.title, locale)}</h3>
+              <p>{pickText(capability.summary, locale)}</p>
+              <ul>
+                {capability.bullets[locale].map((bullet) => (
+                  <li>{bullet}</li>
+                ))}
+              </ul>
+              <a
+                class="feature-card__link"
+                href={docsPath(locale, capability.docs, base)}
+              >
+                {dict.features.readDocs}
+                <Icon name="chevron-right" size={12} />
+              </a>
+            </div>
+          </article>
+        ))
+      }
+    </div>
+  </section>
+
+  <section
+    id="architecture"
+    class="section section--dark"
+  >
+    <div class="shell">
+      <header class="section__head section__head--light reveal">
+        <div class="eyebrow">{dict.architecture.eyebrow}</div>
+        <h2 class="display-md">{dict.architecture.title}</h2>
+        <p class="lede">{dict.architecture.description}</p>
+      </header>
+
+      <div class="arch">
+        <div class="arch__stack">
+          {
+            layerRows.map((layer, index) => (
+              <div class={`arch-layer arch-layer--${layer.key} reveal`}>
+                <div class="arch-layer__head">
+                  <span class="arch-layer__index">{String(index + 1).padStart(2, '0')}</span>
+                  <h3>{layer.label}</h3>
+                </div>
+                <div class="arch-layer__pills">
+                  {layer.rows.map((row) => (
+                    <span class="arch-pill">{row}</span>
+                  ))}
+                </div>
+              </div>
+            ))
+          }
+          <div class="arch-external reveal">
+            <div class="arch-external__item">
+              <span class="arch-external__tag">{dict.architecture.legend.external}</span>
+              <strong>{dict.architecture.layers.ot}</strong>
+            </div>
+            <div class="arch-external__item">
+              <span class="arch-external__tag">{dict.architecture.legend.external}</span>
+              <strong>{dict.architecture.layers.llm}</strong>
+            </div>
+            <div class="arch-external__item">
+              <span class="arch-external__tag">{dict.architecture.legend.storage}</span>
+              <strong>{dict.architecture.layers.git}</strong>
+            </div>
+          </div>
+        </div>
+
+        <aside class="arch__side reveal">
+          <p class="arch__caption">{dict.architecture.caption}</p>
+          <dl class="arch__facts">
+            {
+              dict.architecture.facts.map((fact) => (
+                <div>
+                  <dt>{fact.label}</dt>
+                  <dd>{fact.value}</dd>
+                </div>
+              ))
+            }
+          </dl>
+          <ul class="arch__guarantees">
+            {dict.architecture.guarantees.map((item) => <li>{item}</li>)}
+          </ul>
+          <a
+            class="arch__link"
+            href={docsPath(locale, 'architecture', base)}
+          >
+            {dict.docsUi.titles.architecture}
+            <Icon name="arrow-right" size={12} />
+          </a>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <section
+    id="quick-start"
+    class="section shell"
+  >
+    <header class="section__head reveal">
+      <div class="eyebrow">{dict.quickStart.eyebrow}</div>
+      <h2 class="display-md">{dict.quickStart.title}</h2>
+      <p class="lede">{dict.quickStart.description}</p>
+    </header>
+    <QuickStartTabs
+      client:visible
+      dict={dict}
+      docsHref={docsPath(locale, 'getting-started', base)}
+      githubUrl={SITE.repo}
+    />
+  </section>
+
+  <section class="shell">
+    <div class="cta reveal">
+      <div>
+        <h2 class="display-md">{dict.cta.title}</h2>
+        <p>{dict.cta.body}</p>
+      </div>
+      <div class="cta__actions">
+        <a
+          class="btn btn-blue btn-lg"
+          href={playgroundPath(locale, base)}
+        >
+          {dict.cta.playground}
+          <Icon name="arrow-right" size={14} />
+        </a>
+        <a
+          class="btn btn-ghost btn-lg"
+          href={docsIndexPath(locale, base)}
+        >
+          {dict.cta.docs}
+        </a>
+      </div>
+    </div>
+  </section>
+</BaseLayout>

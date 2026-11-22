@@ -1,0 +1,28 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import DitaPlayground from '../components/playground/DitaPlayground.js';
+import { getDictionary } from '../i18n/index.js';
+import { localePath } from '../i18n/locales.js';
+
+const locale = 'zh' as const;
+const dict = getDictionary(locale);
+const copy = dict.playground;
+---
+
+<BaseLayout
+  locale={locale}
+  title={dict.meta.playgroundTitle}
+  description={dict.meta.playgroundDescription}
+  path="/playground"
+>
+  <section class="pg-hero shell">
+    <a class="pg-hero__back" href={localePath(locale, '/')}>← {copy.backHome}</a>
+    <div class="eyebrow" style="margin-top:14px">{copy.eyebrow}</div>
+    <h1 class="display-lg" style="margin-top:12px">{copy.title}</h1>
+    <p class="lede" style="max-width:70ch; margin-top:12px">{copy.description}</p>
+  </section>
+
+  <div class="shell" style="padding-bottom:24px">
+    <DitaPlayground client:only="react" locale={locale} dict={dict} />
+  </div>
+</BaseLayout>

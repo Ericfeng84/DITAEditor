@@ -32,8 +32,12 @@ DITAEditor/
 │           └── *.test.ts   # Vitest golden, passthrough, CALS, parser/XPath tests
 ├── apps/
 │   ├── web/                # @dita/web — React 19 + TypeScript + Vite frontend workbench
-│   └── api/                # @dita/api — Fastify + Zod API, SQLite/Drizzle identities & locks, simple-git
-│       └── src/modules/{git,identity,locks,files,indexer,validate,publish,dita-ot,static}/
+│   ├── api/                # @dita/api — Fastify + Zod API, SQLite/Drizzle identities & locks, simple-git
+│   │   └── src/modules/{git,identity,locks,files,indexer,validate,publish,dita-ot,static}/
+│   └── site/               # @dita/site — Astro 5 + React 19 islands + Tailwind 4 marketing site,
+│       │                   #   browser DITA sandbox (/playground) and bilingual docs (/docs, /en/docs)
+│       ├── src/{pages,layouts,components,lib,data,i18n,styles}/
+│       └── src/content/docs/{zh,en}/  # 6 mirrored docs each (Content Collections)
 ├── dita-ot-plugins/        # Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
 ├── Dockerfile              # Single container: Node + JRE 21 + DITA-OT 4.2.1 + Noto CJK
 ├── docs/                   # Architecture baseline, ADRs, and contracts
@@ -60,6 +64,8 @@ pnpm --filter @dita/core test
 pnpm --filter @dita/core test:watch
 pnpm --filter @dita/web dev
 pnpm --filter @dita/api dev
+pnpm --filter @dita/site dev      # http://localhost:4321 (static site + sandbox + docs)
+pnpm --filter @dita/site build    # astro build + Pagefind index over dist/
 ```
 
 Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code changes before finishing a task.
@@ -93,6 +99,25 @@ Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code chang
 ### 4.6 Golden Regression Tests
 - Any change to `packages/dita-core/src/{xml,model,cals,prosemirror}` MUST keep all tests in `packages/dita-core/test/` green, including all 10 fixtures in `packages/dita-core/test/fixtures/`.
 - When fixing any XML parsing, serialization, CALS, or ProseMirror mapping bug, add a focused regression test (and fixture if structural).
+
+### 4.6.1 Static Site Invariants (`apps/site`, Phase 7)
+
+- **`@dita/site` is a separate deployable**: it must never be added to the `Dockerfile` build stage (the workbench image
+  stays lean) and may only depend on `@dita/core` — never import from `apps/web/src` or `apps/api/src`.
+- **Bilingual parity is enforced by tests**: `apps/site/test/i18n.test.ts` and `routes.test.ts` require identical
+  dictionary keys and identical doc slugs across `src/i18n/{zh,en}.ts` and `src/content/docs/{zh,en}/`. Add a doc or a
+  dictionary key on both sides in the same commit.
+- **Every internal link goes through an i18n path helper** (`homePath`, `localePath`, `docsPath`, `docsIndexPath`,
+  `playgroundPath`, `switchLocalePath`, `assetUrl`) with `SITE.base`, so `SITE_BASE=/DITAEditor/` sub-path deploys keep
+  working. Never hardcode `/docs/...` or `/images/...` in Astro/React components.
+- **Keep the first paint light**: ProseMirror / CodeMirror / `@dita/core` may only be imported inside hydrated islands
+  (`client:visible` / `client:only`), never from an Astro layout or the home page shell. `apps/site/astro.config.ts`
+  keeps `browserStreamStubPlugin()` (slimdom's unused `node:stream`) and the `vendor-*` manual chunks intact.
+- **Tailwind 4 is CSS-first**: design tokens live in `@theme` at the top of `src/styles/global.css`; component classes are
+  hand-written there. Do not introduce a `tailwind.config.js` or utility-class soup in markup.
+- **Sandbox must stay truthful**: `/playground` runs the real `@dita/core` round-trip; never replace diagnostics, CALS or
+  DITAVAL behaviour with mock data. Presets live in `src/data/playground-presets.ts` and are covered by
+  `apps/site/test/presets-roundtrip.test.ts`.
 
 ### 4.7 AI Assistance Boundaries (Phase 6)
 - **AI never mutates XML directly**: every model reply flows through `normalizeCandidateXml` → `spliceAndVerifyAiXml`.
@@ -136,3 +161,4 @@ This repository maintains a persistent knowledge graph at `graphify-out/`:
 - [x] **Phase 4**: SQLite + Drizzle ORM (`better-sqlite3`) identity/role switcher (Admin/Writer/Viewer), local Git workspace (`simple-git` + branch-isolated `git worktree`, no external GitHub/GitLab/Gitee dependency), Check-out exclusive locks with admin force-unlock patch backups, commit history & CodeMirror 6 MergeView visual version Diff (126/126 Vitest tests passing across `@dita/core` 54, `@dita/api` 7, `@dita/web` 65).
 - [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (built-in DITA 1.3 DTD/RNG strict validation with `--validate=yes --processing-mode=strict` + HTML5/PDF publishing, zero custom Java code), pure-XML Noto CJK PDF font-mappings plugin loaded via `--customization.dir`, zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE log streaming and cancellation/retention, web publish/strict-validation UI, and single-container `Dockerfile` (Node 22 + JRE 21 + DITA-OT 4.2.1 + Noto CJK); 132/132 Vitest tests passing across `@dita/core` 54, `@dita/api` 13, `@dita/web` 65.
 - [x] **Phase 6**: LangChain.js AI assistance — `@dita/core` lossless fragment locator/splice (`src/ai/`), LangChain `ChatOpenAI` factory + SSE `/api/ai/stream` with verification-retry loop, SQLite `ai_settings`/`ai_usage_logs` with admin-only config & usage, web AI panel/settings/diff with Check-out-aware apply, and real-endpoint acceptance via `apps/api/scripts/e2e-ai-live.mts` (201 Vitest tests total: core 81, api 28, web 92).
+- [x] **Phase 7**: Standalone `@dita/site` static site (Astro 5 + React 19 islands + Tailwind 4 CSS-first tokens, zh `/` + en `/en/`), bilingual home (workbench showcase, CCMS/Markdown comparison, live `client:visible` mini round-trip sandbox), six mirrored docs with Pagefind search (`Cmd/Ctrl+K`) and in-page TOC, backend-free `/playground` running the real `@dita/core` (4 presets, visual/split/source, DITAVAL tri-state projection, line diff), SEO (sitemap + hreflang + per-locale OG images, 404, robots), GitHub Pages workflow, and `Dockerfile` kept site-free (231 Vitest tests: core 81, api 28, web 92, site 30).

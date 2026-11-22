@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<val>
+  <prop att="product" val="cloud" action="include"/>
+  <prop att="product" val="onprem" action="exclude"/>
+  <prop att="audience" val="admin" action="flag" color="#B45309" backcolor="#FEF3C7" style="underline"/>
+</val>

@@ -1,0 +1,85 @@
+---
+import { getDictionary } from '../i18n/index.js';
+import { type Locale, docsIndexPath, docsPath, homePath, localePath, playgroundPath } from '../i18n/locales.js';
+import { SITE } from '../lib/site.js';
+
+export interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const dict = getDictionary(locale);
+const year = new Date().getFullYear();
+const home = homePath(locale, SITE.base);
+const anchor = (hash: string) => localePath(locale, `/${hash}`, SITE.base);
+
+const columns = [
+  {
+    heading: dict.footer.productHeading,
+    links: [
+      { label: dict.nav.features, href: anchor('#capabilities') },
+      { label: dict.nav.architecture, href: anchor('#architecture') },
+      { label: dict.footer.changelog, href: `${SITE.repo}/blob/main/CHANGELOG.md` },
+      { label: dict.footer.roadmap, href: `${SITE.repo}/blob/main/docs/architecture-and-plan.md` },
+    ],
+  },
+  {
+    heading: dict.footer.learnHeading,
+    links: [
+      { label: dict.nav.docs, href: docsIndexPath(locale, SITE.base) },
+      ...(['getting-started', 'features', 'ai-setup'] as const).map((slug) => ({
+        label: dict.docsUi.titles[slug],
+        href: docsPath(locale, slug, SITE.base),
+      })),
+    ],
+  },
+  {
+    heading: dict.footer.projectHeading,
+    links: [
+      { label: dict.footer.github, href: SITE.repo },
+      { label: dict.footer.license, href: SITE.licenseUrl },
+      { label: dict.nav.playground, href: playgroundPath(locale, SITE.base) },
+      { label: dict.footer.samples, href: `${SITE.repo}/tree/main/samples/demo-dita-project` },
+    ],
+  },
+];
+---
+
+<footer class="site-footer">
+  <div class="shell">
+    <div class="site-footer__grid">
+      <div>
+        <a href={home} class="brand">
+          <span class="brand__mark">D</span>
+          <span>DITAEditor</span>
+        </a>
+        <p style="margin-top:14px; max-width:36ch; font-size:13.5px; color:var(--color-ink-2); line-height:1.65;">
+          {dict.footer.blurb}
+        </p>
+        <p style="margin-top:14px; font-family:var(--font-mono); font-size:11px; color:var(--color-muted);">
+          {dict.footer.builtWith}
+        </p>
+      </div>
+
+      {
+        columns.map((column) => (
+          <div>
+            <div class="site-footer__heading">{column.heading}</div>
+            <div class="site-footer__list">
+              {column.links.map((link) => (
+                <a href={link.href}>{link.label}</a>
+              ))}
+            </div>
+          </div>
+        ))
+      }
+    </div>
+
+    <div class="site-footer__bottom">
+      <span>© {year} DITAEditor</span>
+      <span>MIT License</span>
+      <span style="margin-left:auto">{dict.footer.madeWith}</span>
+      <span>Edition {SITE.edition}</span>
+    </div>
+  </div>
+</footer>

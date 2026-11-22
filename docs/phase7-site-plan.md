@@ -1,6 +1,6 @@
 # Phase 7 规划与实施蓝图：项目官网、交互式 DITA 沙箱与快速上手文档
 
-> **状态**：📋 规划已确认（待实施）  
+> **状态**：✅ 已实施并验收（`apps/site` 全部 Slice 7.1–7.5 已交付，见文末「交付结果」）  
 > **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–6 已完成并验收，v1.0.0）  
 > **目标形态**：独立静态站点 `apps/site`（`@dita/site`）· 中英双语（`zh-CN` / `en`）· 现代技术出版编辑风 · 浏览器内纯前端 `@dita/core` 交互试玩
 
@@ -289,3 +289,20 @@ apps/site/
 - **双语完整性**：`/` 与 `/en/`、`/playground` 与 `/en/playground`、全部 6 篇 `/docs/*` 与 `/en/docs/*` 页面完整可访问且无断链、无未翻译占位文本，顶栏切换语言可留在同语义页面。
 - **交互沙箱真实性**：纯静态预览模式（无后端运行）下，首页微沙箱与 `/playground` 4 个场景均可正常可视化编辑、源码编辑、切换双栏、触发良构错误拦截、切换 DITAVAL 三态过滤并实时查看精准 MergeView Diff。
 - **性能与规范**：官网首页与文档页纯静态渲染且首屏不加载 ProseMirror / CodeMirror chunk；桌面端与移动端无横向溢出；支持根路径 `/` 与子路径 `/DITAEditor/` 两种静态部署模式正常加载资源与搜索索引。
+
+---
+
+## 8. 交付结果（已实施）
+
+- **工程底座**：`apps/site`（`@dita/site`）独立构建，`astro.config.ts` 复用 `browserStreamStubPlugin()` 并保留 `vendor-codemirror` / `vendor-prosemirror` / `vendor-xml-core` / `vendor-react` 手动分块；`Dockerfile` 只构建 `@dita/core` / `@dita/web` / `@dita/api`，镜像零膨胀。
+- **页面**：双语首页（Hero、工作台多 Tab 展台、CCMS/Markdown 对照表、微沙箱、六大能力、架构全景、快速启动、CTA）、`/playground` 与 `/en/playground`、6×2 文档、文档索引、404、`robots.txt` 与 sitemap。
+- **真实沙箱**：可视化 / 双栏 / XML 源码三态切换、4 个场景预设、良构错误拦截、DITAVAL 三态投影与 Flag 着色、Keyspace 行、诊断卡与行级 Diff；首页微沙箱以 `client:visible` 懒加载。
+- **搜索与 SEO**：Pagefind 双语索引（`Cmd/Ctrl+K`，结果摘要优先使用文档 frontmatter `description`，避免 CJK 句子切分噪声）、`hreflang`、per-locale OG 封面、结构化数据与深浅色主题色。
+- **测试与 CI**：`apps/site/test/{i18n,routes,presets-roundtrip}.test.ts` 强制字典键、文档 slug 与预设往返无损对称；GitHub Pages 工作流支持 `SITE_URL` / `SITE_BASE` 覆盖。
+
+### 8.1 与蓝图的两处实现差异
+
+| 蓝图描述 | 实际实现 | 原因 |
+| :--- | :--- | :--- |
+| 沙箱 Diff 使用 CodeMirror `MergeView` | 自研零依赖 LCS 行级 Diff（`src/lib/diff.ts`），深色双行号 + `+`/`−` 渲染 | 沙箱体积敏感，且行级 Diff 只需 `computeLineDiff`/`compactDiff` 即可精确表达「只变一行」；工作台的 MergeView 仍归 `apps/web` |
+| 首页架构图使用定制 SVG | 纯 HTML/CSS 内联架构全景（分层卡片 + 外部进程虚线卡） | 零额外资源、随断点自然重排、可保留真实包名与 pill 标签的文本可检索性 |

@@ -1,7 +1,7 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.0.0-indigo.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.1.0-indigo.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
 
 **简体中文** · [English](README.en.md)
@@ -10,7 +10,29 @@
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
-> 当前版本 **v1.0.0**（覆盖 Phase 0–6，首个正式发布），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
+> 当前版本 **v1.1.0**（覆盖 Phase 0–7：工作台 + 官网 / 浏览器交互沙箱 / 双语文档站），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
+
+---
+
+## 官网与浏览器沙箱（Phase 7）
+
+独立静态站 `apps/site`（`@dita/site`，Astro 5 + React 19 Islands + Tailwind CSS 4），与单容器工作台镜像完全解耦、可托管在任意 CDN：
+
+| 入口 | 内容 |
+| :--- | :--- |
+| `/` · `/en/` | 中英双语官网首页：Hero、真实工作台多 Tab 展台、CCMS / Markdown 对照表、六大能力深度展台、单容器架构全景、Docker / pnpm / AI 三条快速启动路径 |
+| `/playground` · `/en/playground` | **零后端** DITA 1.3 交互沙箱：真实 `@dita/core` 解析 / 序列化 / CALS / Keyspace / DITAVAL / 行级 Diff，含 4 个场景预设、可视化 · 双栏 · XML 源码切换与良构错误拦截演示 |
+| `/docs/*` · `/en/docs/*` | 六篇对称文档（简介、Docker 快速开始、本地开发与字体配置、功能导览、AI 配置、架构参考），带页内 TOC、代码一键复制与中英静态全文检索（`Cmd/Ctrl+K`，Pagefind） |
+
+首页「改一个字，只变一行 XML」微沙箱以 `client:visible` 懒加载，首屏不加载 ProseMirror / CodeMirror chunk。
+
+```bash
+pnpm --filter @dita/site dev      # http://localhost:4321
+pnpm --filter @dita/site build    # 静态产物 + Pagefind 索引
+pnpm --filter @dita/site test     # 双语字典/文档 slug 对称性与预设往返无损
+```
+
+部署：`.github/workflows/deploy-site.yml` 在 `main` 推送时构建并发布到 GitHub Pages，`SITE_URL` / `SITE_BASE` 通过仓库变量覆盖根路径或子路径（如 `/DITAEditor/`）。
 
 ---
 
@@ -202,7 +224,7 @@ DITAEditor/
 │   │       ├── ai/             # AI 面板/设置/用量/Diff 对话框、SSE 客户端、目标构建与会话状态
 │   │       ├── services/       # API 客户端、离线示例回退与持久化桥接
 │   │       └── store/          # Zustand 工作台、多 Tab 与语义上下文状态管理
-│   └── api/                    # @dita/api — Fastify 5 本地工作区、增量语义索引与资产服务
+│   ├── api/                    # @dita/api — Fastify 5 本地工作区、增量语义索引与资产服务
 │       └── src/modules/
 │           ├── files/          # 安全路径校验、工作区扫描、文件 CRUD、Multipart 上传、诊断
 │           ├── indexer/        # WorkspaceSemanticIndexer 与 /api/semantics/* 语义路由
@@ -210,10 +232,18 @@ DITAEditor/
 │           ├── publish/        # SQLite 发布任务、快照构建、SSE 日志与产物下载
 │           ├── ai/             # AI 配置/用量、Prompt 构建、LangChain 模型工厂、SSE 编排与重试
 │           └── dita-ot/        # dita CLI 运行时探测、子进程调度与 DOTJ/DOTX 日志解析
+│   └── site/                   # @dita/site — Astro 5 双语官网、浏览器交互沙箱与文档站
+│       └── src/
+│           ├── pages/          # 双语首页、/playground、/docs/*、404 与 robots/sitemap
+│           ├── content/docs/   # 中英对称的 6 篇文档（Content Collections）
+│           ├── components/     # 首屏/首页区块、playground 与 mini-demo 岛屿、搜索弹窗
+│           ├── lib/            # 行级 Diff、沙箱诊断、CodeMirror 主题、页面路径辅助
+│           └── styles/         # Tailwind 4 CSS-first 设计令牌与组件样式
 ├── samples/
 │   └── demo-dita-project/      # 开箱即用的多变体 DITA 1.3 演示项目（Map/Bookmap/复用库/DITAVAL/SVG）
 ├── docs/
-│   ├── architecture-and-plan.md # 完整架构设计基线与 Phase 0–6 实施路线
+│   ├── architecture-and-plan.md # 完整架构设计基线与 Phase 0–7 实施路线
+│   ├── phase7-site-plan.md     # Phase 7 官网/沙箱/文档站蓝图
 │   ├── phase6-ai-contract.md   # Phase 6 AI 接口/SSE/DB/前端集成契约
 │   └── pic/                    # 工作台界面截图
 ├── dita-ot-plugins/            # 纯 XML DITA-OT 4.x 中文 PDF 字体映射插件（Noto CJK）

@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "noEmit": true,
+    "allowJs": true,
+    "types": ["astro/client"],
+    "verbatimModuleSyntax": false
+  },
+  "include": [".astro/types.d.ts", "src/**/*", "test/**/*", "astro.config.mjs"],
+  "exclude": ["dist", "node_modules"]
+}

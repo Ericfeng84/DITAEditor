@@ -1,16 +1,38 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.0.0-indigo.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.1.0-indigo.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
 
 A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It combines **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, **local Git versioning with check-out locks and visual diffs**, and **authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
 
 > For the full architecture, technology rationale, and phased implementation baseline, see [docs/architecture-and-plan.md](docs/architecture-and-plan.md) and [AGENTS.md](AGENTS.md).
 
-> Current release **v1.0.0** (covers Phase 0–6, first stable release). See [CHANGELOG.md](CHANGELOG.md) for the changelog, and [LICENSE](LICENSE) for the MIT license.
+> Current release **v1.1.0** (Phase 0–7: the workbench plus the marketing site, in-browser sandbox and bilingual docs). Changelog in [CHANGELOG.md](CHANGELOG.md), license in [LICENSE](LICENSE) (MIT).
 
 **English** · [简体中文](README.md)
+
+---
+
+## Website and in-browser sandbox (Phase 7)
+
+A separate static site, `apps/site` (`@dita/site`, Astro 5 + React 19 islands + Tailwind CSS 4), fully decoupled from the single-container workbench image and hostable on any CDN:
+
+| Route | Contents |
+| :--- | :--- |
+| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase, CCMS / Markdown comparison, six capability deep-dives, single-container architecture, Docker / pnpm / AI quick starts |
+| `/playground` · `/en/playground` | **Backend-free** DITA 1.3 sandbox running the real `@dita/core` parser, serializer, CALS, keyspace, DITAVAL evaluation and line diff, with four presets, visual/split/source modes and a well-formedness guard demo |
+| `/docs/*` · `/en/docs/*` | Six mirrored docs (introduction, Docker quick start, local development and fonts, feature tour, AI setup, architecture) with in-page TOC, copy buttons and bilingual Pagefind search (`Cmd/Ctrl+K`) |
+
+The home-page "one changed word, one changed XML line" mini sandbox loads with `client:visible`, so ProseMirror and CodeMirror never enter the first paint.
+
+```bash
+pnpm --filter @dita/site dev      # http://localhost:4321
+pnpm --filter @dita/site build    # static output + Pagefind index
+pnpm --filter @dita/site test     # dictionary/doc-slug symmetry and preset round-trips
+```
+
+Deployment: `.github/workflows/deploy-site.yml` builds and publishes to GitHub Pages on every push to `main`; `SITE_URL` / `SITE_BASE` repo variables cover the root path or a sub-path such as `/DITAEditor/`.
 
 ---
 
@@ -210,7 +232,7 @@ DITAEditor/
 │   │       ├── ai/             # AI panel/settings/usage/diff dialogs, SSE client, target builder, session store
 │   │       ├── services/       # API client, offline demo fallback, persistence bridge
 │   │       └── store/          # Zustand workbench, multi-tab, and semantic context state
-│   └── api/                    # @dita/api — Fastify 5 workspace, semantic index, and asset service
+│   ├── api/                    # @dita/api — Fastify 5 workspace, semantic index, and asset service
 │       └── src/modules/
 │           ├── files/          # safe path validation, workspace scan, file CRUD, multipart upload, diagnostics
 │           ├── indexer/        # WorkspaceSemanticIndexer and /api/semantics/* routes
@@ -218,10 +240,18 @@ DITAEditor/
 │           ├── publish/        # SQLite publish jobs, snapshot builds, SSE logs, artifact downloads
 │           ├── ai/             # AI settings/usage, prompt builder, LangChain model factory, SSE orchestration
 │           └── dita-ot/        # dita CLI runtime detection, child-process runner, DOTJ/DOTX log parser
+│   └── site/                   # @dita/site — Astro 5 bilingual site, sandbox, and docs
+│       └── src/
+│           ├── pages/          # bilingual home, /playground, /docs/*, 404, robots and sitemap
+│           ├── content/docs/   # six mirrored zh/en docs (Content Collections)
+│           ├── components/     # home sections, playground and mini-demo islands, search modal
+│           ├── lib/            # line diff, sandbox diagnostics, CodeMirror theme, path helpers
+│           └── styles/         # Tailwind 4 CSS-first tokens and component styles
 ├── samples/
 │   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/bookmaps/reuse library/DITAVAL/SVG)
 ├── docs/
-│   ├── architecture-and-plan.md # full architecture baseline and Phase 0–6 roadmap
+│   ├── architecture-and-plan.md # full architecture baseline and Phase 0–7 roadmap
+│   ├── phase7-site-plan.md     # Phase 7 site / sandbox / docs blueprint
 │   ├── phase6-ai-contract.md   # Phase 6 AI API/SSE/DB/frontend integration contract
 │   └── pic/                    # workbench screenshots
 ├── dita-ot-plugins/            # Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin

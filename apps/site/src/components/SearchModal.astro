@@ -1,0 +1,181 @@
+---
+import { getDictionary } from '../i18n/index.js';
+import type { Locale } from '../i18n/locales.js';
+
+export interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const dict = getDictionary(locale);
+---
+
+<div
+  class="search-overlay"
+  data-search-overlay
+  data-search-idle={dict.docsUi.searchHint}
+  data-search-empty={dict.docsUi.searchEmpty}
+  data-search-error={dict.docsUi.searchError}
+  hidden
+>
+  <div
+    class="search-dialog"
+    role="dialog"
+    aria-modal="true"
+    aria-label={dict.docsUi.search}
+    style="--search-base: none"
+  >
+    <div class="search-dialog__field">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true">
+        <path d="M10.5 17a6.5 6.5 0 1 1 0-13 6.5 6.5 0 0 1 0 13Zm4.6-1.9L20 20" stroke-linecap="round" />
+      </svg>
+      <input
+        type="search"
+        placeholder={dict.docsUi.searchPlaceholder}
+        aria-label={dict.docsUi.searchPlaceholder}
+        autocomplete="off"
+        spellcheck="false"
+        data-search-input
+      />
+      <span class="search-dialog__hint">ESC</span>
+    </div>
+    <div class="search-results" data-search-results>
+      <div class="search-empty">{dict.docsUi.searchHint}</div>
+    </div>
+    <div class="search-dialog__foot">
+      <span>Pagefind · {locale === 'zh' ? '静态全文索引' : 'static full-text index'}</span>
+    </div>
+  </div>
+</div>
+
+<script>
+  type PagefindHit = {
+    data: () => Promise<{ url: string; excerpt: string; meta: Record<string, string> }>;
+  };
+
+  type PagefindModule = {
+    search: (query: string) => Promise<{ results: PagefindHit[] }>;
+    options?: (options: Record<string, unknown>) => Promise<void>;
+  };
+
+  const overlay = document.querySelector<HTMLElement>('[data-search-overlay]');
+  const input = document.querySelector<HTMLInputElement>('[data-search-input]');
+  const results = document.querySelector<HTMLElement>('[data-search-results]');
+  const triggers = document.querySelectorAll<HTMLElement>('[data-search-open]');
+  const base = document.documentElement.dataset.base ?? '/';
+
+  let pagefind: PagefindModule | null = null;
+  let pagefindFailed = false;
+  let activeIndex = -1;
+  let hits: HTMLElement[] = [];
+
+  async function loadPagefind(): Promise<PagefindModule | null> {
+    if (pagefind) return pagefind;
+    if (pagefindFailed) return null;
+    try {
+      const modulePath = `${base.replace(/\/$/, '')}/pagefind/pagefind.js`;
+      pagefind = (await import(/* @vite-ignore */ modulePath)) as PagefindModule;
+      return pagefind;
+    } catch {
+      pagefindFailed = true;
+      return null;
+    }
+  }
+
+  function open() {
+    if (!overlay) return;
+    overlay.hidden = false;
+    document.body.style.setProperty('overflow', 'hidden');
+    input?.focus();
+    input?.select();
+  }
+
+  function close() {
+    if (!overlay) return;
+    overlay.hidden = true;
+    document.body.style.removeProperty('overflow');
+    activeIndex = -1;
+  }
+
+  function renderMessage(message: string) {
+    if (results) results.innerHTML = `<div class="search-empty">${message}</div>`;
+    hits = [];
+    activeIndex = -1;
+  }
+
+  function highlightActive() {
+    hits.forEach((hit, index) => hit.classList.toggle('is-active', index === activeIndex));
+    hits[activeIndex]?.scrollIntoView({ block: 'nearest' });
+  }
+
+  async function runSearch(query: string) {
+    if (!results) return;
+    const trimmed = query.trim();
+    if (trimmed.length < 2) {
+      renderMessage(overlay?.dataset.searchIdle ?? '');
+      return;
+    }
+
+    const pf = await loadPagefind();
+    if (!pf) {
+      renderMessage(overlay?.dataset.searchError ?? 'Search index unavailable');
+      return;
+    }
+
+    const search = await pf.search(trimmed);
+    const items = await Promise.all(search.results.slice(0, 8).map((hit) => hit.data()));
+    if (items.length === 0) {
+      renderMessage(overlay?.dataset.searchEmpty ?? 'No results');
+      return;
+    }
+
+    results.innerHTML = items
+      .map(
+        (item) => `<a class="search-result" href="${item.url}">
+          <div class="search-result__title">${item.meta.title ?? item.url}</div>
+          <div class="search-result__excerpt">${item.meta.summary || item.excerpt}</div>
+        </a>`,
+      )
+      .join('');
+    hits = Array.from(results.querySelectorAll<HTMLElement>('.search-result'));
+    activeIndex = -1;
+  }
+
+  triggers.forEach((trigger) => trigger.addEventListener('click', open));
+  overlay?.addEventListener('click', (event) => {
+    if (event.target === overlay) close();
+  });
+
+  let timer: number | undefined;
+  input?.addEventListener('input', () => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => void runSearch(input.value), 160);
+  });
+
+  document.addEventListener('keydown', (event) => {
+    const isShortcut = (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k';
+    if (isShortcut) {
+      event.preventDefault();
+      overlay?.hidden ? open() : close();
+      return;
+    }
+    if (overlay?.hidden) return;
+
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      close();
+    } else if (event.key === 'ArrowDown' && hits.length > 0) {
+      event.preventDefault();
+      activeIndex = (activeIndex + 1) % hits.length;
+      highlightActive();
+    } else if (event.key === 'ArrowUp' && hits.length > 0) {
+      event.preventDefault();
+      activeIndex = (activeIndex - 1 + hits.length) % hits.length;
+      highlightActive();
+    } else if (event.key === 'Enter' && activeIndex >= 0) {
+      event.preventDefault();
+      hits[activeIndex]?.click();
+    }
+  });
+
+</script>

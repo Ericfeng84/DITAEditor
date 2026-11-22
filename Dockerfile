@@ -19,10 +19,12 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json turbo.js
 COPY packages/dita-core/package.json packages/dita-core/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
+COPY apps/site/package.json apps/site/
 RUN pnpm install --frozen-lockfile
 
 COPY . .
-RUN pnpm -r build
+# The marketing site is deployed separately (CDN): keep the workbench image lean.
+RUN pnpm --filter @dita/core --filter @dita/web --filter @dita/api build
 
 # ---------------------------------------------------------------------------
 # 2. Java 21 runtime (DITA-OT 4.x supports LTS Java)

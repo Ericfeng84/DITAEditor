@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="map_demo_products" xml:lang="zh-CN">
+  <title>DITAEditor 演示产品地图</title>
+  <keydef keys="product-name" href="single-sourcing.dita">
+    <topicmeta>
+      <keywords>
+        <keyword>DITAEditor</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="edition-label" href="single-sourcing.dita">
+    <topicmeta>
+      <keywords>
+        <keyword>DITAEditor Cloud</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="cli-version">
+    <topicmeta>
+      <keywords>
+        <keyword>1.0.0</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <topicref href="single-sourcing.dita" keys="editions-topic"/>
+</map>

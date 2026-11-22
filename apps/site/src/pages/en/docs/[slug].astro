@@ -1,0 +1,30 @@
+---
+import { getEntry, render } from 'astro:content';
+import DocsLayout from '../../../layouts/DocsLayout.astro';
+import { DOC_SLUGS, type DocSlug, type Locale } from '../../../i18n/locales.js';
+
+export function getStaticPaths() {
+  return DOC_SLUGS.map((slug) => ({ params: { slug } }));
+}
+
+const { slug } = Astro.params as { slug: DocSlug };
+const locale: Locale = 'en';
+const entry = await getEntry('docs', `${locale}/${slug}`);
+
+if (!entry) {
+  throw new Error(`Missing docs entry: ${locale}/${slug}.md`);
+}
+
+const { Content, headings } = await render(entry);
+---
+
+<DocsLayout
+  locale={locale}
+  slug={slug}
+  title={entry.data.title}
+  description={entry.data.description}
+  updated={entry.data.updated}
+  headings={headings}
+>
+  <Content />
+</DocsLayout>

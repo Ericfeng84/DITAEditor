@@ -1,0 +1,126 @@
+---
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import SearchModal from '../components/SearchModal.astro';
+import '../styles/global.css';
+import { getDictionary } from '../i18n/index.js';
+import {
+  LOCALE_HTML_LANG,
+  LOCALE_OG_LOCALE,
+  type Locale,
+  switchLocalePath,
+} from '../i18n/locales.js';
+import { SITE, absoluteUrl, assetUrl } from '../lib/site.js';
+
+export interface Props {
+  locale: Locale;
+  title: string;
+  description: string;
+  /** Base-independent route used for canonical URLs and the locale switcher. */
+  path: string;
+  image?: string;
+  noindex?: boolean;
+  jsonLd?: Record<string, unknown> | null;
+  bodyClass?: string;
+}
+
+const {
+  locale,
+  title,
+  description,
+  path,
+  image = `/og/${locale}.png`,
+  noindex = false,
+  jsonLd = null,
+  bodyClass = '',
+} = Astro.props;
+
+const dict = getDictionary(locale);
+const canonical = absoluteUrl(path);
+const alternateZh = absoluteUrl(switchLocalePath(path, 'zh'));
+const alternateEn = absoluteUrl(switchLocalePath(path, 'en'));
+const ogImage = absoluteUrl(image);
+---
+
+<!doctype html>
+<html
+  lang={LOCALE_HTML_LANG[locale]}
+  data-base={SITE.base}
+  data-copy-label={dict.common.copy}
+  data-copied-label={dict.common.copied}
+>
+  <head>
+    <script is:inline>document.documentElement.classList.add('has-js');</script>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="zh-CN" href={alternateZh} />
+    <link rel="alternate" hreflang="en" href={alternateEn} />
+    <link rel="alternate" hreflang="x-default" href={alternateZh} />
+    {noindex && <meta name="robots" content="noindex,nofollow" />}
+
+    <meta property="og:type" content={path.includes('/docs/') ? 'article' : 'website'} />
+    <meta property="og:site_name" content={SITE.name} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:alt" content={dict.meta.ogAlt} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content={LOCALE_OG_LOCALE[locale]} />
+    <meta property="og:locale:alternate" content={LOCALE_OG_LOCALE[locale === 'zh' ? 'en' : 'zh']} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
+    <meta name="theme-color" content="#FAF9F6" />
+
+    <link rel="icon" href={assetUrl('/favicon.svg')} type="image/svg+xml" />
+    <link rel="apple-touch-icon" href={assetUrl('/apple-touch-icon.png')} />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400..600;1,6..72,400&family=Plus+Jakarta+Sans:wght@500..700&family=JetBrains+Mono:wght@400..500&display=swap"
+    />
+    <link rel="sitemap" href={assetUrl('/sitemap-index.xml')} />
+
+    {
+      jsonLd && (
+        <script type="application/ld+json" set:html={JSON.stringify(jsonLd)} />
+      )
+    }
+  </head>
+  <body class={bodyClass}>
+    <a class="skip-link" href="#main">{dict.nav.skipToContent}</a>
+    <Header locale={locale} path={path} />
+    <main id="main">
+      <slot />
+    </main>
+    <Footer locale={locale} />
+    <SearchModal locale={locale} />
+
+    <script>
+      const targets = document.querySelectorAll<HTMLElement>('.reveal');
+      if (targets.length > 0 && 'IntersectionObserver' in window) {
+        const observer = new IntersectionObserver(
+          (entries) => {
+            for (const entry of entries) {
+              if (!entry.isIntersecting) continue;
+              entry.target.classList.add('is-visible');
+              observer.unobserve(entry.target);
+            }
+          },
+          { rootMargin: '0px 0px -8% 0px', threshold: 0.08 },
+        );
+        targets.forEach((target) => observer.observe(target));
+      } else {
+        targets.forEach((target) => target.classList.add('is-visible'));
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="concept_editions" xml:lang="zh-CN">
+  <title>选择适合团队的版本</title>
+  <shortdesc><keyword keyref="product-name"/> 同时提供云端与本地两种交付形态。</shortdesc>
+  <conbody>
+    <p product="cloud">在 <ph keyref="edition-label"/> 中，工作区由平台托管，无需自建服务器。</p>
+    <p product="onprem">在 <ph keyref="edition-label"/> 中，所有内容保存在内网 <filepath>/data</filepath> 数据卷。</p>
+    <section audience="admin" product="onprem">
+      <title>管理员检查清单</title>
+      <ul>
+        <li>确认 <codeph>DITA_PUBLISH_CONCURRENCY</codeph> 与 CPU 核数匹配。</li>
+        <li>为 Noto CJK 字体预留至少 1 GB 内存。</li>
+      </ul>
+    </section>
+    <p>当前 CLI 版本：<ph keyref="cli-version"/></p>
+    <note type="warning" audience="admin" product="cloud">
+      <p>云版本不支持自定义 PDF 字体插件。</p>
+    </note>
+  </conbody>
+</concept>

@@ -1,0 +1,196 @@
+---
+import BaseLayout from './BaseLayout.astro';
+import Icon from '../components/Icon.astro';
+import { getDictionary } from '../i18n/index.js';
+import { DOC_SLUGS, type DocSlug, type Locale, docsIndexPath, docsPath, localePath, playgroundPath } from '../i18n/locales.js';
+import { SITE } from '../lib/site.js';
+
+export interface Props {
+  locale: Locale;
+  slug: DocSlug;
+  title: string;
+  description: string;
+  updated?: string;
+  headings?: { depth: number; slug: string; text: string }[];
+}
+
+const { locale, slug, title, description, updated = '2026-11-22', headings = [] } = Astro.props;
+const dict = getDictionary(locale);
+
+const groups: { key: 'start' | 'guides' | 'reference'; slugs: DocSlug[] }[] = [
+  { key: 'start', slugs: ['introduction', 'getting-started', 'local-development'] },
+  { key: 'guides', slugs: ['features', 'ai-setup'] },
+  { key: 'reference', slugs: ['architecture'] },
+];
+
+const index = DOC_SLUGS.indexOf(slug);
+const prevSlug = index > 0 ? DOC_SLUGS[index - 1] : null;
+const nextSlug = index < DOC_SLUGS.length - 1 ? DOC_SLUGS[index + 1] : null;
+const toc = headings.filter((heading) => heading.depth === 2 || heading.depth === 3);
+const editHref = `${SITE.repo}/edit/main/apps/site/src/content/docs/${locale}/${slug}.md`;
+const path = localePath(locale, `/docs/${slug}`);
+
+const jsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'TechArticle',
+  headline: title,
+  description,
+  inLanguage: locale === 'zh' ? 'zh-CN' : 'en',
+  author: { '@type': 'Organization', name: 'DITAEditor' },
+  isPartOf: { '@type': 'WebSite', name: SITE.name, url: SITE.url },
+};
+---
+
+<BaseLayout
+  locale={locale}
+  title={`${title} — DITAEditor`}
+  description={description}
+  path={path}
+  jsonLd={jsonLd}
+>
+  <div class="shell docs-grid">
+    <aside class="docs-sidebar">
+      <nav aria-label={dict.docsUi.sidebarTitle}>
+        {
+          groups.map((group) => (
+            <div class="docs-nav__group">
+              <div class="docs-nav__label">{dict.docsUi.groups[group.key]}</div>
+              {group.slugs.map((item) => (
+                <a
+                  href={docsPath(locale, item, SITE.base)}
+                  class="docs-nav__link"
+                  aria-current={item === slug ? 'page' : undefined}
+                >
+                  {dict.docsUi.titles[item]}
+                </a>
+              ))}
+            </div>
+          ))
+        }
+      </nav>
+    </aside>
+
+    <article>
+      <div
+        data-pagefind-body
+        data-pagefind-filter={`lang:${locale}`}
+        data-pagefind-meta={`summary:${description}`}
+      >
+        <header class="docs-header">
+          <div class="eyebrow">{dict.docsUi.eyebrow}</div>
+          <h1 class="display-lg" style="margin-top:10px">{title}</h1>
+          <p class="lede" style="margin-top:10px; max-width:62ch">{description}</p>
+          <div style="display:flex; flex-wrap:wrap; gap:14px; margin-top:14px; font-family:var(--font-mono); font-size:11px; color:var(--color-muted)">
+            <span>{dict.docsUi.updated} · {updated}</span>
+            <a href={editHref} target="_blank" rel="noreferrer noopener" style="text-decoration:underline; text-underline-offset:3px">
+              {dict.docsUi.editPage}
+            </a>
+          </div>
+        </header>
+
+        <div class="prose-docs">
+          <slot />
+        </div>
+      </div>
+
+      <nav class="docs-pager" aria-label={dict.docsUi.backToDocs}>
+        {
+          prevSlug ? (
+            <a href={docsPath(locale, prevSlug, SITE.base)}>
+              <div class="docs-pager__dir">← {dict.docsUi.prev}</div>
+              <div class="docs-pager__title">{dict.docsUi.titles[prevSlug]}</div>
+            </a>
+          ) : (
+            <span />
+          )
+        }
+        {
+          nextSlug ? (
+            <a href={docsPath(locale, nextSlug, SITE.base)} style="text-align:right">
+              <div class="docs-pager__dir">{dict.docsUi.next} →</div>
+              <div class="docs-pager__title">{dict.docsUi.titles[nextSlug]}</div>
+            </a>
+          ) : (
+            <a href={docsIndexPath(locale, SITE.base)} style="text-align:right">
+              <div class="docs-pager__dir">{dict.docsUi.backToDocs}</div>
+              <div class="docs-pager__title">{dict.docsUi.titles.introduction}</div>
+            </a>
+          )
+        }
+      </nav>
+    </article>
+
+    <aside class="docs-toc">
+      <div class="docs-nav__label">{dict.docsUi.onThisPage}</div>
+      {
+        toc.length === 0 ? (
+          <p style="font-size:12px; color:var(--color-muted)">{dict.docsUi.tocEmpty}</p>
+        ) : (
+          toc.map((heading) => (
+            <a href={`#${heading.slug}`} data-depth={heading.depth}>
+              {heading.text}
+            </a>
+          ))
+        )
+      }
+      <a
+        href={playgroundPath(locale, SITE.base)}
+        class="docs-toc__cta"
+      >
+        <Icon name="code" size={11} />
+        {dict.nav.playground}
+      </a>
+    </aside>
+  </div>
+</BaseLayout>
+
+<script>
+  const links = Array.from(document.querySelectorAll<HTMLAnchorElement>('.docs-toc a[data-depth]'));
+  const sections = links
+    .map((link) => {
+      const id = link.getAttribute('href')?.slice(1);
+      return id ? { link, element: document.getElementById(id) } : null;
+    })
+    .filter((entry): entry is { link: HTMLAnchorElement; element: HTMLElement } => Boolean(entry));
+
+  if (sections.length > 0 && 'IntersectionObserver' in window) {
+    const visible = new Set<string>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) visible.add(entry.target.id);
+          else visible.delete(entry.target.id);
+        }
+        const first = sections.find((section) => visible.has(section.element.id));
+        links.forEach((link) => link.classList.toggle('is-active', link === first?.link));
+      },
+      { rootMargin: '-88px 0px -60% 0px', threshold: 0 },
+    );
+    sections.forEach((section) => observer.observe(section.element));
+  }
+
+  // One-click copy for every fenced code block in the article.
+  const copyLabel = document.documentElement.dataset.copyLabel ?? 'Copy';
+  const copiedLabel = document.documentElement.dataset.copiedLabel ?? 'Copied';
+  document.querySelectorAll<HTMLElement>('.prose-docs pre').forEach((pre) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'code-copy';
+    button.textContent = copyLabel;
+    button.addEventListener('click', async () => {
+      const code = pre.querySelector('code')?.textContent ?? '';
+      try {
+        await navigator.clipboard.writeText(code);
+        button.textContent = copiedLabel;
+        button.classList.add('is-copied');
+        window.setTimeout(() => {
+          button.textContent = copyLabel;
+          button.classList.remove('is-copied');
+        }, 1600);
+      } catch {
+        button.textContent = copyLabel;
+      }
+    });
+    pre.appendChild(button);
+  });
+</script>

@@ -1,0 +1,96 @@
+---
+import BaseLayout from '../layouts/BaseLayout.astro';
+import Icon from './Icon.astro';
+import { getCollection } from 'astro:content';
+import { getDictionary } from '../i18n/index.js';
+import {
+  DOC_SLUGS,
+  type Locale,
+  docsIndexPath,
+  docsPath,
+  localePath,
+  playgroundPath,
+} from '../i18n/locales.js';
+import { SITE } from '../lib/site.js';
+
+interface Props {
+  locale: Locale;
+}
+
+const { locale } = Astro.props;
+const dict = getDictionary(locale);
+const entries = await getCollection('docs', (entry) => entry.id.startsWith(`${locale}/`));
+const bySlug = new Map(entries.map((entry) => [entry.id.slice(locale.length + 1), entry]));
+
+const groups = [
+  { key: 'start' as const, slugs: ['introduction', 'getting-started', 'local-development'] },
+  { key: 'guides' as const, slugs: ['features', 'ai-setup'] },
+  { key: 'reference' as const, slugs: ['architecture'] },
+];
+
+const path = locale === 'zh' ? '/docs' : '/en/docs';
+
+// Cards are numbered across groups so the index reads as one ledger.
+let cardNumber = 0;
+---
+
+<BaseLayout
+  locale={locale}
+  title={dict.meta.docsTitle}
+  description={dict.meta.docsDescription}
+  path={path}
+>
+  <section class="shell docs-index">
+    <header class="docs-index__head">
+      <div class="eyebrow">{dict.docsUi.eyebrow}</div>
+      <h1 class="display-lg" style="margin-top:12px">{dict.nav.docs}</h1>
+      <p class="lede" style="margin-top:12px; max-width:66ch">{dict.meta.docsDescription}</p>
+      <div class="docs-index__actions">
+        <a
+          class="btn btn-blue btn-sm"
+          href={playgroundPath(locale, SITE.base)}
+        >
+          {dict.nav.playground}
+          <Icon name="arrow-right" size={13} />
+        </a>
+      </div>
+      <p class="docs-index__note">{dict.docsUi.readingNote}</p>
+    </header>
+
+    {
+      groups.map((group) => (
+        <section class="docs-index__group">
+          <div class="rule-label">{dict.docsUi.groups[group.key]}</div>
+          <div class="docs-index__grid">
+            {group.slugs.map((slug) => {
+              cardNumber += 1;
+              const entry = bySlug.get(slug);
+              const docSlug = DOC_SLUGS.find((item) => item === slug);
+              if (!docSlug) return null;
+              return (
+                <a
+                  class="docs-card"
+                  href={docsPath(locale, docSlug, SITE.base)}
+                >
+                  <span class="docs-card__index">{String(cardNumber).padStart(2, '0')}</span>
+                  <h2>{dict.docsUi.titles[docSlug]}</h2>
+                  <p>{entry?.data.description ?? ''}</p>
+                  <span class="docs-card__more">
+                    {dict.docsUi.read}
+                    <Icon name="chevron-right" size={12} />
+                  </span>
+                </a>
+              );
+            })}
+          </div>
+        </section>
+      ))
+    }
+
+    <p class="docs-index__foot">
+      <a href={docsIndexPath(locale, SITE.base)} aria-current="page">{dict.docsUi.backToDocs}</a>
+      <span>·</span>
+      <a href={localePath(locale, '/', SITE.base)}>{dict.nav.features}</a>
+    </p>
+  </section>
+</BaseLayout>

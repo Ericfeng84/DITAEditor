@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task_install_cli" xml:lang="zh-CN">
+  <title>安装 DITAEditor CLI</title>
+  <shortdesc>在 Linux 或 macOS 上完成安装并验证 CLI 版本。</shortdesc>
+  <taskbody>
+    <prereq>
+      <p>需要 Node.js <keyword>22</keyword> 或更高版本，以及可写的 <filepath>/usr/local/bin</filepath> 目录。</p>
+    </prereq>
+    <context>
+      <p>安装过程不会修改系统级配置；所有文件写入 <filepath>~/.ditaeditor</filepath>。</p>
+    </context>
+    <steps>
+      <step>
+        <cmd>下载并校验安装包</cmd>
+        <info>使用 <codeph>sha256sum</codeph> 比对官方公布的校验值。</info>
+        <stepresult>
+          <p>输出 <systemoutput>OK</systemoutput>。</p>
+        </stepresult>
+      </step>
+      <step>
+        <cmd>运行安装脚本</cmd>
+        <codeblock xml:space="preserve">curl -fsSL https://example.com/install.sh | sh
+ditaeditor --version</codeblock>
+        <info>看到 <uicontrol>1.0.0</uicontrol> 即安装成功。</info>
+      </step>
+      <step>
+        <cmd>登录并选择工作区</cmd>
+        <info>首次登录会创建本地 <filepath>~/.ditaeditor/config.json</filepath>。</info>
+      </step>
+    </steps>
+    <result>
+      <p>终端中可直接运行 <cmdname>ditaeditor</cmdname> 命令。</p>
+    </result>
+    <postreq>
+      <p>继续阅读 <xref href="local-development.dita"><keyword>本地开发</keyword></xref> 配置 DITA-OT 字体映射。</p>
+    </postreq>
+    <note type="tip" otherprops="draft">
+      <p>升级时保留 <filepath>~/.ditaeditor</filepath> 即可保留全部工作区。</p>
+    </note>
+  </taskbody>
+</task>

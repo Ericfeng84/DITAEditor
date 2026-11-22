@@ -1,0 +1,138 @@
+---
+import Icon from './Icon.astro';
+import { getDictionary } from '../i18n/index.js';
+import {
+  LOCALE_LABEL,
+  LOCALES,
+  type Locale,
+  docsIndexPath,
+  homePath,
+  localePath,
+  playgroundPath,
+  switchLocalePath,
+} from '../i18n/locales.js';
+import { SITE } from '../lib/site.js';
+
+export interface Props {
+  locale: Locale;
+  /** Base-independent route path, e.g. `/docs/features`. */
+  path: string;
+}
+
+const { locale, path } = Astro.props;
+const dict = getDictionary(locale);
+const isDocs = path.startsWith('/docs');
+const isPlayground = path.startsWith('/playground');
+
+const navItems = [
+  { href: docsIndexPath(locale, SITE.base), label: dict.nav.docs, active: isDocs },
+  {
+    href: playgroundPath(locale, SITE.base),
+    label: dict.nav.playground,
+    active: isPlayground,
+  },
+  { href: localePath(locale, '/#capabilities', SITE.base), label: dict.nav.features, active: false },
+  { href: localePath(locale, '/#architecture', SITE.base), label: dict.nav.architecture, active: false },
+];
+---
+
+<header class="site-header">
+  <div class="shell site-header__inner">
+    <a href={homePath(locale, SITE.base)} class="brand" aria-label={locale === 'zh' ? 'DITAEditor 首页' : 'DITAEditor home'}>
+      <span class="brand__mark">D</span>
+      <span>DITAEditor</span>
+    </a>
+
+    <nav class="nav" id="site-nav" aria-label={locale === 'zh' ? '主导航' : 'Main'}>
+      {
+        navItems.map((item) => (
+          <a
+            href={item.href}
+            class="nav__link"
+            aria-current={item.active ? 'page' : undefined}
+          >
+            {item.label}
+          </a>
+        ))
+      }
+      <a
+        href={localePath(locale, '/#quick-start', SITE.base)}
+        class="nav__link"
+      >
+        {dict.nav.quickStart}
+      </a>
+      <a href={SITE.repo} class="nav__link" target="_blank" rel="noreferrer noopener">
+        {dict.nav.github}
+      </a>
+    </nav>
+
+    <div class="header-actions">
+      <button type="button" class="search-trigger" data-search-open aria-label={dict.docsUi.searchPlaceholder}>
+        <Icon name="search" size={13} />
+        <span class="search-trigger__label">{dict.docsUi.search}</span>
+        <kbd>⌘K</kbd>
+      </button>
+
+      <div class="locale-switch" aria-label={dict.nav.language}>
+        {
+          LOCALES.map((code) => (
+            <a
+              href={code === locale ? localePath(locale, path, SITE.base) : switchLocalePath(path, code, SITE.base)}
+              aria-current={code === locale ? 'true' : undefined}
+              hreflang={code}
+              lang={code}
+            >
+              {LOCALE_LABEL[code]}
+            </a>
+          ))
+        }
+      </div>
+
+      <a href={SITE.repo} class="btn btn-secondary btn-sm header-github" target="_blank" rel="noreferrer noopener">
+        <Icon name="github" size={14} />
+        <span>{dict.nav.star}</span>
+      </a>
+
+      <button type="button" class="menu-toggle" data-menu-toggle aria-expanded="false" aria-controls="site-nav" aria-label={dict.nav.menu}>
+        <Icon name="menu" size={16} />
+      </button>
+    </div>
+  </div>
+</header>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const nav = document.getElementById('site-nav');
+  toggle?.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') === 'true';
+    toggle.setAttribute('aria-expanded', String(!open));
+    nav?.classList.toggle('is-open', !open);
+  });
+</script>
+
+<style>
+  .search-trigger__label {
+    display: inline;
+  }
+
+  @media (max-width: 1080px) {
+    .search-trigger__label {
+      display: none;
+    }
+  }
+
+  @media (max-width: 900px) {
+    .header-github span {
+      display: none;
+    }
+    .header-github {
+      padding-inline: 9px;
+    }
+  }
+
+  @media (max-width: 700px) {
+    .header-github {
+      display: none;
+    }
+  }
+</style>
