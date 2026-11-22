@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/App.tsx": {
-    "mtime": 1795307155.8130515,
-    "seen": 1795307251.453892,
-    "ast_hash": "ca2a17422fefb42abe0c448f5dc80d31",
+    "mtime": 1795325821.1956255,
+    "seen": 1795325914.69823,
+    "ast_hash": "0a6da88a9a28cac99efa17bfd3cd41ab",
     "semantic_hash": ""
   },
   "apps/web/src/main.tsx": {
@@ -48,9 +48,9 @@
     "semantic_hash": ""
   },
   "apps/web/vite.config.ts": {
-    "mtime": 1795238288.84096,
-    "seen": 1795239262.140726,
-    "ast_hash": "5b1a81b5180d4bc8eb18e08ec1883629",
+    "mtime": 1795325813.2267323,
+    "seen": 1795325914.698296,
+    "ast_hash": "4d138f51bb8caee7368e3e978a34a0f4",
     "semantic_hash": ""
   },
   "package.json": {
@@ -162,9 +162,9 @@
     "semantic_hash": "b8170888f2d086174c26774b13938f86"
   },
   "pnpm-workspace.yaml": {
-    "mtime": 1795310572.6191518,
-    "seen": 1795310776.4004931,
-    "ast_hash": "c9c985ac076568f074b2dec6ced9c8b0",
+    "mtime": 1795311012.8257918,
+    "seen": 1795325914.698328,
+    "ast_hash": "acb748ab8e69cbbeeb39837e8d5733ae",
     "semantic_hash": ""
   },
   "tsconfig.base.json": {
@@ -306,9 +306,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store.ts": {
-    "mtime": 1795283412.0776644,
-    "seen": 1795283599.18577,
-    "ast_hash": "4a3ace08e657d6400d5b5f28813d4e58",
+    "mtime": 1795325817.1594908,
+    "seen": 1795325914.698282,
+    "ast_hash": "25ccd1130e942cba22a42aa970699f1f",
     "semantic_hash": ""
   },
   "apps/web/test/dita-commands.test.ts": {
@@ -918,9 +918,9 @@
     "semantic_hash": ""
   },
   "docker-entrypoint.sh": {
-    "mtime": 1795278396.4689763,
-    "seen": 1795279505.290283,
-    "ast_hash": "154dd257e9187deffe2204b75be1dd61",
+    "mtime": 1795325090.0062857,
+    "seen": 1795325914.698296,
+    "ast_hash": "3e74a353718e01b7667ea0c1e5a0ef76",
     "semantic_hash": ""
   },
   "docs/pic/phase4-dual-view.png": {
@@ -1140,15 +1140,15 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy-site.yml": {
-    "mtime": 1795309454.5889926,
-    "seen": 1795310776.400309,
-    "ast_hash": "1a2464155f0dc38d0ce31ea387a5780f",
+    "mtime": 1795325827.1681416,
+    "seen": 1795325914.6981509,
+    "ast_hash": "22f1827f2f358c06081035cac8bc2155",
     "semantic_hash": ""
   },
   "apps/site/astro.config.ts": {
-    "mtime": 1795309472.3407087,
-    "seen": 1795310776.400358,
-    "ast_hash": "77a6ac22194b36bc685c7e136d8bd181",
+    "mtime": 1795311585.4217114,
+    "seen": 1795325914.6981928,
+    "ast_hash": "b56cdaebd766dbcaf6f85016c8702914",
     "semantic_hash": ""
   },
   "apps/site/package.json": {
@@ -1260,9 +1260,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/i18n/locales.ts": {
-    "mtime": 1795308375.4042547,
-    "seen": 1795310776.400372,
-    "ast_hash": "19326849b20d6448ce3277ec1ed9097a",
+    "mtime": 1795325830.0587611,
+    "seen": 1795325914.698209,
+    "ast_hash": "5f346d2d93501014a2b60d0e307a844e",
     "semantic_hash": ""
   },
   "apps/site/src/i18n/zh.ts": {
@@ -1302,9 +1302,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/lib/site.ts": {
-    "mtime": 1795308634.8099952,
-    "seen": 1795310776.400377,
-    "ast_hash": "f6c11fde21621063ffe051992af1b405",
+    "mtime": 1795311279.1918085,
+    "seen": 1795325914.698215,
+    "ast_hash": "4e14812e608de8194ea2e1ae5edd187e",
     "semantic_hash": ""
   },
   "apps/site/src/pages/404.astro": {
@@ -1344,9 +1344,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/pages/en/playground.astro": {
-    "mtime": 1795309340.049212,
-    "seen": 1795310776.400382,
-    "ast_hash": "6548f2cb102aea23f99c43baaef643b1",
+    "mtime": 1795325835.5564547,
+    "seen": 1795325914.6982222,
+    "ast_hash": "9a63cd98ae6aafc01440336964d35cf4",
     "semantic_hash": ""
   },
   "apps/site/src/pages/index.astro": {
@@ -1356,9 +1356,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/pages/playground.astro": {
-    "mtime": 1795309340.0489743,
-    "seen": 1795310776.400383,
-    "ast_hash": "4c50a4f16d88fc692aa6b8370027501c",
+    "mtime": 1795325832.7187989,
+    "seen": 1795325914.698224,
+    "ast_hash": "7c68b1f6d6b28ccf477d2d6bb83e0c16",
     "semantic_hash": ""
   },
   "apps/site/src/pages/robots.txt.ts": {
@@ -1593,6 +1593,42 @@
     "mtime": 1795310916.2475338,
     "seen": 1795310994.635912,
     "ast_hash": "0fa4b5c49ec381b94f19e2ee3f1e7a69",
+    "semantic_hash": ""
+  },
+  ".github/workflows/deploy-hf-space.yml": {
+    "mtime": 1795325104.8445418,
+    "seen": 1795325914.6981492,
+    "ast_hash": "1a93b7283c9d02a05aa71528ac80aa39",
+    "semantic_hash": ""
+  },
+  "apps/web/src/vite-env.d.ts": {
+    "mtime": 1795325815.4095964,
+    "seen": 1795325914.6982841,
+    "ast_hash": "0352474ba2918efe13895edbc3780d94",
+    "semantic_hash": ""
+  },
+  "scripts/sync-hf-space.sh": {
+    "mtime": 1795325095.6980603,
+    "seen": 1795325914.698329,
+    "ast_hash": "a5b734be1906402e28e4496bb2ea85c5",
+    "semantic_hash": ""
+  },
+  "deploy/huggingface/README.md": {
+    "mtime": 1795325092.6618128,
+    "seen": 1795325914.698347,
+    "ast_hash": "7c0b224634643608801d0b5dd83a79f6",
+    "semantic_hash": ""
+  },
+  "docs/deploy-github-pages.md": {
+    "mtime": 1795325838.3953855,
+    "seen": 1795325914.698348,
+    "ast_hash": "d05ad76ff7ed6f843cdef6791ed8edd5",
+    "semantic_hash": ""
+  },
+  "docs/deploy-huggingface-spaces.md": {
+    "mtime": 1795325840.9211397,
+    "seen": 1795325914.698349,
+    "ast_hash": "8bc4ec160f2714b410f79f54bc163d46",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

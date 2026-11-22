@@ -27,6 +27,7 @@ function browserStreamStubPlugin(): Plugin {
 }
 
 export default defineConfig({
+  base: process.env.VITE_BASE ?? '/',
   plugins: [browserStreamStubPlugin(), tailwindcss(), react()],
   server: {
     port: 5173,

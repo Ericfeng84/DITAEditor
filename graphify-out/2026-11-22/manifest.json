@@ -690,9 +690,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795310535.50693,
-    "seen": 1795310776.400497,
-    "ast_hash": "03d07140aab24094dc58dbb0a701eae3",
+    "mtime": 1795310948.3379097,
+    "seen": 1795310994.63603,
+    "ast_hash": "f0711ca2d069b39bd6d9e3dda01db95a",
     "semantic_hash": ""
   },
   "README.en.md": {
@@ -1145,36 +1145,6 @@
     "ast_hash": "1a2464155f0dc38d0ce31ea387a5780f",
     "semantic_hash": ""
   },
-  "apps/site/.astro/collections/docs.schema.json": {
-    "mtime": 1795310740.276038,
-    "seen": 1795310776.4003541,
-    "ast_hash": "561f34908fee5f380bcbe9a81037a529",
-    "semantic_hash": ""
-  },
-  "apps/site/.astro/content-assets.mjs": {
-    "mtime": 1795309298.3221405,
-    "seen": 1795310776.400355,
-    "ast_hash": "8aeea624d36ca2b4c7d0e0748b76ba28",
-    "semantic_hash": ""
-  },
-  "apps/site/.astro/content-modules.mjs": {
-    "mtime": 1795309298.3385305,
-    "seen": 1795310776.400356,
-    "ast_hash": "8aeea624d36ca2b4c7d0e0748b76ba28",
-    "semantic_hash": ""
-  },
-  "apps/site/.astro/content.d.ts": {
-    "mtime": 1795310740.2912138,
-    "seen": 1795310776.400357,
-    "ast_hash": "4509bfd95a51b00c3e2ced5aac575d1a",
-    "semantic_hash": ""
-  },
-  "apps/site/.astro/types.d.ts": {
-    "mtime": 1795310740.2913349,
-    "seen": 1795310776.400357,
-    "ast_hash": "f3d48b2aa569815a445d3509aa161559",
-    "semantic_hash": ""
-  },
   "apps/site/astro.config.ts": {
     "mtime": 1795309472.3407087,
     "seen": 1795310776.400358,
@@ -1242,9 +1212,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/playground/DitaPlayground.tsx": {
-    "mtime": 1795309340.047585,
-    "seen": 1795310776.400366,
-    "ast_hash": "1a9de615acd0733fa974101733fb5148",
+    "mtime": 1795310851.275985,
+    "seen": 1795310994.635895,
+    "ast_hash": "5e4f9915467094de1aeb57986eab8de0",
     "semantic_hash": ""
   },
   "apps/site/src/components/playground/SandboxSourceEditor.tsx": {
@@ -1254,9 +1224,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/playground/SandboxVisualEditor.tsx": {
-    "mtime": 1795308895.6212168,
-    "seen": 1795310776.4003682,
-    "ast_hash": "00494e18522803d59729320676842e92",
+    "mtime": 1795310842.9454901,
+    "seen": 1795310994.635898,
+    "ast_hash": "c75302f4a376bc035e1eb4f2e94a438c",
     "semantic_hash": ""
   },
   "apps/site/src/content.config.ts": {
@@ -1278,9 +1248,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/i18n/en.ts": {
-    "mtime": 1795310725.2963593,
-    "seen": 1795310776.4003708,
-    "ast_hash": "3939ab87468b05a6b126c5947fba4df8",
+    "mtime": 1795310916.2470555,
+    "seen": 1795310994.635901,
+    "ast_hash": "496be3ca03777576e6080078ef29957a",
     "semantic_hash": ""
   },
   "apps/site/src/i18n/index.ts": {
@@ -1296,9 +1266,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/i18n/zh.ts": {
-    "mtime": 1795310725.295926,
-    "seen": 1795310776.400372,
-    "ast_hash": "1e59a17210cb60ac2217251d05514d7a",
+    "mtime": 1795310916.2467515,
+    "seen": 1795310994.635903,
+    "ast_hash": "d63502305a7105fbb50895846d0c89eb",
     "semantic_hash": ""
   },
   "apps/site/src/layouts/BaseLayout.astro": {
@@ -1338,9 +1308,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/pages/404.astro": {
-    "mtime": 1795309340.04881,
-    "seen": 1795310776.400377,
-    "ast_hash": "7b0fc2448f58c4b6336b9d392aeb9945",
+    "mtime": 1795310916.2474446,
+    "seen": 1795310994.635909,
+    "ast_hash": "e6ac8864fd368ad72d1a3de12a4a5b40",
     "semantic_hash": ""
   },
   "apps/site/src/pages/docs/[slug].astro": {
@@ -1611,6 +1581,18 @@
     "mtime": 1795307741.3892908,
     "seen": 1795310776.400532,
     "ast_hash": "cb0f1822486c7fad836ea046d134a0b6",
+    "semantic_hash": ""
+  },
+  "apps/site/src/components/NotFound.astro": {
+    "mtime": 1795310916.247194,
+    "seen": 1795310994.635893,
+    "ast_hash": "504efe8827136b488038622fe73f0d1d",
+    "semantic_hash": ""
+  },
+  "apps/site/src/pages/en/404.astro": {
+    "mtime": 1795310916.2475338,
+    "seen": 1795310994.635912,
+    "ast_hash": "0fa4b5c49ec381b94f19e2ee3f1e7a69",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

@@ -612,6 +612,12 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     pendingVisualPmPos: null,
 
     async initWorkspace() {
+      if (import.meta.env.VITE_STATIC_DEMO === 'true') {
+        activateMemoryFallback(
+          '已进入纯前端离线工作台（GitHub Pages 演示版：支持多文件 Map 树、双模编辑与 Keys/Conref/DITAVAL；Git/发布与 AI 需自托管 Docker）',
+        );
+        return;
+      }
       set({ loadingWorkspace: true });
       try {
         const snapshot = await fetchWorkspace();

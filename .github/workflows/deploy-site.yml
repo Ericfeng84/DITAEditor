@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'apps/site/**'
+      - 'apps/web/**'
       - 'packages/dita-core/**'
       - 'pnpm-lock.yaml'
       - 'pnpm-workspace.yaml'
@@ -49,6 +50,15 @@ jobs:
 
       - name: Build the static site
         run: pnpm --filter @dita/site build
+
+      - name: Build offline workbench (@dita/web) for GitHub Pages
+        env:
+          VITE_BASE: ${{ env.SITE_BASE }}workbench/
+          VITE_STATIC_DEMO: 'true'
+        run: |
+          pnpm --filter @dita/web build
+          mkdir -p apps/site/dist/workbench
+          cp -a apps/web/dist/. apps/site/dist/workbench/
 
       - name: Typecheck and test the site
         run: |

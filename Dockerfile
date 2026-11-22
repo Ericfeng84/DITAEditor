@@ -39,6 +39,7 @@ FROM node:22-bookworm-slim AS runtime
 ARG DITA_OT_VERSION=4.2.1
 
 ENV NODE_ENV=production \
+    HOME=/home/node \
     PORT=3001 \
     DITA_OT_VERSION=${DITA_OT_VERSION} \
     DITA_OT_HOME=/opt/dita-ot \
@@ -89,9 +90,17 @@ RUN cd /app/dita-ot-plugins \
     && rm -f /tmp/com.ditaeditor.pdf-cjk.zip \
     && dita --version
 
-RUN mkdir -p /data/workspace /data/workspaces /data/publishes
+# Prepare writable runtime directories and run as UID 1000 (`node`) so the same image works
+# seamlessly on standard Docker hosts and non-root platforms such as Hugging Face Spaces.
+RUN mkdir -p /data/workspace /data/workspaces /data/publishes /home/node/.fop /home/node/.cache /opt/dita-ot/temp \
+    && chown -R node:node /data /home/node /opt/dita-ot/temp \
+    && chmod -R g+rwX /data /home/node /opt/dita-ot/temp \
+    && git config --system --add safe.directory '*'
+
 VOLUME ["/data"]
 EXPOSE 3001
+
+USER node
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD curl -fsS "http://127.0.0.1:${PORT}/health" || exit 1

@@ -185,6 +185,7 @@ export function App() {
   }, [initWorkspace]);
 
   useEffect(() => {
+    if (import.meta.env.VITE_STATIC_DEMO === 'true') return;
     void initializeGit();
   }, [initializeGit]);
 
@@ -294,6 +295,7 @@ export function App() {
   const aiPanelOpen = useAiStore((state) => state.panelOpen);
   const currentUserId = currentUser?.id;
   useEffect(() => {
+    if (import.meta.env.VITE_STATIC_DEMO === 'true') return;
     void loadAiConfig();
   }, [loadAiConfig, currentUserId]);
   const dirtyPathSet = useMemo(

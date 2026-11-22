@@ -69,6 +69,10 @@ export function playgroundPath(locale: Locale, base = '/'): string {
   return localePath(locale, '/playground', base);
 }
 
+export function workbenchPath(base = '/'): string {
+  return withBase('/workbench/', base);
+}
+
 export function docsIndexPath(locale: Locale, base = '/'): string {
   return localePath(locale, '/docs', base);
 }
