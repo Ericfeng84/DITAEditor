@@ -1,4 +1,4 @@
-import { index, integer, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { index, integer, real, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 /**
  * Lightweight identities: no passwords, just local role switching for a small team.
@@ -97,7 +97,53 @@ export const publishJobs = sqliteTable(
   ],
 );
 
+/** AI provider configuration — one singleton row (`id = 'default'`). */
+export const aiSettings = sqliteTable('ai_settings', {
+  id: text('id').primaryKey(),
+  baseUrl: text('base_url').notNull(),
+  model: text('model').notNull(),
+  apiKey: text('api_key'),
+  temperature: real('temperature').notNull().default(0.2),
+  maxRetries: integer('max_retries').notNull().default(2),
+  timeoutMs: integer('timeout_ms').notNull().default(45000),
+  updatedBy: text('updated_by').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+/** AI call audit ledger. Document content is never stored here. */
+export const aiUsageLogs = sqliteTable(
+  'ai_usage_logs',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id').notNull(),
+    branch: text('branch').notNull(),
+    userId: text('user_id').notNull(),
+    userDisplayName: text('user_display_name').notNull(),
+    taskType: text('task_type', {
+      enum: ['ask', 'authoring', 'optimize_tags', 'fix_error'],
+    }).notNull(),
+    subAction: text('sub_action').notNull(),
+    filePath: text('file_path'),
+    model: text('model').notNull(),
+    status: text('status', { enum: ['succeeded', 'failed', 'cancelled'] }).notNull(),
+    retryCount: integer('retry_count').notNull().default(0),
+    promptTokens: integer('prompt_tokens').notNull().default(0),
+    completionTokens: integer('completion_tokens').notNull().default(0),
+    totalTokens: integer('total_tokens').notNull().default(0),
+    durationMs: integer('duration_ms').notNull().default(0),
+    errorMessage: text('error_message'),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('ai_usage_created_idx').on(table.createdAt),
+    index('ai_usage_project_idx').on(table.projectId, table.branch),
+    index('ai_usage_task_idx').on(table.taskType),
+  ],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type FileLockRow = typeof fileLocks.$inferSelect;
 export type LockBackupRow = typeof lockBackups.$inferSelect;
 export type PublishJobRow = typeof publishJobs.$inferSelect;
+export type AiSettingsRow = typeof aiSettings.$inferSelect;
+export type AiUsageLogRow = typeof aiUsageLogs.$inferSelect;

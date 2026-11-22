@@ -1,10 +1,14 @@
 # DITAEditor
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/release-v1.0.0-indigo.svg)](CHANGELOG.md)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
+
 A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It combines **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, **local Git versioning with check-out locks and visual diffs**, and **authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
 
 > For the full architecture, technology rationale, and phased implementation baseline, see [docs/architecture-and-plan.md](docs/architecture-and-plan.md) and [AGENTS.md](AGENTS.md).
 
-> Current release **v0.7.0** (covers Phase 0–5). See [CHANGELOG.md](CHANGELOG.md) for the changelog.
+> Current release **v1.0.0** (covers Phase 0–6, first stable release). See [CHANGELOG.md](CHANGELOG.md) for the changelog, and [LICENSE](LICENSE) for the MIT license.
 
 **English** · [简体中文](README.md)
 
@@ -46,9 +50,27 @@ The publish dialog combines root-map, HTML5/PDF, DITAVAL, and title selection wi
 
 ![Chinese PDF output with embedded Noto CJK fonts (contents and body)](docs/pic/phase5-pdf-output.png)
 
+### Phase 6: AI-assisted authoring, semantic tag optimization, and error repair
+
+The first inspector tab is "AI", and a floating entry point sits at the bottom-right of the document area. The default target scope is the **whole topic**, so one sentence can draft or rewrite a complete topic; switch to "Fragment" to touch only the selected element. The panel always shows the active model, keyspace / path-index / DITAVAL context badges, and streams the proposal as it is generated.
+
+![Phase 6 AI assistant: whole-topic targeting, context badges, and proposal card](docs/pic/phase6-ai-assistant.webp)
+
+Every patch must pass a CodeMirror 6 `MergeView` review before it is written: the dialog shows the target mode plus well-formedness, visual compatibility, DOCTYPE preservation, and re-validatable-strictness verdicts, then renders only the changed lines and collapsed unchanged ranges.
+
+![Phase 6 AI diff review (MergeView, validation badges, apply)](docs/pic/phase6-ai-diff.webp)
+
+### Three-pane workbench and the Keys panel
+
+The left pane switches between "Project files", "Map tree", "Keys", and "Version". The Map tree mirrors the root-map structure, and its action strip carries mount / group controls plus the publish entry point. The Keys panel groups keys by `keyscope` and shows values, target paths, and source line numbers with one-click `keyref` insertion.
+
+![Three-pane workbench: Map tree, visual editor, and attribute inspector](docs/pic/phase6-workbench.webp)
+
+![Keys panel: values, target paths, and insertion actions](docs/pic/phase6-keys.webp)
+
 ---
 
-## Core features (Phase 0–5 implemented)
+## Core features (Phase 0–6 implemented)
 
 ### 1. 100% lossless XML round-trip kernel (`@dita/core`)
 
@@ -112,6 +134,13 @@ The publish dialog combines root-map, HTML5/PDF, DITAVAL, and title selection wi
 - **HTML5 and Chinese PDF delivery**: successful HTML5 builds are zipped and served under `/preview/*` with working relative assets. PDF uses the pure-XML `dita-ot-plugins/com.ditaeditor.pdf-cjk/` plugin (`plugin.xml` + XML Catalog + DITA-OT 4 `font-mappings.xml` + `fop.xconf`) to map Noto Sans / Serif / Mono CJK; publishing adds `--customization.dir` and `--args.fo.userconfig` and always enables `--validate=yes` so CJK fonts are embedded and text never turns into tofu.
 - **Single-container delivery**: the `Dockerfile` bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts, and the font plugin. In production `@dita/api` serves the built `@dita/web` assets directly with zero Redis / PostgreSQL dependencies; the `/data` volume keeps workspaces, SQLite, branch worktrees, and publish artifacts.
 
+### 8. AI-assisted writing, semantic tag optimization, and error repair (Phase 6)
+
+- **Fragment-level lossless AI edits**: `@dita/core` gains an `ai/` kernel (`extractTargetFragment` / `spliceAndVerifyAiXml` / `normalizeCandidateXml` / `buildDitaConstraintSummary`) with **element**, **line-window**, and **full-document** targeting. The model only returns the replaced span; the server splices it back at exact source offsets and re-validates XML well-formedness, ProseMirror convertibility, and preservation of the `DOCTYPE` and XML declaration, retrying with the reported error (default 2 attempts) before anything reaches the editor.
+- **Four task types**: `ask` (explain only), `authoring` (rewrite/expand/condense, `shortdesc` and step completion), `optimize_tags` (`uicontrol` / `menucascade` / `wintitle` / `filepath` / `codeph` / `parmname`, block structures), and `fix_error` (well-formedness, map links, asset paths, keyref, conref cycles, DITAVAL, and DITA-OT strict-validation failures).
+- **Entry points across the workbench**: the **AI** tab is the first tab of the right inspector, and a floating AI button sits at the bottom-right of the document area; both open the assistant (which defaults to **whole-topic** targeting so one instruction can author a complete topic, with a one-click switch to **fragment** scope; target and context badges, streaming output, diff confirmation), AI rewrite/ask actions in the inline bubble toolbar, **AI fix** on the source XML error banner, and per-diagnostic repair in the problems panel and strict-validation dialog. Every request carries the current unsaved editor buffer.
+- **Model access and audit**: `@dita/api` wraps an OpenAI-compatible `ChatOpenAI` from LangChain.js (`@langchain/core` + `@langchain/openai`), defaults to DeepSeek, and accepts a private/proxied `baseURL`, model, key, timeout, and retry count. SQLite `ai_settings` stores admin configuration (keys are returned masked only) and `ai_usage_logs` records author, task, file, status, retries, tokens, and duration, with `GET /api/ai/usage` aggregating by day, task, user, and model. Writes still honor check-out locks: admins and file owners apply directly, an unchecked-out writer is checked out first, and viewers or files locked by someone else stay preview-only.
+
 ---
 
 ## Architecture and technology stack
@@ -168,6 +197,7 @@ DITAEditor/
 │       │   ├── ditaval/        # .ditaval parsing, multi-value/group evaluation, flag merging
 │       │   ├── semantics/      # BFS keyspace, conref/conkeyref resolution, DFS cycles, incremental index
 │       │   ├── templates/      # Topic (concept/task/reference/topic) and Map/Bookmap templates
+│       │   ├── ai/             # AI target-fragment locator, candidate normalizer, lossless splice+verify
 │       │   └── prosemirror/    # ProseMirror schema and lossless slimdom <-> PM Doc conversion
 │       └── test/fixtures/      # 10 complex DITA 1.3 golden round-trip fixtures
 ├── apps/
@@ -177,6 +207,7 @@ DITAEditor/
 │   │       ├── editor/         # visual/ (ProseMirror + semantic decorations + conref rendering), source/ (CodeMirror 6)
 │   │       ├── map-tree/       # react-arborist map tree, DITAVAL projection, node inspector, context menu, overview
 │   │       ├── components/publish/ # publish dialog, live build log, strict-validation results
+│   │       ├── ai/             # AI panel/settings/usage/diff dialogs, SSE client, target builder, session store
 │   │       ├── services/       # API client, offline demo fallback, persistence bridge
 │   │       └── store/          # Zustand workbench, multi-tab, and semantic context state
 │   └── api/                    # @dita/api — Fastify 5 workspace, semantic index, and asset service
@@ -185,11 +216,13 @@ DITAEditor/
 │           ├── indexer/        # WorkspaceSemanticIndexer and /api/semantics/* routes
 │           ├── validate/       # /api/validate/strict DITA-OT strict validation
 │           ├── publish/        # SQLite publish jobs, snapshot builds, SSE logs, artifact downloads
+│           ├── ai/             # AI settings/usage, prompt builder, LangChain model factory, SSE orchestration
 │           └── dita-ot/        # dita CLI runtime detection, child-process runner, DOTJ/DOTX log parser
 ├── samples/
 │   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/bookmaps/reuse library/DITAVAL/SVG)
 ├── docs/
-│   ├── architecture-and-plan.md # full architecture baseline and Phase 0–5 roadmap
+│   ├── architecture-and-plan.md # full architecture baseline and Phase 0–6 roadmap
+│   ├── phase6-ai-contract.md   # Phase 6 AI API/SSE/DB/frontend integration contract
 │   └── pic/                    # workbench screenshots
 ├── dita-ot-plugins/            # Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
 ├── Dockerfile                  # single-container build (Node + JRE 21 + DITA-OT + Noto CJK)
@@ -282,6 +315,11 @@ For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, J
 | `DITAEDITOR_FOP_XCONF` | plugin `fop.xconf` | FOP font configuration template |
 | `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK font directory used to generate the per-job `fop.xconf` |
 | `DITA_WEB_DIST` | `apps/web/dist` | Production web assets; served by the API when `index.html` exists |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/v1` | OpenAI-compatible AI endpoint; point at an internal proxy's `/v1` (overridable from **AI settings**) |
+| `DEEPSEEK_MODEL` | `deepseek-flash` | Default model name; any model exposed by the proxy works |
+| `DEEPSEEK_API_KEY` | empty | Environment fallback for the AI key; a key saved by an admin in SQLite wins |
+| `AI_TIMEOUT_MS` | `45000` | Per-call model timeout (ms) |
+| `AI_MAX_CONTEXT_CHARS` | `24000` | Character budget for project context (keyspace, path index, DITAVAL values) |
 
 ---
 
@@ -303,6 +341,11 @@ For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, J
 | `POST /api/assets/upload` | Uploads an image asset and returns a document-relative DITA `href` |
 | `GET /api/assets/raw?path=...` | Serves a binary image asset by workspace path |
 | `GET /api/assets/resolve?from=...&href=...` | Resolves an image asset relative to a source document |
+| `GET /api/ai/config` | Reads public AI config (masked key, `db`/`env` source, model, timeout) |
+| `PUT /api/ai/config` | Admin saves AI config (endpoint, model, key, temperature, retries, timeout) |
+| `POST /api/ai/config/test` | Sends one real request with the current or overridden config and reports connectivity/latency |
+| `POST /api/ai/stream` | Streaming AI task over SSE: `meta` / `delta` / `retry` / `proposal` / `error` / `done` |
+| `GET /api/ai/usage?days=...&limit=...` | Admin usage ledger (totals plus by day/task/user/model and recent calls) |
 | `GET /api/semantics/context?rootMap=...&ditaval=...` | Keyspace, topic-id index, profiling vocabulary, and parsed `.ditaval` for the given Root Map |
 | `GET /api/semantics/keyspace?rootMap=...` | Builds and returns the effective BFS keyspace for a Root Map |
 | `GET /api/semantics/ids?filePath=...` | Index of reusable `@id` elements in the workspace or one topic |
@@ -349,11 +392,11 @@ pnpm typecheck
 pnpm test
 ```
 
-Current coverage (**132/132 Vitest tests passing**):
+Current coverage (**196/196 Vitest tests passing**):
 
-- `@dita/core` (54): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, lossless Map/Bookmap operations, DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, and DFS cycle detection.
-- `@dita/web` (65): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, decorations and insert menu, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, and Phase 4 identity/lock read-only projection (admin, writer, viewer, cross-author exclusion).
-- `@dita/api` (13): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, and a Phase 4 end-to-end flow covering identities, Git init, same-file exclusion, independent files, check-in commits, history diff, cross-branch isolation, cancel-checkout rollback, and admin force-unlock backups. Phase 5 adds runtime detection, DOTJ/DOTX/file-URL log normalization, successful/failed/read-only strict validation, HTML5 ZIP plus preview, PDF download, cancellation, history ordering, and the workspace boundary for DITAVAL filters.
+- `@dita/core` (81): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, lossless Map/Bookmap operations, DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, and 26 AI fragment tests (element/line-window/full-document targeting, candidate normalization, lossless splice, verification failure reasons).
+- `@dita/web` (87): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, decorations and insert menu, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, and Phase 4 identity/lock read-only projection (admin, writer, viewer, cross-author exclusion).
+- `@dita/api` (28): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, and a Phase 4 end-to-end flow covering identities, Git init, same-file exclusion, independent files, check-in commits, history diff, cross-branch isolation, cancel-checkout rollback, and admin force-unlock backups. Phase 5 adds runtime detection, DOTJ/DOTX/file-URL log normalization, successful/failed/read-only strict validation, HTML5 ZIP plus preview, PDF download, cancellation, history ordering, the workspace boundary for DITAVAL filters, and Phase 6 AI config/masking, usage aggregation, SSE event ordering, retry and non-admin 403 paths, plus a real-socket SSE regression test.
 
 ---
 
@@ -365,3 +408,12 @@ Current coverage (**132/132 Vitest tests passing**):
 - [x] **Phase 3**: Root Map cross-file semantic engine (`keydef/keyref` BFS + `keyscope`, `conref/conkeyref`/`conrefend` with DFS cycle detection, DITAVAL three-state filtering and flags, incremental `/api/semantics/*` indexer, Keys panel, reuse/semantic insert UI, profiling attribute editor, CodeMirror 6 semantic completion).
 - [x] **Phase 4**: SQLite + Drizzle identities and three roles, local `simple-git` repository with branch-isolated `git worktree`s, check-out exclusive locks / check-in / cancel / admin force-unlock backups, CodeMirror 6 MergeView working-tree and revision diffs, and the left **Version** panel.
 - [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (zero custom Java code; built-in DITA 1.3 DTD/RNG strict validation + pure-XML Noto CJK PDF font-mappings plugin), zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE log streaming, and single-container `Dockerfile` deployment.
+- [x] **Phase 6**: LangChain.js AI assistance (DeepSeek / OpenAI-compatible endpoints), lossless fragment splice with automatic verification retries in `@dita/core`, streaming authoring / tag optimization / error repair, mandatory diff confirmation with check-out lock guards, SQLite config and token-usage auditing, AI settings/usage panels, and the real-endpoint acceptance script `apps/api/scripts/e2e-ai-live.mts`.
+
+---
+
+## License
+
+Released under the [MIT License](LICENSE). Free for commercial and non-commercial use as long as the copyright and license notice are retained.
+
+Copyright © 2026 DITAEditor contributors

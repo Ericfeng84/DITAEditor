@@ -5,6 +5,7 @@ import {
   CheckCircle2,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   X,
 } from 'lucide-react';
 import type { WorkspaceDiagnostic } from '../services/workspace-api';
@@ -15,6 +16,8 @@ export interface ProblemsPanelProps {
   onJumpToDiagnostic: (diag: WorkspaceDiagnostic) => void;
   onClose: () => void;
   onStrictValidate?: () => void;
+  /** Opens the AI assistant with the diagnostic attached as fix context. */
+  onAiFixDiagnostic?: (diag: WorkspaceDiagnostic) => void;
 }
 
 const SOURCE_LABELS: Record<WorkspaceDiagnostic['source'], string> = {
@@ -33,6 +36,7 @@ export function ProblemsPanel({
   onJumpToDiagnostic,
   onClose,
   onStrictValidate,
+  onAiFixDiagnostic,
 }: ProblemsPanelProps) {
   const [filter, setFilter] = useState<'all' | 'error' | 'warning'>('all');
 
@@ -123,11 +127,11 @@ export function ProblemsPanel({
         ) : (
           <ul className="divide-y divide-slate-100">
             {visible.map((diag) => (
-              <li key={diag.id}>
+              <li key={diag.id} className="flex items-center gap-1 pr-2 hover:bg-slate-50">
                 <button
                   type="button"
                   onClick={() => onJumpToDiagnostic(diag)}
-                  className="flex w-full items-center gap-2.5 px-3 py-1.5 text-left hover:bg-slate-50"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 py-1.5 pl-3 pr-1 text-left"
                 >
                   {diag.severity === 'error' ? (
                     <AlertCircle className="h-3.5 w-3.5 shrink-0 text-rose-500" aria-hidden="true" />
@@ -149,6 +153,17 @@ export function ProblemsPanel({
                     {diag.filePath}:{diag.line}:{diag.column}
                   </span>
                 </button>
+                {onAiFixDiagnostic ? (
+                  <button
+                    type="button"
+                    onClick={() => onAiFixDiagnostic(diag)}
+                    title="用 AI 修复此问题"
+                    aria-label="用 AI 修复此问题"
+                    className="shrink-0 rounded p-1 text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                  </button>
+                ) : null}
               </li>
             ))}
           </ul>

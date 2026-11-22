@@ -85,6 +85,41 @@ CREATE TABLE IF NOT EXISTS publish_jobs (
 );
 CREATE INDEX IF NOT EXISTS publish_jobs_created_idx ON publish_jobs (created_at);
 CREATE INDEX IF NOT EXISTS publish_jobs_project_idx ON publish_jobs (project_id, branch);
+
+CREATE TABLE IF NOT EXISTS ai_settings (
+  id TEXT PRIMARY KEY NOT NULL,
+  base_url TEXT NOT NULL,
+  model TEXT NOT NULL,
+  api_key TEXT,
+  temperature REAL NOT NULL DEFAULT 0.2,
+  max_retries INTEGER NOT NULL DEFAULT 2,
+  timeout_ms INTEGER NOT NULL DEFAULT 45000,
+  updated_by TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ai_usage_logs (
+  id TEXT PRIMARY KEY NOT NULL,
+  project_id TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  user_display_name TEXT NOT NULL,
+  task_type TEXT NOT NULL,
+  sub_action TEXT NOT NULL,
+  file_path TEXT,
+  model TEXT NOT NULL,
+  status TEXT NOT NULL,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  prompt_tokens INTEGER NOT NULL DEFAULT 0,
+  completion_tokens INTEGER NOT NULL DEFAULT 0,
+  total_tokens INTEGER NOT NULL DEFAULT 0,
+  duration_ms INTEGER NOT NULL DEFAULT 0,
+  error_message TEXT,
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS ai_usage_created_idx ON ai_usage_logs (created_at);
+CREATE INDEX IF NOT EXISTS ai_usage_project_idx ON ai_usage_logs (project_id, branch);
+CREATE INDEX IF NOT EXISTS ai_usage_task_idx ON ai_usage_logs (task_type);
 `;
 
 /**

@@ -127,6 +127,8 @@ export interface VisualEditorHandle {
   ) => boolean;
   openInsertMenuAtElement: (anchorEl: HTMLElement) => void;
   getCurrentPmState: () => EditorState | null;
+  /** Replace the whole document in one undoable transaction (AI proposal apply). */
+  replaceDocumentXml: (nextXml: string) => boolean;
   canInsertBlock: (tag: string) => boolean;
   canInsertInline: (tag: string) => boolean;
 }
@@ -154,6 +156,7 @@ export interface VisualEditorProps {
     },
   ) => void;
   onOpenXrefDialog: () => void;
+  onAiRequest?: (kind: 'rewrite' | 'ask') => void;
   onAnnounce?: (msg: string) => void;
   resolveImageSrc?: (href: string) => string | null;
   /** Read-only mode for viewers or files checked out by another identity. */
@@ -177,6 +180,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onXmlChange,
       onSnapshotChange,
       onOpenXrefDialog,
+      onAiRequest,
       onAnnounce,
       resolveImageSrc,
       readOnly = false,
@@ -958,6 +962,23 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
         getCurrentPmState() {
           return viewRef.current?.state ?? null;
         },
+        replaceDocumentXml(nextXml) {
+          const view = viewRef.current;
+          if (!view) return false;
+          try {
+            const { pmDoc } = xmlToPmDoc(nextXml);
+            const tr = view.state.tr;
+            tr.replaceWith(0, view.state.doc.content.size, pmDoc.content);
+            for (const [key, value] of Object.entries(pmDoc.attrs)) {
+              tr.setDocAttribute(key, value);
+            }
+            view.dispatch(tr);
+            view.focus();
+            return true;
+          } catch {
+            return false;
+          }
+        },
         canInsertBlock(tag) {
           const view = viewRef.current;
           if (!view) return false;
@@ -1143,6 +1164,14 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
               onApply={applyInlineBubbleTag}
               onOpenMore={openInlineMoreMenu}
               onClose={() => setDismissedBubbleKey(bubbleKey)}
+              onAiRequest={
+                readOnly
+                  ? undefined
+                  : (kind) => {
+                      setDismissedBubbleKey(bubbleKey);
+                      onAiRequest?.(kind);
+                    }
+              }
             />
           ) : null}
 

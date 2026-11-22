@@ -4,6 +4,10 @@ import multipart from '@fastify/multipart';
 import Fastify from 'fastify';
 import { DITA_CORE_VERSION } from '@dita/core';
 import { openDatabase } from './db/client.js';
+import { AiSettingsService } from './modules/ai/ai-settings-service.js';
+import { AiUsageService } from './modules/ai/ai-usage-service.js';
+import { createLangChainModelFactory, type AiModelFactory } from './modules/ai/ai-model-factory.js';
+import { registerAiRoutes } from './modules/ai/routes.js';
 import { registerAssetRoutes } from './modules/files/asset-routes.js';
 import { registerWorkspaceFileRoutes } from './modules/files/routes.js';
 import { WorkspaceManager } from './modules/files/workspace-fs.js';
@@ -34,6 +38,7 @@ export interface CreateServerOptions {
   ditaRuntime?: DitaRuntimeOptions;
   webDistDir?: string;
   logger?: boolean;
+  aiModelFactory?: AiModelFactory;
 }
 
 export function createServer(options: CreateServerOptions = {}) {
@@ -47,6 +52,8 @@ export function createServer(options: CreateServerOptions = {}) {
     options.dbPath ?? path.join(workspace.importsRootDir, 'dita-editor.sqlite'),
   );
   const identity = new IdentityService(database.db);
+  const aiSettings = new AiSettingsService(database.db);
+  const aiUsage = new AiUsageService(database.db);
   const git = new GitManager({
     worktreesRootDir:
       options.worktreesRootDir ?? path.join(workspace.importsRootDir, 'git-worktrees'),
@@ -115,6 +122,20 @@ export function createServer(options: CreateServerOptions = {}) {
     runtime: options.ditaRuntime,
   });
   registerPublishRoutes(app, { ...phase4, publish });
+  registerAiRoutes(app, {
+    workspace,
+    indexer,
+    identity,
+    settings: aiSettings,
+    usage: aiUsage,
+    modelFactory: options.aiModelFactory ?? createLangChainModelFactory(),
+    logger: {
+      warn: (message: string) => {
+        if (options.logger === false) return;
+        app.log.warn(message);
+      },
+    },
+  });
   registerWebStaticRoutes(app, options.webDistDir ?? defaultWebDistDir());
 
   return app;

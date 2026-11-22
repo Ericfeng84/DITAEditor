@@ -31,6 +31,8 @@ import {
   type XmlParseError,
 } from '@dita/core';
 import { computeXmlLineDiffStats } from '../editor/bridge/xml-bridge';
+import { resolveFileEditability, type LockLike } from '../services/lock-helpers';
+import type { IdentityRole } from '../services/identity-api';
 import {
   planMapNodeMove,
   type CompositeMapTreeNode,
@@ -190,6 +192,12 @@ export interface EditorWorkbenchState {
   setMode: (nextMode: EditorViewMode) => boolean;
   updateXmlFromVisual: (xml: string) => void;
   updateXmlFromSource: (xml: string) => void;
+  /** `skipVisualReload` keeps the live ProseMirror history when the editor already applied the doc. */
+  applyAiPatchedXml: (
+    filePath: string,
+    xml: string,
+    options?: { skipVisualReload?: boolean },
+  ) => boolean;
   setTagDisplayMode: (mode: TagDisplayMode) => void;
 
   // Map Tree actions
@@ -1482,6 +1490,67 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       }
     },
 
+    applyAiPatchedXml(filePath, xml, options) {
+      const state = get();
+      const tab = state.openTabs.find((t) => t.path === filePath);
+      if (!tab) return false;
+
+      const check = checkXmlWellFormed(xml, { position: false });
+      const nextTitle = check.ok ? extractTitleSafe(xml, tab.fileName) : tab.title;
+      set((s) => ({
+        openTabs: s.openTabs.map((t) =>
+          t.path === filePath
+            ? {
+                ...t,
+                xml,
+                title: nextTitle,
+                xmlError: check.ok ? null : check.error,
+                switchBlockedReason: check.ok ? null : t.switchBlockedReason,
+                visualReloadToken:
+                  check.ok &&
+                  !options?.skipVisualReload &&
+                  s.activeTabPath === filePath &&
+                  t.mode === 'visual'
+                    ? t.visualReloadToken + 1
+                    : t.visualReloadToken,
+              }
+            : t,
+        ),
+        topicTitles:
+          check.ok && tab.kind === 'topic'
+            ? { ...s.topicTitles, [filePath]: nextTitle }
+            : s.topicTitles,
+        mapBuffers:
+          s.mapBuffers[filePath]
+            ? {
+                ...s.mapBuffers,
+                [filePath]: {
+                  ...s.mapBuffers[filePath]!,
+                  xml,
+                  xmlError: check.ok ? null : check.error,
+                },
+              }
+            : s.mapBuffers,
+      }));
+
+      if (state.workspaceMode === 'memory') {
+        memorySemanticIndex.updateFile(filePath, xml);
+      }
+      if (tab.kind === 'topic') {
+        if (state.workspaceMode === 'api' && state.activeTabPath !== filePath) {
+          void get().refreshDocumentOverlay(filePath, xml);
+        } else if (state.workspaceMode === 'api') {
+          if (overlayDebounceTimer) clearTimeout(overlayDebounceTimer);
+          overlayDebounceTimer = setTimeout(() => {
+            void get().refreshDocumentOverlay(filePath, xml);
+          }, 180);
+        } else {
+          void get().refreshDocumentOverlay(filePath, xml);
+        }
+      }
+      return true;
+    },
+
     setTagDisplayMode(tagDisplayMode) {
       const labelMap: Record<TagDisplayMode, string> = {
         none: '已隐藏段落与元素标签',
@@ -2006,4 +2075,30 @@ export function getTabDiffStats(tab: OpenEditorTab | null) {
 
 export function isDitaContainerTagName(tagName: string): boolean {
   return DITA_MAP_CONTAINER_NODE_TAGS.has(tagName);
+}
+
+
+export type AiApplyMode = 'apply' | 'checkout-and-apply' | 'preview-only';
+
+export interface ResolveAiApplyModeInput {
+  role: IdentityRole | null | undefined;
+  userId: string | null | undefined;
+  filePath: string | null | undefined;
+  locks: readonly LockLike[];
+  workspaceMode: 'api' | 'memory';
+}
+
+/**
+ * Decide how an AI proposal may reach the editor buffer. The offline demo has no server
+ * locks, admins and owners apply directly, an unlocked writer gets a checkout step, and
+ * viewers / files locked by someone else stay preview-only (contract §4).
+ */
+export function resolveAiApplyMode(input: ResolveAiApplyModeInput): AiApplyMode {
+  if (input.workspaceMode === 'memory') return 'apply';
+  const editability = resolveFileEditability(input);
+  if (editability.state === 'admin' || editability.state === 'owned') return 'apply';
+  if (editability.state === 'unlocked' && input.role === 'writer' && input.filePath) {
+    return 'checkout-and-apply';
+  }
+  return 'preview-only';
 }

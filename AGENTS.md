@@ -12,6 +12,7 @@ Guidance for AI coding agents working in the **DITAEditor** repository.
   - **Standard DITA XML is the single source of truth** (100% lossless round-trip, deterministic formatting, minimal Git Diff).
   - Core DITA 1.3 elements are finely modeled; unknown/specialized elements pass through losslessly via `unknown_block` / `unknown_inline`.
   - Concurrency model: **Check-out exclusive file lock** per `(project, branch, file_path)` with branch-isolated `git worktree` (no CRDT real-time co-editing).
+  - License: **MIT** ([LICENSE](LICENSE)); UI screenshots live in `docs/pic/` and are referenced from `README.md` / `README.en.md`.
   - Validation & Publishing: Frontend real-time constraints + TS semantic indexer + **DITA-OT 4.x CLI** invoked from `@dita/api` (built-in OASIS DITA 1.3 DTD/RNG validation & HTML5/PDF publishing with pure-XML Noto CJK font-mappings plugin; zero custom Java service code).
 
 ## 2. Repository Layout
@@ -24,6 +25,7 @@ DITAEditor/
 │       │   ├── xml/        # slimdom-sax-parser + position tracking, deterministic serializer, fontoxpath, DOM diff
 │       │   ├── model/      # DITA 1.3 element registry (block/inline/structural/whitespace-preserve)
 │       │   ├── cals/       # OASIS CALS table <-> colspan/rowspan & occupancy grid adapter
+│       │   ├── ai/         # AI target-fragment locator, candidate normalizer, lossless splice+verify
 │       │   └── prosemirror/# Native ProseMirror Schema & lossless slimdom <-> PM Doc converter
 │       └── test/
 │           ├── fixtures/   # 10 complex DITA 1.3 golden round-trip fixtures
@@ -92,6 +94,25 @@ Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code chang
 - Any change to `packages/dita-core/src/{xml,model,cals,prosemirror}` MUST keep all tests in `packages/dita-core/test/` green, including all 10 fixtures in `packages/dita-core/test/fixtures/`.
 - When fixing any XML parsing, serialization, CALS, or ProseMirror mapping bug, add a focused regression test (and fixture if structural).
 
+### 4.7 AI Assistance Boundaries (Phase 6)
+- **AI never mutates XML directly**: every model reply flows through `normalizeCandidateXml` → `spliceAndVerifyAiXml`.
+  The patched document (not the raw candidate) is the authority for `line-window` / `full-document` spells; only
+  `element` mode requires a single-root candidate. Preserve `<?xml?>`, `<!DOCTYPE>`, comments and PIs unchanged.
+- **No LangChain in `@dita/core` or `@dita/web`**: `@langchain/core` + `@langchain/openai` belong to `apps/api` only;
+  the web app talks to `/api/ai/stream` over `fetch` + SSE (native `EventSource` cannot send the identity header).
+- **API keys stay server-side**: `GET /api/ai/config` returns `maskedApiKey` only; DB value wins over env fallback;
+  config writes and `GET /api/ai/usage` require the `admin` role.
+- **Default target scope is the whole topic**: the AI panel sends `{ mode: 'full-document' }` unless the user picks
+  `片段` or an entry point (bubble toolbar, diagnostics, strict validation) carries an explicit target; a fragment
+  request without a resolvable target degrades to `full-document`. Full-document patches must keep the root element,
+  XML declaration and DOCTYPE untouched (server returns `structure-invalid` on a root-tag change).
+- **Diff confirmation and locks are mandatory**: proposals reach the buffer only through `AiDiffDialog` +
+  `resolveAiApplyMode` (`apply` / `checkout-and-apply` / `preview-only`). Visual applies must stay a single
+  ProseMirror transaction (pass `{ skipVisualReload: true }` to `applyAiPatchedXml`), source applies a single
+  CodeMirror replacement, so `Cmd/Ctrl+Z` undoes the whole AI edit in one step.
+- **SSE disconnect detection**: never abort on `req.raw` `'close'` (fires after body consumption); use `'aborted'`
+  plus response `'close'` guarded by `writableEnded`. `apps/api/test/phase6-ai-sse-socket.test.ts` guards this.
+
 ## 5. TypeScript & Code Style
 
 - Strict ESM across all packages (`"type": "module"`). Use explicit `.js` extensions on relative TypeScript imports in `packages/dita-core/src/` and `apps/api/src/`.
@@ -114,3 +135,4 @@ This repository maintains a persistent knowledge graph at `graphify-out/`:
 - [x] **Phase 3**: Root Map semantic engine (`keydef/keyref` BFS + `keyscope`, `conref/conkeyref`/`conrefend` with DFS cycle detection & specialization checks, `.ditaval` parser/evaluator & live filtering/flagging across Map Tree + Visual Editor without mutating XML, incremental Fastify `/api/semantics/*` indexer, `Keys` panel, Insert Keyref/Conref dialogs, profiling attribute editor, CodeMirror 6 semantic autocomplete; 107/107 Vitest tests passing across `@dita/core` (54), `@dita/api` (4), & `@dita/web` (49)).
 - [x] **Phase 4**: SQLite + Drizzle ORM (`better-sqlite3`) identity/role switcher (Admin/Writer/Viewer), local Git workspace (`simple-git` + branch-isolated `git worktree`, no external GitHub/GitLab/Gitee dependency), Check-out exclusive locks with admin force-unlock patch backups, commit history & CodeMirror 6 MergeView visual version Diff (126/126 Vitest tests passing across `@dita/core` 54, `@dita/api` 7, `@dita/web` 65).
 - [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (built-in DITA 1.3 DTD/RNG strict validation with `--validate=yes --processing-mode=strict` + HTML5/PDF publishing, zero custom Java code), pure-XML Noto CJK PDF font-mappings plugin loaded via `--customization.dir`, zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE log streaming and cancellation/retention, web publish/strict-validation UI, and single-container `Dockerfile` (Node 22 + JRE 21 + DITA-OT 4.2.1 + Noto CJK); 132/132 Vitest tests passing across `@dita/core` 54, `@dita/api` 13, `@dita/web` 65.
+- [x] **Phase 6**: LangChain.js AI assistance — `@dita/core` lossless fragment locator/splice (`src/ai/`), LangChain `ChatOpenAI` factory + SSE `/api/ai/stream` with verification-retry loop, SQLite `ai_settings`/`ai_usage_logs` with admin-only config & usage, web AI panel/settings/diff with Check-out-aware apply, and real-endpoint acceptance via `apps/api/scripts/e2e-ai-live.mts` (201 Vitest tests total: core 81, api 28, web 92).

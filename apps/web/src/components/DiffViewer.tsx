@@ -70,7 +70,9 @@ export function DiffViewer({ oldText, newText, fromLabel, toLabel }: DiffViewerP
   }, [oldText, newText]);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200">
+    // `h-full` matters when the host is a plain block (AI diff dialog): without it the merge view
+    // falls back to its intrinsic content height and paints over the dialog footer buttons.
+    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200">
       <div className="grid shrink-0 grid-cols-2 border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600">
         <div className="truncate border-r border-slate-200 px-2 py-1">旧版本 · {labels.fromLabel}</div>
         <div className="truncate px-2 py-1">新版本 · {labels.toLabel}</div>

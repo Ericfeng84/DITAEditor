@@ -6,9 +6,10 @@ import {
   Loader2,
   RefreshCw,
   ShieldCheck,
+  Sparkles,
   X,
 } from 'lucide-react';
-import type { StrictValidationInput } from '../../services/publish-api';
+import type { PublishDiagnostic, StrictValidationInput } from '../../services/publish-api';
 import { usePublishStore } from '../../store/publish-store';
 
 export interface StrictValidationDialogProps {
@@ -17,6 +18,10 @@ export interface StrictValidationDialogProps {
   targetLabel: string;
   onClose: () => void;
   onJumpToFile: (path: string, line: number, column: number) => void;
+  /** Opens the AI assistant with the strict DITA-OT diagnostic as fix context. */
+  onAiFixDiagnostic?: (diagnostic: PublishDiagnostic) => void;
+  /** Shows the "proposal applied, re-run validation" hint after an AI fix. */
+  aiApplied?: boolean;
 }
 
 export function StrictValidationDialog({
@@ -25,6 +30,8 @@ export function StrictValidationDialog({
   targetLabel,
   onClose,
   onJumpToFile,
+  onAiFixDiagnostic,
+  aiApplied = false,
 }: StrictValidationDialogProps) {
   const runtime = usePublishStore((state) => state.runtime);
   const strictResult = usePublishStore((state) => state.strictResult);
@@ -135,6 +142,13 @@ export function StrictValidationDialog({
               </span>
             </div>
 
+            {aiApplied ? (
+              <div className="flex shrink-0 items-center gap-1.5 border-b border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px] text-emerald-800">
+                <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
+                已应用 AI 修复建议，请点击“重新校验”确认严格校验结果。
+              </div>
+            ) : null}
+
             {unavailable ? (
               <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] text-amber-900">
                 {strictResult.message ??
@@ -154,13 +168,13 @@ export function StrictValidationDialog({
               ) : (
                 <ul className="divide-y divide-slate-100">
                   {strictResult.diagnostics.map((diagnostic) => (
-                    <li key={diagnostic.id}>
+                    <li key={diagnostic.id} className="flex items-start gap-1 pr-3 hover:bg-slate-50">
                       <button
                         type="button"
                         onClick={() =>
                           onJumpToFile(diagnostic.filePath, diagnostic.line, diagnostic.column)
                         }
-                        className="flex w-full items-start gap-2 px-4 py-2 text-left hover:bg-slate-50"
+                        className="flex min-w-0 flex-1 items-start gap-2 py-2 pl-4 pr-1 text-left"
                       >
                         {diagnostic.severity === 'error' ? (
                           <AlertCircle
@@ -185,6 +199,17 @@ export function StrictValidationDialog({
                           {diagnostic.filePath}:{diagnostic.line}:{diagnostic.column}
                         </span>
                       </button>
+                      {onAiFixDiagnostic ? (
+                        <button
+                          type="button"
+                          onClick={() => onAiFixDiagnostic(diagnostic)}
+                          title="用 AI 修复此问题"
+                          aria-label="用 AI 修复此问题"
+                          className="mt-1.5 shrink-0 rounded p-1 text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                        >
+                          <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>

@@ -18,6 +18,7 @@
 | **校验策略** | 双层校验（前端实时约束 + 语义索引 + DITA-OT CLI 权威校验） | 日常编辑 0 延迟由 `@dita/core` 与语义索引器校验；按需/检入前/发布前调用 `dita` CLI 跑官方 DITA 1.3 DTD/RNG 严格校验 |
 | **发布与预览** | 服务端 DITA-OT CLI 异步发布（Root Map + DITAVAL → HTML5 / PDF） | 异步构建队列、实时日志流、产物在线预览与打包下载，预置 Noto CJK 字体与纯 XML 字体插件 |
 | **AI 辅助写作（Phase 6）** | 后端 **LangChain.js**（`@langchain/core` + `@langchain/openai`，默认 DeepSeek `deepseek-flash`，支持私有化代理） | 覆盖单 Topic 写作、语义/结构/Keyref 标签优化与三类错误修复，并为后续「手册发布后 RAG 问答」统一模型、Prompt 与 `BaseRetriever` 底座；片段级无损替换 + `@dita/core` 自动校验重试 + 强制 MergeView Diff 确认，写操作强守 Check-out 锁 |
+| **项目官网与文档（Phase 7）** | 独立静态站 `apps/site`（**Astro 5 + React 19 Islands + Tailwind CSS 4**），中英双语（`zh-CN` / `en`），现代技术出版编辑风 | 营销页与文档页零 JS 静态输出并兼容 GitHub Pages / Cloudflare Pages / Vercel；直接复用 `@dita/core` 提供浏览器内免后端交互式 DITA 1.3 沙箱，与单容器工作台镜像完全解耦 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
 | **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
@@ -230,6 +231,7 @@ flowchart LR
 | **异步发布队列与实时日志** | **SQLite (`publish_jobs`) + Node 进程内并发队列 + SSE** | 零外部中间件依赖，支持并发限流、超时强杀、手动取消与日志落盘断线续看 | Redis + BullMQ（仅后期多 API 副本横向扩展时按需引入） |
 | **DITA-OT 发布与校验运行时** | **DITA-OT 4.x CLI + JRE 21 + 纯 XML 中文 PDF 插件** | 零 Java 业务代码，直接复用官方 DITA 1.3 DTD/RNG 校验与 HTML5/PDF2 发布引擎 | 独立常驻 Java Worker（仅在强需求 50ms 级保存期 DTD 校验时按需扩展） |
 | **AI 辅助与模型接入 (Phase 6)** | **LangChain.js（`@langchain/core` + `@langchain/openai`，默认 DeepSeek `deepseek-flash`）+ SSE 流式 + SQLite 配置与轻量审计** | 仅引入轻量核心包即可统一 `ChatOpenAI`（兼容 DeepSeek 与内网代理）、Prompt 模板与消息历史，并天然预留 `BaseRetriever`/`Embeddings`/LangGraph 扩展位，平滑承接后续「基于手册发布后的 RAG AI 问答」 | 原生 `fetch` / `openai` SDK（若明确永远不做 RAG 知识库问答时可降级简化） |
+| **项目官网与文档站 (Phase 7)** | **Astro 5（Static）+ React 19 Islands + Tailwind CSS 4 + Content Collections / Shiki + Pagefind** | 首页与文档零 JS 静态生成、SEO/性能极佳；React Islands 按需水合 `@dita/core` + ProseMirror + CodeMirror 6 交互沙箱；支持中英双语与纯静态托管（GitHub Pages / Cloudflare Pages / Vercel） | VitePress（若不需要高度定制的出版风官网首页与 React 沙箱深度融合时可选） |
 | **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管打包后的 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK） | 零外部数据库/队列中间件，一条 `docker run` 一键启动，SQLite 与本地 Git 仓库持久化在挂载卷 | 单机裸部署（本机安装 `dita` CLI 与 Noto CJK 字体亦可直接运行） |
 
 ---
@@ -250,18 +252,25 @@ DITAEditor/
 │   │   │   ├── git-panel/      # 分支管理、Check-out 状态、版本历史、Diff 对比、Commit
 │   │   │   ├── publish/        # DITA-OT 发布配置、实时日志抽屉、产物预览
 │   │   │   └── ai/             # AI 助手面板（TopicInspector 第三 Tab）、Diff 审阅、Admin 设置与用量统计
-│   └── api/                    # Fastify + TypeScript 主后端
+│   ├── api/                    # Fastify + TypeScript 主后端
+│   │   ├── src/
+│   │   │   ├── modules/
+│   │   │   │   ├── identity/   # 轻量身份与角色切换 (Admin / Writer / Viewer)
+│   │   │   │   ├── projects/   # 项目配置、本地 Git 仓库与分支 worktree 管理
+│   │   │   │   ├── locks/      # Check-out 独占锁与管理员强制解锁
+│   │   │   │   ├── files/      # 文件读写、图片资产、重命名与引用影响检查
+│   │   │   │   ├── indexer/    # Root Map Keyspace / Conref / ID / DITAVAL 语义引擎
+│   │   │   │   ├── validate/   # 校验编排（调用 dita CLI 严格校验 + 解析日志 + 合并语义诊断）
+│   │   │   │   ├── publish/    # SQLite 发布任务、进程内并发队列、工作区快照、spawn dita CLI、SSE 日志与静态预览路由
+│   │   │   │   └── ai/         # LangChain.js (@langchain/core + @langchain/openai) 模型工厂、DITA 上下文裁剪、片段校验重试、SSE 流式与轻量审计（预留手册 RAG Retriever 扩展口）
+│   │   │   └── db/             # Drizzle Schema & Migrations（含 ai_settings / ai_usage_logs）
+│   └── site/                   # @dita/site — Astro 5 + React 19 项目官网、中英双语快速上手文档与浏览器内 @dita/core 交互沙箱（纯静态托管）
 │       ├── src/
-│       │   ├── modules/
-│       │   │   ├── identity/   # 轻量身份与角色切换 (Admin / Writer / Viewer)
-│       │   │   ├── projects/   # 项目配置、本地 Git 仓库与分支 worktree 管理
-│       │   │   ├── locks/      # Check-out 独占锁与管理员强制解锁
-│       │   │   ├── files/      # 文件读写、图片资产、重命名与引用影响检查
-│       │   │   ├── indexer/    # Root Map Keyspace / Conref / ID / DITAVAL 语义引擎
-│       │   │   ├── validate/   # 校验编排（调用 dita CLI 严格校验 + 解析日志 + 合并语义诊断）
-│       │   │   ├── publish/    # SQLite 发布任务、进程内并发队列、工作区快照、spawn dita CLI、SSE 日志与静态预览路由
-│       │   │   └── ai/         # LangChain.js (@langchain/core + @langchain/openai) 模型工厂、DITA 上下文裁剪、片段校验重试、SSE 流式与轻量审计（预留手册 RAG Retriever 扩展口）
-│       │   └── db/             # Drizzle Schema & Migrations（含 ai_settings / ai_usage_logs）
+│       │   ├── pages/          # 中文 (/) 与英文 (/en/) 官网首页、/playground 交互沙箱与 /docs 文档路由
+│       │   ├── content/docs/   # 中英双语快速上手、Docker 部署、DITA-OT 与 AI 配置指南 (Markdown/MDX)
+│       │   ├── components/     # 现代技术出版编辑风静态组件 + playground/ React 19 懒加载沙箱 Island
+│       │   └── i18n/           # 中英双语词典与对称路由切换工具
+│       └── test/               # 双语对称性校验与沙箱预设 @dita/core 往返无损回归测试
 ├── packages/
 │   └── dita-core/              # @dita/core 前后端共享核心库
 │       ├── xml/                # slimdom 解析、位置追踪、确定性无损序列化
@@ -279,7 +288,7 @@ DITAEditor/
 
 ## 六、分阶段垂直切片实施计划
 
-面向**个人 / AI 辅助独立推进**，遵循 **“高风险内核先行（Spike）→ 单机闭环 → 语义深化 → 团队协作 → 发布闭环 → AI 赋能”** 的原则，每个阶段产出可运行、可验收的垂直切片。Phase 0–5 基线总计约 **10–14 周**（已完成），Phase 6 增补约 **2–3 周**（按全职或高强度 AI 辅助推进估算；兼职可按比例顺延）。
+面向**个人 / AI 辅助独立推进**，遵循 **“高风险内核先行（Spike）→ 单机闭环 → 语义深化 → 团队协作 → 发布闭环 → AI 赋能 → 官网与交互试玩”** 的原则，每个阶段产出可运行、可验收的垂直切片。Phase 0–5 基线总计约 **10–14 周**（已完成），Phase 6 增补约 **2–3 周**（已完成），Phase 7 增补约 **1.5–2 周**（按全职或高强度 AI 辅助推进估算；兼职可按比例顺延）。
 
 ### Phase 0：技术尖刺与工程底座（第 1 周）
 > **目标**：在写任何业务页面之前，用自动化测试证明最难的“DITA XML 无损往返 + 双模互转”可行。
@@ -328,7 +337,7 @@ DITAEditor/
 - **验收标准**：通过单容器 `docker run`（或本机安装 DITA-OT CLI）一键运行；故意写入违反 DITA 1.3 DTD 的标签可在严格校验中准确标红定位；选定 Root Map + DITAVAL 一键产出排版正常、中文无乱码的 HTML5 与 PDF。
 
 ### Phase 6：DeepSeek AI 辅助文档编写、标签优化与错误处理（第 15–17 周）
-> **状态**：📋 规划中（设计共识已确认；详细实施方案见 [phase6-ai-implementation-plan.md](./phase6-ai-implementation-plan.md)）。后端采用 **LangChain.js**（`@langchain/core` + `@langchain/openai`），默认模型为 `deepseek-flash`，支持私有化/内网兼容代理，并为后续手册发布后 RAG 问答预留 `BaseRetriever` 扩展底座。
+> **状态**：✅ 已完成（v1.0.0；接口契约见 [phase6-ai-contract.md](./phase6-ai-contract.md)，详细方案见 [phase6-ai-implementation-plan.md](./phase6-ai-implementation-plan.md)，真实端点端到端验收脚本 `apps/api/scripts/e2e-ai-live.mts`）。后端采用 **LangChain.js**（`@langchain/core` + `@langchain/openai`），默认模型为 `deepseek-flash`，支持私有化/内网兼容代理，并为后续手册发布后 RAG 问答预留 `BaseRetriever` 扩展底座。
 >
 > **目标**：在不破坏 DITA 无损 XML 往返、最小 Git Diff 与 Check-out 独占锁边界的前提下，引入 DeepSeek 全面提升单 Topic 编写、标签规范化与错误排障效率。
 - **后端 AI 模块与配置审计（`apps/api/src/modules/ai/` + LangChain.js + Drizzle）**：
@@ -345,6 +354,23 @@ DITAEditor/
   - **UI 入口与安全落地**：在右侧 `TopicInspector` 新增 `AI 助手` Tab（含「附带项目上下文」透明开关与上下文标签），并在选区浮动栏、问题面板、源码报错条与严格校验弹窗挂接快捷按钮；所有改动强制经现有 CodeMirror MergeView（`DiffViewer`）审阅后写入并支持单步 Undo；遵循读写分离与 Check-out 锁边界（只读/Viewer 仅问答预览，`Writer`/`Admin` 未检出时支持一键「检出并应用」）；新增 `Admin` 专属 AI 配置与调用统计弹窗。
 - **验收标准**：通过单测（Mock OpenAI 兼容 SSE 流 + `@dita/core` 片段无损回拼与自动重试用例）与端到端手测验证：在含 `DOCTYPE`/注释/PI 的复杂 Topic 上执行选区改写、标签优化与三类错误修复，MergeView Diff 仅改动目标片段且无损往返；未检出文件可提问预览但写操作触发 Check-out 拦截或一键检出并应用；切换为内网兼容代理 URL 与自定义模型可正常工作。
 
+### Phase 7：项目官网、浏览器交互式 DITA 沙箱与快速上手文档（第 18–19 周）
+> **状态**：📋 规划已确认（详细蓝图与分步切片见 [phase7-site-plan.md](./phase7-site-plan.md)）。采用独立静态站 `apps/site`（**Astro 5 + React 19 Islands + Tailwind CSS 4**），中英双语（`zh-CN` / `en`），现代技术出版编辑风，与单容器工作台镜像完全解耦。
+>
+> **目标**：为 DITAEditor 打造高信噪比的产品展示官网、免部署的浏览器内 `@dita/core` 交互式试玩沙箱与中英双语快速上手/部署文档，实现“访问即体验无损 DITA 编辑、5 分钟完成 Docker 部署”。
+- **工程底座与静态部署解耦（`apps/site` + CI）**：
+  - 新增独立 workspace 包 `@dita/site`（Astro 5 静态输出 + React 19 Islands + Tailwind CSS 4 + Shiki + Pagefind 静态搜索），在 Vite 配置中复用 `browserStreamStubPlugin()` 以支撑 `@dita/core` 浏览器运行，并确保 `Dockerfile` 仅构建 `@dita/core` / `@dita/web` / `@dita/api`，单容器镜像零膨胀。
+  - 建立中英双语对称路由（默认简体中文 `/`、英文 `/en/`）与 `SITE_BASE` 子路径适配，提供 GitHub Pages 自动部署工作流（同时开箱兼容 Cloudflare Pages / Vercel）及完整 SEO（`sitemap.xml`、`hreflang`、中英 OG 封面）。
+- **现代技术出版编辑风官网首页（`/` & `/en/`）**：
+  - 采用暖纸白精密排版 + 深色炭墨 XML/Diff 代码对比块设计系统，涵盖：Hero 价值主张与多 Tab 真实工作台展台（补充 Phase 6 AI 辅助高清截图）、与传统 CCMS/Markdown 工具的痛点对比、六大核心能力深度展台、定制 SVG 纯 TS 单容器架构图，以及一键复制的 Docker / pnpm / AI 配置快速启动条。
+  - 首页内嵌懒加载（`client:visible`）紧凑型「改一字仅变一行 XML」微沙箱，访客无需离开首页即可亲眼验证 `<!DOCTYPE>`、注释、PI 与属性顺序 100% 保真。
+- **浏览器内交互式 DITA 1.3 沙箱（`/playground` & `/en/playground`）**：
+  - 严格遵守单向依赖 `apps/site → @dita/core`（不跨包导入 `apps/web/src`），通过 `client:only="react"` 独立分块构建零后端交互试玩区。
+  - 内置 4 个真实场景预设（无损往返验证、Task 结构化写作、OASIS CALS 合并表格、Keyref + DITAVAL 三态过滤投影），支持可视化/双栏/XML 源码切换、良构性错误拦截演示与 CodeMirror 6 MergeView 实时行级 Diff 对比。
+- **中英双语快速上手与部署文档（`/docs/*` & `/en/docs/*`）**：
+  - 基于 Astro Content Collections 交付 6 篇精炼对称文档（项目简介、Docker 快速开始、本地开发与 DITA-OT 字体配置、核心功能导览、DeepSeek/私有代理 AI 配置、架构与更新日志），内置代码一键复制、页内 TOC 与 Pagefind 中英文静态检索（`Cmd/Ctrl+K`）。
+- **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含双语字典/文档 slug 对称性单测与 4 份沙箱预设 `@dita/core` 往返无损单测）；纯静态构建产物在根路径 `/` 与子路径（如 `/DITAEditor/`）下均正常访问；首页首屏不加载 ProseMirror/CodeMirror chunk；沙箱 4 场景在零后端静态预览下全部交互与 Diff 验证通过。
+
 ---
 
 ## 七、主要工程风险与应对策略
@@ -357,3 +383,4 @@ DITAEditor/
 | **DITA-OT 中文 PDF 乱码** | 默认 FOP 找不到 CJK 字形导致方块/`###` | 后端镜像内置 Noto CJK 字体 + 纯 XML 定制 `font-mappings` 插件，并通过 `--customization.dir` 优先加载 XML Catalog（避免 DITA-OT 4 默认 Catalog 覆盖），纳入 Phase 5 必检验收项 |
 | **Check-out 死锁** | 成员检出文件后长期休假或忘记检入 | 提供清晰的锁定人/锁定时间展示、锁到期提醒，以及管理员带补丁备份的一键强制解锁 |
 | **AI 改写破坏 XML 结构或污染无关行** | 模型幻觉遗漏 `DOCTYPE`/注释、输出未闭合或违背 DTD 的标签、或改写选区外内容 | 采用片段级靶向替换 + `@dita/core` 校验拼回与 1–2 次自动纠错重试；强制通过 MergeView 审阅 Diff 后应用，且受 Check-out 锁与单步 Undo 双重兜底 |
+| **官网沙箱拖累首屏或破坏容器构建** | 在官网引入 ProseMirror/CodeMirror/`@dita/core` 导致首页 JS 体积暴涨，或新增 `apps/site` 触发 `Dockerfile` 编译失败与双语文档漂移 | 采用 Astro 静态输出 + `client:visible`/`client:only` 隔离沙箱 Island 独立分块；在 `Dockerfile` 限定仅构建工作台三包；以 Vitest 强制校验中英字典键与文档 slug 100% 对称 |

@@ -49,6 +49,11 @@ export interface SourceEditorProps {
   profilingCatalog?: Partial<Record<DitaProfilingAttrName, readonly string[]>>;
   /** Read-only mode for viewers or files checked out by another identity. */
   readOnly?: boolean;
+  /** One-shot buffer replacement issued by an applied AI proposal. */
+  replacementXml?: string | null;
+  onReplacementApplied?: () => void;
+  /** Opens the AI assistant to repair the current well-formedness error. */
+  onAiFixXmlError?: () => void;
 }
 
 const sourceEditorTheme = EditorView.theme({
@@ -124,6 +129,9 @@ export function SourceEditor({
   topicIndices,
   profilingCatalog,
   readOnly = false,
+  replacementXml = null,
+  onReplacementApplied,
+  onAiFixXmlError,
 }: SourceEditorProps) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -229,6 +237,27 @@ export function SourceEditor({
     });
     isApplyingExternalRef.current = false;
   }, [xml]);
+
+  // Apply an AI-patched document in a single CodeMirror dispatch. This runs after the
+  // generic xml sync so the store remains the source of truth for the next render.
+  useEffect(() => {
+    if (replacementXml === null) return;
+    const view = viewRef.current;
+    if (!view) return;
+
+    const current = view.state.doc.toString();
+    if (current !== replacementXml) {
+      isApplyingExternalRef.current = true;
+      view.dispatch({
+        changes: { from: 0, to: current.length, insert: replacementXml },
+        selection: { anchor: 0 },
+        effects: EditorView.scrollIntoView(0, { y: 'start' }),
+      });
+      isApplyingExternalRef.current = false;
+    }
+    view.focus();
+    onReplacementApplied?.();
+  }, [replacementXml, onReplacementApplied]);
 
   // Handle Visual -> Source cursor jump requests
   useEffect(() => {
@@ -347,14 +376,26 @@ export function SourceEditor({
               </p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={handleJumpToError}
-            className="inline-flex items-center gap-1 rounded bg-rose-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-rose-500"
-          >
-            <LocateFixed className="h-3.5 w-3.5" aria-hidden="true" />
-            定位到错误位置
-          </button>
+          <div className="flex items-center gap-1.5">
+            {onAiFixXmlError && !readOnly ? (
+              <button
+                type="button"
+                onClick={onAiFixXmlError}
+                className="inline-flex items-center gap-1 rounded border border-rose-400/60 bg-rose-900/60 px-2.5 py-1 text-[11px] font-medium text-rose-100 hover:bg-rose-800"
+              >
+                <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                AI 修复
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={handleJumpToError}
+              className="inline-flex items-center gap-1 rounded bg-rose-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-rose-500"
+            >
+              <LocateFixed className="h-3.5 w-3.5" aria-hidden="true" />
+              定位到错误位置
+            </button>
+          </div>
         </div>
       ) : null}
 

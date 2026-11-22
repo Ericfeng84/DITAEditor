@@ -1,4 +1,4 @@
-export const DITA_CORE_VERSION = '0.6.0';
+export const DITA_CORE_VERSION = '1.0.0';
 
 // XML layer
 export * from './xml/types.js';
@@ -35,3 +35,6 @@ export * from './semantics/types.js';
 export * from './semantics/keyspace.js';
 export * from './semantics/conref.js';
 export * from './semantics/semantic-engine.js';
+
+// AI assistance fragment engine (target extraction, constraint prompts, verified splicing)
+export * from './ai/index.js';

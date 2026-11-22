@@ -12,6 +12,7 @@ import {
   Link2,
   Network,
   Redo2,
+  Rocket,
   Search,
   Undo2,
 } from 'lucide-react';
@@ -54,6 +55,8 @@ export interface MapTreePanelProps {
   onDeleteNode: (mapPath: string, elementPath: number[]) => void;
   onUndoMap: (mapPath: string) => void;
   onRedoMap: (mapPath: string) => void;
+  /** Publishing lives next to the map structure: the output is always the active root map. */
+  onOpenPublish: () => void;
 }
 
 function useContainerDimensions(ref: React.RefObject<HTMLDivElement | null>) {
@@ -100,6 +103,7 @@ export function MapTreePanel({
   onDeleteNode,
   onUndoMap,
   onRedoMap,
+  onOpenPublish,
 }: MapTreePanelProps) {
   const treeHostRef = useRef<HTMLDivElement | null>(null);
   const treeApiRef = useRef<TreeApi<CompositeMapTreeNode> | undefined>(undefined);
@@ -269,6 +273,15 @@ export function MapTreePanel({
           >
             <FolderPlus className="h-3 w-3 text-amber-600" aria-hidden="true" />
             <span>{isBookmap ? '章' : '分组'}</span>
+          </button>
+          <button
+            type="button"
+            onClick={onOpenPublish}
+            title="发布当前 Root Map 为 HTML5 / PDF（DITA-OT 严格校验）"
+            className="dita-mini-btn px-1.5 py-0.5 text-rose-700"
+          >
+            <Rocket className="h-3 w-3" aria-hidden="true" />
+            <span>发布</span>
           </button>
 
           <div className="ml-auto flex items-center gap-0.5">

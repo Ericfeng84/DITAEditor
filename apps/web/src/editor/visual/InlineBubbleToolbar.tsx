@@ -9,11 +9,13 @@ import {
   KeyRound,
   ListFilter,
   MousePointerClick,
+  Sparkles,
   Tag,
   Tags,
   Terminal,
   Type as TypeIcon,
   Underline,
+  Wand2,
   Variable,
   type LucideIcon,
 } from 'lucide-react';
@@ -55,6 +57,8 @@ export interface InlineBubbleToolbarProps {
   onApply: (tag: string) => void;
   onOpenMore: (anchorEl: HTMLElement) => void;
   onClose: () => void;
+  /** Present only when the document is editable; opens the AI assistant for the selection. */
+  onAiRequest?: (kind: 'rewrite' | 'ask') => void;
 }
 
 const EDGE_GAP = 8;
@@ -72,6 +76,7 @@ export function InlineBubbleToolbar({
   onApply,
   onOpenMore,
   onClose,
+  onAiRequest,
 }: InlineBubbleToolbarProps) {
   const rootRef = useRef<HTMLDivElement | null>(null);
   const moreBtnRef = useRef<HTMLButtonElement | null>(null);
@@ -128,6 +133,33 @@ export function InlineBubbleToolbar({
           </button>
         );
       })}
+      {onAiRequest ? (
+        <>
+          <span className="dita-bubble-sep" aria-hidden />
+          <button
+            type="button"
+            className="dita-bubble-btn"
+            title="AI 改写选中内容"
+            aria-label="AI 改写选中内容"
+            data-ai-action="rewrite"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onAiRequest('rewrite')}
+          >
+            <Wand2 size={14} aria-hidden />
+          </button>
+          <button
+            type="button"
+            className="dita-bubble-btn"
+            title="向 AI 提问选中内容"
+            aria-label="向 AI 提问选中内容"
+            data-ai-action="ask"
+            onMouseDown={(event) => event.preventDefault()}
+            onClick={() => onAiRequest('ask')}
+          >
+            <Sparkles size={14} aria-hidden />
+          </button>
+        </>
+      ) : null}
       <span className="dita-bubble-sep" aria-hidden />
       <button
         ref={moreBtnRef}

@@ -1,8 +1,8 @@
 # Phase 6 实施文档：DeepSeek AI 辅助文档编写、标签优化与错误处理
 
-> **状态**：📋 设计定稿，待分切片实施  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–5 已完成并验收）  
-> **目标版本**：`v0.8.0`（Phase 6）
+> **状态**：✅ 已完成并验收（v1.0.0，2026-11-22）  
+> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–6 已完成并验收）  
+> **接口契约**：[phase6-ai-contract.md](./phase6-ai-contract.md) · **端到端验收脚本**：`apps/api/scripts/e2e-ai-live.mts`
 
 ---
 
@@ -561,10 +561,10 @@ apps/web/src/ai/
 
 ## 8. 验收标准清单（Definition of Done）
 
-- [ ] **接入与私有化**：默认配置指向 DeepSeek + `deepseek-flash`；支持通过环境变量或 `Admin` 设置页切换至任意 OpenAI 兼容私有化端点与自定义模型；前端绝不暴露明文 API Key，非 `Admin` 无法修改配置或查看全员统计。
-- [ ] **辅助文档编写**：支持选区改写/扩写/精简/翻译、补全 `shortdesc`/步骤，以及按提示生成合法 `concept`/`task`/`reference` Topic。
-- [ ] **优化标签**：可将粗粒度文本/标签优化为标准 DITA 语义标签与结构块，且在加载 Root Map `Keyspace` 时能准确推荐已有 `keyref`。
-- [ ] **错误处理闭环**：对 XML 良构错误、项目语义诊断与 DITA-OT 严格校验 DOTJ/DOTX 报错均可一键唤起 AI 修复；首次生成不合法时能自动带错重试 1–2 次并通过 `@dita/core` 校验；DITA-OT 报错应用后支持一键复跑严格校验。
-- [ ] **无损与最小 Diff**：在含 `<!DOCTYPE>`、XML 注释、PI 的复杂 Topic 上应用 AI 改写，MergeView 仅显示目标片段差异，文件头与未改动行零污染，且 `Cmd/Ctrl+Z` 可单步撤销。
-- [ ] **Check-out 锁与权限**：`Viewer` 与未检出状态可提问、看解释、看 Diff 预览；应用修改严格遵守锁规则，`Writer`/`Admin` 未检出时可一键「检出并应用」。
-- [ ] **质量门禁**：`@dita/core`、`@dita/api`、`@dita/web` 全部构建、类型检查与自动化测试全绿，更新 `graphify-out/` 知识图谱。
+- [x] **接入与私有化**：默认配置指向 DeepSeek + `deepseek-flash`（`apps/api/src/modules/ai/ai-settings-service.ts`）；支持环境变量兜底与 `Admin` 设置页覆盖任意 OpenAI 兼容端点/模型/温度/重试/超时；Key 仅以掩码返回（`maskApiKey`），非 `Admin` 修改配置或查询用量返回 403。已用真实私有代理 `http://127.0.0.1:3425/v1` + `workbuddy/deepseek-v4.1-flash` 验收。
+- [x] **辅助文档编写**：支持选区改写/扩写/精简/翻译、补全 `shortdesc` 与步骤（`authoring` 任务，目标元素或整篇）；端到端脚本验证 2057 → 2053 字符、`<b>/<i>/<u>` 顺序保留。按提示生成**全新 Topic 文件**未纳入 v1.0.0（需新建文件流程，留待后续切片）。
+- [x] **优化标签**：`optimize_tags` 任务配合 `buildDitaConstraintSummary` 与 Keyspace/路径/条件值上下文，将粗粒度文本优化为标准语义标签与结构块，并在上下文中提供已有 `keyref` 供模型推荐。
+- [x] **错误处理闭环**：XML 良构错误（源码报错条）、项目语义诊断（问题面板）、DITA-OT 严格校验（严格校验弹窗）三处均有一键 AI 修复；`spliceAndVerifyAiXml` 校验失败自动携带错误反馈重试（默认 2 次），成功写入后严格校验来源的会话提示复跑。
+- [x] **无损与最小 Diff**：`@dita/core` 片段级拼接保证目标外区域零变化；`AiDiffDialog` 复用 CodeMirror 6 `DiffViewer`（MergeView）强制审阅；可视化应用走单个 ProseMirror transaction（保留撤销历史），源码应用走单次 CodeMirror 替换 dispatch，`Cmd/Ctrl+Z` 可单步撤销。
+- [x] **Check-out 锁与权限**：`resolveAiApplyMode` 判定 `apply` / `checkout-and-apply` / `preview-only`；`Viewer` 与他人锁定仅预览，`Writer` 未检出先签出再应用，`Admin` 与文件所有者直接应用。
+- [x] **质量门禁**：`@dita/core` 81 项、`@dita/api` 28 项（含真实 socket SSE 回归）、`@dita/web` 87 项测试全绿，`pnpm -r build && pnpm -r typecheck && pnpm -r test` 通过，`graphify-out/` 已更新。

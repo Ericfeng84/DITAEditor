@@ -7,8 +7,7 @@ import {
   Columns2,
   Eye,
   PanelLeft,
-  PanelRight,
-  Rocket,
+  PanelRightOpen,
   RotateCcw,
   Save,
 } from 'lucide-react';
@@ -23,7 +22,6 @@ export interface WorkbenchHeaderProps {
   mode: EditorViewMode;
   xmlError: XmlParseError | null;
   leftSidebarOpen: boolean;
-  inspectorOpen: boolean;
   problemsOpen: boolean;
   errorCount: number;
   warningCount: number;
@@ -39,8 +37,9 @@ export interface WorkbenchHeaderProps {
   onSaveAll: () => void;
   onChangeMode: (nextMode: EditorViewMode) => void;
   onToggleProblems: () => void;
-  onToggleInspector: () => void;
-  onOpenPublish: () => void;
+  /** Collapsed inspector: show an explicit toolbar button so the panel is always recoverable. */
+  showInspectorExpand: boolean;
+  onExpandInspector: () => void;
 }
 
 export function WorkbenchHeader({
@@ -49,7 +48,6 @@ export function WorkbenchHeader({
   mode,
   xmlError,
   leftSidebarOpen,
-  inspectorOpen,
   problemsOpen,
   errorCount,
   warningCount,
@@ -65,8 +63,8 @@ export function WorkbenchHeader({
   onSaveAll,
   onChangeMode,
   onToggleProblems,
-  onToggleInspector,
-  onOpenPublish,
+  showInspectorExpand,
+  onExpandInspector,
 }: WorkbenchHeaderProps) {
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3">
@@ -143,45 +141,8 @@ export function WorkbenchHeader({
         })}
       </div>
 
-      {/* Right: Save, Diagnostics, XML Status, Inspector */}
+      {/* Right: Diagnostics, Identity, Save, Inspector */}
       <div className="flex shrink-0 items-center gap-1.5">
-        <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
-        {dirtyCount > 0 ? (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={isCurrentDirty ? onSaveActive : onSaveAll}
-              className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-              title="保存更改到本地磁盘 (⌘S)"
-            >
-              <Save className="h-3 w-3" aria-hidden="true" />
-              <span>{saving ? '保存中…' : dirtyCount > 1 ? `保存全部 (${dirtyCount})` : '保存'}</span>
-            </button>
-            {isCurrentDirty ? (
-              <button
-                type="button"
-                onClick={onResetBaseline}
-                className="hidden items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 xl:inline-flex"
-                title="还原当前标签页至上次保存状态"
-              >
-                <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                <span>还原</span>
-              </button>
-            ) : null}
-          </div>
-        ) : null}
-
-        <button
-          type="button"
-          onClick={onOpenPublish}
-          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-          title="发布 HTML5 / PDF（DITA-OT 严格校验）"
-        >
-          <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="hidden lg:inline">发布</span>
-        </button>
-
         {/* Diagnostics toggle pill */}
         <button
           type="button"
@@ -222,20 +183,45 @@ export function WorkbenchHeader({
           </span>
         ) : null}
 
-        <button
-          type="button"
-          aria-pressed={inspectorOpen}
-          onClick={onToggleInspector}
-          className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium transition-colors ${
-            inspectorOpen
-              ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
-              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
-          }`}
-          title="展开 / 收起右侧属性检查器"
-        >
-          <PanelRight className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="hidden xl:inline">属性</span>
-        </button>
+        <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
+        {dirtyCount > 0 ? (
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              disabled={saving}
+              onClick={isCurrentDirty ? onSaveActive : onSaveAll}
+              className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
+              title="保存更改到本地磁盘 (⌘S)"
+            >
+              <Save className="h-3 w-3" aria-hidden="true" />
+              <span>{saving ? '保存中…' : dirtyCount > 1 ? `保存全部 (${dirtyCount})` : '保存'}</span>
+            </button>
+            {isCurrentDirty ? (
+              <button
+                type="button"
+                onClick={onResetBaseline}
+                className="hidden items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 xl:inline-flex"
+                title="还原当前标签页至上次保存状态"
+              >
+                <RotateCcw className="h-3 w-3" aria-hidden="true" />
+                <span>还原</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
+        {showInspectorExpand ? (
+          <button
+            type="button"
+            onClick={onExpandInspector}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            title="展开右侧 AI 与属性面板"
+            aria-label="展开右侧面板"
+          >
+            <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden md:inline">展开</span>
+          </button>
+        ) : null}
       </div>
     </header>
   );

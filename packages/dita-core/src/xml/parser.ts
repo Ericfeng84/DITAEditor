@@ -85,7 +85,11 @@ export function extractDoctype(xml: string): XmlDoctypeInfo | null {
   };
 }
 
-function findRootElementStartOffset(xml: string): number {
+/**
+ * Find the offset of the root element's `<` while skipping BOM/whitespace/comments/PIs/DOCTYPE.
+ * Returns -1 when no root start tag can be located.
+ */
+export function findRootElementStartOffset(xml: string): number {
   let i = 0;
   if (xml.charCodeAt(0) === 0xfeff) i = 1;
 

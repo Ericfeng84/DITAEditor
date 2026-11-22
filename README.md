@@ -1,12 +1,16 @@
 # DITAEditor
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
+[![Release](https://img.shields.io/badge/release-v1.0.0-indigo.svg)](CHANGELOG.md)
+[![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
+
 **简体中文** · [English](README.en.md)
 
 面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，支持 **ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排**、**单一信息源语义引擎（Keys / Conref / DITAVAL）**、**本地 Git 版本管理 / Check-out 独占锁 / 可视化 Diff**，以及 **DITA-OT 4.x 权威严格校验与 HTML5 / 中文 PDF 异步发布**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
-> 当前版本 **v0.7.0**（覆盖 Phase 0–5），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+> 当前版本 **v1.0.0**（覆盖 Phase 0–6，首个正式发布），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
 
 ---
 
@@ -46,9 +50,27 @@
 
 ![Noto CJK 中文 PDF 输出（目录与正文）](docs/pic/phase5-pdf-output.png)
 
+### Phase 6：AI 辅助写作、语义标签优化与错误修复
+
+右侧检查器首位是「AI」页签，文档区右下角另有浮动入口；默认「整篇 Topic」靶向，一句话即可起草或重写完整主题，也可一键切到「片段」只改选中元素。面板会透明展示模型、键空间 / 路径索引 / DITAVAL 上下文徽标，并流式输出 AI 提案。
+
+![Phase 6 AI 助手面板：整篇 Topic 靶向、上下文徽标与提案卡片](docs/pic/phase6-ai-assistant.webp)
+
+每个补丁都必须经过 CodeMirror 6 `MergeView` 差异确认才能写入：弹窗展示定位模式、XML 良构 / 可视化兼容 / DOCTYPE 保留 / 可重新严格校验等校验结论，并呈现提取出的变更行与未变区间。
+
+![Phase 6 AI 修改差异确认（MergeView、校验徽标与应用）](docs/pic/phase6-ai-diff.webp)
+
+### 三栏工作台与 Keys 键空间
+
+左侧在「项目文件」「Map 结构树」「Keys 键空间」与「版本」之间切换；Map 树贴着 Root Map 结构，操作条含新建 / 挂载 / 分组与发布入口。Keys 面板按 keyscope 分组展示键值、目标路径与来源行号，可一键插入 `keyref`。
+
+![三栏工作台：Map 树、可视化编辑区与属性检查器](docs/pic/phase6-workbench.webp)
+
+![Keys 键空间面板：键值、目标路径与插入入口](docs/pic/phase6-keys.webp)
+
 ---
 
-## 核心特性（已实现：Phase 0–5）
+## 核心特性（已实现：Phase 0–6）
 
 ### 1. 100% 无损 XML 往返内核（`@dita/core`）
 - 基于 `slimdom` + `slimdom-sax-parser` + `fontoxpath` 构建前后端同构的 DITA XML 内核，解析时同步记录节点源码起止行列号。
@@ -101,9 +123,15 @@
 
 ### 7. DITA-OT 4.x 权威校验与异步发布（Phase 5）
 - **双层严格校验**：日常编辑继续由前端约束 + TS 语义索引零延迟把关；工具栏、问题面板与签入对话框可按需调用 `POST /api/validate/strict`，由 `@dita/api` 以 `--validate=yes --processing-mode=strict` 调度 DITA-OT 官方 DITA 1.3 DTD/RNG 校验，解析 `DOTJ` / `DOTX` 错误码并统一跳转到源码行列。提供 Root Map 上下文时按整图校验，保证 `keyref` / `conkeyref` / `conref` 正常解析；独立主题校验会把缺少键上下文的 `DOTJ046E` 降级为警告。
-- **零外部中间件发布流水线**：SQLite `publish_jobs` 表持久化任务，Node 进程内 `PublishQueue` 并发限流（默认 1）；每次发布复制当前分支工作区快照隔离构建，支持超时强杀、排队/运行中取消、`build.log` 落盘与 SSE 实时日志、`GET /api/publish/jobs/:id/events` 事件流、服务重启自动回收中断任务与按保留天数清理历史产物。
+- **发布入口在 Map 树**：左侧「Map 树」面板操作区提供「发布」按钮，发布对象始终是当前 Root Map，切换 Root Map 即可切换交付范围。**零外部中间件发布流水线**：SQLite `publish_jobs` 表持久化任务，Node 进程内 `PublishQueue` 并发限流（默认 1）；每次发布复制当前分支工作区快照隔离构建，支持超时强杀、排队/运行中取消、`build.log` 落盘与 SSE 实时日志、`GET /api/publish/jobs/:id/events` 事件流、服务重启自动回收中断任务与按保留天数清理历史产物。
 - **HTML5 与中文 PDF 交付**：HTML5 构建完成后自动打包 ZIP，并提供 `/preview/*` 在线预览（相对图片/CSS 路径可直接访问）；PDF 通过纯 XML 插件 `dita-ot-plugins/com.ditaeditor.pdf-cjk/`（`plugin.xml` + XML Catalog + DITA-OT 4 新版 `font-mappings.xml` + `fop.xconf`）映射 Noto Sans / Serif / Mono CJK，发布时追加 `--customization.dir` 与 `--args.fo.userconfig`，并强制 `--validate=yes`，确保中文嵌入字体、无乱码。
 - **单容器交付**：`Dockerfile` 内置 Node 22、JRE 21、DITA-OT 4.2.1、Noto CJK 字体与字体插件；生产模式由 `@dita/api` 直接托管 `@dita/web` 构建产物，零 Redis / PostgreSQL 依赖，`/data` 数据卷持久化工作区、SQLite、分支 worktree 与发布产物。
+
+### 8. AI 辅助写作、语义标签优化与错误修复（Phase 6）
+- **片段级无损 AI 修改**：`@dita/core` 新增 `ai/` 内核（`extractTargetFragment` / `spliceAndVerifyAiXml` / `normalizeCandidateXml` / `buildDitaConstraintSummary`），支持 **元素 / 行窗口 / 整篇** 三种定位模式。模型只输出被替换区间的 XML，系统按源码偏移拼回原文件，再强制校验 XML 良构、ProseMirror 可转换、`DOCTYPE` 与 XML 声明保留；失败自动携带错误原因重试（默认 2 次），最终写入前必须经过 Diff 确认。
+- **四类任务**：`ask`（只答不改）、`authoring`（重写/扩写/精简/补写 shortdesc 与步骤）、`optimize_tags`（`uicontrol` / `menucascade` / `wintitle` / `filepath` / `codeph` / `parmname` 等语义标签）、`fix_error`（XML 结构、Map 链接、资源路径、Keyref、Conref 环路、DITAVAL 与 DITA-OT 严格校验错误）。
+- **入口遍布工作台**：属性检视区「AI」页签（排在第一位）与文档区右下角 AI 浮动按钮（默认「整篇 Topic」靶向，一句话即可起草或重写完整主题，可一键切到「片段」；目标徽标 + 上下文徽标 + 流式输出 + Diff 确认）、行内气泡栏「AI 改写 / 询问」、源码 XML 错误横幅「AI 修复」、问题面板与严格校验逐条修复；请求始终携带当前未保存的编辑器缓冲区。
+- **模型与审计**：`@dita/api` 用 LangChain.js（`@langchain/core` + `@langchain/openai`）封装 OpenAI 兼容 `ChatOpenAI`，默认 DeepSeek，可配置私有化/内网代理 `baseURL`、模型名、API Key、超时与重试；SQLite `ai_settings` 保存管理员配置（Key 仅返回掩码），`ai_usage_logs` 记录调用人、任务、文件、状态、重试次数、token 与耗时，`GET /api/ai/usage` 汇总按天/任务/用户/模型分组。写操作继续强守 Check-out 独占锁：管理员与文件所有者直接应用，未检出的编辑者先签出，只读或他人锁定仅可预览。
 
 ---
 
@@ -161,6 +189,7 @@ DITAEditor/
 │       │   ├── ditaval/        # .ditaval 解析、多值/分组条件求值与 Flag 合并
 │       │   ├── semantics/      # BFS Keyspace、Conref/Conkeyref 解析、DFS 环路检测与增量索引
 │       │   ├── templates/      # Topic (concept/task/reference/topic) 与 Map/Bookmap 模板
+│       │   ├── ai/             # AI 目标片段定位、候选 XML 规整、无损拼接校验与 DITA 约束摘要
 │       │   └── prosemirror/    # ProseMirror Schema 与 slimdom <-> PM Doc 无损双向转换
 │       └── test/fixtures/      # 10 份复杂 DITA 1.3 黄金往返测试样本
 ├── apps/
@@ -170,6 +199,7 @@ DITAEditor/
 │   │       ├── editor/         # visual/ (ProseMirror + 语义装饰/Conref 渲染)、source/ (CodeMirror 6)
 │   │       ├── map-tree/       # react-arborist Map 树、DITAVAL 投影、节点检查器、右键菜单、概览面板
 │   │       ├── components/publish/ # 发布对话框、构建日志流与严格校验结果
+│   │       ├── ai/             # AI 面板/设置/用量/Diff 对话框、SSE 客户端、目标构建与会话状态
 │   │       ├── services/       # API 客户端、离线示例回退与持久化桥接
 │   │       └── store/          # Zustand 工作台、多 Tab 与语义上下文状态管理
 │   └── api/                    # @dita/api — Fastify 5 本地工作区、增量语义索引与资产服务
@@ -178,11 +208,13 @@ DITAEditor/
 │           ├── indexer/        # WorkspaceSemanticIndexer 与 /api/semantics/* 语义路由
 │           ├── validate/       # /api/validate/strict DITA-OT 严格校验
 │           ├── publish/        # SQLite 发布任务、快照构建、SSE 日志与产物下载
+│           ├── ai/             # AI 配置/用量、Prompt 构建、LangChain 模型工厂、SSE 编排与重试
 │           └── dita-ot/        # dita CLI 运行时探测、子进程调度与 DOTJ/DOTX 日志解析
 ├── samples/
 │   └── demo-dita-project/      # 开箱即用的多变体 DITA 1.3 演示项目（Map/Bookmap/复用库/DITAVAL/SVG）
 ├── docs/
-│   ├── architecture-and-plan.md # 完整架构设计基线与 Phase 0–5 实施路线
+│   ├── architecture-and-plan.md # 完整架构设计基线与 Phase 0–6 实施路线
+│   ├── phase6-ai-contract.md   # Phase 6 AI 接口/SSE/DB/前端集成契约
 │   └── pic/                    # 工作台界面截图
 ├── dita-ot-plugins/            # 纯 XML DITA-OT 4.x 中文 PDF 字体映射插件（Noto CJK）
 ├── Dockerfile                  # 单容器构建（Node + JRE 21 + DITA-OT + Noto CJK）
@@ -274,6 +306,11 @@ pnpm --filter @dita/web dev
 | `DITAEDITOR_FOP_XCONF` | 插件内 `fop.xconf` | FOP 字体配置模板 |
 | `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK 字体目录，用于生成本次构建的 `fop.xconf` |
 | `DITA_WEB_DIST` | `apps/web/dist` | 生产模式静态前端目录；存在 `index.html` 时由 API 托管 |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/v1` | OpenAI 兼容 AI 端点；内网代理填其 `/v1` 地址（后台「AI 设置」可覆盖） |
+| `DEEPSEEK_MODEL` | `deepseek-flash` | 默认模型名，可换成代理暴露的任意模型 |
+| `DEEPSEEK_API_KEY` | 空 | AI Key 的环境变量兜底；数据库中管理员保存的 Key 优先 |
+| `AI_TIMEOUT_MS` | `45000` | 单次模型调用超时（毫秒） |
+| `AI_MAX_CONTEXT_CHARS` | `24000` | 项目上下文（键空间/路径索引/DITAVAL 词表）字符预算 |
 
 ---
 
@@ -295,6 +332,11 @@ pnpm --filter @dita/web dev
 | `POST /api/assets/upload` | 上传图片资产并返回相对于当前文档的 DITA `href` |
 | `GET /api/assets/raw?path=...` | 按工作区路径读取二进制图片资产 |
 | `GET /api/assets/resolve?from=...&href=...` | 按源文档相对路径解析并返回图片资产 |
+| `GET /api/ai/config` | 读取 AI 公共配置（Key 掩码、来源 `db`/`env`、模型、超时） |
+| `PUT /api/ai/config` | 管理员保存 AI 配置（端点、模型、Key、温度、重试、超时） |
+| `POST /api/ai/config/test` | 用当前或覆盖配置发起一次真实小请求，返回连通性与延迟 |
+| `POST /api/ai/stream` | SSE 流式 AI 任务：`meta` / `delta` / `retry` / `proposal` / `error` / `done` 事件 |
+| `GET /api/ai/usage?days=...&limit=...` | 管理员查询 AI 用量账本（总量、按天/任务/用户/模型、最近调用） |
 | `GET /api/semantics/context?rootMap=...&ditaval=...` | 获取当前 Root Map Keyspace、Topic ID 索引、条件值词表与已解析 `.ditaval` |
 | `GET /api/semantics/keyspace?rootMap=...` | 按 BFS 规则构建并返回指定 Root Map 的生效键空间 |
 | `GET /api/semantics/ids?filePath=...` | 查询工作区或指定 Topic 中所有可复用的 `@id` 元素索引 |
@@ -341,10 +383,10 @@ pnpm typecheck
 pnpm test
 ```
 
-当前测试覆盖（**132/132 Vitest 测试通过**）：
-- `@dita/core`（54 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测。
-- `@dita/web`（65 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，以及 Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥）。
-- `@dita/api`（13 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份，以及 Phase 5 运行时探测、DOTJ/DOTX/file URL 日志归一化、严格校验成功/失败/只读放行、HTML5 ZIP 与预览、PDF 下载、取消与历史排序，以及 DITAVAL 路径必须位于工作区内的安全约束。
+当前测试覆盖（**201/201 Vitest 测试通过**）：
+- `@dita/core`（81 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因（26 项）。
+- `@dita/web`（92 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，以及 Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥）。
+- `@dita/api`（28 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份，Phase 5 运行时探测、DOTJ/DOTX/file URL 日志归一化、严格校验成功/失败/只读放行、HTML5 ZIP 与预览、PDF 下载、取消与历史排序，以及 Phase 6 AI 配置与 Key 掩码、用量账本聚合、SSE 事件序列、重试与非管理员 403、真实 socket 上的 SSE 回归，以及 DITAVAL 路径必须位于工作区内的安全约束。
 
 ---
 
@@ -356,3 +398,12 @@ pnpm test
 - [x] **Phase 3**：Root Map 跨文件语义引擎（`keydef/keyref` BFS + `keyscope`、`conref/conkeyref`/`conrefend` 与 DFS 循环引用检测、`DITAVAL` 三态条件过滤与 Flag 标记、增量 `/api/semantics/*` 索引服务、`Keys` 面板、语义插入弹窗、条件属性编辑器与 CodeMirror 6 语义补全）。
 - [x] **Phase 4**：SQLite + Drizzle ORM 轻量身份与三档角色、本地 `simple-git` 仓库与按分支隔离 `git worktree`、Check-out 独占锁/签入/撤销/管理员强制解锁备份、CodeMirror 6 MergeView 工作区与历史版本 Diff、左侧「版本」面板。
 - [x] **Phase 5**：基于 `@dita/api` 直接调度 DITA-OT 4.x CLI（零 Java 业务代码，内置 DITA 1.3 DTD/RNG 严格校验 + 纯 XML Noto CJK 中文 PDF 字体插件）、零 Redis 的 SQLite + 进程内并发限流异步发布与 SSE 实时日志，以及单容器 `Dockerfile` 一键部署。
+- [x] **Phase 6**：LangChain.js AI 辅助（DeepSeek / OpenAI 兼容端点）、`@dita/core` 片段级无损替换与自动校验重试、SSE 流式写作/标签优化/错误修复、强制 Diff 确认与 Check-out 锁守卫、SQLite 配置与 token 用量审计、AI 配置/用量面板；含真实端点端到端脚本 `apps/api/scripts/e2e-ai-live.mts`。
+
+---
+
+## 许可证
+
+本项目采用 [MIT License](LICENSE) 发布，可自由用于商业与非商业场景，保留版权与许可声明即可。
+
+Copyright © 2026 DITAEditor contributors

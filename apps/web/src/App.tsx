@@ -7,7 +7,7 @@ import {
   type XmlDeclaration,
   type XmlPrologItem,
 } from '@dita/core';
-import { FilePlus2, FolderOpen, Network } from 'lucide-react';
+import { FilePlus2, FolderOpen, Network, PanelRightClose, Sparkles } from 'lucide-react';
 import { CheckinDialog, type CheckinCandidate } from './components/CheckinDialog';
 import { DiffDialog } from './components/DiffDialog';
 import { EditorTabBar } from './components/EditorTabBar';
@@ -26,6 +26,12 @@ import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
 import { XrefImageDialog } from './components/XrefImageDialog';
+import { AiAssistantPanel } from './ai/AiAssistantPanel';
+import { AiDiffDialog } from './ai/AiDiffDialog';
+import { AiSettingsDialog } from './ai/AiSettingsDialog';
+import { buildSourceAiTarget, buildVisualAiTarget } from './ai/ai-target';
+import { useAiStore, type AiPanelIntent } from './ai/ai-store';
+import type { AiTargetSpec } from './ai/ai-types';
 import { syncSourceToVisual, syncVisualToSource } from './editor/bridge/xml-bridge';
 import { SourceEditor } from './editor/source/SourceEditor';
 import { AttributesPanel } from './editor/visual/AttributesPanel';
@@ -42,7 +48,7 @@ import {
 } from './map-tree/map-tree-utils';
 import { MountExistingDialog } from './map-tree/MountExistingDialog';
 import { resolveFileEditability } from './services/lock-helpers';
-import type { StrictValidationInput } from './services/publish-api';
+import type { PublishDiagnostic, StrictValidationInput } from './services/publish-api';
 import {
   resolveWorkspaceAssetUrl,
   uploadWorkspaceImage,
@@ -50,6 +56,7 @@ import {
 } from './services/workspace-api';
 import {
   getTabDiffStats,
+  resolveAiApplyMode,
   selectActiveTab,
   useEditorStore,
   type EditorViewMode,
@@ -241,10 +248,16 @@ export function App() {
   const [strictOpen, setStrictOpen] = useState(false);
   const [strictInput, setStrictInput] = useState<StrictValidationInput | null>(null);
   const [strictLabel, setStrictLabel] = useState('');
+  const [strictAiApplied, setStrictAiApplied] = useState(false);
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [aiDiffOpen, setAiDiffOpen] = useState(false);
+  const [aiTarget, setAiTarget] = useState<AiTargetSpec | null>(null);
+  const [sourceReplacementXml, setSourceReplacementXml] = useState<string | null>(null);
 
   const openStrictValidation = useCallback((input: StrictValidationInput, label: string) => {
     setStrictInput(input);
     setStrictLabel(label);
+    setStrictAiApplied(false);
     setStrictOpen(true);
   }, []);
 
@@ -263,6 +276,26 @@ export function App() {
     [currentUser?.role, currentUser?.id, activeTabPath, locks],
   );
   const canEdit = workspaceMode === 'memory' ? true : editability.editable;
+  const aiApplyMode = useMemo(
+    () =>
+      resolveAiApplyMode({
+        role: currentUser?.role,
+        userId: currentUser?.id,
+        filePath: activeTabPath,
+        locks,
+        workspaceMode,
+      }),
+    [currentUser?.role, currentUser?.id, activeTabPath, locks, workspaceMode],
+  );
+  const aiConfig = useAiStore((state) => state.config);
+  const aiProposal = useAiStore((state) => state.proposal);
+  const loadAiConfig = useAiStore((state) => state.loadConfig);
+  const aiConfigured = aiConfig?.configured ?? false;
+  const aiPanelOpen = useAiStore((state) => state.panelOpen);
+  const currentUserId = currentUser?.id;
+  useEffect(() => {
+    void loadAiConfig();
+  }, [loadAiConfig, currentUserId]);
   const dirtyPathSet = useMemo(
     () => new Set((gitStatus?.dirtyFiles ?? []).map((file) => file.path)),
     [gitStatus],
@@ -365,6 +398,216 @@ export function App() {
   const [refDialogMode, setRefDialogMode] = useState<'xref' | 'image' | null>(null);
   const [keyrefDialogOpen, setKeyrefDialogOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('attributes');
+
+  /** Current visual selection or source caret, expressed as a contract AiTargetSpec. */
+  const computeAiTarget = useCallback((): AiTargetSpec => {
+    if (!activeTab) return { mode: 'full-document' };
+    const visualMode =
+      activeTab.kind === 'topic' && (activeTab.mode === 'visual' || activeTab.mode === 'split');
+    if (visualMode) {
+      const state = visualRef.current?.getCurrentPmState();
+      if (state) {
+        const { from, to } = state.selection;
+        const selectedText = to > from ? state.doc.textBetween(from, to, '\n') : '';
+        return buildVisualAiTarget(state.doc, from, to, selectedText || undefined);
+      }
+    }
+    if (activeTab.mode === 'source' || activeTab.mode === 'split') {
+      return buildSourceAiTarget(activeTab.xml, sourceCursorOffsetRef.current);
+    }
+    return { mode: 'full-document' };
+  }, [activeTab]);
+
+  const openAiPanel = useCallback(
+    (intent?: AiPanelIntent) => {
+      setInspectorOpen(true);
+      setInspectorTarget('topic');
+      setInspectorTab('ai');
+      const target = intent?.target ?? computeAiTarget();
+      setAiTarget(target);
+      const store = useAiStore.getState();
+      if (intent) {
+        store.openPanel(intent);
+        return;
+      }
+      // Opening the tab by hand must not inherit a stale entry-point fragment: the panel then
+      // defaults to whole-topic scope.
+      store.setIntent(null);
+      store.openPanel();
+    },
+    [computeAiTarget, setInspectorOpen, setInspectorTarget],
+  );
+
+  // Opening the AI tab by hand still needs a live target (selection or source caret).
+  const handleInspectorTabChange = useCallback(
+    (next: InspectorTab) => {
+      setInspectorTab(next);
+      if (next !== 'ai') return;
+      const store = useAiStore.getState();
+      if (!store.panelOpen) openAiPanel();
+    },
+    [openAiPanel],
+  );
+
+  // Switching files or modes invalidates a stale target prepared by an entry point.
+  const aiActivePathRef = useRef<string | null>(null);
+  useEffect(() => {
+    const nextPath = activeTab?.path ?? null;
+    if (aiActivePathRef.current === nextPath) return;
+    aiActivePathRef.current = nextPath;
+    useAiStore.getState().setIntent(null);
+    setAiTarget(null);
+  }, [activeTab?.path]);
+  const aiModeRef = useRef(activeTab?.mode ?? 'visual');
+  useEffect(() => {
+    const nextMode = activeTab?.mode ?? 'visual';
+    if (aiModeRef.current === nextMode) return;
+    aiModeRef.current = nextMode;
+    useAiStore.getState().setIntent(null);
+  }, [activeTab?.mode]);
+
+  const handleVisualAiRequest = useCallback(
+    (kind: 'rewrite' | 'ask') => {
+      const target = computeAiTarget();
+      openAiPanel({
+        taskType: kind === 'rewrite' ? 'authoring' : 'ask',
+        target,
+        ...(kind === 'rewrite'
+          ? {
+              instruction: '请在保持 DITA 语义、结构约束与原文语言的前提下改写选中内容。',
+              autoSend: true,
+            }
+          : {}),
+        ...(activeTab ? { projectPath: activeTab.path } : {}),
+      });
+    },
+    [activeTab, computeAiTarget, openAiPanel],
+  );
+
+  const handleAiFixXmlError = useCallback(() => {
+    if (!activeTab?.xmlError) return;
+    const error = activeTab.xmlError;
+    openAiPanel({
+      taskType: 'fix_error',
+      subAction: 'fix_xml',
+      target: {
+        mode: 'line-window',
+        line: error.line,
+        column: error.column,
+        lineEnd: error.line,
+      },
+      diagnostics: [
+        {
+          source: 'xml',
+          message: error.message,
+          line: error.line,
+          column: error.column,
+        },
+      ],
+      autoSend: true,
+      projectPath: activeTab.path,
+    });
+  }, [activeTab, openAiPanel]);
+
+  const handleAiFixDiagnostic = useCallback(
+    async (diagnostic: WorkspaceDiagnostic) => {
+      const targetTab = useEditorStore
+        .getState()
+        .openTabs.find((tab) => tab.path === diagnostic.filePath);
+      if (!targetTab || useEditorStore.getState().activeTabPath !== diagnostic.filePath) {
+        await openFileTab(diagnostic.filePath, { mode: 'source', jumpLine: diagnostic.line });
+      }
+      openAiPanel({
+        taskType: 'fix_error',
+        subAction: 'fix_diagnostic',
+        target: {
+          mode: 'line-window',
+          line: diagnostic.line,
+          lineEnd: diagnostic.line,
+        },
+        diagnostics: [
+          {
+            source: diagnostic.source,
+            message: diagnostic.message,
+            line: diagnostic.line,
+            column: diagnostic.column,
+          },
+        ],
+        autoSend: true,
+        projectPath: diagnostic.filePath,
+      });
+    },
+    [openAiPanel, openFileTab],
+  );
+
+  const handleAiFixStrictDiagnostic = useCallback(
+    async (diagnostic: PublishDiagnostic) => {
+      setStrictOpen(false);
+      setStrictAiApplied(false);
+      await openFileTab(diagnostic.filePath, { mode: 'source', jumpLine: diagnostic.line });
+      openAiPanel({
+        taskType: 'fix_error',
+        subAction: 'fix_strict',
+        target: {
+          mode: 'line-window',
+          line: diagnostic.line,
+          column: diagnostic.column,
+          lineEnd: diagnostic.line,
+        },
+        diagnostics: [
+          {
+            source: 'xml',
+            message: diagnostic.message,
+            line: diagnostic.line,
+            column: diagnostic.column,
+          },
+        ],
+        autoSend: true,
+        projectPath: diagnostic.filePath,
+      });
+    },
+    [openAiPanel, openFileTab],
+  );
+
+  const handleApplyAiProposal = useCallback(
+    async (patchedXml: string) => {
+      if (!activeTab) return;
+      const filePath = activeTab.path;
+      if (aiApplyMode === 'preview-only') {
+        announce('当前身份或文件锁仅允许预览 AI 修改，未写入编辑缓冲区');
+        return;
+      }
+      if (aiApplyMode === 'checkout-and-apply' && workspaceMode === 'api') {
+        const lock = await checkoutFile(filePath);
+        if (!lock) {
+          announce('签出失败，AI 修改仅可预览');
+          return;
+        }
+      }
+
+      const visualApply =
+        activeTab.kind === 'topic' &&
+        (activeTab.mode === 'visual' || activeTab.mode === 'split') &&
+        (visualRef.current?.replaceDocumentXml(patchedXml) ?? false);
+      useEditorStore
+        .getState()
+        .applyAiPatchedXml(filePath, patchedXml, { skipVisualReload: visualApply });
+      if (!visualApply && (activeTab.mode === 'source' || activeTab.mode === 'split')) {
+        setSourceReplacementXml(patchedXml);
+      }
+      if (useAiStore.getState().pendingIntent?.subAction === 'fix_strict') {
+        setStrictAiApplied(true);
+      }
+      useAiStore.getState().markApplied();
+      setAiDiffOpen(false);
+      announce('已应用 AI 修改到编辑缓冲区（尚未保存）');
+    },
+    [activeTab, aiApplyMode, workspaceMode, checkoutFile, announce],
+  );
+
+  const handleSourceReplacementApplied = useCallback(() => {
+    setSourceReplacementXml(null);
+  }, []);
 
   const handleSnapshotChange = useCallback(
     (
@@ -622,8 +865,15 @@ export function App() {
     (mode === 'visual' || mode === 'split');
   const showVisualPane = showTopicVisual || showMapOverview;
   const showSourcePane = Boolean(activeTab) && (mode === 'source' || mode === 'split');
-  const showRightInspector =
-    inspectorOpen && (inspectorTarget === 'map-node' || showTopicVisual);
+  /**
+   * The inspector is reachable for any open topic tab — including source-only mode, where the
+   * AI tab still works on the raw buffer — so collapsing and expanding never dead-ends on a
+   * handle that cannot bring the panel back.
+   */
+  const canShowInspector = inspectorTarget === 'map-node' || activeTab?.kind === 'topic';
+  const showRightInspector = inspectorOpen && canShowInspector;
+  /** The floating launcher must stay available whenever the panel is not actually on screen. */
+  const aiPanelVisible = aiPanelOpen && showRightInspector && inspectorTab === 'ai';
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900">
@@ -679,6 +929,7 @@ export function App() {
                     onDeleteNode={deleteMapTreeNode}
                     onUndoMap={undoMap}
                     onRedoMap={redoMap}
+                    onOpenPublish={() => setPublishOpen(true)}
                   />
                 }
                 keyspaceSlot={
@@ -740,7 +991,6 @@ export function App() {
               mode={mode}
               xmlError={activeTab?.xmlError ?? null}
               leftSidebarOpen={leftSidebarOpen}
-              inspectorOpen={inspectorOpen}
               problemsOpen={problemsOpen}
               errorCount={errorCount}
               warningCount={warningCount}
@@ -756,8 +1006,8 @@ export function App() {
               onSaveAll={() => void saveAllDirtyFiles()}
               onChangeMode={handleChangeMode}
               onToggleProblems={() => setProblemsOpen(!problemsOpen)}
-              onToggleInspector={() => setInspectorOpen(!inspectorOpen)}
-              onOpenPublish={() => setPublishOpen(true)}
+              showInspectorExpand={!showRightInspector && canShowInspector}
+              onExpandInspector={() => setInspectorOpen(true)}
             />
 
             {workspaceMode === 'api' && activeTab ? (
@@ -819,7 +1069,7 @@ export function App() {
               >
                 {/* Center Column: Tab Bar + Editor + Optional Bottom Problems Panel */}
                 <Panel id="center-workbench-pane" defaultSize={showRightInspector ? '76%' : '100%'} minSize="34%">
-                  <div className="flex h-full flex-col overflow-hidden">
+                  <div className="relative flex h-full flex-col overflow-hidden">
                     <EditorTabBar
                       tabs={openTabs}
                       activeTabPath={activeTabPath}
@@ -836,126 +1086,149 @@ export function App() {
                         className="h-full w-full"
                       >
                         <Panel id="editor-stage-pane" defaultSize={problemsOpen ? '72%' : '100%'} minSize="35%">
-                          {!activeTab ? (
-                            <div className="flex h-full flex-col items-center justify-center bg-slate-100/70 p-8 text-center">
-                              <Network className="mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
-                              <h2 className="text-sm font-semibold text-slate-800">
-                                从左侧 Map 树或文件浏览器打开文档
-                              </h2>
-                              <p className="mt-1 max-w-md text-xs text-slate-500">
-                                双击任意章节节点打开 Topic 可视化编辑，或点击顶栏切换 Root Map 与工作区。
-                              </p>
-                              <div className="mt-4 flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setTopicMountContext(null);
-                                    setNewTopicOpen(true);
-                                  }}
-                                  className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
-                                >
-                                  <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                  新建 Topic
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={() => setWorkspaceDialogOpen(true)}
-                                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-                                >
-                                  <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                                  管理本地工作区
-                                </button>
+                          <div className="relative h-full">
+                            {!activeTab ? (
+                              <div className="flex h-full flex-col items-center justify-center bg-slate-100/70 p-8 text-center">
+                                <Network className="mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
+                                <h2 className="text-sm font-semibold text-slate-800">
+                                  从左侧 Map 树或文件浏览器打开文档
+                                </h2>
+                                <p className="mt-1 max-w-md text-xs text-slate-500">
+                                  双击任意章节节点打开 Topic 可视化编辑，或点击顶栏切换 Root Map 与工作区。
+                                </p>
+                                <div className="mt-4 flex items-center gap-2">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setTopicMountContext(null);
+                                      setNewTopicOpen(true);
+                                    }}
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                                  >
+                                    <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
+                                    新建 Topic
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => setWorkspaceDialogOpen(true)}
+                                    className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+                                  >
+                                    <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                                    管理本地工作区
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                          ) : (
-                            <Group
-                              key={`editor-${activeTab.path}-${mode}-${showVisualPane ? 'V' : 'noV'}-${showSourcePane ? 'S' : 'noS'}`}
-                              orientation="horizontal"
-                              className="h-full w-full"
-                            >
-                              {showVisualPane ? (
-                                <Panel
-                                  id="visual-pane"
-                                  defaultSize={showSourcePane ? '52%' : '100%'}
-                                  minSize="25%"
-                                >
-                                  {showMapOverview ? (
-                                    <MapOverviewPane
-                                      mapPath={activeTab.path}
+                            ) : (
+                              <Group
+                                key={`editor-${activeTab.path}-${mode}-${showVisualPane ? 'V' : 'noV'}-${showSourcePane ? 'S' : 'noS'}`}
+                                orientation="horizontal"
+                                className="h-full w-full"
+                              >
+                                {showVisualPane ? (
+                                  <Panel
+                                    id="visual-pane"
+                                    defaultSize={showSourcePane ? '52%' : '100%'}
+                                    minSize="25%"
+                                  >
+                                    {showMapOverview ? (
+                                      <MapOverviewPane
+                                        mapPath={activeTab.path}
+                                        xml={activeTab.xml}
+                                        fileSet={fileSet}
+                                        onUpdateRootTitle={updateMapRootTitle}
+                                        onActivateRootMap={(p) => void selectRootMap(p)}
+                                        onOpenSourceMode={() => handleChangeMode('source')}
+                                        onOpenTopic={(p) => void openFileTab(p)}
+                                        onCreateAndMount={(mapPath, title) =>
+                                          handleOpenCreateAndMount({
+                                            mapPath,
+                                            parentPath: null,
+                                            parentLabel: title,
+                                          })
+                                        }
+                                      />
+                                    ) : (
+                                      <VisualEditor
+                                        ref={visualRef}
+                                        xml={activeTab.xml}
+                                        reloadToken={activeTab.visualReloadToken}
+                                        tagDisplayMode={tagDisplayMode}
+                                        onChangeTagDisplayMode={setTagDisplayMode}
+                                        pendingJumpPos={pendingVisualPmPos}
+                                        onJumpHandled={clearPendingVisualPmPos}
+                                        onXmlChange={updateXmlFromVisual}
+                                        onSnapshotChange={handleSnapshotChange}
+                                        onAiRequest={handleVisualAiRequest}
+                                        onOpenXrefDialog={() => setRefDialogMode('xref')}
+                                        onAnnounce={announce}
+                                        resolveImageSrc={resolveImageSrcForActiveTab}
+                                        semanticOverlay={documentOverlays[activeTab.path] ?? null}
+                                        activeDitaval={activeDitaval}
+                                        activeDitavalPath={activeDitavalPath}
+                                        ditavalDisplayMode={ditavalDisplayMode}
+                                        onJumpToSource={(filePath, line, elementId) =>
+                                          void jumpToSemanticLocation(filePath, { line, elementId })
+                                        }
+                                        readOnly={!canEdit}
+                                      />
+                                    )}
+                                  </Panel>
+                                ) : null}
+
+                                {showVisualPane && showSourcePane ? (
+                                  <Separator
+                                    className="dita-resize-handle"
+                                    aria-label="调整可视化与源码分栏宽度"
+                                  />
+                                ) : null}
+
+                                {showSourcePane ? (
+                                  <Panel
+                                    id="source-pane"
+                                    defaultSize={showVisualPane ? '48%' : '100%'}
+                                    minSize="24%"
+                                  >
+                                    <SourceEditor
                                       xml={activeTab.xml}
-                                      fileSet={fileSet}
-                                      onUpdateRootTitle={updateMapRootTitle}
-                                      onActivateRootMap={(p) => void selectRootMap(p)}
-                                      onOpenSourceMode={() => handleChangeMode('source')}
-                                      onOpenTopic={(p) => void openFileTab(p)}
-                                      onCreateAndMount={(mapPath, title) =>
-                                        handleOpenCreateAndMount({
-                                          mapPath,
-                                          parentPath: null,
-                                          parentLabel: title,
-                                        })
-                                      }
-                                    />
-                                  ) : (
-                                    <VisualEditor
-                                      ref={visualRef}
-                                      xml={activeTab.xml}
-                                      reloadToken={activeTab.visualReloadToken}
-                                      tagDisplayMode={tagDisplayMode}
-                                      onChangeTagDisplayMode={setTagDisplayMode}
-                                      pendingJumpPos={pendingVisualPmPos}
-                                      onJumpHandled={clearPendingVisualPmPos}
-                                      onXmlChange={updateXmlFromVisual}
-                                      onSnapshotChange={handleSnapshotChange}
-                                      onOpenXrefDialog={() => setRefDialogMode('xref')}
+                                      xmlError={activeTab.xmlError}
+                                      switchBlockedReason={activeTab.switchBlockedReason}
+                                      pendingJumpOffset={pendingSourceOffset}
+                                      onJumpHandled={clearPendingSourceOffset}
+                                      onChange={updateXmlFromSource}
+                                      onCursorOffsetChange={(offset) => {
+                                        sourceCursorOffsetRef.current = offset;
+                                      }}
+                                      replacementXml={sourceReplacementXml}
+                                      onReplacementApplied={handleSourceReplacementApplied}
+                                      onAiFixXmlError={handleAiFixXmlError}
                                       onAnnounce={announce}
-                                      resolveImageSrc={resolveImageSrcForActiveTab}
-                                      semanticOverlay={documentOverlays[activeTab.path] ?? null}
-                                      activeDitaval={activeDitaval}
-                                      activeDitavalPath={activeDitavalPath}
-                                      ditavalDisplayMode={ditavalDisplayMode}
-                                      onJumpToSource={(filePath, line, elementId) =>
-                                        void jumpToSemanticLocation(filePath, { line, elementId })
-                                      }
+                                      keyspace={keyspace}
+                                      topicIndices={topicIndices}
+                                      profilingCatalog={profilingCatalog}
                                       readOnly={!canEdit}
                                     />
-                                  )}
-                                </Panel>
-                              ) : null}
-
-                              {showVisualPane && showSourcePane ? (
-                                <Separator
-                                  className="dita-resize-handle"
-                                  aria-label="调整可视化与源码分栏宽度"
-                                />
-                              ) : null}
-
-                              {showSourcePane ? (
-                                <Panel
-                                  id="source-pane"
-                                  defaultSize={showVisualPane ? '48%' : '100%'}
-                                  minSize="24%"
-                                >
-                                  <SourceEditor
-                                    xml={activeTab.xml}
-                                    xmlError={activeTab.xmlError}
-                                    switchBlockedReason={activeTab.switchBlockedReason}
-                                    pendingJumpOffset={pendingSourceOffset}
-                                    onJumpHandled={clearPendingSourceOffset}
-                                    onChange={updateXmlFromSource}
-                                    onCursorOffsetChange={(offset) => {
-                                      sourceCursorOffsetRef.current = offset;
-                                    }}
-                                    onAnnounce={announce}
-                                    keyspace={keyspace}
-                                    topicIndices={topicIndices}
-                                    profilingCatalog={profilingCatalog}
-                                    readOnly={!canEdit}
+                                  </Panel>
+                                ) : null}
+                              </Group>
+                            )}
+                            {activeTab?.kind === 'topic' && !aiPanelVisible ? (
+                              <button
+                                type="button"
+                                onClick={() => openAiPanel()}
+                                aria-label="打开 AI 助手（整篇 Topic 编写）"
+                                title="AI 助手：一句话起草或重写整篇 Topic"
+                                className="absolute bottom-4 right-4 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white/95 text-indigo-600 shadow-lg shadow-indigo-900/10 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-indigo-600 hover:text-white"
+                              >
+                                <Sparkles className="h-4 w-4" aria-hidden="true" />
+                                {!aiConfigured ? (
+                                  <span
+                                    className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-amber-500 ring-2 ring-white"
+                                    aria-hidden="true"
                                   />
-                                </Panel>
-                              ) : null}
-                            </Group>
-                          )}
+                                ) : null}
+                              </button>
+                            ) : null}
+                          </div>
                         </Panel>
 
                         {problemsOpen ? (
@@ -970,6 +1243,7 @@ export function App() {
                                 onRefresh={() => void refreshDiagnostics()}
                                 onJumpToDiagnostic={handleJumpToDiagnostic}
                                 onClose={() => setProblemsOpen(false)}
+                                onAiFixDiagnostic={(diagnostic) => void handleAiFixDiagnostic(diagnostic)}
                                 onStrictValidate={
                                   rootMapStrictInput
                                     ? () =>
@@ -992,54 +1266,88 @@ export function App() {
                   <>
                     <Separator className="dita-resize-handle" aria-label="调整属性检查器宽度" />
                     <Panel id="inspector-pane" defaultSize="24%" minSize="18%" maxSize="38%">
-                      {inspectorTarget === 'map-node' || !showTopicVisual ? (
-                        <MapNodeInspector
-                          selected={selectedMapNode}
-                          mapBuffers={mapBuffers}
-                          availableFiles={workspaceMountables}
-                          activeDitaval={activeDitaval}
-                          profilingCatalog={profilingCatalog}
-                          onUpdateAttr={updateMapAttr}
-                          onUpdateNavtitle={updateMapNavtitle}
-                          onUpdateRootTitle={updateMapRootTitle}
-                          onOpenTargetFile={(path) => void openFileTab(path)}
-                          onJumpToSource={(mapPath, line) => void jumpToMapNodeSource(mapPath, line)}
-                          onDeleteNode={deleteMapTreeNode}
-                        />
-                      ) : (
-                        <TopicInspector
-                          tab={inspectorTab}
-                          onTabChange={setInspectorTab}
-                          attributes={{
-                            snapshot,
-                            docMetadata: docMeta,
-                            semanticOverlay: activeTab
-                              ? (documentOverlays[activeTab.path] ?? null)
-                              : null,
-                            activeDitaval,
-                            profilingCatalog,
-                            onJumpToSource: (filePath, line, elementId) =>
-                              void jumpToSemanticLocation(filePath, { line, elementId }),
-                            onOpenConrefDialog: openReuseTab,
-                            onUpdateAttr: (pos, name, val) =>
-                              visualRef.current?.updateAttr(pos, name, val),
-                            onSelectBreadcrumb: (pos) => visualRef.current?.selectNode(pos, true),
-                            onMoveNode: (pos, dir) => visualRef.current?.moveNode(pos, dir),
-                            onDeleteNode: (pos) => visualRef.current?.deleteNode(pos),
-                          }}
-                          reuse={{
-                            activeDocPath: activeTab?.path ?? null,
-                            selectedElementTag: snapshot?.activeItem?.tagName ?? null,
-                            selectedTopicId: snapshot?.breadcrumbs[0]?.id ?? undefined,
-                            selectedElementId: snapshot?.activeItem?.id ?? undefined,
-                            keyspace,
-                            topicIndices,
-                            onResolvePreview: resolveConrefPreview,
-                            onConfirm: handleConfirmConref,
-                            onConfirmed: () => setInspectorTab('attributes'),
-                          }}
-                        />
-                      )}
+                      <div className="relative h-full">
+                        {inspectorTarget === 'map-node' ? (
+                          <>
+                            <MapNodeInspector
+                              selected={selectedMapNode}
+                              mapBuffers={mapBuffers}
+                              availableFiles={workspaceMountables}
+                              activeDitaval={activeDitaval}
+                              profilingCatalog={profilingCatalog}
+                              onUpdateAttr={updateMapAttr}
+                              onUpdateNavtitle={updateMapNavtitle}
+                              onUpdateRootTitle={updateMapRootTitle}
+                              onOpenTargetFile={(path) => void openFileTab(path)}
+                              onJumpToSource={(mapPath, line) => void jumpToMapNodeSource(mapPath, line)}
+                              onDeleteNode={deleteMapTreeNode}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setInspectorOpen(false)}
+                              aria-label="收起右侧面板"
+                              title="收起右侧面板"
+                              className="absolute right-1.5 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition-colors hover:bg-white hover:text-slate-700"
+                            >
+                              <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" />
+                            </button>
+                          </>
+                        ) : (
+                          <TopicInspector
+                            onCollapse={() => setInspectorOpen(false)}
+                            tab={inspectorTab}
+                            onTabChange={handleInspectorTabChange}
+                            attributes={{
+                              snapshot,
+                              docMetadata: docMeta,
+                              semanticOverlay: activeTab
+                                ? (documentOverlays[activeTab.path] ?? null)
+                                : null,
+                              activeDitaval,
+                              profilingCatalog,
+                              onJumpToSource: (filePath, line, elementId) =>
+                                void jumpToSemanticLocation(filePath, { line, elementId }),
+                              onOpenConrefDialog: openReuseTab,
+                              onUpdateAttr: (pos, name, val) =>
+                                visualRef.current?.updateAttr(pos, name, val),
+                              onSelectBreadcrumb: (pos) => visualRef.current?.selectNode(pos, true),
+                              onMoveNode: (pos, dir) => visualRef.current?.moveNode(pos, dir),
+                              onDeleteNode: (pos) => visualRef.current?.deleteNode(pos),
+                            }}
+                            reuse={{
+                              activeDocPath: activeTab?.path ?? null,
+                              selectedElementTag: snapshot?.activeItem?.tagName ?? null,
+                              selectedTopicId: snapshot?.breadcrumbs[0]?.id ?? undefined,
+                              selectedElementId: snapshot?.activeItem?.id ?? undefined,
+                              keyspace,
+                              topicIndices,
+                              onResolvePreview: resolveConrefPreview,
+                              onConfirm: handleConfirmConref,
+                              onConfirmed: () => setInspectorTab('attributes'),
+                            }}
+                            ai={
+                              activeTab ? (
+                                <AiAssistantPanel
+                                  filePath={activeTab.path}
+                                  xml={activeTab.xml}
+                                  target={aiTarget}
+                                  resolveTarget={computeAiTarget}
+                                  projectPath={activeTab.path}
+                                  rootMapPath={activeRootMapPath ?? undefined}
+                                  ditavalPath={activeDitavalPath ?? undefined}
+                                  diagnostics={diagnostics}
+                                  canApply={aiApplyMode !== 'preview-only'}
+                                  readOnly={aiApplyMode === 'preview-only'}
+                                  onApplyProposal={(patchedXml) => void handleApplyAiProposal(patchedXml)}
+                                  onRequestApply={() => setAiDiffOpen(true)}
+                                  onPreviewDiff={() => setAiDiffOpen(true)}
+                                  onOpenSettings={() => setAiSettingsOpen(true)}
+                                />
+                              ) : null
+                            }
+                          />
+                        )}
+                      </div>
                     </Panel>
                   </>
                 ) : null}
@@ -1175,6 +1483,19 @@ export function App() {
         targetLabel={strictLabel}
         onClose={() => setStrictOpen(false)}
         onJumpToFile={handleJumpFromStrictValidation}
+        onAiFixDiagnostic={(diagnostic) => void handleAiFixStrictDiagnostic(diagnostic)}
+        aiApplied={strictAiApplied}
+      />
+
+      <AiSettingsDialog open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} />
+
+      <AiDiffDialog
+        open={aiDiffOpen}
+        proposal={aiProposal}
+        canApply={aiApplyMode !== 'preview-only'}
+        readOnly={aiApplyMode === 'preview-only'}
+        onClose={() => setAiDiffOpen(false)}
+        onApply={(patchedXml) => void handleApplyAiProposal(patchedXml)}
       />
     </div>
   );
