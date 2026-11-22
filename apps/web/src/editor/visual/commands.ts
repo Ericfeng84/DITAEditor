@@ -19,6 +19,7 @@ import {
   type RawAttrs,
 } from '@dita/core';
 import { findLegalAncestorDepthForBlock } from './selection-info';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 import { buildConvertedBlock, planBlockMove } from './block-transforms';
 import {
   findSharedInlineTextblock,
@@ -70,8 +71,8 @@ export function createDitaElementSkeleton(
       (!inlineContent || inlineContent.childCount === 0)
     ) {
       return makeNode(inlineType, initialAttrs, [
-        makeNode('dita_uicontrol', EMPTY_ATTRS, [textNode('菜单')]),
-        makeNode('dita_uicontrol', EMPTY_ATTRS, [textNode('选项')]),
+        makeNode('dita_uicontrol', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.menu'))]),
+        makeNode('dita_uicontrol', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.option'))]),
       ]);
     }
     const type = ditaSchema.nodes[inlineType]!;
@@ -156,17 +157,17 @@ export function createDitaElementSkeleton(
       return makeNode('dita_pre', initialAttrs);
     case 'section':
       return makeNode('dita_section', initialAttrs, [
-        makeNode('dita_title', EMPTY_ATTRS, [textNode('新章节标题')]),
+        makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.sectionTitle'))]),
         makeNode('dita_p'),
       ]);
     case 'example':
       return makeNode('dita_example', initialAttrs, [
-        makeNode('dita_title', EMPTY_ATTRS, [textNode('示例')]),
+        makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.example'))]),
         makeNode('dita_p'),
       ]);
     case 'refsyn':
       return makeNode('dita_refsyn', initialAttrs, [
-        makeNode('dita_title', EMPTY_ATTRS, [textNode('语法')]),
+        makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.syntax'))]),
         makeNode('dita_codeblock'),
       ]);
     case 'note': {
@@ -189,8 +190,8 @@ export function createDitaElementSkeleton(
     case 'dl':
       return makeNode('dita_dl', initialAttrs, [
         makeNode('dita_dlentry', EMPTY_ATTRS, [
-          makeNode('dita_dt', EMPTY_ATTRS, [textNode('术语')]),
-          makeNode('dita_dd', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode('定义说明')])]),
+          makeNode('dita_dt', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.term'))]),
+          makeNode('dita_dd', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.definition'))])]),
         ]),
       ]);
     case 'dlentry':
@@ -200,11 +201,11 @@ export function createDitaElementSkeleton(
       ]);
     case 'fig':
       return makeNode('dita_fig', initialAttrs, [
-        makeNode('dita_title', EMPTY_ATTRS, [textNode('插图标题')]),
+        makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.figureTitle'))]),
         makeNode('dita_image_block', [
           { name: 'href', value: '../images/example.svg', namespaceURI: null },
           { name: 'placement', value: 'break', namespaceURI: null },
-          { name: 'alt', value: '示意图', namespaceURI: null },
+          { name: 'alt', value: translate(getCurrentLocale(), 'insertSample.diagramAlt'), namespaceURI: null },
         ]),
       ]);
     case 'image': {
@@ -290,9 +291,9 @@ export function createDitaElementSkeleton(
           : [{ name: 'relcolwidth', value: '1* 1* 2*', namespaceURI: null }],
         [
           makeNode('dita_sthead', EMPTY_ATTRS, [
-            makeNode('dita_stentry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode('字段')])]),
-            makeNode('dita_stentry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode('类型')])]),
-            makeNode('dita_stentry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode('说明')])]),
+            makeNode('dita_stentry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.field'))])]),
+            makeNode('dita_stentry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.type'))])]),
+            makeNode('dita_stentry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.description'))])]),
           ]),
           makeNode('dita_strow', EMPTY_ATTRS, [
             makeNode('dita_stentry', EMPTY_ATTRS, [makeNode('xml_text_block')]),
@@ -312,7 +313,7 @@ export function createDitaElementSkeleton(
               { name: 'rowsep', value: '1', namespaceURI: null },
             ],
         [
-          makeNode('dita_title', EMPTY_ATTRS, [textNode('CALS 表格标题')]),
+          makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.calsCaption'))]),
           makeNode(
             'cals_tgroup',
             [{ name: 'cols', value: '3', namespaceURI: null }],
@@ -349,9 +350,9 @@ export function createDitaElementSkeleton(
               ),
               makeNode('cals_thead', EMPTY_ATTRS, [
                 makeNode('cals_row', EMPTY_ATTRS, [
-                  makeNode('cals_entry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode('列 1')])], { colspan: 1, rowspan: 1 }),
-                  makeNode('cals_entry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode('列 2')])], { colspan: 1, rowspan: 1 }),
-                  makeNode('cals_entry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode('列 3')])], { colspan: 1, rowspan: 1 }),
+                  makeNode('cals_entry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.column', { index: 1 }))])], { colspan: 1, rowspan: 1 }),
+                  makeNode('cals_entry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.column', { index: 2 }))])], { colspan: 1, rowspan: 1 }),
+                  makeNode('cals_entry', EMPTY_ATTRS, [makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.column', { index: 3 }))])], { colspan: 1, rowspan: 1 }),
                 ]),
               ]),
               makeNode('cals_tbody', EMPTY_ATTRS, [

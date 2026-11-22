@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
 
@@ -37,6 +37,11 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
+  },
+  test: {
+    // Node's `navigator.language` is `en-US`; pin the UI locale so existing assertions stay
+    // written against the zh-CN default. Individual tests switch locale when they need English.
+    setupFiles: ['./test/setup-locale.ts'],
   },
   build: {
     rollupOptions: {

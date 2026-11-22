@@ -1,6 +1,7 @@
 import { FileCheck2, Lock, LockOpen, ShieldAlert, Unlock } from 'lucide-react';
 import type { FileEditability } from '../services/lock-helpers';
 import type { FileLock } from '../services/git-api';
+import { formatDateTime, useI18n } from '../i18n/index.js';
 
 export interface LockStatusBarProps {
   filePath: string | null;
@@ -35,6 +36,7 @@ export function LockStatusBar({
   onOpenCheckin,
   onForceUnlock,
 }: LockStatusBarProps) {
+  const { t, locale } = useI18n();
   if (!filePath) return null;
   const showCheckout =
     editability.state === 'unlocked' || editability.state === 'locked-by-other';
@@ -56,19 +58,19 @@ export function LockStatusBar({
         )}
         <span className="shrink-0 font-semibold">
           {editability.state === 'owned'
-            ? '已检出'
+            ? t('lock.state.owned')
             : editability.state === 'locked-by-other'
-              ? '他人检出'
+              ? t('lock.state.other')
               : editability.state === 'admin'
-                ? '管理员'
+                ? t('lock.state.admin')
                 : editability.state === 'viewer'
-                  ? '只读'
-                  : '未检出'}
+                  ? t('lock.state.viewer')
+                  : t('lock.state.unlocked')}
         </span>
         <span className="truncate text-current/80">{editability.reason}</span>
         {lock ? (
           <span className="hidden shrink-0 text-current/60 md:inline">
-            {new Date(lock.updatedAt).toLocaleString('zh-CN')}
+            {formatDateTime(lock.updatedAt, locale)}
           </span>
         ) : null}
       </div>
@@ -82,7 +84,7 @@ export function LockStatusBar({
             className="inline-flex items-center gap-1 rounded border border-current/25 bg-white/80 px-2 py-0.5 font-medium hover:bg-white disabled:opacity-50"
           >
             <Lock className="h-3 w-3" aria-hidden="true" />
-            {busy ? '处理中…' : '检出'}
+            {busy ? t('lock.busy') : t('lock.checkout')}
           </button>
         ) : null}
         {showOwnerActions && editability.state === 'owned' ? (
@@ -92,29 +94,29 @@ export function LockStatusBar({
               disabled={busy || !canCheckin}
               onClick={onOpenCheckin}
               className="inline-flex items-center gap-1 rounded border border-emerald-300 bg-white px-2 py-0.5 font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-40"
-              title={canCheckin ? '预览差异并提交本地 Git' : '当前文件没有需要提交的改动'}
+              title={canCheckin ? t('lock.checkinTitle') : t('lock.checkinDisabled')}
             >
               <FileCheck2 className="h-3 w-3" aria-hidden="true" />
-              签入…
+              {t('lock.checkin')}
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={onCancelCheckout}
               className="inline-flex items-center gap-1 rounded border border-current/25 bg-white/80 px-2 py-0.5 hover:bg-white disabled:opacity-50"
-              title="取消检出并回滚到 HEAD 版本"
+              title={t('lock.cancelTitle')}
             >
               <Unlock className="h-3 w-3" aria-hidden="true" />
-              取消检出
+              {t('lock.cancelCheckout')}
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={onRelease}
               className="rounded border border-current/25 bg-white/80 px-2 py-0.5 hover:bg-white disabled:opacity-50"
-              title="仅释放锁，保留工作区改动"
+              title={t('lock.releaseTitle')}
             >
-              释放
+              {t('lock.release')}
             </button>
           </>
         ) : null}
@@ -124,14 +126,14 @@ export function LockStatusBar({
             disabled={busy}
             onClick={onForceUnlock}
             className="inline-flex items-center gap-1 rounded border border-rose-300 bg-white px-2 py-0.5 font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-            title="管理员强制解锁，并把当前内容与补丁写入备份表"
+            title={t('lock.forceTitle')}
           >
             <ShieldAlert className="h-3 w-3" aria-hidden="true" />
-            强制解锁
+            {t('lock.force')}
           </button>
         ) : null}
         {editability.state === 'locked-by-other' && lock ? (
-          <span className="text-current/70">需要 {lock.userName} 先释放</span>
+          <span className="text-current/70">{t('lock.needRelease', { name: lock.userName })}</span>
         ) : null}
       </div>
     </div>

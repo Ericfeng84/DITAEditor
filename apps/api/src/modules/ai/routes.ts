@@ -1,7 +1,9 @@
 import { HumanMessage } from '@langchain/core/messages';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { ZodTypeAny, infer as ZodInfer } from 'zod';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError } from '../errors.js';
+import { resolveRequestLocale, type ApiLocale } from '../../i18n/locale.js';
+import { apiT } from '../../i18n/messages.js';
 import type { WorkspaceManager } from '../files/workspace-fs.js';
 import type { IdentityService, IdentityUser } from '../identity/identity-service.js';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
@@ -35,7 +37,7 @@ const CONFIG_TEST_TIMEOUT_MS = 30_000;
 function parseBody<S extends ZodTypeAny>(schema: S, body: unknown): ZodInfer<S> {
   const result = schema.safeParse(body ?? {});
   if (!result.success) {
-    throw new HttpError(400, '请求参数不合法。', {
+    throw httpError(400, 'ai.invalidUserRequest', undefined, {
       code: 'invalid-request',
       issues: result.error.issues.map((issue) => ({
         path: issue.path.join('.'),
@@ -52,17 +54,24 @@ function requireAdmin(identity: IdentityService, req: FastifyRequest) {
   return user;
 }
 
-function failureMessage(): string {
-  return '连接失败，请检查 Base URL、模型名称与 API Key。';
+function failureMessage(locale: ApiLocale): string {
+  return apiT(locale, 'ai.configTest.failed');
 }
 
-async function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+async function withTimeout<T>(
+  promise: Promise<T>,
+  timeoutMs: number,
+  locale: ApiLocale,
+): Promise<T> {
   let timer: NodeJS.Timeout | undefined;
   try {
     return await Promise.race([
       promise,
       new Promise<never>((_resolve, reject) => {
-        timer = setTimeout(() => reject(new Error('连接测试超时。')), timeoutMs);
+        timer = setTimeout(
+          () => reject(new Error(apiT(locale, 'ai.configTest.timeout'))),
+          timeoutMs,
+        );
       }),
     ]);
   } finally {
@@ -78,7 +87,7 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
       const user = deps.identity.resolve(req.headers['x-dita-user-id']);
       return reply.send(deps.settings.getPublicConfig(user));
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -88,11 +97,12 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
       const input = parseBody(aiConfigUpdateSchema, req.body);
       return reply.send(deps.settings.saveConfig(input, user));
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
   app.post('/api/ai/config/test', async (req, reply) => {
+    const locale = resolveRequestLocale(req);
     try {
       requireAdmin(deps.identity, req);
       const overrides = parseBody(aiConfigTestSchema, req.body);
@@ -110,31 +120,35 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
           ok: false,
           latencyMs: 0,
           model: config.model,
-          message: 'AI 未配置 API Key。',
+          message: apiT(locale, 'ai.configTest.noKey'),
         };
       } else {
         try {
           const model = deps.modelFactory(config);
           // A real (tiny) completion verifies the key, model name and endpoint, not just TCP reachability.
-          await withTimeout(model.invoke([new HumanMessage('ping')]), CONFIG_TEST_TIMEOUT_MS);
+          await withTimeout(
+            model.invoke([new HumanMessage('ping')]),
+            CONFIG_TEST_TIMEOUT_MS,
+            locale,
+          );
           result = {
             ok: true,
             latencyMs: Date.now() - startedAt,
             model: config.model,
-            message: '连接成功。',
+            message: apiT(locale, 'ai.configTest.ok'),
           };
         } catch {
           result = {
             ok: false,
             latencyMs: Date.now() - startedAt,
             model: config.model,
-            message: failureMessage(),
+            message: failureMessage(locale),
           };
         }
       }
       return reply.send(result);
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -144,7 +158,7 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
       const query = parseBody(aiUsageQuerySchema, req.query ?? {});
       return reply.send(deps.usage.summary(query));
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -156,12 +170,12 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
       input = parseBody(aiStreamRequestSchema, req.body);
       const config = deps.settings.resolveConfig();
       if (!config.apiKey) {
-        throw new HttpError(400, 'AI 未配置 API Key，请管理员先在 AI 设置中配置。', {
+        throw httpError(400, 'ai.notConfigured', undefined, {
           code: 'ai-not-configured',
         });
       }
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
 
     const controller = new AbortController();
@@ -210,7 +224,10 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
 
     const startedAt = Date.now();
     try {
-      for await (const event of service.stream(input, user, { signal: controller.signal })) {
+      for await (const event of service.stream(input, user, {
+          signal: controller.signal,
+          locale: resolveRequestLocale(req),
+        })) {
         writeEvent(event.event, event.data);
       }
     } catch (err) {

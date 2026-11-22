@@ -1,3 +1,4 @@
+import { getCurrentLocale, translate } from '../i18n/index.js';
 import {
   checkXmlWellFormed,
   computeRelativeDitaHref,
@@ -325,7 +326,7 @@ export function planMapNodeMove(options: {
         return {
           ok: false,
           updates: [],
-          reason: '无法向未加载或断链的 <mapref> 子地图内拖拽节点。',
+          reason: translate(getCurrentLocale(), 'mapDnd.notLoaded'),
         };
       }
       targetMapPath = targetParentNode.resolvedTargetPath;
@@ -337,7 +338,7 @@ export function planMapNodeMove(options: {
       return {
         ok: false,
         updates: [],
-        reason: `<${targetParentNode.tagName}> 不支持包含子节点。`,
+        reason: translate(getCurrentLocale(), 'mapDnd.noChildren', { tag: targetParentNode.tagName }),
       };
     }
   }
@@ -370,10 +371,10 @@ export function planMapNodeMove(options: {
       targetParentPath &&
       isSameOrDescendantPath(dragged.elementPath, targetParentPath)
     ) {
-      return { ok: false, updates: [], reason: '不能将节点拖入其自身或子节点内。' };
+      return { ok: false, updates: [], reason: translate(getCurrentLocale(), 'mapDnd.self') };
     }
     if (subtreeReferencesMap(dragged, targetMapPath)) {
-      return { ok: false, updates: [], reason: '不能将子地图引用拖入其自身内部（避免循环引用）。' };
+      return { ok: false, updates: [], reason: translate(getCurrentLocale(), 'mapDnd.cycle') };
     }
   }
 

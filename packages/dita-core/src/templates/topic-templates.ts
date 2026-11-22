@@ -44,9 +44,35 @@ export function createTopicTemplate(
 ): string {
   const lang = options.lang ?? 'zh-CN';
   const id = sanitizeId(options.id ?? `${type}_${Date.now().toString(36)}`, `${type}_untitled`);
+  const english = /^en\b/i.test(lang);
 
   switch (type) {
     case 'concept': {
+      if (english) {
+        const title = escapeText(options.title ?? 'New Concept Topic');
+        const shortdesc = escapeText(
+          options.shortdesc ?? 'Summarize the core definition, background, and applicable scenarios of this concept.',
+        );
+        return [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">',
+          `<concept id="${id}" xml:lang="${lang}">`,
+          `  <title>${title}</title>`,
+          `  <shortdesc>${shortdesc}</shortdesc>`,
+          '  <conbody>',
+          '    <p>Write the concept body here. Use <b>bold</b>, <codeph>inline code</codeph>, or insert sections and notes.</p>',
+          '    <section id="sec_overview">',
+          '      <title>Key Components</title>',
+          '      <ul>',
+          '        <li>Key capability one</li>',
+          '        <li>Key capability two</li>',
+          '      </ul>',
+          '    </section>',
+          '  </conbody>',
+          '</concept>',
+          '',
+        ].join('\n');
+      }
       const title = escapeText(options.title ?? '新建概念主题');
       const shortdesc = escapeText(
         options.shortdesc ?? '简要概括本概念的核心定义、背景原理与适用场景。',
@@ -73,6 +99,46 @@ export function createTopicTemplate(
     }
 
     case 'task': {
+      if (english) {
+        const title = escapeText(options.title ?? 'New Task Topic');
+        const shortdesc = escapeText(
+          options.shortdesc ?? 'Describe the goal of this procedure and the result it produces.',
+        );
+        return [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">',
+          `<task id="${id}" xml:lang="${lang}">`,
+          `  <title>${title}</title>`,
+          `  <shortdesc>${shortdesc}</shortdesc>`,
+          '  <taskbody>',
+          '    <prereq>',
+          '      <p>Make sure the required environment and permissions are in place.</p>',
+          '    </prereq>',
+          '    <context>',
+          '      <p>Complete the configuration by following these steps:</p>',
+          '    </context>',
+          '    <steps>',
+          '      <step>',
+          '        <cmd>Run the first command.</cmd>',
+          '        <info>',
+          '          <p>Add parameter details or cautions here.</p>',
+          '        </info>',
+          '      </step>',
+          '      <step>',
+          '        <cmd>Verify the service status and check the output.</cmd>',
+          '        <stepresult>',
+          '          <p>The console reports a ready state.</p>',
+          '        </stepresult>',
+          '      </step>',
+          '    </steps>',
+          '    <result>',
+          '      <p>The task is complete.</p>',
+          '    </result>',
+          '  </taskbody>',
+          '</task>',
+          '',
+        ].join('\n');
+      }
       const title = escapeText(options.title ?? '新建操作任务');
       const shortdesc = escapeText(
         options.shortdesc ?? '说明完成该操作任务的目标以及预计达成的结果。',
@@ -114,6 +180,38 @@ export function createTopicTemplate(
     }
 
     case 'reference': {
+      if (english) {
+        const title = escapeText(options.title ?? 'New Reference Topic');
+        const shortdesc = escapeText(
+          options.shortdesc ?? 'Provide a quick lookup reference for options, parameters, and API specifications.',
+        );
+        return [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">',
+          `<reference id="${id}" xml:lang="${lang}">`,
+          `  <title>${title}</title>`,
+          `  <shortdesc>${shortdesc}</shortdesc>`,
+          '  <refbody>',
+          '    <section id="sec_parameters">',
+          '      <title>Parameters</title>',
+          '      <simpletable relcolwidth="1* 1* 3*">',
+          '        <sthead>',
+          '          <stentry>Name</stentry>',
+          '          <stentry>Type</stentry>',
+          '          <stentry>Description</stentry>',
+          '        </sthead>',
+          '        <strow>',
+          '          <stentry><parmname>timeout</parmname></stentry>',
+          '          <stentry><codeph>number</codeph></stentry>',
+          '          <stentry>Request timeout in milliseconds. Defaults to 30000.</stentry>',
+          '        </strow>',
+          '      </simpletable>',
+          '    </section>',
+          '  </refbody>',
+          '</reference>',
+          '',
+        ].join('\n');
+      }
       const title = escapeText(options.title ?? '新建参考规格');
       const shortdesc = escapeText(
         options.shortdesc ?? '提供配置项、参数定义与接口规格的速查参考。',
@@ -148,6 +246,22 @@ export function createTopicTemplate(
 
     case 'topic':
     default: {
+      if (english) {
+        const title = escapeText(options.title ?? 'New DITA Topic');
+        const shortdesc = escapeText(options.shortdesc ?? 'A generic DITA topic summary.');
+        return [
+          '<?xml version="1.0" encoding="UTF-8"?>',
+          '<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">',
+          `<topic id="${id}" xml:lang="${lang}">`,
+          `  <title>${title}</title>`,
+          `  <shortdesc>${shortdesc}</shortdesc>`,
+          '  <body>',
+          '    <p>Start writing here, or type <codeph>/</codeph> to open the context-aware element menu.</p>',
+          '  </body>',
+          '</topic>',
+          '',
+        ].join('\n');
+      }
       const title = escapeText(options.title ?? '新建通用主题');
       const shortdesc = escapeText(
         options.shortdesc ?? '通用 DITA Topic 文档摘要。',

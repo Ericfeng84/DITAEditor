@@ -1,10 +1,15 @@
 import type { Completion, CompletionContext, CompletionResult } from '@codemirror/autocomplete';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 import {
   areConrefTagsCompatible,
   DITA_ELEMENT_SPECS,
   DITA_PROFILING_ATTRS,
   getAllowedChildElementTags,
+  getAttributeDescription,
+  getAttributeLabel,
   getAttributesForElement,
+  getElementDescription,
+  getElementLabel,
   type DitaProfilingAttrName,
   type KeyspaceResult,
   type TopicIdIndexEntry,
@@ -85,7 +90,7 @@ export function createDitaXmlCompletionSource(
           {
             label: openParent,
             type: 'type',
-            detail: '关闭当前标签',
+            detail: translate(getCurrentLocale(), 'completion.closeTag'),
             apply: `${openParent}>`,
             boost: 100,
           },
@@ -119,8 +124,8 @@ export function createDitaXmlCompletionSource(
         return {
           label: tag,
           type: 'type',
-          detail: spec ? `${spec.labelZh}` : 'DITA element',
-          info: spec?.description,
+          detail: spec ? getElementLabel(spec, getCurrentLocale()) : 'DITA element',
+          info: spec ? getElementDescription(spec, getCurrentLocale()) : undefined,
           apply: isVoidStyle ? `${tag} />` : `${tag}></${tag}>`,
         };
       });
@@ -164,9 +169,9 @@ export function createDitaXmlCompletionSource(
               : def.href
                 ? `→ ${def.href}`
                 : def.sourceMapPath,
-            info: `定义于 ${def.sourceMapPath}${def.line ? `:${def.line}` : ''}${
-              def.scope ? ` · scope=${def.scope}` : ''
-            }`,
+            info: translate(getCurrentLocale(), 'completion.definedAt', {
+              path: `${def.sourceMapPath}${def.line ? `:${def.line}` : ''}`,
+            }) + (def.scope ? ` · scope=${def.scope}` : ''),
             boost: 80 - Math.min(idx, 60),
           }));
           return {
@@ -231,7 +236,7 @@ export function createDitaXmlCompletionSource(
               label: `${def.key}/`,
               type: 'variable',
               detail: def.resolvedHref,
-              info: `输入元素 @id 以引用 ${def.resolvedHref} 中的元素`,
+              info: translate(getCurrentLocale(), 'completion.elementIdHint', { href: def.resolvedHref }),
               boost: 50,
             });
           }
@@ -314,8 +319,8 @@ export function createDitaXmlCompletionSource(
       const options: Completion[] = attrSpecs.map((spec, idx) => ({
         label: spec.name,
         type: 'property',
-        detail: spec.group === 'element' ? spec.label : `${spec.group} · ${spec.label}`,
-        info: spec.description,
+        detail: spec.group === 'element' ? getAttributeLabel(spec, getCurrentLocale()) : `${spec.group} · ${getAttributeLabel(spec, getCurrentLocale())}`,
+        info: spec ? getAttributeDescription(spec, getCurrentLocale()) : undefined,
         apply: `${spec.name}=""`,
         boost: spec.group === 'element' ? 50 - idx : 10,
       }));

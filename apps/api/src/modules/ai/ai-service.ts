@@ -10,6 +10,8 @@ import {
 import type { AIMessageChunk, BaseMessage } from '@langchain/core/messages';
 import { AIMessage, HumanMessage } from '@langchain/core/messages';
 import { HttpError } from '../errors.js';
+import { apiT } from '../../i18n/messages.js';
+import type { ApiLocale } from '../../i18n/locale.js';
 import type { WorkspaceManager } from '../files/workspace-fs.js';
 import type { IdentityUser } from '../identity/identity-service.js';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
@@ -41,6 +43,8 @@ export interface AiServiceDeps {
 
 export interface AiStreamContext {
   signal?: AbortSignal;
+  /** UI locale from `resolveRequestLocale()`; controls streamed diagnostics and prompt language. */
+  locale?: ApiLocale;
 }
 
 const MAX_TARGET_CHARS = 12_000;
@@ -126,28 +130,44 @@ function buildChangesSummary(
   extraction: AiFragmentExtraction,
   candidateXml: string,
   patchedXml: string,
+  locale: ApiLocale,
 ): string[] {
+  const t = (key: Parameters<typeof apiT>[1], params?: Parameters<typeof apiT>[2]) =>
+    apiT(locale, key, params);
   const lines: string[] = [];
   const modeLabel =
     extraction.mode === 'element'
-      ? `元素 <${extraction.targetTag ?? extraction.rootTagName}>`
+      ? t('ai.explanation.modeElement', { tag: extraction.targetTag ?? extraction.rootTagName ?? '' })
       : extraction.mode === 'line-window'
-        ? `第 ${extraction.lineStart}–${extraction.lineEnd} 行`
-        : `整篇 <${extraction.rootTagName}>`;
+        ? t('ai.explanation.modeLines', {
+            start: String(extraction.lineStart ?? ''),
+            end: String(extraction.lineEnd ?? ''),
+          })
+        : t('ai.explanation.modeDocument', { tag: extraction.rootTagName ?? '' });
   lines.push(
-    `替换${modeLabel}：${countLines(extraction.targetXml)} 行 → ${countLines(candidateXml)} 行`,
+    t('ai.explanation.replace', {
+      mode: modeLabel,
+      from: String(countLines(extraction.targetXml)),
+      to: String(countLines(candidateXml)),
+    }),
   );
 
   const before = collectTagNames(extraction.targetXml);
   const after = collectTagNames(candidateXml);
   const added = [...after].filter((tag) => !before.has(tag)).slice(0, 4);
   const removed = [...before].filter((tag) => !after.has(tag)).slice(0, 4);
-  if (added.length > 0) lines.push(`新增标签：${added.map((tag) => `<${tag}>`).join('、')}`);
-  if (removed.length > 0) lines.push(`移除标签：${removed.map((tag) => `<${tag}>`).join('、')}`);
+  const joinTags = (tags: string[]) => tags.map((tag) => `<${tag}>`).join(locale === 'en' ? ', ' : '、');
+  if (added.length > 0) lines.push(t('ai.explanation.addedTags', { tags: joinTags(added) }));
+  if (removed.length > 0) lines.push(t('ai.explanation.removedTags', { tags: joinTags(removed) }));
   if (lines.length < 4 && patchedXml.length !== extraction.originalXml.length) {
-    lines.push(`文档长度 ${extraction.originalXml.length} → ${patchedXml.length} 字符`);
+    lines.push(
+      t('ai.explanation.length', {
+        from: String(extraction.originalXml.length),
+        to: String(patchedXml.length),
+      }),
+    );
   }
-  if (lines.length < 4) lines.push('XML 声明、DOCTYPE 与未修改区域保持原样');
+  if (lines.length < 4) lines.push(t('ai.explanation.preserved'));
   return lines.slice(0, 4);
 }
 
@@ -158,10 +178,11 @@ function buildProposal(
   splice: Extract<AiSpliceResult, { ok: true }>,
   retryCount: number,
   extraWarnings: string[],
+  locale: ApiLocale,
 ): AiProposal {
   return {
     explanation,
-    changesSummary: buildChangesSummary(extraction, candidateXml, splice.patchedXml),
+    changesSummary: buildChangesSummary(extraction, candidateXml, splice.patchedXml, locale),
     originalXml: extraction.originalXml,
     patchedXml: splice.patchedXml,
     targetMode: extraction.mode,
@@ -182,49 +203,64 @@ function retryFeedback(
   maxRetries: number,
   splice: Extract<AiSpliceResult, { ok: false }>,
   extraction: AiFragmentExtraction,
+  locale: ApiLocale,
 ): string {
+  const t = (key: Parameters<typeof apiT>[1], params?: Parameters<typeof apiT>[2]) =>
+    apiT(locale, key, params);
   return [
-    `上一次输出未通过校验（第 ${attempt} 次尝试，最多 ${maxRetries} 次重试）。`,
-    `错误码：${splice.errorCode}`,
-    `错误信息：${splice.errorMessage}`,
-    `目标：${extraction.mode === 'element' ? `<${extraction.targetTag}>` : `${extraction.mode}（<${extraction.rootTagName}>）`}。`,
-    buildDitaConstraintSummary(extraction.rootTagName, extraction.parentTag),
-    '请重新输出：只返回 <dita_patch> 中可安全替换目标范围的完整 XML，不要 Markdown 围栏、XML 声明或 DOCTYPE；如果无法安全修改，只输出 <explanation> 说明原因。',
+    t('ai.retry.intro', { attempt: String(attempt), max: String(maxRetries) }),
+    t('ai.retry.errorCode', { code: splice.errorCode }),
+    t('ai.retry.errorMessage', { message: splice.errorMessage }),
+    extraction.mode === 'element'
+      ? t('ai.retry.targetElement', { tag: extraction.targetTag ?? '' })
+      : t('ai.retry.targetMode', {
+          mode: extraction.mode,
+          tag: extraction.rootTagName ?? '',
+        }),
+    buildDitaConstraintSummary(extraction.rootTagName, extraction.parentTag, locale),
+    t('ai.retry.reask'),
   ].join('\n');
 }
 
 function extractForRequest(
   xml: string,
   target: AiTargetSpec,
+  locale: ApiLocale,
 ): { extraction: AiFragmentExtraction; warnings: string[]; badges: string[] } {
+  const t = (key: Parameters<typeof apiT>[1], params?: Parameters<typeof apiT>[2]) =>
+    apiT(locale, key, params);
   const warnings: string[] = [];
   const badges: string[] = [];
   let extraction: AiFragmentExtraction;
   try {
-    extraction = extractTargetFragment(xml, target, { maxContextChars: 4000 });
+    extraction = extractTargetFragment(xml, target, { maxContextChars: 4000, locale });
   } catch (err) {
     if (target.line === undefined) {
-      throw new HttpError(400, `无法定位 AI 目标片段：${err instanceof Error ? err.message : String(err)}`, {
-        code: 'invalid-target',
-      });
+      throw new HttpError(
+        400,
+        t('ai.targetLocateFailed', {
+          message: err instanceof Error ? err.message : String(err),
+        }),
+        { code: 'invalid-target' },
+      );
     }
-    warnings.push('元素定位失败，已回退到行窗口模式。');
-    badges.push('元素定位失败，回退行窗口');
+    warnings.push(t('ai.warn.elementFallback'));
+    badges.push(t('ai.badge.elementFallback'));
     extraction = extractTargetFragment(
       xml,
       { ...target, mode: 'line-window', line: target.line },
-      { maxContextChars: 4000 },
+      { maxContextChars: 4000, locale },
     );
   }
 
   if (extraction.mode !== 'full-document' && extraction.targetXml.length > MAX_TARGET_CHARS) {
-    warnings.push(`目标片段超过 ${MAX_TARGET_CHARS} 字符，已切换整篇模式以避免上下文截断。`);
-    badges.push('目标过大，已切换整篇模式');
-    extraction = extractTargetFragment(xml, { mode: 'full-document' }, { maxContextChars: 4000 });
+    warnings.push(t('ai.warn.targetTooLarge', { limit: String(MAX_TARGET_CHARS) }));
+    badges.push(t('ai.badge.targetTooLarge'));
+    extraction = extractTargetFragment(xml, { mode: 'full-document' }, { maxContextChars: 4000, locale });
   }
 
   if (extraction.truncated && extraction.mode !== 'full-document') {
-    warnings.push('目标片段或上下文已按上下文预算截断。');
+    warnings.push(t('ai.warn.contextTruncated'));
   }
   return { extraction, warnings, badges };
 }
@@ -248,6 +284,7 @@ export class AiService {
     const requestId = randomUUID();
     const startedAt = Date.now();
     const branch = request.branch ?? 'default';
+    const locale: ApiLocale = context.locale ?? 'zh-CN';
     const recordFailure = (message: string): void => {
       this.usage.record({
         projectId: this.deps.workspace.getProjectRootDir(),
@@ -269,7 +306,7 @@ export class AiService {
     };
 
     if (!config.apiKey) {
-      const message = 'AI 未配置 API Key，请管理员先在 AI 设置中配置。';
+      const message = apiT(locale, 'ai.notConfigured');
       recordFailure(message);
       throw new HttpError(400, message, { code: 'ai-not-configured' });
     }
@@ -279,7 +316,10 @@ export class AiService {
       try {
         xml = (await this.deps.workspace.readFile(request.projectPath)).content;
       } catch (err) {
-        const message = `无法读取主题文件 ${request.projectPath}：${err instanceof Error ? err.message : String(err)}`;
+        const message = apiT(locale, 'ai.error.fileUnreadable', {
+          path: request.projectPath,
+          message: err instanceof Error ? err.message : String(err),
+        });
         recordFailure(message);
         throw new HttpError(400, message, { code: 'file-unreadable' });
       }
@@ -289,7 +329,7 @@ export class AiService {
     let warnings: string[];
     let badges: string[];
     try {
-      ({ extraction, warnings, badges } = extractForRequest(xml, request.target));
+      ({ extraction, warnings, badges } = extractForRequest(xml, request.target, locale));
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       recordFailure(message);
@@ -304,6 +344,7 @@ export class AiService {
         ditavalPath: request.ditavalPath ?? null,
         branch,
         currentFilePath: request.projectPath,
+        locale,
       });
     }
     const contextBadges = [...projectContext.badges, ...badges];
@@ -342,6 +383,9 @@ export class AiService {
         history: request.history,
         context: projectContext,
         includeProjectContext: request.includeProjectContext,
+        // The prompt wording (and the demanded `<explanation>` language) must match the UI locale,
+        // while the XML body keeps the document's own `xml:lang`.
+        locale,
       });
       lastMessages = messages;
 
@@ -386,7 +430,7 @@ export class AiService {
             event: 'retry',
             data: { attempt: retryCount, maxRetries: config.maxRetries, reason: message },
           };
-          messages.push(new HumanMessage(`上一次请求失败：${message}。请重新输出。`));
+          messages.push(new HumanMessage(apiT(locale, 'ai.retry.lastFailed', { message })));
           continue;
         }
 
@@ -411,7 +455,7 @@ export class AiService {
           if (parsed.explanation) {
             status = 'succeeded';
           } else {
-            errorMessage = 'AI 未返回解释内容。';
+            errorMessage = apiT(locale, 'ai.error.noExplanation');
             if (attempt < config.maxRetries) {
               retryCount = attempt + 1;
               yield {
@@ -420,7 +464,9 @@ export class AiService {
               };
               messages.push(
                 new AIMessage(raw),
-                new HumanMessage('请只输出 <explanation> 中文说明，不要输出 XML 片段。'),
+                new HumanMessage(
+                  apiT(locale, locale === 'en' ? 'ai.explainOnlyReminderEn' : 'ai.explainOnlyReminder'),
+                ),
               );
               continue;
             }
@@ -429,7 +475,7 @@ export class AiService {
         }
 
         if (!parsed.patchXml) {
-          errorMessage = 'AI 未返回可替换的 XML 片段。';
+          errorMessage = apiT(locale, 'ai.error.noPatch');
           lastErrorCode = 'no-patch';
           if (attempt < config.maxRetries) {
             retryCount = attempt + 1;
@@ -440,7 +486,7 @@ export class AiService {
             messages.push(
               new AIMessage(raw),
               new HumanMessage(
-                '请重新输出：必须先给 <explanation>，再给 <dita_patch> 完整 XML，不要输出空 patch。',
+                apiT(locale, 'ai.retry.patchRequired'),
               ),
             );
             continue;
@@ -448,7 +494,7 @@ export class AiService {
           break;
         }
 
-        const splice = spliceAndVerifyAiXml(xml, extraction, parsed.patchXml);
+        const splice = spliceAndVerifyAiXml(xml, extraction, parsed.patchXml, locale);
         if (!splice.ok) {
           errorMessage = splice.errorMessage;
           lastErrorCode = splice.errorCode;
@@ -462,12 +508,12 @@ export class AiService {
                 reason: splice.errorMessage,
               },
             };
-            messages.push(new AIMessage(raw), new HumanMessage(retryFeedback(
-              retryCount,
-              config.maxRetries,
-              splice,
-              extraction,
-            )));
+            messages.push(
+              new AIMessage(raw),
+              new HumanMessage(
+                retryFeedback(retryCount, config.maxRetries, splice, extraction, locale),
+              ),
+            );
             continue;
           }
           break;
@@ -483,6 +529,7 @@ export class AiService {
           splice,
           retryCount,
           warnings,
+          locale,
         );
         yield { event: 'proposal', data: proposal };
         status = 'succeeded';
@@ -510,7 +557,7 @@ export class AiService {
         yield {
           event: 'error',
           data: {
-            message: errorMessage ?? 'AI 生成失败。',
+            message: errorMessage ?? apiT(locale, 'ai.error.generateFailed'),
             code: lastErrorCode ?? 'ai-failed',
           },
         };
@@ -530,7 +577,7 @@ export class AiService {
       }
       if (!doneSent) {
         if (status !== 'cancelled') {
-          yield { event: 'error', data: { message: errorMessage ?? 'AI 生成失败。' } };
+          yield { event: 'error', data: { message: errorMessage ?? apiT(locale, 'ai.error.generateFailed') } };
         }
         yield {
           event: 'done',

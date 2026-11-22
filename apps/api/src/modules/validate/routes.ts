@@ -1,6 +1,8 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { HttpError, isHttpError } from '../errors.js';
+import { HttpError, httpError, isHttpError, localizeErrorMessage } from '../errors.js';
+import { resolveRequestLocale } from '../../i18n/locale.js';
+import { apiT } from '../../i18n/messages.js';
 import type { WorkspaceManager } from '../files/workspace-fs.js';
 import type { DitaRuntimeOptions } from '../dita-ot/dita-runtime.js';
 import { detectDitaRuntime } from '../dita-ot/dita-runtime.js';
@@ -19,13 +21,17 @@ export interface StrictValidationRouteOptions {
   timeoutMs?: number;
 }
 
-function errorReply(reply: FastifyReply, err: unknown) {
+function errorReply(req: FastifyRequest, reply: FastifyReply, err: unknown) {
+  const locale = resolveRequestLocale(req);
   if (isHttpError(err)) {
-    return reply.status(err.statusCode).send({ error: err.message, ...(err.details ?? {}) });
+    return reply.status(err.statusCode).send({
+      error: localizeErrorMessage(err, locale),
+      ...(err.details ?? {}),
+    });
   }
   return reply
     .status(500)
-    .send({ error: err instanceof Error ? err.message : '严格校验失败' });
+    .send({ error: err instanceof Error ? err.message : apiT(locale, 'validate.failed') });
 }
 
 export function registerStrictValidationRoutes(
@@ -34,22 +40,29 @@ export function registerStrictValidationRoutes(
 ): void {
   app.get('/api/validate/runtime', async (_req, reply) => {
     try {
-      const runtime = await detectDitaRuntime(options.runtime, { force: true });
+      const runtime = await detectDitaRuntime(options.runtime, {
+        force: true,
+        locale: resolveRequestLocale(_req),
+      });
       return { runtime };
     } catch (err) {
-      return errorReply(reply, err);
+      return errorReply(_req, reply, err);
     }
   });
 
   app.post('/api/validate/strict', async (req: FastifyRequest, reply: FastifyReply) => {
     const parsed = strictValidationSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? '参数错误' });
+      return reply.status(400).send({
+        error: parsed.error.issues[0]?.message ?? apiT(resolveRequestLocale(req), 'validate.invalidParams'),
+      });
     }
     const { paths, path, rootMapPath, ditavalPath } = parsed.data;
     const selected = paths ?? (path ? [path] : rootMapPath ? [rootMapPath] : []);
     if (selected.length === 0) {
-      return reply.status(400).send({ error: '请提供待校验的 paths、path 或 rootMapPath' });
+      return reply
+        .status(400)
+        .send({ error: apiT(resolveRequestLocale(req), 'validate.argsRequired') });
     }
     try {
       const workDir = options.workspace.getRootDir();
@@ -60,15 +73,16 @@ export function registerStrictValidationRoutes(
         ditavalPath: ditavalPath ?? null,
         runtimeOptions: options.runtime,
         timeoutMs: options.timeoutMs,
+        locale: resolveRequestLocale(req),
       });
       if (!result.available) {
-        throw new HttpError(503, result.message ?? '未检测到 DITA-OT CLI', {
+        throw httpError(503, 'validate.noCliShort', undefined, {
           runtime: result.runtime,
         });
       }
       return result;
     } catch (err) {
-      return errorReply(reply, err);
+      return errorReply(req, reply, err);
     }
   });
 }

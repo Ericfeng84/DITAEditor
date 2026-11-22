@@ -33,8 +33,30 @@ export function createMapTemplate(
 ): string {
   const lang = options.lang ?? 'zh-CN';
   const id = sanitizeId(options.id ?? `${kind}_${Date.now().toString(36)}`, `${kind}_root`);
+  const english = /^en\b/i.test(lang);
 
   if (kind === 'bookmap') {
+    if (english) {
+      const title = escapeText(options.title ?? 'New Product Manual');
+      return [
+        '<?xml version="1.0" encoding="UTF-8"?>',
+        '<!DOCTYPE bookmap PUBLIC "-//OASIS//DTD DITA BookMap//EN" "bookmap.dtd">',
+        `<bookmap id="${id}" xml:lang="${lang}">`,
+        '  <booktitle>',
+        `    <mainbooktitle>${title}</mainbooktitle>`,
+        '    <booktitlealt>DITA 1.3 Product Administration and Developer Guide</booktitlealt>',
+        '  </booktitle>',
+        '  <frontmatter>',
+        '    <booklists>',
+        '      <toc/>',
+        '    </booklists>',
+        '  </frontmatter>',
+        '  <chapter navtitle="Chapter 1 Overview"/>',
+        '  <appendix navtitle="Appendix Reference"/>',
+        '</bookmap>',
+        '',
+      ].join('\n');
+    }
     const title = escapeText(options.title ?? '新建产品技术手册');
     return [
       '<?xml version="1.0" encoding="UTF-8"?>',
@@ -52,6 +74,19 @@ export function createMapTemplate(
       '  <chapter navtitle="第 1 章 概述"/>',
       '  <appendix navtitle="附录参考"/>',
       '</bookmap>',
+      '',
+    ].join('\n');
+  }
+
+  if (english) {
+    const title = escapeText(options.title ?? 'New DITA Map');
+    return [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">',
+      `<map id="${id}" xml:lang="${lang}">`,
+      `  <title>${title}</title>`,
+      '  <topichead navtitle="Core Content"/>',
+      '</map>',
       '',
     ].join('\n');
   }

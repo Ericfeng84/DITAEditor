@@ -1,4 +1,5 @@
 import type { Node as PMNode } from 'prosemirror-model';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 import type { EditorState } from 'prosemirror-state';
 import { NodeSelection } from 'prosemirror-state';
 import {
@@ -180,7 +181,7 @@ function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextG
     groups.push({
       containerTag: deepest.tagName,
       containerDepth: deepest.depth,
-      containerLabel: `行内插入到 <${deepest.tagName}>`,
+      containerLabel: translate(getCurrentLocale(), 'insertMenu.groupInline', { tag: deepest.tagName }),
       insertKind: 'inline',
       items: inlineCandidates,
     });
@@ -217,7 +218,7 @@ function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextG
       groups.push({
         containerTag: crumb.tagName,
         containerDepth: crumb.depth,
-        containerLabel: `块级插入到 <${crumb.tagName}>`,
+        containerLabel: translate(getCurrentLocale(), 'insertMenu.groupBlock', { tag: crumb.tagName }),
         insertKind: 'block',
         items: blockCandidates,
       });

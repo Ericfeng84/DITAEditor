@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react';
 import { classifyDitaFileKind, computeRelativeDitaHref } from '@dita/core';
 import { Link2, X } from 'lucide-react';
+import { useI18n } from '../i18n/index.js';
 
 export interface MountExistingDialogProps {
   open: boolean;
@@ -27,6 +28,7 @@ export function MountExistingDialog({
   onClose,
   onConfirm,
 }: MountExistingDialogProps) {
+  const { t } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const [selectedFile, setSelectedFile] = useState('');
@@ -94,16 +96,16 @@ export function MountExistingDialog({
         <div className="min-w-0">
           <h2 id={titleId} className="inline-flex items-center gap-1.5 text-sm font-semibold">
             <Link2 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-            <span>挂载已有 Topic / 子 Map</span>
+            <span>{t('mountDialog.title')}</span>
           </h2>
           <p className="mt-0.5 truncate text-xs text-slate-500">
-            挂载位置：{parentLabel}（{mapPath}）
+            {t('mountDialog.location', { parent: parentLabel, path: mapPath })}
           </p>
         </div>
         <button
           type="button"
           onClick={() => dialogRef.current?.close()}
-          aria-label="关闭对话框"
+          aria-label={t('common.close')}
           className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -113,7 +115,7 @@ export function MountExistingDialog({
       <form onSubmit={handleSubmit} className="space-y-3 p-5 text-xs">
         <div>
           <label htmlFor="mount-file-select" className="mb-1 block font-medium text-slate-700">
-            选择工作区文件
+            {t('mountDialog.pickFile')}
           </label>
           <select
             id="mount-file-select"
@@ -142,7 +144,7 @@ export function MountExistingDialog({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="mount-tag-select" className="mb-1 block font-medium text-slate-700">
-              引用标签类型
+              {t('mountDialog.refTag')}
             </label>
             <select
               id="mount-tag-select"
@@ -163,21 +165,21 @@ export function MountExistingDialog({
           </div>
           <div>
             <label htmlFor="mount-navtitle" className="mb-1 block font-medium text-slate-700">
-              navtitle（可选）
+              {t('mountDialog.navtitle')}
             </label>
             <input
               id="mount-navtitle"
               type="text"
               value={navtitle}
               onChange={(e) => setNavtitle(e.target.value)}
-              placeholder="目录显示名称"
+              placeholder={t('mountDialog.navtitlePlaceholder')}
               className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
             />
           </div>
         </div>
 
         <div className="rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-600">
-          自动计算相对 href：<span className="text-indigo-700">{previewHref || '—'}</span>
+          {t('mountDialog.hrefPreview')}<span className="text-indigo-700">{previewHref || '—'}</span>
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
@@ -186,14 +188,14 @@ export function MountExistingDialog({
             onClick={() => dialogRef.current?.close()}
             className="rounded-lg border border-slate-200 px-3.5 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={!selectedFile}
             className="rounded-lg bg-indigo-600 px-4 py-1.5 font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
           >
-            挂载到 Map
+            {t('mountDialog.submit')}
           </button>
         </div>
       </form>

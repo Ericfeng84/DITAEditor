@@ -13,7 +13,9 @@ import {
 } from 'lucide-react';
 import type { EditorViewMode, OpenEditorTab } from '../store/editor-store';
 import type { IdentityResponse, IdentityUser } from '../services/identity-api';
+import { useI18n } from '../i18n/index.js';
 import { IdentitySwitcher } from './IdentitySwitcher';
+import { LocaleSwitcher } from './LocaleSwitcher';
 
 export interface WorkbenchHeaderProps {
   /** Brand lockup is rendered in the sidebar strip while it is open; the header takes over when collapsed. */
@@ -66,6 +68,7 @@ export function WorkbenchHeader({
   showInspectorExpand,
   onExpandInspector,
 }: WorkbenchHeaderProps) {
+  const { t } = useI18n();
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3">
       {/* Left: Sidebar Toggle + Brand */}
@@ -79,8 +82,8 @@ export function WorkbenchHeader({
               ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
               : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
           }`}
-          title={leftSidebarOpen ? '收起左侧项目 / Map 导航栏 (⌘\\)' : '展开左侧项目 / Map 导航栏 (⌘\\)'}
-          aria-label={leftSidebarOpen ? '收起左侧导航栏' : '展开左侧导航栏'}
+          title={leftSidebarOpen ? t('header.toggleCollapseTitle') : t('header.toggleExpandTitle')}
+          aria-label={leftSidebarOpen ? t('header.toggleCollapseAria') : t('header.toggleExpandAria')}
         >
           <PanelLeft className="h-3.5 w-3.5" aria-hidden="true" />
         </button>
@@ -92,7 +95,7 @@ export function WorkbenchHeader({
             </div>
             <div className="hidden leading-tight xl:block">
               <div className="text-xs font-bold tracking-tight text-slate-900">DITAEditor</div>
-              <div className="text-[10px] font-medium text-slate-400">DITA 1.3 · Phase 5</div>
+              <div className="text-[10px] font-medium text-slate-400">{t('header.brandSubtitle')}</div>
             </div>
           </div>
         ) : null}
@@ -101,14 +104,14 @@ export function WorkbenchHeader({
       {/* Center: Visual | Split | Source Mode Segmented Switch */}
       <div
         role="group"
-        aria-label="编辑模式切换"
+        aria-label={t('header.modeGroup')}
         className="flex shrink-0 items-center rounded-lg border border-slate-200 bg-slate-100/90 p-0.5"
       >
         {(
           [
-            { id: 'visual', label: '可视化', icon: Eye },
-            { id: 'split', label: '双栏对比', icon: Columns2 },
-            { id: 'source', label: 'XML 源码', icon: Code2 },
+            { id: 'visual', label: t('header.mode.visual'), icon: Eye },
+            { id: 'split', label: t('header.mode.split'), icon: Columns2 },
+            { id: 'source', label: t('header.mode.source'), icon: Code2 },
           ] as const
         ).map((item) => {
           const Icon = item.icon;
@@ -130,8 +133,8 @@ export function WorkbenchHeader({
               }`}
               title={
                 blocked
-                  ? 'XML 语法有误，点击查看拦截提示'
-                  : `切换至${item.label}模式`
+                  ? t('header.mode.blockedTitle')
+                  : t('header.mode.switchTitle', { mode: item.label })
               }
             >
               <Icon className="h-3.5 w-3.5" aria-hidden="true" />
@@ -157,7 +160,7 @@ export function WorkbenchHeader({
                   ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
           }`}
-          title="展开 / 收起底部项目问题诊断面板"
+          title={t('header.problems.toggleTitle')}
         >
           {errorCount > 0 ? (
             <AlertCircle className="h-3.5 w-3.5 text-rose-600" aria-hidden="true" />
@@ -168,8 +171,8 @@ export function WorkbenchHeader({
           )}
           <span className="hidden md:inline">
             {errorCount > 0 || warningCount > 0
-              ? `${errorCount} 错误 · ${warningCount} 警告`
-              : '0 问题'}
+              ? t('header.problems.summary', { errors: errorCount, warnings: warningCount })
+              : t('header.problems.zero')}
           </span>
         </button>
 
@@ -183,6 +186,7 @@ export function WorkbenchHeader({
           </span>
         ) : null}
 
+        <LocaleSwitcher />
         <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
         {dirtyCount > 0 ? (
           <div className="flex items-center gap-1">
@@ -191,20 +195,20 @@ export function WorkbenchHeader({
               disabled={saving}
               onClick={isCurrentDirty ? onSaveActive : onSaveAll}
               className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-              title="保存更改到本地磁盘 (⌘S)"
+              title={t('header.save.title')}
             >
               <Save className="h-3 w-3" aria-hidden="true" />
-              <span>{saving ? '保存中…' : dirtyCount > 1 ? `保存全部 (${dirtyCount})` : '保存'}</span>
+              <span>{saving ? t('common.saving') : dirtyCount > 1 ? t('header.save.saveAll', { count: dirtyCount }) : t('common.save')}</span>
             </button>
             {isCurrentDirty ? (
               <button
                 type="button"
                 onClick={onResetBaseline}
                 className="hidden items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 xl:inline-flex"
-                title="还原当前标签页至上次保存状态"
+                title={t('header.reset.title')}
               >
                 <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                <span>还原</span>
+                <span>{t('header.reset.label')}</span>
               </button>
             ) : null}
           </div>
@@ -215,11 +219,11 @@ export function WorkbenchHeader({
             type="button"
             onClick={onExpandInspector}
             className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
-            title="展开右侧 AI 与属性面板"
-            aria-label="展开右侧面板"
+            title={t('header.inspector.expandTitle')}
+            aria-label={t('header.inspector.expandAria')}
           >
             <PanelRightOpen className="h-3.5 w-3.5" aria-hidden="true" />
-            <span className="hidden md:inline">展开</span>
+            <span className="hidden md:inline">{t('header.inspector.expand')}</span>
           </button>
         ) : null}
       </div>

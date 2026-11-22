@@ -19,6 +19,8 @@ import {
   type DitaTopicTemplateType,
   type XmlParseError,
 } from '@dita/core';
+import { apiT } from '../../i18n/messages.js';
+import type { ApiLocale } from '../../i18n/locale.js';
 
 export interface WorkspaceFileNode {
   name: string;
@@ -562,7 +564,9 @@ export class WorkspaceManager {
     name: string;
     parentDir?: string;
     scaffold?: WorkspaceScaffold;
+    locale?: ApiLocale;
   }): Promise<WorkspaceSnapshot> {
+    const locale: ApiLocale = options.locale ?? 'zh-CN';
     const displayName = options.name.trim();
     if (!displayName) {
       throw new WorkspacePathError('Workspace name cannot be empty.');
@@ -573,7 +577,7 @@ export class WorkspaceManager {
     try {
       parentStat = await fs.stat(parentDir);
     } catch {
-      throw new WorkspaceNotFoundError(`父目录不存在：${parentDir}`);
+      throw new WorkspaceNotFoundError(apiT(locale, 'files.parentMissing', { path: parentDir }));
     }
     if (!parentStat.isDirectory()) {
       throw new WorkspacePathError(`Parent path is not a directory: ${parentDir}`);
@@ -585,9 +589,7 @@ export class WorkspaceManager {
     if (existsSync(targetDir)) {
       const existing = await fs.readdir(targetDir);
       if (existing.length > 0) {
-        throw new WorkspaceConflictError(
-          `目标目录已存在且不为空：${targetDir}`,
-        );
+        throw new WorkspaceConflictError(apiT(locale, 'files.targetNotEmpty', { path: targetDir }));
       }
     }
 
@@ -606,11 +608,11 @@ export class WorkspaceManager {
           { name: 'href', value: topicPath, namespaceURI: null },
           { name: 'type', value: 'concept', namespaceURI: null },
         ],
-        navtitle: '项目介绍',
+        navtitle: apiT(locale, 'files.projectIntroNavtitle'),
       });
       const topicXml = createTopicTemplate('concept', {
         id: 'introduction',
-        title: `${displayName} 项目介绍`,
+        title: apiT(locale, 'files.projectIntroTitle', { name: displayName }),
       });
       await fs.writeFile(path.join(targetDir, 'index.ditamap'), mapWithTopic.xml, 'utf8');
       await fs.writeFile(path.join(targetDir, topicPath), topicXml, 'utf8');
@@ -969,7 +971,10 @@ export class WorkspaceManager {
     };
   }
 
-  async collectDiagnostics(rootMapPath?: string): Promise<WorkspaceDiagnostic[]> {
+  async collectDiagnostics(
+    rootMapPath?: string,
+    locale: ApiLocale = 'zh-CN',
+  ): Promise<WorkspaceDiagnostic[]> {
     const snapshot = await this.scanWorkspace();
     const fileSet = new Set<string>();
 
@@ -1005,7 +1010,7 @@ export class WorkspaceManager {
           column: check.error.column,
           severity: 'error',
           source: 'xml',
-          message: `XML 良构错误：${check.error.message}`,
+          message: apiT(locale, 'files.xmlNotWellFormed', { message: check.error.message }),
         });
         continue;
       }
@@ -1030,7 +1035,7 @@ export class WorkspaceManager {
               column,
               severity: 'warning',
               source: 'asset-ref',
-              message: `引用图片不存在或超出工作区：${href}`,
+              message: apiT(locale, 'files.imageMissing', { href }),
               targetHref: href,
               resolvedPath: resolved.targetPath || undefined,
             });
@@ -1087,7 +1092,7 @@ export class WorkspaceManager {
             column,
             severity: 'error',
             source: 'map-ref',
-            message: `引用路径超出工作区根目录：${ref.href}`,
+            message: apiT(locale, 'files.refOutsideRoot', { href: ref.href }),
             targetHref: ref.href,
           });
           continue;
@@ -1101,7 +1106,10 @@ export class WorkspaceManager {
             column,
             severity: 'error',
             source: 'map-ref',
-            message: `目标文件不存在：${ref.href}（解析路径：${resolved.targetPath}）`,
+            message: apiT(locale, 'files.refTargetMissing', {
+                href: ref.href,
+                resolved: resolved.targetPath,
+              }),
             targetHref: ref.href,
             resolvedPath: resolved.targetPath,
           });
@@ -1117,7 +1125,10 @@ export class WorkspaceManager {
               column,
               severity: 'error',
               source: 'map-ref',
-              message: `检测到循环子地图引用 (<mapref>)：${mapPath} -> ${resolved.targetPath}`,
+              message: apiT(locale, 'files.submapCycle', {
+                from: mapPath,
+                to: resolved.targetPath,
+              }),
               targetHref: ref.href,
               resolvedPath: resolved.targetPath,
             });

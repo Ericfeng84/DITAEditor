@@ -1,6 +1,8 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError } from '../errors.js';
+import { resolveRequestLocale } from '../../i18n/locale.js';
+import { apiT } from '../../i18n/messages.js';
 import type { GitManager } from './git-manager.js';
 import { validateBranchName } from './git-manager.js';
 import type { IdentityService } from '../identity/identity-service.js';
@@ -20,7 +22,7 @@ const REVISION_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._/~^@{}-]{0,200}$/;
 function normalizeRevision(raw: string | undefined): string | undefined {
   if (!raw) return undefined;
   if (!REVISION_PATTERN.test(raw) || raw.includes('..')) {
-    throw new HttpError(400, `非法版本标识：${raw}`);
+    throw httpError(400, 'git.invalidRevision', { revision: raw });
   }
   return raw;
 }
@@ -39,7 +41,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
   app.get('/api/git/status', async (req, reply) => {
     try {
       const scope = await resolvePhase4Scope(req, options);
-      const status = await git.status(scope.workDir, scope.projectRootDir);
+      const status = await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req));
       return {
         ...status,
         workDir: scope.workDir,
@@ -48,7 +50,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
         locks: locks.list(scope.projectId, scope.branch),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -60,10 +62,10 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       locks.markInitialized(scope.projectId);
       return {
         created,
-        status: await git.status(scope.workDir, scope.projectRootDir),
+        status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -85,7 +87,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
         branches,
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -98,7 +100,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       const scope = await resolvePhase4Scope(req, options);
       identity.requireRole(scope.user, ['admin', 'writer']);
       if (scope.user.role === 'viewer') {
-        throw new HttpError(403, '只读角色无法创建分支');
+        throw httpError(403, 'git.viewerCannotBranch');
       }
       const name = validateBranchName(parsed.data.name);
       await git.createBranch(scope.projectRootDir, name);
@@ -108,7 +110,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
         branches: await git.listBranches(scope.projectRootDir),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -130,11 +132,11 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
         workDir,
         projectRootDir: scope.projectRootDir,
         snapshot,
-        status: await git.status(workDir, scope.projectRootDir),
+        status: await git.status(workDir, scope.projectRootDir, resolveRequestLocale(req)),
         locks: locks.list(scope.projectId, branch),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -156,7 +158,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
         }),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -173,10 +175,11 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
         filePath,
         normalizeRevision(query.from),
         normalizeRevision(query.to),
+        resolveRequestLocale(req),
       );
       return { branch: scope.branch, ...diff };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -191,11 +194,13 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       const rev = normalizeRevision(query.rev) ?? 'HEAD';
       const content = await git.fileAtRevision(scope.workDir, rev, filePath);
       if (content === null) {
-        return reply.status(404).send({ error: `版本 ${rev} 中不存在该文件` });
+        return reply
+          .status(404)
+          .send({ error: apiT(resolveRequestLocale(req), 'git.revisionFileMissing', { revision: rev }) });
       }
       return { path: filePath, rev, content };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -220,10 +225,10 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       return {
         ...result,
         locks: locks.list(scope.projectId, scope.branch),
-        status: await git.status(scope.workDir, scope.projectRootDir),
+        status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -240,7 +245,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       locks.release(scope.projectId, scope.branch, filePath, scope.user);
       return { ...result, path: filePath, locks: locks.list(scope.projectId, scope.branch) };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 }

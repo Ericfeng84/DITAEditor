@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { MergeView } from '@codemirror/merge';
 import { EditorView, lineNumbers } from '@codemirror/view';
+import { useI18n } from '../i18n/index.js';
 
 const diffTheme = EditorView.theme({
   '&': {
@@ -14,7 +15,7 @@ const diffTheme = EditorView.theme({
   '.cm-lineNumbers .cm-gutterElement': { padding: '0 6px 0 10px', minWidth: '28px' },
 });
 
-/** Shorten raw 40-char commit SHAs while leaving symbolic labels (HEAD, 工作区) intact. */
+/** Shorten raw 40-char commit SHAs while leaving symbolic labels (HEAD, working tree) intact. */
 function displayRevisionLabel(label: string): string {
   if (!/^[0-9a-f]{40}(?:~\d+)?$/.test(label)) return label;
   const parentMarker = label.endsWith('~1') ? '~1' : '';
@@ -30,6 +31,7 @@ export interface DiffViewerProps {
 
 /** Side-by-side CodeMirror 6 MergeView used by history and check-in previews. */
 export function DiffViewer({ oldText, newText, fromLabel, toLabel }: DiffViewerProps) {
+  const { t } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const mergeRef = useRef<MergeView | null>(null);
   const labels = useMemo(
@@ -74,8 +76,8 @@ export function DiffViewer({ oldText, newText, fromLabel, toLabel }: DiffViewerP
     // falls back to its intrinsic content height and paints over the dialog footer buttons.
     <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-slate-200">
       <div className="grid shrink-0 grid-cols-2 border-b border-slate-200 bg-slate-50 text-[11px] font-semibold text-slate-600">
-        <div className="truncate border-r border-slate-200 px-2 py-1">旧版本 · {labels.fromLabel}</div>
-        <div className="truncate px-2 py-1">新版本 · {labels.toLabel}</div>
+        <div className="truncate border-r border-slate-200 px-2 py-1">{t('diff.oldVersion')} · {labels.fromLabel}</div>
+        <div className="truncate px-2 py-1">{t('diff.newVersion')} · {labels.toLabel}</div>
       </div>
       <div ref={hostRef} className="dita-diff-view min-h-0 min-w-0 flex-1 overflow-hidden" />
     </div>

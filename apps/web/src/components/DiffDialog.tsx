@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Maximize2, Minimize2, X } from 'lucide-react';
 import type { GitFileDiff } from '../services/git-api';
 import { DiffViewer } from './DiffViewer';
+import { useI18n } from '../i18n/index.js';
 
 /** Git revisions are 40-char SHAs; keep the dialog labels scannable. */
 function revisionLabel(revision: string): string {
@@ -18,6 +19,7 @@ export interface DiffDialogProps {
 }
 
 export function DiffDialog({ open, diff, loading, onClose }: DiffDialogProps) {
+  const { t } = useI18n();
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
@@ -38,7 +40,7 @@ export function DiffDialog({ open, diff, loading, onClose }: DiffDialogProps) {
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/45 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="版本差异"
+      aria-label={t('diff.aria')}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -50,11 +52,17 @@ export function DiffDialog({ open, diff, loading, onClose }: DiffDialogProps) {
       >
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
           <div className="min-w-0">
-            <h2 className="truncate text-sm font-semibold text-slate-900">版本差异 · {diff?.path ?? '加载中…'}</h2>
+            <h2 className="truncate text-sm font-semibold text-slate-900">{t('diff.title', { path: diff?.path ?? t('diff.loadingShort') })}</h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
               {diff
-                ? `+${diff.additions} / −${diff.deletions}${diff.binary ? ' · 二进制文件' : ''} · 旧版本 ${revisionLabel(diff.fromLabel)} → 新版本 ${revisionLabel(diff.toLabel)}`
-                : '正在读取 Git 历史版本'}
+                ? t('diff.summary', {
+                    additions: diff.additions,
+                    deletions: diff.deletions,
+                    binary: diff.binary ? t('diff.binarySuffix') : '',
+                    from: revisionLabel(diff.fromLabel),
+                    to: revisionLabel(diff.toLabel),
+                  })
+                : t('diff.readingRevisions')}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-1.5">
@@ -62,7 +70,7 @@ export function DiffDialog({ open, diff, loading, onClose }: DiffDialogProps) {
               type="button"
               onClick={() => setExpanded((value) => !value)}
               className="inline-flex items-center justify-center rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-              aria-label={expanded ? '还原差异对话框' : '展开差异对话框'}
+              aria-label={expanded ? t('diff.restoreAria') : t('diff.expandAria')}
             >
               {expanded ? (
                 <Minimize2 className="h-4 w-4" aria-hidden="true" />
@@ -74,7 +82,7 @@ export function DiffDialog({ open, diff, loading, onClose }: DiffDialogProps) {
               type="button"
               onClick={onClose}
               className="inline-flex items-center justify-center rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-              aria-label="关闭差异对话框"
+              aria-label={t('diff.closeAria')}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -83,11 +91,11 @@ export function DiffDialog({ open, diff, loading, onClose }: DiffDialogProps) {
         <div className="flex min-h-0 flex-1 flex-col p-3">
           {loading || !diff ? (
             <div className="flex flex-1 items-center justify-center text-xs text-slate-500">
-              正在计算差异…
+              {t('diff.computing')}
             </div>
           ) : diff.binary ? (
             <div className="flex flex-1 items-center justify-center text-xs text-slate-500">
-              二进制文件无法展示行级差异
+              {t('diff.binaryBody')}
             </div>
           ) : (
             <DiffViewer

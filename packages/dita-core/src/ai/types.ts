@@ -18,6 +18,8 @@ export interface AiTargetSpec {
   selectedText?: string;
 }
 
+import type { UiLocale } from '../i18n/locale.js';
+
 export interface AiExtractOptions {
   /** Radius of the read-only context window in complete lines. Defaults to 25. */
   contextLines?: number;
@@ -25,6 +27,8 @@ export interface AiExtractOptions {
   maxContextChars?: number;
   /** Cap that only flips `truncated`; the replace range itself is never truncated. Defaults to 12000. */
   maxTargetChars?: number;
+  /** UI locale for thrown diagnostics. Defaults to `zh-CN`. */
+  locale?: UiLocale;
 }
 
 export interface AiFragmentExtraction {

@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { HttpError, isHttpError } from '../errors.js';
+import { httpError, isHttpError, localizeErrorMessage } from '../errors.js';
+import { resolveRequestLocale } from '../../i18n/locale.js';
 import type { GitManager } from '../git/git-manager.js';
 import type { IdentityService, IdentityUser } from '../identity/identity-service.js';
 import type { LockService } from './lock-service.js';
@@ -36,11 +37,14 @@ export interface LockRouteOptions {
   locks: LockService;
 }
 
-export function handlePhase4Error(err: unknown, reply: FastifyReply) {
+export function handlePhase4Error(err: unknown, req: FastifyRequest, reply: FastifyReply) {
+  const locale = resolveRequestLocale(req);
   if (isHttpError(err)) {
-    return reply.status(err.statusCode).send({ error: err.message, ...(err.details ?? {}) });
+    return reply
+      .status(err.statusCode)
+      .send({ error: localizeErrorMessage(err, locale), ...(err.details ?? {}) });
   }
-  return handleWorkspaceError(err, reply);
+  return handleWorkspaceError(err, req, reply);
 }
 
 export async function resolvePhase4Scope(
@@ -75,7 +79,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         users: identity.list(),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -99,7 +103,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         locks: locks.list(scope.projectId, scope.branch),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -118,7 +122,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         locks: locks.list(scope.projectId, scope.branch),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -143,7 +147,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         locks: locks.list(scope.projectId, scope.branch),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -168,10 +172,10 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
       return {
         ...result,
         locks: locks.list(scope.projectId, scope.branch),
-        status: await git.status(scope.workDir, scope.projectRootDir),
+        status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -183,7 +187,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
     try {
       const scope = await resolvePhase4Scope(req, options);
       if (scope.user.role !== 'admin') {
-        throw new HttpError(403, '仅管理员可强制解锁');
+        throw httpError(403, 'locks.adminOnlyUnlock');
       }
       const filePath = await normalizePath(scope.workDir, parsed.data.path);
       const result = await locks.forceUnlock({
@@ -198,10 +202,10 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         ...result,
         branch: scope.branch,
         locks: locks.list(scope.projectId, scope.branch),
-        status: await git.status(scope.workDir, scope.projectRootDir),
+        status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 }

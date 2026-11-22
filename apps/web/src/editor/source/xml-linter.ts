@@ -1,5 +1,6 @@
 import { linter, type Diagnostic } from '@codemirror/lint';
 import { checkXmlWellFormed } from '@dita/core';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 
 /**
  * CodeMirror 6 real-time XML well-formedness linter backed directly by `@dita/core`.
@@ -16,7 +17,7 @@ export function createDitaXmlLinter() {
             to: 0,
             severity: 'error',
             source: 'DITA XML',
-            message: 'XML 文档不能为空，请包含有效的 DITA 根元素。',
+            message: translate(getCurrentLocale(), 'source.emptyDocument'),
           },
         ];
       }
@@ -40,7 +41,7 @@ export function createDitaXmlLinter() {
         to: Math.max(clampedFrom, clampedTo),
         severity: 'error',
         source: 'DITA XML',
-        message: `第 ${line} 行第 ${column} 列：${message}`,
+        message: translate(getCurrentLocale(), 'source.positionedMessage', { line, column, message }),
       };
       return [diagnostic];
     },

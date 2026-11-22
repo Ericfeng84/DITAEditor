@@ -1,4 +1,5 @@
 import { parseXml } from '@dita/core';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 
 interface XmlLikeNode {
   readonly nodeType: number;
@@ -120,7 +121,7 @@ export function renderConrefPreviewDom(resolvedXml: string, isInline = false): H
   if (!resolvedXml.trim()) {
     const empty = document.createElement('span');
     empty.className = 'dita-cr-empty';
-    empty.textContent = '(空片段)';
+    empty.textContent = translate(getCurrentLocale(), 'conref.emptyFragment');
     container.appendChild(empty);
     return container;
   }

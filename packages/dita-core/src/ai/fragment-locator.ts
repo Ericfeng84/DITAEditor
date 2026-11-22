@@ -1,6 +1,8 @@
 import type * as slimdom from 'slimdom';
 import { getNodeSourceRange, parseXml } from '../xml/parser.js';
 import type { AiExtractOptions, AiFragmentExtraction, AiTargetSpec } from './types.js';
+import { coreT } from '../i18n/messages.js';
+import type { UiLocale } from '../i18n/locale.js';
 
 export const DEFAULT_AI_CONTEXT_LINES = 25;
 export const DEFAULT_AI_MAX_CONTEXT_CHARS = 4000;
@@ -17,6 +19,7 @@ interface ResolvedOptions {
   contextLines: number;
   maxContextChars: number;
   maxTargetChars: number;
+  locale: UiLocale;
 }
 
 /**
@@ -33,6 +36,7 @@ export function extractTargetFragment(
     contextLines: Math.max(0, Math.floor(options.contextLines ?? DEFAULT_AI_CONTEXT_LINES)),
     maxContextChars: Math.max(1, Math.floor(options.maxContextChars ?? DEFAULT_AI_MAX_CONTEXT_CHARS)),
     maxTargetChars: Math.max(1, Math.floor(options.maxTargetChars ?? DEFAULT_AI_MAX_TARGET_CHARS)),
+    locale: options.locale ?? 'zh-CN',
   };
 
   switch (target.mode) {
@@ -44,7 +48,7 @@ export function extractTargetFragment(
       return extractFullDocumentTarget(xml, target, resolved);
     default: {
       const exhaustive: never = target.mode;
-      throw new Error(`不支持的 AI 定位模式：${String(exhaustive)}`);
+      throw new Error(coreT(options.locale, 'ai.unsupportedMode', { mode: String(exhaustive) }));
     }
   }
 }
@@ -56,7 +60,7 @@ function extractElementTarget(
 ): AiFragmentExtraction {
   const elementPath = target.elementPath;
   if (!elementPath) {
-    throw new Error('元素靶向定位缺少 elementPath（[] 表示根元素，[0] 表示第一个元素子节点）。');
+    throw new Error(coreT(options.locale, 'ai.elementPathRequired'));
   }
 
   let root: slimdom.Element;
@@ -64,12 +68,14 @@ function extractElementTarget(
     const parsed = parseXml(xml, { position: true });
     const documentElement = parsed.document.documentElement;
     if (!documentElement) {
-      throw new Error('XML 文档缺少根元素。');
+      throw new Error(coreT(options.locale, 'ai.missingRoot'));
     }
     root = documentElement;
   } catch (err) {
     throw new Error(
-      `元素靶向定位需要良构的 XML；当前原文无法解析：${err instanceof Error ? err.message : String(err)}`,
+      coreT(options.locale, 'ai.elementTargetNeedsWellFormed', {
+        message: err instanceof Error ? err.message : String(err),
+      }),
     );
   }
 
@@ -77,13 +83,17 @@ function extractElementTarget(
   let parent: slimdom.Element | null = null;
   for (const index of elementPath) {
     if (!Number.isInteger(index) || index < 0) {
-      throw new Error(`elementPath 含非法下标：${String(index)}（必须是非负整数）。`);
+      throw new Error(coreT(options.locale, 'ai.invalidElementIndex', { index: String(index) }));
     }
     const children = elementChildren(current);
     const next = children[index];
     if (!next) {
       throw new Error(
-        `elementPath 越界：<${current.tagName}> 没有第 ${index} 个元素子节点（共 ${children.length} 个）。`,
+        coreT(options.locale, 'ai.elementPathOutOfRange', {
+          tag: current.tagName,
+          index: String(index),
+          count: String(children.length),
+        }),
       );
     }
     parent = current;
@@ -93,11 +103,11 @@ function extractElementTarget(
   const range = getNodeSourceRange(current);
   const reportedStart = range.open?.start;
   if (reportedStart === undefined) {
-    throw new Error(`无法获取 <${current.tagName}> 的源码位置信息。`);
+    throw new Error(coreT(options.locale, 'ai.missingSourceRange', { tag: current.tagName }));
   }
   const startOffset = resolveElementStartOffset(xml, reportedStart, current.tagName);
   if (!xml.startsWith(current.tagName, startOffset + 1)) {
-    throw new Error(`<${current.tagName}> 的源码位置不可靠，无法安全定位替换区间。`);
+    throw new Error(coreT(options.locale, 'ai.unreliableSourceRange', { tag: current.tagName }));
   }
   const openEnd = range.open?.end ?? startOffset;
   const closeEnd = range.close?.end;
@@ -135,10 +145,15 @@ function extractLineWindowTarget(
   const rawStart = target.line ?? 1;
   const rawEnd = target.lineEnd ?? rawStart;
   if (!Number.isInteger(rawStart) || rawStart < 1) {
-    throw new Error(`行窗口定位的起始行无效：${String(rawStart)}（必须是 ≥ 1 的整数行号）。`);
+    throw new Error(coreT(options.locale, 'ai.invalidStartLine', { line: String(rawStart) }));
   }
   if (!Number.isInteger(rawEnd) || rawEnd < rawStart) {
-    throw new Error(`行窗口定位的结束行无效：${String(rawEnd)}（必须 ≥ 起始行 ${rawStart}）。`);
+    throw new Error(
+      coreT(options.locale, 'ai.invalidEndLine', {
+        line: String(rawEnd),
+        startLine: String(rawStart),
+      }),
+    );
   }
 
   const lineStart = Math.min(rawStart, lines.length);

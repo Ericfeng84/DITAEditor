@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import type { DitaElementSpec } from '@dita/core';
 import { useInstantTitles } from './useInstantTitles';
+import { useI18n } from '../../i18n/index.js';
+import { getElementLabel } from '@dita/core';
 
 const TAG_ICONS: Record<string, LucideIcon> = {
   b: Bold,
@@ -78,6 +80,7 @@ export function InlineBubbleToolbar({
   onClose,
   onAiRequest,
 }: InlineBubbleToolbarProps) {
+  const { t, locale } = useI18n();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const moreBtnRef = useRef<HTMLButtonElement | null>(null);
   const [left, setLeft] = useState(anchor.left);
@@ -109,7 +112,7 @@ export function InlineBubbleToolbar({
       ref={rootRef}
       className="dita-bubble"
       role="toolbar"
-      aria-label={contextTag ? `行内元素转换（当前上下文 <${contextTag}>）` : '行内元素转换'}
+      aria-label={contextTag ? t('inlineToolbar.ariaContext', { tag: contextTag }) : t('inlineToolbar.aria')}
       style={{ top: anchor.top, left }}
       onKeyDown={handleKeyDown}
       data-testid="inline-bubble-toolbar"
@@ -122,8 +125,8 @@ export function InlineBubbleToolbar({
             key={spec.tag}
             type="button"
             className="dita-bubble-btn"
-            title={`<${spec.tag}> ${spec.labelZh}${spec.shortcut ? ` · ${spec.shortcut}` : ''}`}
-            aria-label={`转换为 <${spec.tag}>`}
+            title={`<${spec.tag}> ${getElementLabel(spec, locale)}${spec.shortcut ? ` · ${spec.shortcut}` : ''}`}
+            aria-label={t('inlineToolbar.convertAria', { tag: spec.tag })}
             aria-pressed={pressed}
             data-tag={spec.tag}
             onMouseDown={(event) => event.preventDefault()}
@@ -139,8 +142,8 @@ export function InlineBubbleToolbar({
           <button
             type="button"
             className="dita-bubble-btn"
-            title="AI 改写选中内容"
-            aria-label="AI 改写选中内容"
+            title={t('inlineToolbar.rewrite')}
+            aria-label={t('inlineToolbar.rewrite')}
             data-ai-action="rewrite"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onAiRequest('rewrite')}
@@ -150,8 +153,8 @@ export function InlineBubbleToolbar({
           <button
             type="button"
             className="dita-bubble-btn"
-            title="向 AI 提问选中内容"
-            aria-label="向 AI 提问选中内容"
+            title={t('inlineToolbar.ask')}
+            aria-label={t('inlineToolbar.ask')}
             data-ai-action="ask"
             onMouseDown={(event) => event.preventDefault()}
             onClick={() => onAiRequest('ask')}
@@ -165,8 +168,8 @@ export function InlineBubbleToolbar({
         ref={moreBtnRef}
         type="button"
         className="dita-bubble-btn"
-        title="更多行内元素"
-        aria-label="更多行内元素"
+        title={t('inlineToolbar.more')}
+        aria-label={t('inlineToolbar.more')}
         data-tag="__more__"
         onMouseDown={(event) => event.preventDefault()}
         onClick={() => {

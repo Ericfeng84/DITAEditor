@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DitaElementSpec } from '@dita/core';
 import { CornerDownLeft, Search, X } from 'lucide-react';
 import type { InsertContextGroup } from './selection-info';
+import { useI18n } from '../../i18n/index.js';
+import { getElementDescription, getElementLabel } from '@dita/core';
 
 export interface InsertElementChoice {
   spec: DitaElementSpec;
@@ -32,6 +34,7 @@ export function InsertElementMenu({
   onSelect,
   onClose,
 }: InsertElementMenuProps) {
+  const { t, locale } = useI18n();
   const [query, setQuery] = useState('');
   const [activeIndex, setActiveIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -46,7 +49,7 @@ export function InsertElementMenu({
           const haystack = [
             spec.tag,
             spec.label,
-            spec.labelZh,
+            getElementLabel(spec, locale),
             spec.description,
             ...(spec.keywords ?? []),
           ]
@@ -154,7 +157,7 @@ export function InsertElementMenu({
     <div
       ref={panelRef}
       role="listbox"
-      aria-label="上下文合法 DITA 元素插入菜单"
+      aria-label={t('insertMenu.aria')}
       style={{ top: `${top}px`, left: `${left}px`, width: `${menuW}px` }}
       className="fixed z-50 flex max-h-[380px] flex-col overflow-hidden rounded-lg border border-slate-200 bg-white shadow-2xl ring-1 ring-slate-900/5"
       onKeyDown={handleKeyDown}
@@ -168,15 +171,15 @@ export function InsertElementMenu({
           onChange={(e) => setQuery(e.target.value)}
           placeholder={
             isSlashTrigger
-              ? '筛选当前光标处合法的 DITA 1.3 元素...'
-              : '搜索合法 DITA 元素（标签名 / 中文）...'
+              ? t('insertMenu.placeholderSlash')
+              : t('insertMenu.placeholderSearch')
           }
           className="w-full bg-transparent text-xs text-slate-900 outline-none placeholder:text-slate-400"
         />
         <button
           type="button"
           onClick={onClose}
-          aria-label="关闭插入菜单"
+          aria-label={t('insertMenu.closeAria')}
           className="rounded p-0.5 text-slate-400 hover:bg-slate-200/70 hover:text-slate-700"
         >
           <X className="h-3.5 w-3.5" aria-hidden="true" />
@@ -186,7 +189,7 @@ export function InsertElementMenu({
       <div className="dita-scroller min-h-0 flex-1 overflow-y-auto p-1.5">
         {groupedSections.length === 0 ? (
           <div className="px-3 py-6 text-center text-xs text-slate-400">
-            当前位置没有匹配的合法 DITA 1.3 元素
+            {t('insertMenu.empty')}
           </div>
         ) : (
           groupedSections.map((section) => (
@@ -232,7 +235,7 @@ export function InsertElementMenu({
                             &lt;{choice.spec.tag}&gt;
                           </code>
                           <span className="truncate text-xs font-medium">
-                            {choice.spec.labelZh}
+                            {getElementLabel(choice.spec, locale)}
                           </span>
                         </div>
                         <p
@@ -240,7 +243,7 @@ export function InsertElementMenu({
                             isActive ? 'text-indigo-100' : 'text-slate-500'
                           }`}
                         >
-                          {choice.spec.description}
+                          {getElementDescription(choice.spec, locale)}
                         </p>
                       </div>
                       {isActive ? (
@@ -260,8 +263,8 @@ export function InsertElementMenu({
       </div>
 
       <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-500">
-        <span>仅展示 DITA 1.3 内容模型允许的元素</span>
-        <span className="font-mono">↑↓ 选择 · Enter 插入 · Esc 关闭</span>
+        <span>{t('insertMenu.footnoteContentModel')}</span>
+        <span className="font-mono">{t('insertMenu.footnoteKeys')}</span>
       </div>
     </div>
   );

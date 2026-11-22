@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Loader2 } from 'lucide-react';
 import { streamPublishJobEvents } from '../../services/publish-api';
+import { useI18n } from '../../i18n/index.js';
 
 export interface JobLogViewerProps {
   jobId: string;
@@ -10,6 +11,7 @@ export interface JobLogViewerProps {
 const MAX_LOG_CHARS = 200_000;
 
 export function JobLogViewer({ jobId, status }: JobLogViewerProps) {
+  const { t } = useI18n();
   const [text, setText] = useState('');
   const [error, setError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -54,10 +56,10 @@ export function JobLogViewer({ jobId, status }: JobLogViewerProps) {
           {live ? (
             <>
               <Loader2 className="h-3 w-3 animate-spin text-sky-400" aria-hidden="true" />
-              实时流式输出
+              {t('jobLog.live')}
             </>
           ) : (
-            '构建结束'
+            t('jobLog.finished')
           )}
         </span>
       </div>
@@ -69,7 +71,7 @@ export function JobLogViewer({ jobId, status }: JobLogViewerProps) {
           <pre className="whitespace-pre-wrap break-words">{text}</pre>
         ) : (
           <p className="text-slate-500">
-            {error ? `日志读取失败：${error}` : '等待构建输出…'}
+            {error ? t('jobLog.error', { error }) : t('jobLog.waiting')}
           </p>
         )}
       </div>

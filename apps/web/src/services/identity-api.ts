@@ -5,6 +5,8 @@
  * treats it as a display identity only (not an authentication boundary) and falls back
  * to the seeded administrator when the header is missing.
  */
+import { getCurrentLocale, translate, type MessageKey } from '../i18n/index.js';
+
 export type IdentityRole = 'admin' | 'writer' | 'viewer';
 
 export interface IdentityUser {
@@ -48,8 +50,13 @@ export function setCurrentUserId(userId: string): void {
   }
 }
 
-export const ROLE_LABELS: Record<IdentityRole, string> = {
-  admin: '管理员',
-  writer: '写作',
-  viewer: '只读',
+const ROLE_LABEL_KEYS: Record<IdentityRole, MessageKey> = {
+  admin: 'identity.role.admin',
+  writer: 'identity.role.writer',
+  viewer: 'identity.role.viewer',
 };
+
+/** Localized role label; call from render so a locale switch re-renders. */
+export function roleLabel(role: IdentityRole): string {
+  return translate(getCurrentLocale(), ROLE_LABEL_KEYS[role]);
+}

@@ -3,6 +3,8 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { delimiter, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { apiT } from '../../i18n/messages.js';
+import type { ApiLocale } from '../../i18n/locale.js';
 
 export type DitaStreamName = 'stdout' | 'stderr';
 
@@ -175,6 +177,8 @@ const DETECTION_TTL_MS = 30_000;
 export interface DetectRuntimeOptions {
   timeoutMs?: number;
   force?: boolean;
+  /** UI locale for the returned error text. Defaults to `zh-CN`. */
+  locale?: ApiLocale;
 }
 
 /**
@@ -244,7 +248,7 @@ export async function detectDitaRuntime(
     }
   } catch (err) {
     error = (err as NodeJS.ErrnoException).code === 'ENOENT'
-      ? `找不到 DITA-OT CLI 可执行文件：${command}`
+      ? apiT(detectOptions.locale ?? 'zh-CN', 'ditaRuntime.cliNotFound', { command })
       : err instanceof Error
         ? err.message
         : String(err);

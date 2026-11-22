@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { sanitizeCssColor } from '../editor/visual/conref-renderer';
 import type { CompositeMapTreeNode } from './map-tree-utils';
+import { useI18n } from '../i18n/index.js';
 
 export interface MapNodeRowActions {
   ditavalActive?: boolean;
@@ -69,6 +70,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
     style,
     dragHandle,
   }: NodeRendererProps<CompositeMapTreeNode>) {
+    const { t } = useI18n();
     const data = node.data;
     const hasExpandable = Boolean(data.children && data.children.length > 0);
     const hasBrokenTarget = Boolean(data.href && !data.targetExists);
@@ -132,7 +134,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
             ev.stopPropagation();
             if (hasExpandable) node.toggle();
           }}
-          aria-label={node.isOpen ? '折叠子节点' : '展开子节点'}
+          aria-label={node.isOpen ? t('mapNode.collapse') : t('mapNode.expand')}
           className={`flex h-5 w-4 shrink-0 items-center justify-center rounded text-slate-400 hover:text-slate-700 ${
             hasExpandable ? 'visible' : 'invisible'
           }`}
@@ -156,13 +158,13 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
           title={[
             data.label,
             data.href ? `href: ${data.href}` : null,
-            data.isSubmapChild ? `所属子地图: ${data.ownerMapPath}` : null,
+            data.isSubmapChild ? t('mapNode.submapOwner', { path: data.ownerMapPath }) : null,
             data.profilingSummary
-              ? `条件属性: ${data.profilingSummary.map((p) => `${p.name}=${p.values.join(' ')}`).join(', ')}`
+              ? t('mapNode.profiling', { attrs: data.profilingSummary.map((p) => `${p.name}=${p.values.join(' ')}`).join(', ') })
               : null,
-            isExcluded ? '⛔ 已被当前 DITAVAL 条件排除' : null,
-            hasBrokenTarget ? '⚠ 找不到目标文件' : null,
-            data.isCyclicRef ? '⚠ 检测到循环 <mapref>' : null,
+            isExcluded ? t('mapNode.excluded') : null,
+            hasBrokenTarget ? t('mapNode.brokenTarget') : null,
+            data.isCyclicRef ? t('mapNode.cycle') : null,
           ]
             .filter(Boolean)
             .join('\n')}
@@ -173,7 +175,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
         {/* DITAVAL Flag / Excluded / Profiling pills */}
         {isExcluded ? (
           <span className="shrink-0 rounded bg-rose-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-rose-700">
-            排除
+            {t('mapNode.excludedBadge')}
           </span>
         ) : firstFlagBadge ? (
           <span className="shrink-0 rounded bg-indigo-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-indigo-800">
@@ -198,7 +200,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
         {hasBrokenTarget || data.isCyclicRef ? (
           <AlertTriangle
             className="h-3.5 w-3.5 shrink-0 text-rose-500"
-            aria-label={data.isCyclicRef ? '循环子地图引用' : '目标文件不存在'}
+            aria-label={data.isCyclicRef ? t('mapNode.cycleAria') : t('mapNode.missingAria')}
           />
         ) : null}
 
@@ -221,8 +223,8 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
                 ev.stopPropagation();
                 actions.onQuickAddChildTopic(data);
               }}
-              title="在该节点下新建子 Topic 并挂载"
-              aria-label="新建子 Topic 并挂载"
+              title={t('mapNode.createChildTitle')}
+              aria-label={t('mapNode.createChildAria')}
               className="rounded p-0.5 text-slate-400 hover:bg-indigo-100 hover:text-indigo-700"
             >
               <FilePlus2 className="h-3 w-3" aria-hidden="true" />
@@ -242,8 +244,8 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
                 ev.currentTarget,
               );
             }}
-            title="节点操作菜单"
-            aria-label="打开节点操作菜单"
+            title={t('mapNode.menuTitle')}
+            aria-label={t('mapNode.menuAria')}
             className="rounded p-0.5 text-slate-400 hover:bg-slate-200 hover:text-slate-800"
           >
             <MoreVertical className="h-3 w-3" aria-hidden="true" />

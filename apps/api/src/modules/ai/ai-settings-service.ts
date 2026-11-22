@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import type { DitaDatabase } from '../../db/client.js';
 import { aiSettings, type AiSettingsRow } from '../../db/schema.js';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError } from '../errors.js';
 import type { IdentityUser } from '../identity/identity-service.js';
 import type { AiApiKeySource, AiConfigUpdateInput, AiPublicConfig } from './types.js';
 
@@ -112,7 +112,7 @@ export class AiSettingsService {
    */
   saveConfig(input: AiConfigUpdateInput, user: IdentityUser): AiPublicConfig {
     if (user.role !== 'admin') {
-      throw new HttpError(403, '仅管理员可以修改 AI 配置。');
+      throw httpError(403, 'ai.adminOnlyConfig');
     }
     const env = readAiEnvDefaults();
     const existing = this.getRow();

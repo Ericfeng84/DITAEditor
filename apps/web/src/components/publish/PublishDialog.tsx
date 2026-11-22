@@ -20,6 +20,8 @@ import type { IdentityUser } from '../../services/identity-api';
 import type { WorkspaceDitavalSummary, WorkspaceMapSummary } from '../../services/workspace-api';
 import type { PublishFormat, PublishJob, PublishStatus } from '../../services/publish-api';
 import { usePublishStore } from '../../store/publish-store';
+import { useI18n } from '../../i18n/index.js';
+import type { MessageKey } from '../../i18n/messages/index.js';
 import { JobLogViewer } from './JobLogViewer';
 
 export interface PublishDialogProps {
@@ -32,12 +34,12 @@ export interface PublishDialogProps {
   onClose: () => void;
 }
 
-const STATUS_META: Record<PublishStatus, { label: string; className: string; icon: typeof Clock }> = {
-  queued: { label: '排队中', className: 'bg-slate-100 text-slate-600', icon: Clock },
-  running: { label: '构建中', className: 'bg-sky-50 text-sky-700', icon: Loader2 },
-  succeeded: { label: '已完成', className: 'bg-emerald-50 text-emerald-700', icon: CheckCircle2 },
-  failed: { label: '失败', className: 'bg-rose-50 text-rose-700', icon: XCircle },
-  cancelled: { label: '已取消', className: 'bg-amber-50 text-amber-700', icon: Ban },
+const STATUS_META: Record<PublishStatus, { labelKey: MessageKey; className: string; icon: typeof Clock }> = {
+  queued: { labelKey: 'publish.status.queued', className: 'bg-slate-100 text-slate-600', icon: Clock },
+  running: { labelKey: 'publish.status.running', className: 'bg-sky-50 text-sky-700', icon: Loader2 },
+  succeeded: { labelKey: 'publish.status.succeeded', className: 'bg-emerald-50 text-emerald-700', icon: CheckCircle2 },
+  failed: { labelKey: 'publish.status.failed', className: 'bg-rose-50 text-rose-700', icon: XCircle },
+  cancelled: { labelKey: 'publish.status.cancelled', className: 'bg-amber-50 text-amber-700', icon: Ban },
 };
 
 function formatBytes(value: number | null): string {
@@ -77,6 +79,7 @@ export function PublishDialog({
   role,
   onClose,
 }: PublishDialogProps) {
+  const { t } = useI18n();
   const runtime = usePublishStore((state) => state.runtime);
   const runtimeLoading = usePublishStore((state) => state.runtimeLoading);
   const runtimeError = usePublishStore((state) => state.runtimeError);
@@ -129,7 +132,7 @@ export function PublishDialog({
   }, [open, liveJob, selectedJob, refreshJob]);
 
   const selectedMap = rootMaps.find((map) => map.path === rootMap) ?? null;
-  const defaultTitle = selectedMap?.title?.trim() || stemOf(rootMap) || '未命名发布';
+  const defaultTitle = selectedMap?.title?.trim() || stemOf(rootMap) || t('publish.untitled');
   const canPublish =
     Boolean(runtime?.available) && Boolean(rootMap) && !submitting && role !== 'viewer';
 
@@ -150,7 +153,7 @@ export function PublishDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="发布 DITA 文档"
+      aria-label={t('publish.aria')}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !submitting) onClose();
       }}
@@ -160,10 +163,10 @@ export function PublishDialog({
           <div className="min-w-0">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
               <Rocket className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              发布 · DITA-OT HTML5 / PDF
+              {t('publish.title')}
             </h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              从当前分支工作区创建快照，使用 DITA-OT 4.x 严格校验并构建；未签入的已保存修改同样会进入构建。
+              {t('publish.subtitle')}
             </p>
           </div>
           <div className="flex shrink-0 items-center gap-2">
@@ -175,7 +178,7 @@ export function PublishDialog({
                     ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
                     : 'border-amber-200 bg-amber-50 text-amber-700'
               }`}
-              title={runtime?.error ?? runtime?.command ?? '正在检测 DITA-OT'}
+              title={runtime?.error ?? runtime?.command ?? t('publish.detectPending')}
             >
               {runtimeLoading ? (
                 <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -185,17 +188,17 @@ export function PublishDialog({
                 <AlertCircle className="h-3 w-3" aria-hidden="true" />
               )}
               {runtimeLoading
-                ? '检测 DITA-OT…'
+                ? t('publish.detecting')
                 : runtime?.available
                   ? `DITA-OT ${runtime.version ?? 'ready'}`
-                  : 'DITA-OT 未就绪'}
+                  : t('publish.notReady')}
             </span>
             <button
               type="button"
               onClick={() => void loadRuntime()}
               disabled={runtimeLoading}
               className="dita-mini-btn px-1.5 py-0.5 disabled:opacity-50"
-              title="重新检测 DITA-OT 运行时"
+              title={t('publish.redetect')}
             >
               <RefreshCw
                 className={`h-3 w-3 ${runtimeLoading ? 'animate-spin' : ''}`}
@@ -207,7 +210,7 @@ export function PublishDialog({
               onClick={onClose}
               disabled={submitting}
               className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50"
-              aria-label="关闭发布对话框"
+              aria-label={t('publish.closeAria')}
             >
               <X className="h-4 w-4" aria-hidden="true" />
             </button>
@@ -216,18 +219,20 @@ export function PublishDialog({
 
         {!runtimeLoading && !runtime?.available ? (
           <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] text-amber-900">
-            <p className="font-semibold">未检测到可用的 DITA-OT 4.x CLI</p>
+            <p className="font-semibold">{t('publish.missingCliTitle')}</p>
             <p className="mt-0.5 text-amber-800">
-              请安装 DITA-OT 4.x，设置 <code className="font-mono">DITA_OT_HOME</code>（或把{' '}
-              <code className="font-mono">dita</code> 加入 PATH），然后点击“重新检测”。当前命令：
+              {t('publish.missingCliBefore')} <code className="font-mono">DITA_OT_HOME</code>{' '}
+              {t('publish.missingCliMiddle')} <code className="font-mono">dita</code>{' '}
+              {t('publish.missingCliAfter')}
               <code className="ml-1 font-mono">{runtime?.command ?? 'dita'}</code>
               {runtime?.error ? <span className="ml-2 text-rose-700">{runtime.error}</span> : null}
             </p>
           </div>
         ) : runtime?.available && !runtime.pluginInstalled ? (
           <div className="shrink-0 border-b border-sky-200 bg-sky-50 px-4 py-1.5 text-[11px] text-sky-900">
-            未在 DITA-OT 中注册 PDF 字体插件 <code className="font-mono">com.ditaeditor.pdf-cjk</code>；
-            发布时仍会通过 <code className="font-mono">--customization.dir</code> 直接加载仓库插件，无需额外安装。
+            {t('publish.pluginMissingBefore')} <code className="font-mono">com.ditaeditor.pdf-cjk</code>{' '}
+            {t('publish.pluginMissingMiddle')} <code className="font-mono">--customization.dir</code>{' '}
+            {t('publish.pluginMissingAfter')}
           </div>
         ) : null}
 
@@ -239,7 +244,7 @@ export function PublishDialog({
 
         {role === 'viewer' ? (
           <div className="shrink-0 border-b border-slate-200 bg-slate-50 px-4 py-1.5 text-[11px] text-slate-600">
-            当前为只读角色：可以查看发布历史、预览与下载产物，但不能创建或取消发布任务。
+            {t('publish.readOnlyBanner')}
           </div>
         ) : null}
 
@@ -254,7 +259,7 @@ export function PublishDialog({
                 onChange={(event) => setRootMap(event.target.value)}
                 className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
               >
-                {rootMaps.length === 0 ? <option value="">当前工作区没有 Map</option> : null}
+                {rootMaps.length === 0 ? <option value="">{t('publish.noMaps')}</option> : null}
                 {rootMaps.map((map) => (
                   <option key={map.path} value={map.path}>
                     {map.title || map.name} · {map.path}
@@ -265,7 +270,7 @@ export function PublishDialog({
 
             <div>
               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                输出格式
+                {t('publish.formatLabel')}
               </span>
               <div className="flex items-center rounded-md border border-slate-300 bg-white p-0.5">
                 {(
@@ -297,17 +302,17 @@ export function PublishDialog({
 
             <label className="min-w-0">
               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                DITAVAL 过滤
+                {t('publish.ditavalLabel')}
               </span>
               <select
                 value={ditaval}
                 onChange={(event) => setDitaval(event.target.value)}
                 className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
               >
-                <option value="">不过滤</option>
+                <option value="">{t('publish.ditavalNone')}</option>
                 {ditavals.map((item) => (
                   <option key={item.path} value={item.path}>
-                    {item.name} · {item.ruleCount} 条规则
+                    {item.name} · {t('publish.ditavalRules', { count: item.ruleCount })}
                   </option>
                 ))}
               </select>
@@ -315,7 +320,7 @@ export function PublishDialog({
 
             <label className="min-w-0">
               <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                发布标题
+                {t('publish.titleLabel')}
               </span>
               <input
                 value={title}
@@ -332,10 +337,10 @@ export function PublishDialog({
               className="inline-flex h-[30px] items-center gap-1.5 rounded-md bg-slate-900 px-3 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-40"
               title={
                 role === 'viewer'
-                  ? '只读角色不能创建发布任务'
+                  ? t('publish.readOnlyBlocked')
                   : runtime?.available
-                    ? '创建发布任务'
-                    : 'DITA-OT 不可用，无法创建发布任务'
+                    ? t('publish.createTask')
+                    : t('publish.cliBlocked')
               }
             >
               {submitting ? (
@@ -343,7 +348,7 @@ export function PublishDialog({
               ) : (
                 <Rocket className="h-3.5 w-3.5" aria-hidden="true" />
               )}
-              {submitting ? '提交中…' : '开始发布'}
+              {submitting ? t('publish.submitting') : t('publish.start')}
             </button>
           </div>
           {actionError ? (
@@ -358,14 +363,14 @@ export function PublishDialog({
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5">
               <span className="flex items-center gap-1 text-[11px] font-semibold text-slate-600">
                 <History className="h-3 w-3" aria-hidden="true" />
-                发布历史（{jobs.length}）
+                {t('publish.historyTitle', { count: jobs.length })}
               </span>
               <button
                 type="button"
                 onClick={() => void loadJobs()}
                 disabled={jobsLoading}
                 className="dita-mini-btn px-1.5 py-0.5 disabled:opacity-50"
-                title="刷新发布历史"
+                title={t('publish.refreshHistory')}
               >
                 <RefreshCw
                   className={`h-3 w-3 ${jobsLoading ? 'animate-spin' : ''}`}
@@ -376,7 +381,7 @@ export function PublishDialog({
             <div className="dita-scroller min-h-0 flex-1 overflow-y-auto p-1.5">
               {jobs.length === 0 ? (
                 <p className="px-2 py-8 text-center text-[11px] text-slate-500">
-                  当前分支还没有发布任务。
+                  {t('publish.historyEmpty')}
                 </p>
               ) : (
                 jobs.map((job) => {
@@ -434,7 +439,7 @@ export function PublishDialog({
                         {selectedJob.status === 'running' ? (
                           <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
                         ) : null}
-                        {STATUS_META[selectedJob.status].label}
+                        {t(STATUS_META[selectedJob.status].labelKey)}
                       </span>
                       <h3 className="truncate text-sm font-semibold text-slate-900">
                         {selectedJob.title}
@@ -443,21 +448,21 @@ export function PublishDialog({
                     <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[10.5px] text-slate-500">
                       <span className="font-mono">{selectedJob.rootMap}</span>
                       <span>·</span>
-                      <span>格式 {selectedJob.format.toUpperCase()}</span>
+                      <span>{t('publish.meta.format', { value: selectedJob.format.toUpperCase() })}</span>
                       {selectedJob.ditaval ? (
                         <>
                           <span>·</span>
-                          <span>过滤 {selectedJob.ditaval}</span>
+                          <span>{t('publish.meta.filter', { value: selectedJob.ditaval })}</span>
                         </>
                       ) : null}
                       <span>·</span>
-                      <span>分支 {selectedJob.branch}</span>
+                      <span>{t('publish.meta.branch', { value: selectedJob.branch })}</span>
                       <span>·</span>
-                      <span>操作者 {selectedJob.userId}</span>
+                      <span>{t('publish.meta.actor', { value: selectedJob.userId })}</span>
                       <span>·</span>
-                      <span>创建 {formatTime(selectedJob.createdAt)}</span>
+                      <span>{t('publish.meta.created', { value: formatTime(selectedJob.createdAt) })}</span>
                       <span>·</span>
-                      <span>耗时 {formatDuration(selectedJob.durationMs)}</span>
+                      <span>{t('publish.meta.duration', { value: formatDuration(selectedJob.durationMs) })}</span>
                     </p>
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
@@ -468,7 +473,7 @@ export function PublishDialog({
                         className="dita-mini-btn bg-white px-2 py-1"
                       >
                         <ExternalLink className="h-3 w-3" aria-hidden="true" />
-                        预览 HTML5
+                        {t('publish.previewHtml5')}
                       </button>
                     ) : null}
                     {selectedJob.status === 'succeeded' && selectedJob.artifactUrl ? (
@@ -483,7 +488,7 @@ export function PublishDialog({
                         ) : (
                           <Package className="h-3 w-3" aria-hidden="true" />
                         )}
-                        {selectedJob.format === 'pdf' ? '打开 PDF' : '下载 ZIP'}
+                        {selectedJob.format === 'pdf' ? t('publish.openPdf') : t('publish.downloadZip')}
                         {selectedJob.artifactSize ? (
                           <span className="ml-1 text-[9.5px] text-slate-400">
                             {formatBytes(selectedJob.artifactSize)}
@@ -498,14 +503,14 @@ export function PublishDialog({
                         download
                       >
                         <FileDown className="h-3 w-3" aria-hidden="true" />
-                        下载
+                        {t('common.download')}
                       </a>
                     ) : null}
                     {liveJob && role !== 'viewer' ? (
                       <button
                         type="button"
                         onClick={() => {
-                          if (window.confirm('确认取消该发布任务？')) void cancelJob(selectedJob.id);
+                          if (window.confirm(t('publish.confirmCancel'))) void cancelJob(selectedJob.id);
                         }}
                         disabled={cancelling}
                         className="dita-mini-btn border-rose-200 bg-white px-2 py-1 text-rose-600 hover:bg-rose-50 disabled:opacity-50"
@@ -515,7 +520,7 @@ export function PublishDialog({
                         ) : (
                           <Ban className="h-3 w-3" aria-hidden="true" />
                         )}
-                        取消构建
+                        {t('publish.cancelBuild')}
                       </button>
                     ) : null}
                   </div>
@@ -530,7 +535,7 @@ export function PublishDialog({
                 {selectedJob.diagnostics.length > 0 ? (
                   <div className="dita-scroller max-h-36 shrink-0 overflow-y-auto rounded-md border border-slate-200">
                     <div className="sticky top-0 border-b border-slate-200 bg-slate-50 px-2 py-1 text-[10px] font-semibold text-slate-600">
-                      严格校验诊断（{selectedJob.diagnostics.length}）
+                      {t('publish.diagnosticsTitle', { count: selectedJob.diagnostics.length })}
                     </div>
                     <ul className="divide-y divide-slate-100">
                       {selectedJob.diagnostics.map((diagnostic) => (
@@ -563,7 +568,7 @@ export function PublishDialog({
               </>
             ) : (
               <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 text-xs text-slate-500">
-                选择左侧发布任务查看日志与产物，或在上方发起新发布。
+                {t('publish.emptySelection')}
               </div>
             )}
           </div>

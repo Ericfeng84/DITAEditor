@@ -7,6 +7,7 @@ import {
   type DocumentSemanticOverlay,
 } from '@dita/core';
 import { updateNodeRawAttr } from './commands';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 
 export class SemanticViewRegistry {
   private readonly listeners = new Set<() => void>();
@@ -237,7 +238,7 @@ class DitaPrologNodeView implements NodeView {
   private syncToggleLabel() {
     const count = this.node.childCount;
     const arrow = this.collapsed ? '▸' : '▾';
-    this.toggleBtn.textContent = `${arrow} <prolog> 元数据 (${count} 项)`;
+    this.toggleBtn.textContent = `${arrow} ${translate(getCurrentLocale(), 'nodeView.prologToggle', { count })}`;
     this.toggleBtn.setAttribute('aria-expanded', String(!this.collapsed));
   }
 
@@ -305,7 +306,11 @@ class DitaImageNodeView implements NodeView {
     const keyResolvedPath =
       !href && keyref ? this.getSemanticOverlay?.()?.keyrefs[keyref]?.targetFilePath : undefined;
     const effectiveHref = href || keyResolvedPath || '';
-    const target = href || (keyref ? `keyref:${keyref}${keyResolvedPath ? ` → ${keyResolvedPath}` : ''}` : '(未设置 href)');
+    const target =
+      href ||
+      (keyref
+        ? `keyref:${keyref}${keyResolvedPath ? ` → ${keyResolvedPath}` : ''}`
+        : translate(getCurrentLocale(), 'nodeView.noHref'));
 
     this.previewEl.textContent = '';
 
@@ -330,7 +335,7 @@ class DitaImageNodeView implements NodeView {
       img.className = this.isBlock ? 'dita-nv-image-img' : 'dita-nv-image-inline-img';
       img.onerror = () => {
         img.remove();
-        chip.textContent = `IMG (资源未找到) · ${target}${alt ? ` — "${alt}"` : ''}`;
+        chip.textContent = `${translate(getCurrentLocale(), 'nodeView.imageMissing')} · ${target}${alt ? ` — "${alt}"` : ''}`;
       };
       this.previewEl.appendChild(img);
     }
@@ -448,7 +453,11 @@ class DitaRefInlineNodeView implements NodeView {
         const sourceHint = `${resolvedKey.definition.sourceMapPath}:${resolvedKey.definition.line}`;
 
         this.badge.textContent = isEmpty ? displayVal : `key:${keyref}`;
-        this.badge.title = `Key: ${keyref}\n解析值: ${displayVal}\n定义来源: ${sourceHint}`;
+        this.badge.title = translate(getCurrentLocale(), 'nodeView.keyBadgeTitle', {
+          key: keyref,
+          value: displayVal,
+          source: sourceHint,
+        });
         this.badge.hidden = false;
 
         if (this.tagName === 'xref' && resolvedKey.targetFilePath) {
@@ -457,19 +466,21 @@ class DitaRefInlineNodeView implements NodeView {
             filePath: resolvedKey.targetFilePath,
             elementId: fragParts && fragParts.length > 1 ? fragParts[1] : fragParts?.[0],
           };
-          this.jumpBtn.title = `打开目标文件: ${resolvedKey.targetFilePath}`;
+          this.jumpBtn.title = translate(getCurrentLocale(), 'nodeView.openTargetFile', {
+            path: resolvedKey.targetFilePath,
+          });
         } else {
           this.jumpTarget = {
             filePath: resolvedKey.definition.sourceMapPath,
             line: resolvedKey.definition.line,
           };
-          this.jumpBtn.title = `跳转到 Key 定义 (${sourceHint})`;
+          this.jumpBtn.title = translate(getCurrentLocale(), 'nodeView.jumpToKeyDef', { source: sourceHint });
         }
         this.jumpBtn.hidden = !this.onJumpToSource;
       } else if (overlay && resolvedKey?.status === 'unresolved') {
         this.dom.dataset.keyrefStatus = 'unresolved';
         this.badge.textContent = `⚠ key:${keyref}`;
-        this.badge.title = resolvedKey.errorMessage ?? `未定义的 keyref: ${keyref}`;
+        this.badge.title = resolvedKey.errorMessage ?? translate(getCurrentLocale(), 'nodeView.undefinedKeyref', { key: keyref });
         this.badge.hidden = false;
       } else {
         this.badge.textContent = `key:${keyref}`;
@@ -536,7 +547,7 @@ class CalsTableNodeView implements NodeView {
     this.warningBanner.className = 'dita-nv-cals-multigroup-warn';
     this.warningBanner.contentEditable = 'false';
     this.warningBanner.textContent =
-      '⚠ 多 <tgroup> OASIS CALS 表格：已启用结构保护，仅支持单元格文本/属性编辑，表结构调整请切换至源码视图。';
+      translate(getCurrentLocale(), 'nodeView.multiTgroupWarning');
 
     this.contentDOM = document.createElement('div');
     this.contentDOM.className = 'dita-nv-cals-content';

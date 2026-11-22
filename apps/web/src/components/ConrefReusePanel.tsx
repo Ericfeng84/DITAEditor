@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { useI18n } from '../i18n/index.js';
 import {
   areConrefTagsCompatible,
   type IndexedTopicElement,
@@ -42,8 +43,8 @@ export interface ConrefReusePanelProps {
 }
 
 const MODES = [
-  { value: 'conkeyref', label: '基于 Key', hint: '推荐 · 解耦路径' },
-  { value: 'conref', label: '相对路径', hint: '直接引用文件' },
+  { value: 'conkeyref', labelKey: 'conref.mode.key', hintKey: 'conref.mode.keyHint' },
+  { value: 'conref', labelKey: 'conref.mode.path', hintKey: 'conref.mode.pathHint' },
 ] as const;
 
 /**
@@ -62,6 +63,7 @@ export function ConrefReusePanel({
   onConfirm,
   onConfirmed,
 }: ConrefReusePanelProps) {
+  const { t } = useI18n();
   const [mode, setMode] = useState<'conkeyref' | 'conref'>('conkeyref');
   const [selectedKey, setSelectedKey] = useState('');
   const [selectedFile, setSelectedFile] = useState('');
@@ -199,7 +201,7 @@ export function ConrefReusePanel({
 
   return (
     <aside
-      aria-label="内容复用面板"
+      aria-label={t('conref.panelAria')}
       className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white text-slate-800"
     >
       {/* Header: current context + reference mode */}
@@ -207,21 +209,21 @@ export function ConrefReusePanel({
         <div className="flex items-center justify-between gap-2">
           <h2 className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-800">
             <CopyPlus className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
-            内容复用
+            {t('conref.title')}
           </h2>
           <span
             className="truncate font-mono text-[10px] text-slate-500"
             title={
               selectedElementTag
-                ? `当前选中 <${selectedElementTag}>，可插入同类元素或绑定到它`
-                : '未选中元素，将插入新的复用元素'
+                ? t('conref.selectedHint', { tag: selectedElementTag })
+                : t('conref.unselectedHint')
             }
           >
-            {selectedElementTag ? `当前 <${selectedElementTag}>` : '未选中元素'}
+            {selectedElementTag ? t('conref.currentSelection', { tag: selectedElementTag }) : t('conref.noSelection')}
           </span>
         </div>
 
-        <div className="mt-2 grid grid-cols-2 gap-1.5" role="group" aria-label="引用方式">
+        <div className="mt-2 grid grid-cols-2 gap-1.5" role="group" aria-label={t('conref.modeAria')}>
           {MODES.map((option) => {
             const isActive = mode === option.value;
             return (
@@ -229,7 +231,7 @@ export function ConrefReusePanel({
                 key={option.value}
                 type="button"
                 aria-pressed={isActive}
-                title={`${option.value} — ${option.hint}`}
+                title={`${option.value} — ${t(option.hintKey)}`}
                 onClick={() => {
                   setMode(option.value);
                   setSelectedTarget(null);
@@ -243,7 +245,7 @@ export function ConrefReusePanel({
                 <span className="block truncate font-mono text-[11px] font-semibold">
                   {option.value}
                 </span>
-                <span className="block truncate text-[9.5px] text-slate-500">{option.hint}</span>
+                <span className="block truncate text-[9.5px] text-slate-500">{t(option.hintKey)}</span>
               </button>
             );
           })}
@@ -257,7 +259,7 @@ export function ConrefReusePanel({
             htmlFor={mode === 'conkeyref' ? 'conref-panel-key' : 'conref-panel-file'}
             className="mb-1 block text-[11px] font-semibold text-slate-700"
           >
-            {mode === 'conkeyref' ? '1. 绑定目标 Topic 的 Key' : '1. 源 Topic 文件'}
+            {mode === 'conkeyref' ? t('conref.step1Key') : t('conref.step1File')}
           </label>
           {mode === 'conkeyref' ? (
             <select
@@ -270,7 +272,7 @@ export function ConrefReusePanel({
               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-teal-500 focus:outline-none"
             >
               {keyBoundTopics.length === 0 ? (
-                <option value="">当前 Root Map 暂无绑定文件的 Key</option>
+                <option value="">{t('conref.noBoundKeys')}</option>
               ) : (
                 keyBoundTopics.map((k) => (
                   <option key={k.qualifiedKey} value={k.qualifiedKey}>
@@ -290,7 +292,7 @@ export function ConrefReusePanel({
               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-teal-500 focus:outline-none"
             >
               {topicIndices.length === 0 ? (
-                <option value="">工作区暂无 Topic 文件</option>
+                <option value="">{t('conref.noTopicFiles')}</option>
               ) : (
                 topicIndices.map((t) => (
                   <option key={t.filePath} value={t.filePath}>
@@ -303,7 +305,7 @@ export function ConrefReusePanel({
           {noKeyBoundTopics ? (
             <p className="mt-1 flex items-start gap-1 text-[10px] leading-snug text-amber-700">
               <ShieldAlert className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
-              请在 Root Map 中用 keydef 绑定文件，或改用相对路径引用。
+              {t('conref.bindHint')}
             </p>
           ) : null}
         </section>
@@ -315,10 +317,10 @@ export function ConrefReusePanel({
               htmlFor="conref-panel-search"
               className="text-[11px] font-semibold text-slate-700"
             >
-              2. 带 <code className="font-mono">id</code> 的可复用元素
+              {t('conref.step2')}
             </label>
             <span className="shrink-0 font-mono text-[10px] text-slate-400">
-              {candidateElements.length} 项
+              {t('conref.itemCount', { count: candidateElements.length })}
             </span>
           </div>
           <div className="relative mb-1.5">
@@ -331,7 +333,7 @@ export function ConrefReusePanel({
               type="search"
               value={idSearch}
               onChange={(e) => setIdSearch(e.target.value)}
-              placeholder="搜索 ID、标签名或文本…"
+              placeholder={t('conref.searchPlaceholder')}
               className="w-full rounded-md border border-slate-200 py-1 pr-2 pl-7 text-[11px] focus:border-teal-500 focus:outline-none"
             />
           </div>
@@ -339,7 +341,7 @@ export function ConrefReusePanel({
           <div className="dita-scroller min-h-0 flex-1 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
             {candidateElements.length === 0 ? (
               <p className="px-3 py-4 text-center text-[11px] text-slate-400">
-                所选文件中没有带 id 属性的可复用子元素。
+                {t('conref.noCandidates')}
               </p>
             ) : (
               candidateElements.map((el) => {
@@ -371,7 +373,7 @@ export function ConrefReusePanel({
                         </code>
                         {incompatible ? (
                           <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] text-amber-800">
-                            不兼容
+                            {t('conref.incompatible')}
                           </span>
                         ) : null}
                       </div>
@@ -392,19 +394,19 @@ export function ConrefReusePanel({
         {/* 3. Computed value, insertion action, live preview */}
         {selectedTarget ? (
           <section className="shrink-0 space-y-1.5 px-3 py-1.5">
-            <div className="grid grid-cols-2 gap-1" role="group" aria-label="插入方式">
+            <div className="grid grid-cols-2 gap-1" role="group" aria-label={t('conref.insertModeAria')}>
               {[
                 {
                   value: 'insert-new' as const,
-                  label: `新建 <${selectedTarget.tagName}>`,
+                  label: t('conref.insertNew', { tag: selectedTarget.tagName }),
                   disabled: false,
-                  hint: '在光标处插入复用元素',
+                  hint: t('conref.insertNewHint'),
                 },
                 {
                   value: 'bind-selected' as const,
-                  label: `绑定当前 <${selectedElementTag ?? '元素'}>`,
+                  label: t('conref.bindCurrent', { tag: selectedElementTag ?? t('conref.element') }),
                   disabled: !canBindToSelected,
-                  hint: canBindToSelected ? '给已选元素加复用属性' : '标签类型不兼容',
+                  hint: canBindToSelected ? t('conref.bindHintOk') : t('conref.bindHintBad'),
                 },
               ].map((option) => {
                 const isActive =
@@ -431,13 +433,13 @@ export function ConrefReusePanel({
             </div>
 
             {loadingPreview ? (
-              <p className="text-[10.5px] text-slate-400">正在校验循环引用并加载预览…</p>
+              <p className="text-[10.5px] text-slate-400">{t('conref.previewLoading')}</p>
             ) : preview ? (
               preview.status === 'resolved' ? (
                 <div className="rounded-md border border-emerald-200 bg-emerald-50/50 px-2 py-1">
                   <div className="flex items-center gap-1 text-[10.5px] font-semibold text-emerald-700">
                     <CheckCircle2 className="h-3 w-3 shrink-0" aria-hidden="true" />
-                    <span className="shrink-0">可安全复用</span>
+                    <span className="shrink-0">{t('conref.previewSafe')}</span>
                     <code
                       className="min-w-0 flex-1 truncate font-mono text-[10px] font-normal text-emerald-900"
                       title={`${mode}="${computedAttrValue}"`}
@@ -446,7 +448,7 @@ export function ConrefReusePanel({
                     </code>
                   </div>
                   <p className="mt-0.5 line-clamp-2 text-[10.5px] leading-snug text-slate-700">
-                    {preview.resolvedText || '(空内容)'}
+                    {preview.resolvedText || t('conref.emptyContent')}
                   </p>
                 </div>
               ) : (
@@ -473,10 +475,10 @@ export function ConrefReusePanel({
           onClick={resetSelection}
           disabled={!selectedTarget}
           className="dita-mini-btn disabled:opacity-40"
-          title="清除当前选择"
+          title={t('conref.clearSelection')}
         >
           <RotateCcw className="h-3 w-3" aria-hidden="true" />
-          重置
+          {t('conref.reset')}
         </button>
         <button
           type="button"
@@ -485,7 +487,7 @@ export function ConrefReusePanel({
           className="ml-auto inline-flex items-center gap-1 rounded-md bg-teal-600 px-3 py-1.5 text-[11px] font-semibold text-white hover:bg-teal-500 disabled:opacity-45"
         >
           <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
-          确认复用
+          {t('conref.confirm')}
         </button>
       </div>
     </aside>

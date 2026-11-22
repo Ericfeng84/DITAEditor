@@ -14,6 +14,8 @@ import {
   X,
 } from 'lucide-react';
 import type { WorkspaceListItem, WorkspaceScaffold } from '../services/workspace-api';
+import { formatRelativeTime, useI18n } from '../i18n/index.js';
+import type { MessageKey } from '../i18n/messages/index.js';
 
 export interface WorkspaceDialogProps {
   open: boolean;
@@ -80,30 +82,20 @@ function arrayBufferToBase64(buf: ArrayBuffer): string {
   return btoa(binary);
 }
 
-function formatRelativeTime(timestamp: number): string {
-  if (!timestamp) return '';
-  const diff = Date.now() - timestamp;
-  if (diff < 60_000) return '刚刚';
-  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)} 分钟前`;
-  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)} 小时前`;
-  if (diff < 2_592_000_000) return `${Math.floor(diff / 86_400_000)} 天前`;
-  return new Date(timestamp).toLocaleDateString('zh-CN');
-}
-
 const SCAFFOLD_OPTIONS: {
   value: WorkspaceScaffold;
-  label: string;
-  description: string;
+  labelKey: MessageKey;
+  descriptionKey: MessageKey;
 }[] = [
   {
     value: 'blank',
-    label: '空白目录',
-    description: '仅创建 topics / maps / images 标准结构',
+    labelKey: 'workspaceDialog.scaffold.blank',
+    descriptionKey: 'workspaceDialog.scaffold.blankDesc',
   },
   {
     value: 'starter',
-    label: '示例骨架',
-    description: '附带 index.ditamap 与介绍主题',
+    labelKey: 'workspaceDialog.scaffold.starter',
+    descriptionKey: 'workspaceDialog.scaffold.starterDesc',
   },
 ];
 
@@ -123,6 +115,7 @@ export function WorkspaceDialog({
   onImportFolder,
   onRestoreOfflineDemo,
 }: WorkspaceDialogProps) {
+  const { t } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const errorRef = useRef<HTMLDivElement | null>(null);
@@ -140,7 +133,7 @@ export function WorkspaceDialog({
   const isApiMode = workspaceMode === 'api';
   const canWrite = isApiMode && !busy;
   const baseParentDir = parentDir.trim() || importsRootDir || defaultRootDir;
-  const createTargetDir = `${baseParentDir.replace(/\/+$/, '')}/${projectName.trim() || '<项目名>'}`;
+  const createTargetDir = `${baseParentDir.replace(/\/+$/, '')}/${projectName.trim() || t('workspaceDialog.projectPlaceholder')}`;
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -212,7 +205,7 @@ export function WorkspaceDialog({
     e.preventDefault();
     const name = projectName.trim();
     if (!name) {
-      setErrorMsg('请填写工作区名称。');
+      setErrorMsg(t('workspaceDialog.nameRequired'));
       return;
     }
     void runBusy(async () => {
@@ -285,7 +278,7 @@ export function WorkspaceDialog({
       }
 
       if (batch.length === 0) {
-        setErrorMsg('所选文件夹中未找到 .dita / .ditamap / .bookmap / 图片文件。');
+        setErrorMsg(t('workspaceDialog.noImportable'));
         return;
       }
 
@@ -314,16 +307,16 @@ export function WorkspaceDialog({
           </span>
           <div className="min-w-0 flex-1">
             <h2 id={titleId} className="text-[15px] font-semibold leading-tight text-slate-900">
-              工作区
+              {t('workspaceDialog.tabWorkspace')}
             </h2>
             <p className="mt-0.5 truncate text-[11px] leading-tight text-slate-500">
-              切换本地 DITA 项目，或初始化一个新的工作区
+              {t('workspaceDialog.subtitle')}
             </p>
           </div>
           <button
             type="button"
             onClick={() => dialogRef.current?.close()}
-            aria-label="关闭对话框"
+            aria-label={t('common.closeDialog')}
             className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
           >
             <X className="h-4 w-4" aria-hidden="true" />
@@ -333,12 +326,12 @@ export function WorkspaceDialog({
         <div className="flex min-h-0 flex-1 flex-col md:min-h-[520px] md:flex-row">
           {/* Workspace rail */}
           <aside
-            aria-label="最近工作区"
+            aria-label={t('workspaceDialog.recentAria')}
             className="flex max-h-[38vh] w-full shrink-0 flex-col border-b border-slate-100 bg-slate-50/70 md:max-h-none md:w-[288px] md:border-b-0 md:border-r"
           >
             <div className="flex items-center justify-between px-3 pb-1 pt-3">
               <span className="inline-flex items-baseline gap-1.5 text-[11px] font-semibold text-slate-500">
-                最近工作区
+                {t('workspaceDialog.recent')}
                 {recentWorkspaces.length > 0 ? (
                   <span className="text-[10px] font-medium tabular-nums text-slate-400">
                     {recentWorkspaces.length}
@@ -349,8 +342,8 @@ export function WorkspaceDialog({
                 type="button"
                 disabled={!isApiMode || loadingWorkspaces}
                 onClick={() => void onRefreshWorkspaces()}
-                aria-label="刷新工作区列表"
-                title="刷新工作区列表"
+                aria-label={t('workspaceDialog.refresh')}
+                title={t('workspaceDialog.refresh')}
                 className="rounded-md p-1 text-slate-400 transition-colors hover:bg-white hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-40"
               >
                 <RefreshCw
@@ -363,9 +356,9 @@ export function WorkspaceDialog({
             <div className="min-h-0 flex-1 overflow-y-auto px-2 pb-2">
               {!isApiMode ? (
                 <div className="mx-1 mt-2 rounded-lg border border-dashed border-amber-200 bg-amber-50/60 px-3 py-4 text-center">
-                  <p className="text-[11px] font-medium text-amber-900">离线模式</p>
+                  <p className="text-[11px] font-medium text-amber-900">{t('workspaceDialog.offline')}</p>
                   <p className="mt-1 text-[10.5px] leading-relaxed text-amber-800/80">
-                    启动 @dita/api 后可在此切换、创建和导入本地工作区。
+                    {t('workspaceDialog.offlineHint')}
                   </p>
                 </div>
               ) : loadingWorkspaces && recentWorkspaces.length === 0 ? (
@@ -380,9 +373,9 @@ export function WorkspaceDialog({
               ) : recentWorkspaces.length === 0 ? (
                 <div className="mx-1 mt-2 rounded-lg border border-dashed border-slate-200 px-3 py-5 text-center">
                   <FolderOpen className="mx-auto h-5 w-5 text-slate-300" aria-hidden="true" />
-                  <p className="mt-2 text-[11px] font-medium text-slate-600">暂无工作区记录</p>
+                  <p className="mt-2 text-[11px] font-medium text-slate-600">{t('workspaceDialog.emptyRecent')}</p>
                   <p className="mt-1 text-[10.5px] leading-relaxed text-slate-500">
-                    在右侧新建一个空白项目，或打开 / 导入已有目录。
+                    {t('workspaceDialog.emptyRecentHint')}
                   </p>
                 </div>
               ) : (
@@ -410,7 +403,7 @@ export function WorkspaceDialog({
                               type="button"
                               disabled={busy || !ws.exists}
                               onClick={() => handleOpenRecent(ws.path)}
-                              aria-label={`打开工作区 ${ws.name}`}
+                              aria-label={t('workspaceDialog.openWsAria', { name: ws.name })}
                               className="flex min-w-0 flex-1 items-start gap-2 rounded-md px-1 py-0.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:cursor-not-allowed"
                             >
                               <WorkspaceRowBody ws={ws} />
@@ -421,8 +414,8 @@ export function WorkspaceDialog({
                               type="button"
                               disabled={busy}
                               onClick={() => handleForget(ws.path)}
-                              aria-label={`从最近列表移除 ${ws.name}`}
-                              title="从列表隐藏，不会删除磁盘目录"
+                              aria-label={t('workspaceDialog.hideWsAria', { name: ws.name })}
+                              title={t('workspaceDialog.hideWsTitle')}
                               className="mr-0.5 rounded-md p-1 text-slate-300 opacity-0 transition-all hover:bg-rose-50 hover:text-rose-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/50 group-hover:opacity-100 disabled:opacity-0"
                             >
                               <Trash2 className="h-3 w-3" aria-hidden="true" />
@@ -438,7 +431,7 @@ export function WorkspaceDialog({
 
             <div className="shrink-0 border-t border-slate-100 px-2 py-2">
               <p className="px-2 pb-1.5 text-[10px] leading-relaxed text-slate-500">
-                切换工作区会重新载入地图、主题与语义索引。
+                {t('workspaceDialog.switchHint')}
               </p>
               <button
                 type="button"
@@ -447,7 +440,7 @@ export function WorkspaceDialog({
                 className="inline-flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-white hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-40"
               >
                 <RotateCcw className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                恢复内置示例项目
+                {t('workspaceDialog.restoreDemo')}
               </button>
             </div>
           </aside>
@@ -462,12 +455,12 @@ export function WorkspaceDialog({
                     className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-900"
                   >
                     <FolderPlus className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
-                    新建空白工作区
+                    {t('workspaceDialog.newBlank')}
                   </h3>
-                  <span className="text-[10.5px] text-slate-500">服务端自动创建 · 立即切换</span>
+                  <span className="text-[10.5px] text-slate-500">{t('workspaceDialog.newBlankBadge')}</span>
                 </div>
                 <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                  服务端会自动创建标准 DITA 目录结构，创建完成后立即打开。
+                  {t('workspaceDialog.newBlankHint')}
                 </p>
 
                 <div className="mt-3">
@@ -475,7 +468,7 @@ export function WorkspaceDialog({
                     htmlFor="ws-new-name"
                     className="mb-1 block text-[11px] font-medium text-slate-600"
                   >
-                    工作区名称
+                    {t('workspaceDialog.nameLabel')}
                   </label>
                   <input
                     id="ws-new-name"
@@ -486,12 +479,12 @@ export function WorkspaceDialog({
                     disabled={!canWrite}
                     className={FIELD_CLASS}
                   />
-                  <p className="mt-1 text-[10.5px] text-slate-500">目录名会自动规范化。</p>
+                  <p className="mt-1 text-[10.5px] text-slate-500">{t('workspaceDialog.nameHint')}</p>
                 </div>
 
                 <div className="mt-3">
                   <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="text-[11px] font-medium text-slate-600">位置</span>
+                    <span className="text-[11px] font-medium text-slate-600">{t('workspaceDialog.location')}</span>
                     <button
                       type="button"
                       disabled={!canWrite}
@@ -507,7 +500,7 @@ export function WorkspaceDialog({
                       aria-controls={advancedParent ? 'ws-advanced-parent' : undefined}
                       className="rounded text-[10.5px] font-medium text-indigo-600 transition-colors hover:text-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-45"
                     >
-                      {advancedParent ? '使用默认位置' : '更改'}
+                      {advancedParent ? t('workspaceDialog.useDefaultLocation') : t('workspaceDialog.changeLocation')}
                     </button>
                   </div>
                   <div
@@ -523,7 +516,7 @@ export function WorkspaceDialog({
                         htmlFor="ws-new-parent"
                         className="mb-1 block text-[10.5px] text-slate-500"
                       >
-                        父目录（服务端路径）
+                        {t('workspaceDialog.parentDir')}
                       </label>
                       <input
                         id="ws-new-parent"
@@ -536,7 +529,7 @@ export function WorkspaceDialog({
                         className={`${FIELD_CLASS} truncate font-mono text-[11px]`}
                       />
                       <p className="mt-1 text-[10.5px] leading-relaxed text-slate-500">
-                        仅管理员 / 开发者需要修改；路径指向运行 @dita/api 的机器。
+                        {t('workspaceDialog.parentDirHint')}
                       </p>
                     </div>
                   ) : null}
@@ -544,7 +537,7 @@ export function WorkspaceDialog({
 
                 <fieldset className="mt-3" disabled={!canWrite}>
                   <legend className="mb-1.5 block text-[11px] font-medium text-slate-600">
-                    初始化方式
+                    {t('workspaceDialog.scaffoldLabel')}
                   </legend>
                   <div className="grid gap-2 sm:grid-cols-2">
                     {SCAFFOLD_OPTIONS.map((option) => {
@@ -580,10 +573,10 @@ export function WorkspaceDialog({
                           </span>
                           <span className="min-w-0">
                             <span className="block text-[11.5px] font-semibold text-slate-800">
-                              {option.label}
+                              {t(option.labelKey)}
                             </span>
                             <span className="mt-0.5 block text-[10.5px] leading-snug text-slate-500">
-                              {option.description}
+                              {t(option.descriptionKey)}
                             </span>
                           </span>
                         </label>
@@ -603,7 +596,7 @@ export function WorkspaceDialog({
                     ) : (
                       <FolderPlus className="h-3.5 w-3.5" aria-hidden="true" />
                     )}
-                    创建并打开
+                    {t('workspaceDialog.createAndOpen')}
                   </button>
                 </div>
               </section>
@@ -616,10 +609,10 @@ export function WorkspaceDialog({
                 id="ws-open-heading"
                 className="text-[13px] font-semibold text-slate-900"
               >
-                打开项目
+                {t('workspaceDialog.openProject')}
               </h3>
               <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
-                导入会复制一份到服务端工作区；也可以直接打开服务端已有的目录。
+                {t('workspaceDialog.importHint')}
               </p>
 
               <div className="mt-2.5 flex items-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5">
@@ -627,9 +620,9 @@ export function WorkspaceDialog({
                   <FolderUp className="h-3.5 w-3.5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11.5px] font-semibold text-slate-800">从本地导入整个文件夹</p>
+                  <p className="text-[11.5px] font-semibold text-slate-800">{t('workspaceDialog.importFolders')}</p>
                   <p className="mt-0.5 truncate text-[10.5px] text-slate-500">
-                    保留子目录 · .dita / .ditamap / .bookmap / 图片资源
+                    {t('workspaceDialog.importFoldersHint')}
                   </p>
                 </div>
                 <button
@@ -643,7 +636,7 @@ export function WorkspaceDialog({
                   ) : (
                     <FolderUp className="h-3.5 w-3.5" aria-hidden="true" />
                   )}
-                  选择文件夹
+                  {t('workspaceDialog.pickFolder')}
                 </button>
                 <input
                   ref={folderInputRef}
@@ -668,7 +661,7 @@ export function WorkspaceDialog({
                     className={`h-3 w-3 transition-transform ${advancedPath ? 'rotate-180' : ''}`}
                     aria-hidden="true"
                   />
-                  高级：打开服务端已有目录
+                  {t('workspaceDialog.advancedOpen')}
                 </button>
 
                 {advancedPath ? (
@@ -678,7 +671,7 @@ export function WorkspaceDialog({
                     className="mt-2 flex items-center gap-2"
                   >
                     <label htmlFor="ws-dir-input" className="sr-only">
-                      服务端项目目录绝对路径
+                      {t('workspaceDialog.serverPath')}
                     </label>
                     <input
                       id="ws-dir-input"
@@ -696,7 +689,7 @@ export function WorkspaceDialog({
                       className="inline-flex h-8 shrink-0 items-center justify-center gap-1.5 rounded-lg bg-slate-900 px-3 text-xs font-medium text-white transition-colors hover:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-900/30 focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-45"
                     >
                       <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                      打开
+                      {t('common.open')}
                     </button>
                   </form>
                 ) : null}
@@ -726,6 +719,7 @@ export function WorkspaceDialog({
 }
 
 function WorkspaceRowBody({ ws, isCurrent = false }: { ws: WorkspaceListItem; isCurrent?: boolean }) {
+  const { t } = useI18n();
   return (
     <>
       <FolderOpen
@@ -739,20 +733,20 @@ function WorkspaceRowBody({ ws, isCurrent = false }: { ws: WorkspaceListItem; is
           <span className="truncate text-[12px] font-semibold text-slate-800">{ws.name}</span>
           {isCurrent ? (
             <span className="shrink-0 rounded-full bg-emerald-50 px-1.5 py-px text-[9px] font-semibold text-emerald-700 ring-1 ring-emerald-600/15">
-              当前
+              {t('workspaceDialog.badge.current')}
             </span>
           ) : ws.isDefault ? (
             <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[9px] font-medium text-slate-500">
-              内置
+              {t('workspaceDialog.badge.builtin')}
             </span>
           ) : ws.unregistered ? (
             <span className="shrink-0 rounded-full bg-amber-50 px-1.5 py-px text-[9px] font-medium text-amber-700 ring-1 ring-amber-600/15">
-              未登记
+              {t('workspaceDialog.badge.unregistered')}
             </span>
           ) : null}
           {!ws.exists ? (
             <span className="shrink-0 rounded-full bg-rose-50 px-1.5 py-px text-[9px] font-medium text-rose-600">
-              目录缺失
+              {t('workspaceDialog.badge.missing')}
             </span>
           ) : null}
         </span>
@@ -764,7 +758,7 @@ function WorkspaceRowBody({ ws, isCurrent = false }: { ws: WorkspaceListItem; is
         </span>
         {ws.unregistered ? (
           <span className="mt-0.5 block text-[9.5px] leading-tight text-slate-500">
-            打开后加入最近列表
+            {t('workspaceDialog.addToRecentHint')}
           </span>
         ) : formatRelativeTime(ws.lastOpenedAt) ? (
           <span className="mt-0.5 block text-[9.5px] leading-tight text-slate-500">

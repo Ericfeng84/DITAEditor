@@ -1,4 +1,5 @@
 import { useEffect, useId, useRef, useState } from 'react';
+import { useI18n } from '../i18n/index.js';
 import { computeRelativeDitaHref, type KeyspaceResult, type RawAttrs } from '@dita/core';
 import { Image as ImageIcon, Link2, Upload, X } from 'lucide-react';
 import type { UploadAssetResult } from '../services/workspace-api';
@@ -36,6 +37,7 @@ export function XrefImageDialog({
   onConfirmXref,
   onConfirmImage,
 }: XrefImageDialogProps) {
+  const { t } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
   const uploadInputRef = useRef<HTMLInputElement | null>(null);
@@ -64,7 +66,7 @@ export function XrefImageDialog({
             ? computeRelativeDitaHref(activeDocPath, defaultTopic)
             : '../concepts/dita-architecture.dita';
         setHref(rel);
-        setText(defaultTopic && topicTitles[defaultTopic] ? topicTitles[defaultTopic]! : '参考文档');
+        setText(defaultTopic && topicTitles[defaultTopic] ? topicTitles[defaultTopic]! : t('xref.defaultText'));
       } else {
         const relImg =
           defaultImage && activeDocPath
@@ -78,7 +80,7 @@ export function XrefImageDialog({
       setScope('local');
       setFormat('dita');
       setPlacement('break');
-      setAlt('架构示意图');
+      setAlt(t('xref.defaultAlt'));
       setUploadErr(null);
       if (!dialog.open) {
         dialog.showModal();
@@ -110,7 +112,7 @@ export function XrefImageDialog({
       try {
         const res = await onUploadImage(file, 'images', activeDocPath ?? undefined);
         setHref(res.relativeHref);
-        if (!alt || alt === '架构示意图') {
+        if (!alt || alt === t('xref.defaultAlt')) {
           setAlt(file.name.replace(/\.[^.]+$/, ''));
         }
       } catch (err) {
@@ -169,19 +171,19 @@ export function XrefImageDialog({
           {mode === 'image' ? (
             <>
               <ImageIcon className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              插入图片 (&lt;image&gt;)
+              {t('xref.dialogTitleImage')}
             </>
           ) : (
             <>
               <Link2 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              插入交叉引用 (&lt;xref&gt;)
+              {t('xref.dialogTitleXref')}
             </>
           )}
         </h2>
         <button
           type="button"
           onClick={() => dialogRef.current?.close()}
-          aria-label="关闭对话框"
+          aria-label={t('common.close')}
           className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -193,7 +195,7 @@ export function XrefImageDialog({
         {mode === 'image' ? (
           <div className="space-y-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5">
             <div className="flex items-center justify-between gap-2">
-              <span className="font-medium text-slate-700">上传图片或从工作区选取</span>
+              <span className="font-medium text-slate-700">{t('xref.uploadOrPick')}</span>
               <button
                 type="button"
                 disabled={uploading}
@@ -201,7 +203,7 @@ export function XrefImageDialog({
                 className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
               >
                 <Upload className="h-3 w-3" aria-hidden="true" />
-                {uploading ? '上传中…' : '上传图片'}
+                {uploading ? t('xref.uploading') : t('xref.upload')}
               </button>
               <input
                 ref={uploadInputRef}
@@ -215,7 +217,7 @@ export function XrefImageDialog({
 
             {workspaceImages.length > 0 ? (
               <select
-                aria-label="选择工作区已有图片"
+                aria-label={t('xref.pickExistingImageAria')}
                 value=""
                 onChange={(e) => {
                   if (!e.target.value) return;
@@ -226,7 +228,7 @@ export function XrefImageDialog({
                 }}
                 className="w-full rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
               >
-                <option value="">从工作区 images/ 选择已有图片…</option>
+                <option value="">{t('xref.pickExistingImage')}</option>
                 {workspaceImages.map((img) => (
                   <option key={img} value={img}>
                     {img}
@@ -240,7 +242,7 @@ export function XrefImageDialog({
         ) : workspaceTopics.length > 0 ? (
           <div>
             <label htmlFor="xref-ws-topic" className="mb-1 block font-medium text-slate-700">
-              从工作区快速选择目标 Topic
+              {t('xref.quickPickTopic')}
             </label>
             <select
               id="xref-ws-topic"
@@ -257,7 +259,7 @@ export function XrefImageDialog({
               }}
               className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
             >
-              <option value="">选择工作区 Topic 自动计算相对 href…</option>
+              <option value="">{t('xref.pickTopic')}</option>
               {workspaceTopics.map((t) => (
                 <option key={t} value={t}>
                   {t} {topicTitles[t] ? `— ${topicTitles[t]}` : ''}
@@ -269,7 +271,7 @@ export function XrefImageDialog({
 
         <div>
           <label htmlFor="ref-href" className="mb-1 block font-medium text-slate-700">
-            目标路径 (href)
+            {t('xref.targetPath')}
           </label>
           <input
             id="ref-href"
@@ -279,7 +281,7 @@ export function XrefImageDialog({
             onChange={(e) => setHref(e.target.value)}
             placeholder={
               mode === 'xref'
-                ? 'target.dita#topicId/elemId 或 https://...'
+                ? t('xref.targetPathPlaceholder')
                 : '../images/diagram.svg'
             }
             className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
@@ -290,7 +292,7 @@ export function XrefImageDialog({
           <div className="flex items-center justify-center rounded-lg border border-slate-200 bg-slate-50 p-2">
             <img
               src={previewUrl}
-              alt={alt || '图片预览'}
+              alt={alt || t('xref.previewAlt')}
               className="max-h-28 max-w-full rounded object-contain"
             />
           </div>
@@ -298,7 +300,7 @@ export function XrefImageDialog({
 
         <div>
           <label htmlFor="ref-keyref" className="mb-1 block font-medium text-slate-700">
-            或 Key 引用 (keyref，可选)
+            {t('xref.keyrefLabel')}
           </label>
           <div className="space-y-1">
             <input
@@ -306,12 +308,12 @@ export function XrefImageDialog({
               type="text"
               value={keyref}
               onChange={(e) => setKeyref(e.target.value)}
-              placeholder="例如：key_api_guide"
+              placeholder={t('xref.keyrefPlaceholder')}
               className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
             />
             {keyspace && Object.keys(keyspace.keys).length > 0 ? (
               <select
-                aria-label="从 Root Map Keyspace 选择 keyref"
+                aria-label={t('xref.pickKeyrefAria')}
                 value=""
                 onChange={(e) => {
                   if (!e.target.value) return;
@@ -324,7 +326,7 @@ export function XrefImageDialog({
                 }}
                 className="w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] text-slate-700 focus:border-indigo-500 focus:outline-none"
               >
-                <option value="">从当前 Root Map Keyspace 选取…</option>
+                <option value="">{t('xref.pickKeyref')}</option>
                 {Object.values(keyspace.keys)
                   .sort((a, b) => a.qualifiedKey.localeCompare(b.qualifiedKey))
                   .map((def) => (
@@ -342,14 +344,14 @@ export function XrefImageDialog({
           <>
             <div>
               <label htmlFor="ref-text" className="mb-1 block font-medium text-slate-700">
-                链接显示文本（若已选中文字将包裹所选内容）
+                {t('xref.linkTextLabel')}
               </label>
               <input
                 id="ref-text"
                 type="text"
                 value={text}
                 onChange={(e) => setText(e.target.value)}
-                placeholder="例如：查看架构说明"
+                placeholder={t('xref.linkTextPlaceholder')}
                 className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
               />
             </div>
@@ -392,20 +394,20 @@ export function XrefImageDialog({
           <>
             <div>
               <label htmlFor="img-alt" className="mb-1 block font-medium text-slate-700">
-                替代文本 (alt)
+                {t('xref.altLabel')}
               </label>
               <input
                 id="img-alt"
                 type="text"
                 value={alt}
                 onChange={(e) => setAlt(e.target.value)}
-                placeholder="用于无障碍与图注说明"
+                placeholder={t('xref.altPlaceholder')}
                 className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
               />
             </div>
             <div>
               <label htmlFor="img-placement" className="mb-1 block font-medium text-slate-700">
-                排版方式 (placement)
+                {t('xref.placement')}
               </label>
               <select
                 id="img-placement"
@@ -413,8 +415,8 @@ export function XrefImageDialog({
                 onChange={(e) => setPlacement(e.target.value as 'break' | 'inline')}
                 className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
               >
-                <option value="break">break（独立块级插图）</option>
-                <option value="inline">inline（行内小图标）</option>
+                <option value="break">{t('xref.placementBreak')}</option>
+                <option value="inline">{t('xref.placementInline')}</option>
               </select>
             </div>
           </>
@@ -426,13 +428,13 @@ export function XrefImageDialog({
             onClick={() => dialogRef.current?.close()}
             className="rounded-lg border border-slate-200 px-3.5 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             className="rounded-lg bg-indigo-600 px-4 py-1.5 font-semibold text-white hover:bg-indigo-500"
           >
-            确认插入
+            {t('xref.confirm')}
           </button>
         </div>
       </form>

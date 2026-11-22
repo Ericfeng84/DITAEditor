@@ -29,6 +29,7 @@ import type {
 } from '@dita/core';
 import { AlertTriangle, Check, Copy, LocateFixed, Sparkles } from 'lucide-react';
 import { formatDitaXml } from '../bridge/xml-bridge';
+import { getCurrentLocale, translate, useI18n } from '../../i18n/index.js';
 import {
   createDitaXmlCompletionSource,
   type SourceSemanticCompletionContext,
@@ -133,6 +134,7 @@ export function SourceEditor({
   onReplacementApplied,
   onAiFixXmlError,
 }: SourceEditorProps) {
+  const { t } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isApplyingExternalRef = useRef(false);
@@ -290,27 +292,27 @@ export function SourceEditor({
     const raw = view.state.doc.toString();
     const res = formatDitaXml(raw);
     if (!res.ok) {
-      onAnnounce?.(`无法格式化：第 ${res.error.line} 行存在 XML 语法错误`);
+      onAnnounce?.(translate(getCurrentLocale(), 'source.formatBlocked', { line: res.error.line }));
       return;
     }
     if (res.xml === raw) {
-      onAnnounce?.('XML 格式已是标准确定性缩进');
+      onAnnounce?.(translate(getCurrentLocale(), 'source.alreadyFormatted'));
       return;
     }
     view.dispatch({
       changes: { from: 0, to: raw.length, insert: res.xml },
     });
-    onAnnounce?.('已完成 DITA XML 确定性格式化');
+    onAnnounce?.(translate(getCurrentLocale(), 'source.formatted'));
   };
 
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(xml);
       setCopied(true);
-      onAnnounce?.('已复制完整 DITA XML 源码');
+      onAnnounce?.(translate(getCurrentLocale(), 'source.copied'));
       window.setTimeout(() => setCopied(false), 1600);
     } catch {
-      onAnnounce?.('复制失败，请检查浏览器剪贴板权限');
+      onAnnounce?.(translate(getCurrentLocale(), 'source.copyFailed'));
     }
   };
 
@@ -319,9 +321,9 @@ export function SourceEditor({
       {/* Compact Source Toolbar */}
       <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/95 px-3 py-1.5 text-xs">
         <div className="flex items-center gap-2">
-          <span className="font-mono font-medium text-sky-400">XML 源码</span>
+          <span className="font-mono font-medium text-sky-400">{t('source.title')}</span>
           <span className="text-slate-500">·</span>
-          <span className="text-slate-400">DITA 1.3 智能补全已就绪（输入 &lt; 或属性名触发）</span>
+          <span className="text-slate-400">{t('source.completionReady')}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -332,10 +334,10 @@ export function SourceEditor({
             type="button"
             onClick={handleFormat}
             className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-2 py-1 text-[11px] font-medium text-slate-200 transition-colors hover:bg-slate-700"
-            title="使用 @dita/core 确定性序列化器整理缩进"
+            title={t('source.formatTitle')}
           >
             <Sparkles className="h-3 w-3 text-sky-400" aria-hidden="true" />
-            格式化 XML
+            {t('source.format')}
           </button>
           <button
             type="button"
@@ -345,12 +347,12 @@ export function SourceEditor({
             {copied ? (
               <>
                 <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
-                已复制
+                {t('source.copiedShort')}
               </>
             ) : (
               <>
                 <Copy className="h-3 w-3 text-slate-400" aria-hidden="true" />
-                复制
+                {t('source.copy')}
               </>
             )}
           </button>
@@ -368,8 +370,8 @@ export function SourceEditor({
             <div>
               <p className="font-semibold text-rose-200">
                 {switchBlockedReason
-                  ? '已阻止切换至可视化模式（XML 良构校验未通过）'
-                  : `XML 良构错误 · 第 ${xmlError.line} 行第 ${xmlError.column} 列`}
+                  ? t('source.switchBlocked')
+                  : t('source.wellFormedError', { line: xmlError.line, column: xmlError.column })}
               </p>
               <p className="mt-0.5 font-mono text-[11px] text-rose-300">
                 {xmlError.message}
@@ -384,7 +386,7 @@ export function SourceEditor({
                 className="inline-flex items-center gap-1 rounded border border-rose-400/60 bg-rose-900/60 px-2.5 py-1 text-[11px] font-medium text-rose-100 hover:bg-rose-800"
               >
                 <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                AI 修复
+                {t('source.aiFix')}
               </button>
             ) : null}
             <button
@@ -393,7 +395,7 @@ export function SourceEditor({
               className="inline-flex items-center gap-1 rounded bg-rose-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-rose-500"
             >
               <LocateFixed className="h-3.5 w-3.5" aria-hidden="true" />
-              定位到错误位置
+              {t('source.jumpToError')}
             </button>
           </div>
         </div>
@@ -403,7 +405,7 @@ export function SourceEditor({
       <div
         ref={hostRef}
         className="dita-scroller min-h-0 flex-1 overflow-hidden"
-        aria-label="DITA XML 源码编辑器"
+        aria-label={t('source.editorAria')}
       />
     </div>
   );

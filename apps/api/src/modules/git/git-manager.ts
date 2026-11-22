@@ -2,7 +2,9 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { basename, join } from 'node:path';
 import { simpleGit, type SimpleGit } from 'simple-git';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError } from '../errors.js';
+import { apiT } from '../../i18n/messages.js';
+import type { ApiLocale } from '../../i18n/locale.js';
 import type { IdentityUser } from '../identity/identity-service.js';
 
 export interface GitFileChange {
@@ -82,7 +84,7 @@ export function validateBranchName(branch: string): string {
     trimmed.endsWith('.lock') ||
     trimmed.startsWith('-')
   ) {
-    throw new HttpError(400, `非法分支名：${branch}`);
+    throw httpError(400, 'git.invalidBranch', { branch });
   }
   return trimmed;
 }
@@ -91,16 +93,16 @@ function slugifyBranch(branch: string): string {
   return branch.replace(/[^A-Za-z0-9._-]+/g, '__');
 }
 
-function changeLabel(change: GitFileChange): string {
-  if (change.untracked) return '新增';
-  if (change.renamed) return '重命名';
-  if (change.deleted) return '删除';
-  if (change.staged && change.workingTree !== ' ') return '已暂存·再修改';
-  if (change.staged) return '已暂存';
-  return '已修改';
+function changeLabel(change: GitFileChange, locale: ApiLocale): string {
+  if (change.untracked) return apiT(locale, 'git.change.added');
+  if (change.renamed) return apiT(locale, 'git.change.renamed');
+  if (change.deleted) return apiT(locale, 'git.change.deleted');
+  if (change.staged && change.workingTree !== ' ') return apiT(locale, 'git.change.stagedModified');
+  if (change.staged) return apiT(locale, 'git.change.staged');
+  return apiT(locale, 'git.change.modified');
 }
 
-function parseStatus(raw: string): {
+function parseStatus(raw: string, locale: ApiLocale = 'zh-CN'): {
   branch: string;
   ahead: number;
   behind: number;
@@ -148,7 +150,7 @@ function parseStatus(raw: string): {
         index += 1;
       }
     }
-    change.label = changeLabel(change);
+    change.label = changeLabel(change, locale);
     dirtyFiles.push(change);
   }
 
@@ -356,7 +358,7 @@ export class GitManager {
       slugifyBranch(branch),
     );
     if (existsSync(target)) {
-      throw new HttpError(409, `分支工作区目录已存在但未注册到 Git：${target}`);
+      throw httpError(409, 'git.worktreeExists', { target });
     }
     mkdirSync(join(target, '..'), { recursive: true });
 
@@ -365,7 +367,7 @@ export class GitManager {
       await this.client(rootDir).raw(['worktree', 'add', target, branch]);
     } else {
       if (!(await this.hasCommits(rootDir))) {
-        throw new HttpError(409, '仓库尚无提交，无法创建分支工作区');
+        throw httpError(409, 'git.noCommitsWorktree');
       }
       await this.client(rootDir).raw(['worktree', 'add', '-b', branch, target]);
     }
@@ -376,16 +378,20 @@ export class GitManager {
     const branch = validateBranchName(branchInput);
     await this.ensureInitialized(rootDir);
     if (await this.branchExists(rootDir, branch)) {
-      throw new HttpError(409, `分支已存在：${branch}`);
+      throw httpError(409, 'git.branchExists', { branch });
     }
     if (!(await this.hasCommits(rootDir))) {
-      throw new HttpError(409, '仓库尚无提交，无法创建分支');
+      throw httpError(409, 'git.noCommits');
     }
     await this.client(rootDir).raw(['branch', branch]);
     return branch;
   }
 
-  async status(workDir: string, rootDir = workDir): Promise<GitStatusSummary> {
+  async status(
+    workDir: string,
+    rootDir = workDir,
+    locale: ApiLocale = 'zh-CN',
+  ): Promise<GitStatusSummary> {
     if (!this.isRepository(workDir)) {
       return {
         initialized: false,
@@ -405,7 +411,7 @@ export class GitManager {
       this.hasCommits(workDir),
       this.currentBranch(rootDir),
     ]);
-    const parsed = parseStatus(raw);
+    const parsed = parseStatus(raw, locale);
     const branch = parsed.branch || (await this.currentBranch(workDir));
     const lastCommit = hasCommits ? (await this.log(workDir, { limit: 1 }))[0] ?? null : null;
     return {
@@ -422,10 +428,13 @@ export class GitManager {
     };
   }
 
-  async statusMap(workDir: string): Promise<Map<string, GitFileChange>> {
+  async statusMap(
+    workDir: string,
+    locale: ApiLocale = 'zh-CN',
+  ): Promise<Map<string, GitFileChange>> {
     if (!this.isRepository(workDir)) return new Map();
     const raw = await this.client(workDir).raw(['status', '--porcelain=v1', '-z', '--untracked-files=all']);
-    const parsed = parseStatus(raw);
+    const parsed = parseStatus(raw, locale);
     return new Map(parsed.dirtyFiles.map((change) => [change.path, change]));
   }
 
@@ -485,6 +494,7 @@ export class GitManager {
     filePath: string,
     from?: string | undefined,
     to?: string | undefined,
+    locale: ApiLocale = 'zh-CN',
   ): Promise<GitFileDiff> {
     const hasCommits = await this.hasCommits(workDir);
     const fromRevision = from ?? (hasCommits ? 'HEAD' : undefined);
@@ -514,8 +524,8 @@ export class GitManager {
     }
     return {
       path: filePath,
-      fromLabel: fromRevision ?? '空',
-      toLabel: to ?? '工作区',
+      fromLabel: fromRevision ?? apiT(locale, 'git.diff.emptyRevision'),
+      toLabel: to ?? apiT(locale, 'git.diff.workingTree'),
       oldText: binary ? '' : oldText ?? '',
       newText: binary ? '' : newText ?? '',
       additions,
@@ -534,10 +544,10 @@ export class GitManager {
   ): Promise<GitCommitEntry> {
     const trimmed = message.trim();
     if (!trimmed) {
-      throw new HttpError(400, '提交说明不能为空');
+      throw httpError(400, 'git.messageRequired');
     }
     if (paths.length === 0) {
-      throw new HttpError(400, '请选择要提交的文件');
+      throw httpError(400, 'git.filesRequired');
     }
     const git = this.client(workDir);
     await git.raw(['add', '-A', '--', ...paths]);
@@ -548,7 +558,7 @@ export class GitManager {
       staged = '';
     }
     if (!staged.trim()) {
-      throw new HttpError(409, '所选文件没有可提交的改动');
+      throw httpError(409, 'git.noCommitChanges');
     }
     const author = `${user.displayName} <${user.email}>`;
     await git.raw([

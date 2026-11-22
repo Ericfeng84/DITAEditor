@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { CopyPlus, PanelRightClose, Sparkles, Tag } from 'lucide-react';
 import { AttributesPanel, type AttributesPanelProps } from '../editor/visual/AttributesPanel';
+import { useI18n } from '../i18n/index.js';
+import type { MessageKey } from '../i18n/messages/index.js';
 import { ConrefReusePanel, type ConrefReusePanelProps } from './ConrefReusePanel';
 
 export type InspectorTab = 'attributes' | 'reuse' | 'ai';
@@ -16,23 +18,28 @@ export interface TopicInspectorProps {
   onCollapse?: () => void;
 }
 
-const TABS: Array<{ id: InspectorTab; label: string; title: string; icon: typeof Tag }> = [
+const TABS: Array<{
+  id: InspectorTab;
+  labelKey: MessageKey;
+  titleKey: MessageKey;
+  icon: typeof Tag;
+}> = [
   {
     id: 'ai',
-    label: 'AI',
-    title: '基于当前元素或整篇 Topic 与 AI 协作编写、优化与修复 DITA XML',
+    labelKey: 'inspector.tab.ai',
+    titleKey: 'inspector.tab.aiTitle',
     icon: Sparkles,
   },
   {
     id: 'attributes',
-    label: '属性',
-    title: '查看与编辑当前元素的 DITA 属性',
+    labelKey: 'inspector.tab.attributes',
+    titleKey: 'inspector.tab.attributesTitle',
     icon: Tag,
   },
   {
     id: 'reuse',
-    label: '复用',
-    title: '从项目元素插入 conref / conkeyref 内容复用',
+    labelKey: 'inspector.tab.reuse',
+    titleKey: 'inspector.tab.reuseTitle',
     icon: CopyPlus,
   },
 ];
@@ -49,10 +56,11 @@ export function TopicInspector({
   ai,
   onCollapse,
 }: TopicInspectorProps) {
+  const { t } = useI18n();
   return (
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex shrink-0 items-center gap-1 border-b border-l border-slate-200 bg-slate-100/90 px-2 py-1.5">
-        <div role="tablist" aria-label="右侧检查器视图" className="flex items-center gap-1">
+        <div role="tablist" aria-label={t('inspector.tabsAria')} className="flex items-center gap-1">
           {TABS.map((item) => {
             const Icon = item.icon;
             const active = tab === item.id;
@@ -62,7 +70,7 @@ export function TopicInspector({
                 type="button"
                 role="tab"
                 aria-selected={active}
-                title={item.title}
+                title={t(item.titleKey)}
                 onClick={() => onTabChange(item.id)}
                 className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
                   active
@@ -71,7 +79,7 @@ export function TopicInspector({
                 }`}
               >
                 <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                {item.label}
+                {t(item.labelKey)}
               </button>
             );
           })}
@@ -80,8 +88,8 @@ export function TopicInspector({
           <button
             type="button"
             onClick={onCollapse}
-            aria-label="收起右侧面板"
-            title="收起右侧面板"
+            aria-label={t('inspector.collapse')}
+            title={t('inspector.collapse')}
             className="ml-auto inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition-colors hover:bg-white hover:text-slate-700"
           >
             <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" />

@@ -1,4 +1,5 @@
 import type { IdentityRole } from './identity-api.js';
+import { getCurrentLocale, translate } from '../i18n/index.js';
 
 export interface LockLike {
   filePath: string;
@@ -39,8 +40,8 @@ export function resolveFileEditability({
       editable: true,
       state: 'admin',
       reason: lock
-        ? `管理员可编辑；该文件当前由 ${lock.userName ?? lock.userId} 检出`
-        : '管理员可编辑全部文件',
+        ? translate(getCurrentLocale(), 'lock.adminEditableLocked', { user: lock.userName ?? lock.userId })
+        : translate(getCurrentLocale(), 'lock.adminEditableAll'),
       lock,
     };
   }
@@ -48,18 +49,18 @@ export function resolveFileEditability({
     return {
       editable: false,
       state: 'viewer',
-      reason: '只读身份：可浏览、搜索与查看差异，但不能检出或保存',
+      reason: translate(getCurrentLocale(), 'lock.viewerReadOnly'),
       lock,
     };
   }
   if (!filePath) {
-    return { editable: false, state: 'unlocked', reason: '打开文件后可检出编辑', lock: null };
+    return { editable: false, state: 'unlocked', reason: translate(getCurrentLocale(), 'lock.openToCheckout'), lock: null };
   }
   if (!lock) {
     return {
       editable: false,
       state: 'unlocked',
-      reason: '文件尚未检出：点击“检出”后才能编辑',
+      reason: translate(getCurrentLocale(), 'lock.notCheckedOut'),
       lock: null,
     };
   }
@@ -67,20 +68,20 @@ export function resolveFileEditability({
     return {
       editable: true,
       state: 'owned',
-      reason: '你已检出该文件，可编辑并提交',
+      reason: translate(getCurrentLocale(), 'lock.checkedOutByYou'),
       lock,
     };
   }
   return {
     editable: false,
     state: 'locked-by-other',
-    reason: `文件已被 ${lock.userName ?? lock.userId} 检出，无法编辑`,
+    reason: translate(getCurrentLocale(), 'lock.checkedOutByOther', { user: lock.userName ?? lock.userId }),
     lock,
   };
 }
 
 export function describeLock(lock: LockLike, currentUserId: string | null): string {
   return lock.userId === currentUserId
-    ? '由你检出'
-    : `由 ${lock.userName ?? lock.userId} 检出`;
+    ? translate(getCurrentLocale(), 'lock.byYou')
+    : translate(getCurrentLocale(), 'lock.byUser', { user: lock.userName ?? lock.userId });
 }

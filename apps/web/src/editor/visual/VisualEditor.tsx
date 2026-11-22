@@ -28,6 +28,7 @@ import {
   type XmlPrologItem,
 } from '@dita/core';
 import type { TagDisplayMode } from '../../store/editor-store';
+import { getCurrentLocale, translate, useI18n } from '../../i18n/index.js';
 import {
   convertDitaBlockAtPos,
   deleteDitaNodeAtPos,
@@ -93,7 +94,7 @@ function buildBlockInsertGroups(containerTag: string, containerDepth: number): I
     {
       containerTag,
       containerDepth,
-      containerLabel: `在 <${containerTag}> 此处插入块`,
+      containerLabel: translate(getCurrentLocale(), 'visual.insertHere', { tag: containerTag }),
       insertKind: 'block',
       items: getAllowedChildElements(containerTag, 'block').filter(
         (spec) => !NON_INSERTABLE_BLOCK_TAGS.has(spec.tag),
@@ -187,8 +188,11 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     },
     ref,
   ) {
+    const { t, locale } = useI18n();
     const mountRef = useRef<HTMLDivElement | null>(null);
     const viewRef = useRef<EditorView | null>(null);
+    const localeRef = useRef(locale);
+    localeRef.current = locale;
     const pinnedPosRef = useRef<number | null>(null);
     const slashPosRef = useRef<number | null>(null);
     const tagModeRef = useRef<TagDisplayMode>(tagDisplayMode);
@@ -309,7 +313,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       if (!view) return;
       if (insertBlockDitaElementAtPos(tagName, insertPos)(view.state, view.dispatch)) {
         view.focus();
-        onAnnounceRef.current?.(`已插入块级元素 <${tagName}>`);
+        onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.insertBlock', { tag: tagName }));
       }
     }, []);
 
@@ -332,7 +336,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       if (!view) return;
       if (toggleInlineDitaElement(tagName)(view.state, view.dispatch)) {
         view.focus();
-        onAnnounceRef.current?.(`已将选中文字转换为行内元素 <${tagName}>`);
+        onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.wrapInline', { tag: tagName }));
       }
     }, []);
 
@@ -514,7 +518,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             currentView &&
             moveDitaBlockToGap(drag.target.blockPos, gap)(currentView.state, currentView.dispatch)
           ) {
-            onAnnounceRef.current?.(`已移动块 <${drag.target.blockTag}>`);
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.movedBlock', { tag: drag.target.blockTag }));
           }
           setBlockHandle(null);
         };
@@ -546,7 +550,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
         if (!view || !target) return;
         setBlockMenuOpen(false);
         if (convertDitaBlockAtPos(tag, target.blockPos)(view.state, view.dispatch)) {
-          onAnnounceRef.current?.(`已将块 <${target.blockTag}> 转换为 <${tag}>`);
+          onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.convertedBlock', { from: target.blockTag, to: tag }));
         }
         setBlockHandle(null);
       },
@@ -559,7 +563,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       if (!view || !target) return;
       setBlockMenuOpen(false);
       if (duplicateDitaBlockAtPos(target.blockPos)(view.state, view.dispatch)) {
-        onAnnounceRef.current?.(`已复制块 <${target.blockTag}>`);
+        onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.duplicatedBlock', { tag: target.blockTag }));
       }
       setBlockHandle(null);
     }, [blockHandle]);
@@ -570,7 +574,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       if (!view || !target) return;
       setBlockMenuOpen(false);
       if (deleteDitaNodeAtPos(target.blockPos)(view.state, view.dispatch)) {
-        onAnnounceRef.current?.(`已删除块 <${target.blockTag}>`);
+        onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.deletedBlock', { tag: target.blockTag }));
       }
       setBlockHandle(null);
     }, [blockHandle]);
@@ -645,6 +649,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
               ditaval: activeDitavalRef.current,
               ditavalDisplayMode: ditavalModeRef.current,
             },
+            localeRef.current,
           ),
           dropCursor({ color: '#4f46e5', width: 2 }),
           gapCursor(),
@@ -776,6 +781,14 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       setBlockDropGap(null);
     }, [tagDisplayMode]);
 
+    // Live-swap the UI language for tag chrome / conref badges WITHOUT recreating the view
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      const tr = view.state.tr.setMeta(DITA_DECORATIONS_KEY, { locale });
+      view.dispatch(tr);
+    }, [locale]);
+
     // Live-update Keyref / Conref / DITAVAL semantic overlays WITHOUT losing editor history
     useEffect(() => {
       const view = viewRef.current;
@@ -835,7 +848,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           if (!view) return;
           if (undo(view.state, view.dispatch)) {
             view.focus();
-            onAnnounceRef.current?.('已撤销上一步编辑');
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.undo'));
           }
         },
         redo() {
@@ -843,7 +856,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           if (!view) return;
           if (redo(view.state, view.dispatch)) {
             view.focus();
-            onAnnounceRef.current?.('已重做编辑');
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.redo'));
           }
         },
         toggleInline(tag, attrs = [], defaultText) {
@@ -855,7 +868,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           );
           if (ok) {
             view.focus();
-            onAnnounceRef.current?.(`已应用行内元素 <${tag}>`);
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.inlineApplied', { tag }));
           }
           return ok;
         },
@@ -868,7 +881,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           );
           if (ok) {
             view.focus();
-            onAnnounceRef.current?.(`已插入块级元素 <${tag}>`);
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.blockInserted', { tag }));
           }
           return ok;
         },
@@ -881,7 +894,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           );
           if (ok) {
             view.focus();
-            onAnnounceRef.current?.(`已插入块级元素 <${tag}>`);
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.blockInserted', { tag }));
           }
           return ok;
         },
@@ -904,7 +917,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           pinnedPosRef.current = null;
           if (deleteDitaNodeAtPos(nodePos)(view.state, view.dispatch)) {
             view.focus();
-            onAnnounceRef.current?.('已删除所选 DITA 元素');
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.deletedElement'));
           }
         },
         moveNode(nodePos, direction) {
@@ -913,7 +926,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           pinnedPosRef.current = null;
           if (moveDitaNodeSibling(nodePos, direction)(view.state, view.dispatch)) {
             view.focus();
-            onAnnounceRef.current?.(direction === 'up' ? '已上移元素' : '已下移元素');
+            onAnnounceRef.current?.(translate(getCurrentLocale(), direction === 'up' ? 'visual.announce.movedUp' : 'visual.announce.movedDown'));
           }
         },
         selectNode(nodePos, pinInspector = true) {
@@ -945,9 +958,9 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           const ok = cmdMap[action](view.state, view.dispatch);
           if (ok) {
             view.focus();
-            onAnnounceRef.current?.('已更新表格结构');
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.tableUpdated'));
           } else {
-            onAnnounceRef.current?.('当前单元格无法执行该表格操作（可能受跨行/跨列约束）');
+            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.tableBlocked'));
           }
           return ok;
         },
@@ -1032,7 +1045,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
         );
       }
       view.focus();
-      onAnnounceRef.current?.(`已插入 <${choice.spec.tag}>`);
+      onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.insertedTag', { tag: choice.spec.tag }));
     };
 
     const activeMenuGroups = insertMenuInlineOnly
@@ -1077,18 +1090,18 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           <div className="flex items-center gap-2.5">
             <div
               role="group"
-              aria-label="段落与元素标签显示模式"
-              className="flex items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
+              aria-label={t('visual.tagModeGroupAria')}
+              className="flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
             >
               <Tags className="mx-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
               {(
                 [
-                  { id: 'none', label: '无标签', title: '隐藏段落与元素 XML 标签' },
-                  { id: 'tags', label: '标签', title: '显示紧凑尖箭头开始/结束标签' },
+                  { id: 'none', label: t('visual.tagMode.none'), title: t('visual.tagMode.noneTitle') },
+                  { id: 'tags', label: t('visual.tagMode.tags'), title: t('visual.tagMode.tagsTitle') },
                   {
                     id: 'full',
-                    label: '含属性',
-                    title: '显示带 XML 属性的完整尖箭头标签（Oxygen 风格）',
+                    label: t('visual.tagMode.full'),
+                    title: t('visual.tagMode.fullTitle'),
                   },
                 ] as const
               ).map((item) => {
@@ -1100,7 +1113,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
                     aria-pressed={active}
                     onClick={() => onChangeTagDisplayMode(item.id)}
                     title={item.title}
-                    className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
+                    className={`whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
                       active
                         ? 'bg-white text-indigo-700 shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
@@ -1112,18 +1125,20 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
               })}
             </div>
 
-            <span className="hidden text-[11px] text-slate-400 md:inline">
-              选中段落后点击段间 <kbd className="rounded border border-slate-200 bg-white px-1 font-mono text-[10px] text-slate-600">+</kbd> 快速插块
+            <span className="hidden min-w-0 truncate text-[11px] text-slate-400 md:inline-block">
+              {t('visual.gapHintBefore')}{' '}
+              <kbd className="rounded border border-slate-200 bg-white px-1 font-mono text-[10px] text-slate-600">+</kbd>{' '}
+              {t('visual.gapHintAfter')}
             </span>
           </div>
 
           {activeDitaval ? (
-            <div className="inline-flex items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[10.5px] font-medium text-teal-800">
+            <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[10.5px] font-medium text-teal-800">
               <Filter className="h-3 w-3 text-teal-600" aria-hidden="true" />
               <span className="max-w-[140px] truncate">{activeDitavalPath?.split('/').pop()}</span>
               {ditavalTopicSummary ? (
                 <span className="font-mono text-[10px] text-teal-700">
-                  · 排除 {ditavalTopicSummary.excluded} · 标记 {ditavalTopicSummary.flagged}
+                  · {t('visual.ditavalExcluded')} {ditavalTopicSummary.excluded} · {t('visual.ditavalFlagged')} {ditavalTopicSummary.flagged}
                 </span>
               ) : null}
             </div>

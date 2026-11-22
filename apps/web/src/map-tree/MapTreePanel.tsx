@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Tree, type TreeApi } from 'react-arborist';
 import type { DitavalDisplayMode, ParsedDitaval } from '@dita/core';
+import { useI18n } from '../i18n/index.js';
 import {
   AlertTriangle,
   ChevronsDownUp,
@@ -105,6 +106,7 @@ export function MapTreePanel({
   onRedoMap,
   onOpenPublish,
 }: MapTreePanelProps) {
+  const { t } = useI18n();
   const treeHostRef = useRef<HTMLDivElement | null>(null);
   const treeApiRef = useRef<TreeApi<CompositeMapTreeNode> | undefined>(undefined);
   const { width, height } = useContainerDimensions(treeHostRef);
@@ -173,8 +175,8 @@ export function MapTreePanel({
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center text-xs text-slate-400">
         <Network className="mb-2 h-7 w-7 text-slate-300" aria-hidden="true" />
-        <p>当前工作区暂无 .ditamap 或 .bookmap 文件</p>
-        <p className="mt-1 text-[11px]">请在“项目文件”页签点击新建 Map。</p>
+        <p>{t('mapTree.noMaps')}</p>
+        <p className="mt-1 text-[11px]">{t('mapTree.noMapsHint')}</p>
       </div>
     );
   }
@@ -194,7 +196,7 @@ export function MapTreePanel({
                 ? 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-300'
                 : 'hover:bg-slate-100'
             }`}
-            title={`点击选中根节点：${rootMapPath}`}
+            title={t('mapTree.rootTooltip', { path: rootMapPath })}
           >
             <span
               className={`shrink-0 rounded px-1 py-0.5 font-mono text-[9.5px] font-bold uppercase ${
@@ -211,7 +213,7 @@ export function MapTreePanel({
             {isRootDirty ? (
               <span
                 className="h-2 w-2 shrink-0 rounded-full bg-amber-500"
-                title="Map 有未保存的结构更改"
+                title={t('mapTree.dirtyTooltip')}
               />
             ) : null}
           </button>
@@ -219,11 +221,11 @@ export function MapTreePanel({
           <button
             type="button"
             onClick={() => onJumpToSource(rootMapPath, 1)}
-            title="查看 / 编辑当前 Map 的 XML 源码"
+            title={t('mapTree.sourceTooltip')}
             className="dita-mini-btn shrink-0 px-1.5 py-0.5 text-sky-700"
           >
             <Code2 className="h-3 w-3" aria-hidden="true" />
-            <span>源码</span>
+            <span>{t('mapTree.source')}</span>
           </button>
         </div>
 
@@ -238,11 +240,11 @@ export function MapTreePanel({
                 parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
               })
             }
-            title="新建 Topic 并挂载到当前 Map 根节点"
+            title={t('mapTree.createMountedTooltip')}
             className="dita-mini-btn px-1.5 py-0.5 text-indigo-700"
           >
             <FilePlus2 className="h-3 w-3" aria-hidden="true" />
-            <span>新建挂载</span>
+            <span>{t('mapTree.createMounted')}</span>
           </button>
           <button
             type="button"
@@ -253,11 +255,11 @@ export function MapTreePanel({
                 parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
               })
             }
-            title="挂载工作区中已有的 Topic 或子 Map"
+            title={t('mapTree.mountExistingTooltip')}
             className="dita-mini-btn px-1.5 py-0.5"
           >
             <Link2 className="h-3 w-3 text-slate-600" aria-hidden="true" />
-            <span>挂载已有</span>
+            <span>{t('mapTree.mountExisting')}</span>
           </button>
           <button
             type="button"
@@ -268,20 +270,20 @@ export function MapTreePanel({
                 isBookmap ? 'chapter' : 'topichead',
               )
             }
-            title={isBookmap ? '插入空章 <chapter>' : '插入分组标题 <topichead>'}
+            title={isBookmap ? t('mapTree.insertChapterTooltip') : t('mapTree.insertGroupTooltip')}
             className="dita-mini-btn px-1.5 py-0.5"
           >
             <FolderPlus className="h-3 w-3 text-amber-600" aria-hidden="true" />
-            <span>{isBookmap ? '章' : '分组'}</span>
+            <span>{isBookmap ? t('mapTree.chapter') : t('mapTree.group')}</span>
           </button>
           <button
             type="button"
             onClick={onOpenPublish}
-            title="发布当前 Root Map 为 HTML5 / PDF（DITA-OT 严格校验）"
+            title={t('mapTree.publishTooltip')}
             className="dita-mini-btn px-1.5 py-0.5 text-rose-700"
           >
             <Rocket className="h-3 w-3" aria-hidden="true" />
-            <span>发布</span>
+            <span>{t('mapTree.publish')}</span>
           </button>
 
           <div className="ml-auto flex items-center gap-0.5">
@@ -289,8 +291,8 @@ export function MapTreePanel({
               type="button"
               disabled={!canUndo}
               onClick={() => onUndoMap(rootMapPath)}
-              title="撤销 Map 结构修改"
-              aria-label="撤销 Map 结构修改"
+              title={t('mapTree.undo')}
+              aria-label={t('mapTree.undo')}
               className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
             >
               <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -299,8 +301,8 @@ export function MapTreePanel({
               type="button"
               disabled={!canRedo}
               onClick={() => onRedoMap(rootMapPath)}
-              title="重做 Map 结构修改"
-              aria-label="重做 Map 结构修改"
+              title={t('mapTree.redo')}
+              aria-label={t('mapTree.redo')}
               className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
             >
               <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
@@ -308,8 +310,8 @@ export function MapTreePanel({
             <button
               type="button"
               onClick={() => treeApiRef.current?.openAll()}
-              title="全部展开"
-              aria-label="全部展开"
+              title={t('mapTree.expandAll')}
+              aria-label={t('mapTree.expandAll')}
               className="rounded p-1 text-slate-500 hover:bg-slate-100"
             >
               <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
@@ -317,8 +319,8 @@ export function MapTreePanel({
             <button
               type="button"
               onClick={() => treeApiRef.current?.closeAll()}
-              title="全部折叠"
-              aria-label="全部折叠"
+              title={t('mapTree.collapseAll')}
+              aria-label={t('mapTree.collapseAll')}
               className="rounded p-1 text-slate-500 hover:bg-slate-100"
             >
               <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden="true" />
@@ -335,7 +337,7 @@ export function MapTreePanel({
             aria-hidden="true"
           />
           <label htmlFor="map-ditaval-select" className="sr-only">
-            选择 DITAVAL 条件过滤配置
+            {t('mapTree.ditavalSelect')}
           </label>
           <select
             id="map-ditaval-select"
@@ -343,8 +345,8 @@ export function MapTreePanel({
             onChange={(e) => onSelectDitaval(e.target.value || null)}
             title={
               activeDitavalPath
-                ? `当前条件过滤配置：${activeDitavalPath}`
-                : '选择当前激活的 .ditaval 条件过滤配置'
+                ? t('mapTree.ditavalActiveTooltip', { path: activeDitavalPath ?? '' })
+                : t('mapTree.ditavalIdleTooltip')
             }
             className={`min-w-0 flex-1 truncate rounded-md border px-1.5 py-1 text-[11px] font-medium focus:border-teal-500 focus:outline-none ${
               activeDitavalPath
@@ -352,10 +354,10 @@ export function MapTreePanel({
                 : 'border-slate-200 bg-white text-slate-700 hover:bg-slate-50'
             }`}
           >
-            <option value="">关闭过滤 (无 DITAVAL)</option>
+            <option value="">{t('mapTree.ditavalOff')}</option>
             {ditavals.map((dv) => (
               <option key={dv.path} value={dv.path}>
-                {dv.name} ({dv.ruleCount} 条规则)
+                {dv.name} ({t('mapTree.ruleCount', { count: dv.ruleCount })})
               </option>
             ))}
           </select>
@@ -364,14 +366,14 @@ export function MapTreePanel({
         <div className="mt-1 flex min-w-0 items-center justify-between gap-1">
           <div
             role="group"
-            aria-label="DITAVAL 条件显示模式"
+            aria-label={t('mapTree.ditavalModeAria')}
             className="flex items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
           >
             {(
               [
-                { id: 'show-all', label: '全显', title: '显示全部内容及条件属性彩色徽章' },
-                { id: 'dim-excluded', label: '淡化', title: '淡化被 DITAVAL 排除的内容' },
-                { id: 'hide-excluded', label: '隐藏', title: '隐藏被 DITAVAL 排除的内容' },
+                { id: 'show-all', label: t('mapTree.view.showAll'), title: t('mapTree.view.showAllTitle') },
+                { id: 'dim-excluded', label: t('mapTree.view.dim'), title: t('mapTree.view.dimTitle') },
+                { id: 'hide-excluded', label: t('mapTree.view.hide'), title: t('mapTree.view.hideTitle') },
               ] as const
             ).map((opt) => {
               const active = ditavalDisplayMode === opt.id;
@@ -383,7 +385,7 @@ export function MapTreePanel({
                   aria-pressed={active}
                   disabled={disabled}
                   onClick={() => onChangeDitavalDisplayMode(opt.id)}
-                  title={disabled ? '请先选择 .ditaval 文件' : opt.title}
+                  title={disabled ? t('mapTree.ditavalPickFirst') : opt.title}
                   className={`rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors disabled:opacity-40 ${
                     active ? 'bg-white text-teal-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
@@ -397,14 +399,14 @@ export function MapTreePanel({
           {activeDitaval ? (
             <span
               className="min-w-0 truncate font-mono text-[10px] text-teal-800"
-              title={`当前 DITAVAL：${activeDitavalPath ?? ''}`}
+              title={t('mapTree.ditavalCurrent', { path: activeDitavalPath ?? '' })}
             >
               {treeResult.hiddenCount > 0
-                ? `隐藏 ${treeResult.hiddenCount}`
+                ? t('mapTree.hiddenCount', { count: treeResult.hiddenCount })
                 : treeResult.excludedCount > 0
-                  ? `排除 ${treeResult.excludedCount}`
-                  : '全通过'}
-              {treeResult.flaggedCount > 0 ? ` · 标记 ${treeResult.flaggedCount}` : ''}
+                  ? t('mapTree.excludedCount', { count: treeResult.excludedCount })
+                  : t('mapTree.allPass')}
+              {treeResult.flaggedCount > 0 ? t('mapTree.flaggedCount', { count: treeResult.flaggedCount }) : ''}
             </span>
           ) : null}
         </div>
@@ -421,8 +423,8 @@ export function MapTreePanel({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索章节标题、href 或 key..."
-            aria-label="搜索 Map 树节点"
+            placeholder={t('mapTree.searchPlaceholder')}
+            aria-label={t('mapTree.searchAria')}
             className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none"
           />
         </div>
@@ -433,7 +435,7 @@ export function MapTreePanel({
         <div className="m-2.5 rounded-lg border border-rose-200 bg-rose-50 p-3 text-xs text-rose-800">
           <div className="flex items-center gap-1.5 font-semibold">
             <AlertTriangle className="h-4 w-4 text-rose-600" aria-hidden="true" />
-            <span>Map XML 解析失败</span>
+            <span>{t('mapTree.parseFailed')}</span>
           </div>
           <p className="mt-1 font-mono text-[11px] text-rose-700">
             L{treeResult.parseError.line}:{treeResult.parseError.column} —{' '}
@@ -444,7 +446,7 @@ export function MapTreePanel({
             onClick={() => onJumpToSource(rootMapPath, treeResult.parseError?.line)}
             className="mt-2 rounded bg-rose-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-rose-500"
           >
-            切到源码修复
+            {t('mapTree.fixInSource')}
           </button>
         </div>
       ) : null}
@@ -456,8 +458,8 @@ export function MapTreePanel({
       >
         {!treeResult.parseError && treeResult.nodes.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400">
-            <p>当前 Map 暂无可显示的目录节点。</p>
-            <p className="mt-1">点击上方“新建挂载”或调整 DITAVAL 条件过滤。</p>
+            <p>{t('mapTree.empty')}</p>
+            <p className="mt-1">{t('mapTree.emptyHint')}</p>
           </div>
         ) : (
           <Tree<CompositeMapTreeNode>
@@ -511,7 +513,7 @@ export function MapTreePanel({
 
       {/* Footer Hint */}
       <div className="border-t border-slate-100 bg-slate-50/70 px-2.5 py-1 text-[10.5px] text-slate-400">
-        提示：拖拽节点可调层级与跨子图移动 · 双击打开 Topic · 右键更多操作
+        {t('mapTree.footerHint')}
       </div>
 
       {/* Native Popover Context Menu */}

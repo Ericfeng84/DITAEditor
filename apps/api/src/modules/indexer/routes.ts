@@ -35,7 +35,7 @@ export function registerSemanticIndexerRoutes(
         query.branch ?? 'default',
       );
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -51,7 +51,7 @@ export function registerSemanticIndexerRoutes(
       }
       return { keyspace };
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -61,7 +61,7 @@ export function registerSemanticIndexerRoutes(
       const topics = await indexer.getTopicIndices(query.filePath, query.branch ?? 'default');
       return { topics };
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -80,7 +80,7 @@ export function registerSemanticIndexerRoutes(
       }
       return { path: query.path, ditaval: res.parsed };
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -97,7 +97,7 @@ export function registerSemanticIndexerRoutes(
         branch: parsed.data.branch,
       });
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -119,7 +119,7 @@ export function registerSemanticIndexerRoutes(
         branch: parsed.data.branch,
       });
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 }

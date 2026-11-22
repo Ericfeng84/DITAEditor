@@ -3,6 +3,10 @@ import {
   computeRelativeDitaHref,
   evaluateElementConditions,
   getAttributesForElement,
+  getAttributeDescription,
+  getAttributeLabel,
+  getAttributePlaceholder,
+  getElementLabel,
   getElementSpec,
   getRawAttr,
   parseDitaMap,
@@ -25,6 +29,8 @@ import {
   X,
 } from 'lucide-react';
 import { ProfilingAttrEditor } from '../components/ProfilingAttrEditor';
+import { useI18n } from '../i18n/index.js';
+import type { MessageKey } from '../i18n/messages/index.js';
 import type { MapBufferState } from './map-tree-utils';
 
 export interface MapNodeInspectorProps {
@@ -46,12 +52,20 @@ export interface MapNodeInspectorProps {
   onDeleteNode: (mapPath: string, elementPath: number[]) => void;
 }
 
-const GROUP_LABELS: Record<DitaAttributeGroup, { title: string; subtitle: string }> = {
-  element: { title: 'Map / 引用专属属性', subtitle: 'Element' },
-  core: { title: '通用核心属性', subtitle: 'Universal' },
-  profiling: { title: '条件过滤 (DITAVAL)', subtitle: 'Profiling' },
-  reuse: { title: '内容复用 (Conref)', subtitle: 'Reuse' },
-  presentation: { title: '排版展示', subtitle: 'Display' },
+const GROUP_SUBTITLES: Record<DitaAttributeGroup, string> = {
+  element: 'Element',
+  core: 'Universal',
+  profiling: 'Profiling',
+  reuse: 'Reuse',
+  presentation: 'Display',
+};
+
+const GROUP_TITLE_KEYS: Record<DitaAttributeGroup, MessageKey> = {
+  element: 'mapNodeInspector.group.element',
+  core: 'attributes.group.core',
+  profiling: 'attributes.group.profiling',
+  reuse: 'attributes.group.reuse',
+  presentation: 'attributes.group.presentation',
 };
 
 function findTreeNodeByPath(
@@ -86,6 +100,7 @@ export function MapNodeInspector({
   onJumpToSource,
   onDeleteNode,
 }: MapNodeInspectorProps) {
+  const { t, locale } = useI18n();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     element: true,
     core: true,
@@ -111,15 +126,15 @@ export function MapNodeInspector({
   if (!selected || !parsedMap) {
     return (
       <aside
-        aria-label="Map 节点属性检查器"
+        aria-label={t('mapNodeInspector.aria')}
         className="flex h-full flex-col border-l border-slate-200 bg-slate-50/70"
       >
         <div className="border-b border-slate-200 px-3 py-2.5">
-          <h2 className="text-xs font-semibold text-slate-800">Map 属性检查器</h2>
+          <h2 className="text-xs font-semibold text-slate-800">{t('mapNodeInspector.title')}</h2>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-xs text-slate-400">
           <Tag className="mb-2 h-6 w-6 text-slate-300" aria-hidden="true" />
-          <p>在左侧 Map 树中选中任意节点以编辑 href、navtitle、keys 与条件属性。</p>
+          <p>{t('mapNodeInspector.emptyBody')}</p>
         </div>
       </aside>
     );
@@ -130,7 +145,7 @@ export function MapNodeInspector({
   if (!isRoot && !node) {
     return (
       <aside className="flex h-full flex-col border-l border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-400">
-        所选节点已移动或移除，请重新点击左侧树节点。
+        {t('mapNodeInspector.staleSelection')}
       </aside>
     );
   }
@@ -172,7 +187,7 @@ export function MapNodeInspector({
 
   return (
     <aside
-      aria-label="Map 节点属性检查器"
+      aria-label={t('mapNodeInspector.aria')}
       className="flex h-full flex-col border-l border-slate-200 bg-white text-slate-800"
     >
       {/* Header */}
@@ -188,7 +203,7 @@ export function MapNodeInspector({
           </div>
         </div>
         <p className="mt-1 truncate text-xs font-medium text-slate-700">
-          {spec ? `${spec.labelZh} · ${spec.label}` : 'Map 结构节点'}
+          {spec ? `${getElementLabel(spec, locale)} · <${spec.tag}>` : t('mapNodeInspector.structuralNode')}
         </p>
 
         <div className="mt-2.5 flex flex-wrap items-center gap-1">
@@ -199,7 +214,7 @@ export function MapNodeInspector({
               className="dita-mini-btn text-indigo-700"
             >
               <BookOpen className="h-3 w-3" aria-hidden="true" />
-              打开目标
+              {t('mapNodeInspector.openTarget')}
             </button>
           ) : null}
           <button
@@ -208,7 +223,7 @@ export function MapNodeInspector({
             className="dita-mini-btn text-sky-700"
           >
             <Code2 className="h-3 w-3" aria-hidden="true" />
-            定位源码
+            {t('mapNodeInspector.locateSource')}
           </button>
           {!isRoot ? (
             <button
@@ -217,7 +232,7 @@ export function MapNodeInspector({
               className="dita-mini-btn ml-auto text-rose-700 hover:bg-rose-50"
             >
               <Trash2 className="h-3 w-3" aria-hidden="true" />
-              移除
+              {t('mapMenu.remove')}
             </button>
           ) : null}
         </div>
@@ -232,7 +247,7 @@ export function MapNodeInspector({
                 htmlFor="map-root-title-input"
                 className="mb-1 block text-[11px] font-semibold text-slate-700"
               >
-                {parsedMap.kind === 'bookmap' ? '书籍主标题 (<mainbooktitle>)' : 'Map 标题 (<title>)'}
+                {parsedMap.kind === 'bookmap' ? t('mapNodeInspector.bookTitle') : t('mapNodeInspector.mapTitle')}
               </label>
               <input
                 id="map-root-title-input"
@@ -248,13 +263,13 @@ export function MapNodeInspector({
                 htmlFor="map-node-navtitle-input"
                 className="mb-1 block text-[11px] font-semibold text-slate-700"
               >
-                目录导航标题 (navtitle)
+                {t('mapNodeInspector.navtitle')}
               </label>
               <input
                 id="map-node-navtitle-input"
                 type="text"
                 value={node?.navtitle ?? ''}
-                placeholder="默认继承目标 Topic 的 <title>"
+                placeholder={t('mapNodeInspector.navtitlePlaceholder')}
                 onChange={(e) =>
                   onUpdateNavtitle(selected.mapPath, selected.elementPath!, e.target.value)
                 }
@@ -277,7 +292,7 @@ export function MapNodeInspector({
               ) : (
                 <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
               )}
-              已设置属性（原始 XML 顺序）
+              {t('attributes.rawTitle')}
             </span>
             <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
               {rawAttrs.length}
@@ -287,7 +302,7 @@ export function MapNodeInspector({
           {expandedGroups.raw ? (
             <div className="mt-2 space-y-1.5">
               {rawAttrs.length === 0 ? (
-                <p className="text-[11px] text-slate-400">当前节点暂无属性</p>
+                <p className="text-[11px] text-slate-400">{t('mapNodeInspector.noAttrs')}</p>
               ) : (
                 rawAttrs.map((entry) => (
                   <div
@@ -304,7 +319,7 @@ export function MapNodeInspector({
                     <span className="text-slate-400">=</span>
                     <input
                       type="text"
-                      aria-label={`属性 ${entry.name}`}
+                      aria-label={t('attributes.attrAria', { name: entry.name })}
                       value={entry.value}
                       onChange={(e) =>
                         onUpdateAttr(selected.mapPath, selected.elementPath, entry.name, e.target.value)
@@ -316,7 +331,7 @@ export function MapNodeInspector({
                       onClick={() =>
                         onUpdateAttr(selected.mapPath, selected.elementPath, entry.name, null)
                       }
-                      aria-label={`移除属性 ${entry.name}`}
+                      aria-label={t('attributes.removeAria', { name: entry.name })}
                       className="rounded p-0.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <X className="h-3 w-3" aria-hidden="true" />
@@ -330,21 +345,21 @@ export function MapNodeInspector({
                   type="text"
                   value={customAttrName}
                   onChange={(e) => setCustomAttrName(e.target.value)}
-                  placeholder="属性名"
-                  aria-label="新属性名"
+                  placeholder={t('attributes.namePlaceholder')}
+                  aria-label={t('attributes.nameAria')}
                   className="w-24 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
                 />
                 <input
                   type="text"
                   value={customAttrValue}
                   onChange={(e) => setCustomAttrValue(e.target.value)}
-                  placeholder="属性值"
-                  aria-label="新属性值"
+                  placeholder={t('attributes.valuePlaceholder')}
+                  aria-label={t('attributes.valueAria')}
                   className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
                 />
                 <button
                   type="submit"
-                  aria-label="添加属性"
+                  aria-label={t('mapNodeInspector.addAttr')}
                   className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-white hover:bg-slate-700"
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
@@ -358,7 +373,6 @@ export function MapNodeInspector({
         {(['element', 'core', 'profiling', 'reuse'] as DitaAttributeGroup[]).map((groupKey) => {
           const attrs = grouped.get(groupKey);
           if (!attrs || attrs.length === 0) return null;
-          const meta = GROUP_LABELS[groupKey];
           const isOpen = Boolean(expandedGroups[groupKey]);
           const filledCount = attrs.filter((a) => getRawAttr(rawAttrs, a.name) !== undefined).length;
 
@@ -375,7 +389,7 @@ export function MapNodeInspector({
                   ) : (
                     <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
                   )}
-                  {meta.title}
+                  {t(GROUP_TITLE_KEYS[groupKey])}
                 </span>
                 {groupKey === 'profiling' && conditionEval ? (
                   <span
@@ -388,17 +402,17 @@ export function MapNodeInspector({
                     }`}
                   >
                     {conditionEval.status === 'exclude'
-                      ? '已排除'
+                      ? t('attributes.condition.excluded')
                       : conditionEval.status === 'flag'
-                        ? '标记高亮'
-                        : '包含'}
+                        ? t('attributes.condition.flagged')
+                        : t('attributes.condition.included')}
                   </span>
                 ) : filledCount > 0 ? (
                   <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700">
                     {filledCount}
                   </span>
                 ) : (
-                  <span className="text-[10px] font-normal text-slate-400">{meta.subtitle}</span>
+                  <span className="text-[10px] font-normal text-slate-400">{GROUP_SUBTITLES[groupKey]}</span>
                 )}
               </button>
 
@@ -415,7 +429,7 @@ export function MapNodeInspector({
                           <label
                             htmlFor={inputId}
                             className="flex items-center gap-1 text-[11px] font-medium text-slate-700"
-                            title={attr.description}
+                            title={getAttributeDescription(attr, locale)}
                           >
                             <code className="font-mono text-slate-900">{attr.name}</code>
                           </label>
@@ -427,7 +441,7 @@ export function MapNodeInspector({
                               }
                               className="text-[10px] text-slate-400 hover:text-rose-600"
                             >
-                              清除
+                              {t('attributes.clear')}
                             </button>
                           ) : null}
                         </div>
@@ -438,7 +452,7 @@ export function MapNodeInspector({
                             inputId={inputId}
                             value={currentVal}
                             suggestions={profilingCatalog[attr.name as DitaProfilingAttrName] ?? []}
-                            placeholder={attr.placeholder ?? attr.label}
+                            placeholder={getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale)}
                             onChange={(nextVal) =>
                               onUpdateAttr(selected.mapPath, selected.elementPath, attr.name, nextVal)
                             }
@@ -457,7 +471,7 @@ export function MapNodeInspector({
                             }
                             className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
                           >
-                            <option value="">（未设置）</option>
+                            <option value="">{t('attributes.unset')}</option>
                             {currentVal && !attr.values.includes(currentVal) ? (
                               <option value={currentVal}>{currentVal}</option>
                             ) : null}
@@ -473,7 +487,7 @@ export function MapNodeInspector({
                               id={inputId}
                               type="text"
                               value={currentVal}
-                              placeholder={attr.placeholder ?? attr.label}
+                              placeholder={getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale)}
                               onChange={(e) =>
                                 onUpdateAttr(
                                   selected.mapPath,
@@ -486,7 +500,7 @@ export function MapNodeInspector({
                             />
                             {attr.name === 'href' && availableFiles.length > 0 ? (
                               <select
-                                aria-label="从工作区快速选择目标文件"
+                                aria-label={t('mapNodeInspector.quickPickAria')}
                                 value=""
                                 onChange={(e) => {
                                   if (!e.target.value) return;
@@ -503,7 +517,7 @@ export function MapNodeInspector({
                                 }}
                                 className="w-full rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10.5px] text-slate-600 focus:border-indigo-500 focus:outline-none"
                               >
-                                <option value="">快速从工作区选择目标路径…</option>
+                                <option value="">{t('mapNodeInspector.quickPick')}</option>
                                 {availableFiles
                                   .filter((f) => f !== selected.mapPath)
                                   .map((f) => (
@@ -528,14 +542,17 @@ export function MapNodeInspector({
         <section className="bg-emerald-50/40 p-3">
           <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800">
             <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-            Map 原生结构无损保真
+            {t('mapNodeInspector.lossless')}
           </div>
           <p className="mt-1.5 text-[11px] leading-relaxed text-slate-600">
-            DOCTYPE：{parsedMap.preservedMetaSummary.hasDoctype ? '已保留' : '无'} · 注释：
-            {parsedMap.preservedMetaSummary.commentCount} · PI：
-            {parsedMap.preservedMetaSummary.piCount}
-            {parsedMap.preservedMetaSummary.hasReltable ? ' · 含 <reltable> 关联表' : ''}
-            {parsedMap.preservedMetaSummary.hasBookmeta ? ' · 含 <bookmeta>' : ''}
+            {t('mapNodeInspector.metaLine', {
+              doctype: parsedMap.preservedMetaSummary.hasDoctype ? t('mapNodeInspector.preserved') : t('attributes.noneValue'),
+              comments: parsedMap.preservedMetaSummary.commentCount,
+              pis: parsedMap.preservedMetaSummary.piCount,
+            })}
+            
+            {parsedMap.preservedMetaSummary.hasReltable ? t('mapNodeInspector.hasReltable') : ''}
+            {parsedMap.preservedMetaSummary.hasBookmeta ? t('mapNodeInspector.hasBookmeta') : ''}
           </p>
         </section>
       </div>

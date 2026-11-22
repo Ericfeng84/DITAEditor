@@ -5,6 +5,7 @@ import {
   type AiTargetSpec,
 } from '@dita/core';
 import type { Node as PMNode } from 'prosemirror-model';
+import type { MessageKey } from '../i18n/index.js';
 
 /** Selection text is capped to keep request payloads bounded (contract §1). */
 export const AI_SELECTED_TEXT_LIMIT = 4000;
@@ -103,9 +104,9 @@ export function buildLineWindowAiTarget(
  */
 export type AiTargetScope = 'fragment' | 'document';
 
-export const AI_TARGET_SCOPE_LABELS: Record<AiTargetScope, string> = {
-  fragment: '片段',
-  document: '整篇 Topic',
+export const AI_TARGET_SCOPE_LABELS: Record<AiTargetScope, MessageKey> = {
+  fragment: 'ai.scope.fragment',
+  document: 'ai.scope.document',
 };
 
 export function resolveScopeTarget(

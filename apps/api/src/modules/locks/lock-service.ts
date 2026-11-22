@@ -4,7 +4,8 @@ import { randomUUID } from 'node:crypto';
 import { and, desc, eq } from 'drizzle-orm';
 import type { DitaDatabase } from '../../db/client.js';
 import { fileLocks, lockBackups, repositories, users, type FileLockRow } from '../../db/schema.js';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError } from '../errors.js';
+import { apiT } from '../../i18n/messages.js';
 import type { GitManager } from '../git/git-manager.js';
 import { repositoryIdFor } from '../git/git-manager.js';
 import type { IdentityUser, UserRole } from '../identity/identity-service.js';
@@ -155,10 +156,10 @@ export class LockService {
   }): Promise<LockView> {
     const { workDir, projectRootDir, filePath, user } = options;
     if (user.role === 'viewer') {
-      throw new HttpError(403, '只读角色无法检出文件');
+      throw httpError(403, 'locks.viewerCannotCheckout');
     }
     if (!options.allowMissing && !existsSync(join(workDir, filePath))) {
-      throw new HttpError(404, `文件不存在：${filePath}`);
+      throw httpError(404, 'locks.fileNotFound', { path: filePath });
     }
     await this.git.ensureInitialized(projectRootDir);
     const projectId = this.ensureRepository(projectRootDir);
@@ -175,9 +176,14 @@ export class LockService {
         return this.toView({ ...existing, updatedAt: Date.now() });
       }
       const owner = this.userName(existing.userId);
-      throw new HttpError(
+      throw httpError(
         409,
-        `文件已被 ${owner.name} 检出（${new Date(existing.lockedAt).toLocaleString('zh-CN')}）`,
+        'locks.checkoutConflict',
+        {
+          user: owner.name,
+          // Timestamps stay numeric and language-neutral so both locales read the same instant.
+          at: new Date(existing.lockedAt).toLocaleString('zh-CN'),
+        },
         { lock: this.toView(existing) },
       );
     }
@@ -197,7 +203,7 @@ export class LockService {
       const current = this.findRow(projectId, branch, filePath);
       if (current) {
         const owner = this.userName(current.userId);
-        throw new HttpError(409, `文件已被 ${owner.name} 检出`, { lock: this.toView(current) });
+        throw httpError(409, 'locks.alreadyCheckedOut', { user: owner.name }, { lock: this.toView(current) });
       }
       throw error;
     }
@@ -207,10 +213,10 @@ export class LockService {
   release(projectId: string, branch: string, filePath: string, user: IdentityUser): LockView {
     const row = this.findRow(projectId, branch, filePath);
     if (!row) {
-      throw new HttpError(404, `文件未被检出：${filePath}`);
+      throw httpError(404, 'locks.notCheckedOut', { path: filePath });
     }
     if (row.userId !== user.id && user.role !== 'admin') {
-      throw new HttpError(403, '只能释放自己的检出锁');
+      throw httpError(403, 'locks.releaseOwnOnly');
     }
     this.db.delete(fileLocks).where(eq(fileLocks.id, row.id)).run();
     return this.toView(row);
@@ -219,11 +225,11 @@ export class LockService {
   assertOwnLock(projectId: string, branch: string, filePath: string, user: IdentityUser): LockView {
     const row = this.findRow(projectId, branch, filePath);
     if (!row) {
-      throw new HttpError(409, `文件未检出，无法提交：${filePath}`);
+      throw httpError(409, 'locks.commitNotCheckedOut', { path: filePath });
     }
     if (row.userId !== user.id && user.role !== 'admin') {
       const owner = this.userName(row.userId);
-      throw new HttpError(403, `文件由 ${owner.name} 检出，无法提交`);
+      throw httpError(403, 'locks.commitByOther', { user: owner.name });
     }
     return this.toView(row);
   }
@@ -243,7 +249,7 @@ export class LockService {
   }): Promise<WriteAuthorization> {
     const { workDir, projectRootDir, filePath, user, exists } = options;
     if (user.role === 'viewer') {
-      throw new HttpError(403, '只读角色无权修改文件');
+      throw httpError(403, 'locks.viewerCannotModify');
     }
     if (user.role === 'admin') {
       this.ensureRepository(projectRootDir);
@@ -255,7 +261,7 @@ export class LockService {
     if (row) {
       if (row.userId !== user.id) {
         const owner = this.userName(row.userId);
-        throw new HttpError(409, `文件已被 ${owner.name} 检出，无法保存`);
+        throw httpError(409, 'locks.saveConflict', { user: owner.name });
       }
       this.db.update(fileLocks).set({ updatedAt: Date.now() }).where(eq(fileLocks.id, row.id)).run();
       return { lock: this.toView(row), autoLocked: false };
@@ -270,7 +276,7 @@ export class LockService {
       });
       return { lock, autoLocked: true };
     }
-    throw new HttpError(409, '请先检出该文件再编辑保存');
+    throw httpError(409, 'locks.checkoutFirst');
   }
 
   async checkin(options: {
@@ -282,10 +288,10 @@ export class LockService {
   }): Promise<{ commit: import('../git/git-manager.js').GitCommitEntry; branch: string; projectId: string; releasedPaths: string[] }> {
     const { workDir, projectRootDir, paths, message, user } = options;
     if (user.role === 'viewer') {
-      throw new HttpError(403, '只读角色无法提交');
+      throw httpError(403, 'locks.viewerCannotCommit');
     }
     if (paths.length === 0) {
-      throw new HttpError(400, '请选择要提交的文件');
+      throw httpError(400, 'locks.filesRequired');
     }
     const projectId = this.ensureRepository(projectRootDir);
     const branch = await this.git.currentBranch(workDir);
@@ -293,14 +299,14 @@ export class LockService {
     for (const filePath of paths) {
       const row = this.findRow(projectId, branch, filePath);
       if (!row) {
-        throw new HttpError(409, `文件未检出，无法提交：${filePath}`);
+        throw httpError(409, 'locks.commitNotCheckedOut', { path: filePath });
       }
       if (row.userId !== user.id) {
         const owner = this.userName(row.userId);
-        throw new HttpError(403, `文件由 ${owner.name} 检出，无法提交：${filePath}`);
+        throw httpError(403, 'locks.commitByOtherWithPath', { user: owner.name, path: filePath });
       }
       if (!dirty.has(filePath)) {
-        throw new HttpError(409, `文件没有可提交的改动：${filePath}`);
+        throw httpError(409, 'locks.noCommitChange', { path: filePath });
       }
     }
     const commit = await this.git.commit(workDir, paths, message, user);
@@ -330,12 +336,12 @@ export class LockService {
     const row = this.findRow(projectId, branch, fromPath);
     if (!row) return;
     if (row.userId !== user.id && user.role !== 'admin') {
-      throw new HttpError(403, '无法移动他人检出的文件');
+      throw httpError(403, 'locks.moveOthersLock');
     }
     const target = this.findRow(projectId, branch, toPath);
     if (target && target.userId !== row.userId) {
       const owner = this.userName(target.userId);
-      throw new HttpError(409, `目标路径已被 ${owner.name} 检出`);
+      throw httpError(409, 'locks.moveTargetLocked', { user: owner.name });
     }
     if (target) {
       this.db.delete(fileLocks).where(eq(fileLocks.id, target.id)).run();
@@ -371,11 +377,11 @@ export class LockService {
   }): Promise<ForceUnlockResult> {
     const { workDir, projectId, branch, filePath, admin } = options;
     if (admin.role !== 'admin') {
-      throw new HttpError(403, '仅管理员可强制解锁');
+      throw httpError(403, 'locks.adminOnlyUnlock');
     }
     const row = this.findRow(projectId, branch, filePath);
     if (!row) {
-      throw new HttpError(404, `文件未被检出：${filePath}`);
+      throw httpError(404, 'locks.notCheckedOut', { path: filePath });
     }
     let content: string | null = null;
     const absolute = join(workDir, filePath);
@@ -399,7 +405,9 @@ export class LockService {
         ownerUserId: row.userId,
         content,
         patch: patch || null,
-        reason: options.reason?.trim() || `管理员 ${admin.displayName} 强制解锁`,
+        reason:
+          options.reason?.trim() ||
+          apiT('zh-CN', 'locks.forceUnlockReason', { admin: admin.displayName }),
         createdAt,
       })
       .run();

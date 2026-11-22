@@ -8,6 +8,7 @@ import {
   X,
 } from 'lucide-react';
 import type { OpenEditorTab } from '../store/editor-store';
+import { useI18n } from '../i18n/index.js';
 
 export interface EditorTabBarProps {
   tabs: OpenEditorTab[];
@@ -43,6 +44,7 @@ export function EditorTabBar({
   onCloseOtherTabs,
   onCloseSavedTabs,
 }: EditorTabBarProps) {
+  const { t } = useI18n();
   const tablistRef = useRef<HTMLDivElement | null>(null);
   const startSentinelRef = useRef<HTMLDivElement | null>(null);
   const endSentinelRef = useRef<HTMLDivElement | null>(null);
@@ -138,7 +140,7 @@ export function EditorTabBar({
       <div
         ref={tablistRef}
         {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
-        aria-label="已打开文档标签栏"
+        aria-label={t('tabs.aria')}
         className="dita-tablist dita-scroller-hidden flex min-w-0 flex-1 items-stretch overflow-x-auto"
       >
         <div
@@ -178,7 +180,7 @@ export function EditorTabBar({
                     onCloseTab(tab.path);
                   }
                 }}
-                title={`${tab.path}${isDirty ? '（有未保存改动）' : ''}`}
+                title={`${tab.path}${isDirty ? t('tabs.dirtySuffix') : ''}`}
                 className={`dita-tab-btn relative flex min-w-0 items-center gap-1.5 px-2.5 text-xs ${
                   isActive ? 'text-slate-900' : 'text-slate-600'
                 }`}
@@ -188,13 +190,13 @@ export function EditorTabBar({
                 {tab.xmlError ? (
                   <AlertCircle
                     className="h-3 w-3 shrink-0 text-rose-500"
-                    aria-label="XML 语法错误"
+                    aria-label={t('tabs.xmlError')}
                   />
                 ) : isDirty ? (
                   <span
                     className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
-                    title="未保存"
-                    aria-label="未保存"
+                    title={t('tabs.unsaved')}
+                    aria-label={t('tabs.unsaved')}
                   />
                 ) : null}
               </button>
@@ -203,8 +205,8 @@ export function EditorTabBar({
                 type="button"
                 {...({ focusgroup: 'none' } as Record<string, string>)}
                 onClick={() => onCloseTab(tab.path)}
-                aria-label={`关闭 ${tab.fileName}`}
-                title={`关闭 ${tab.fileName}`}
+                aria-label={t('tabs.close', { name: tab.fileName })}
+                title={t('tabs.close', { name: tab.fileName })}
                 className={`mr-1 self-center rounded p-0.5 text-slate-400 hover:bg-slate-200/80 hover:text-slate-700 ${
                   isActive ? 'opacity-100' : 'opacity-60 group-hover:opacity-100'
                 }`}
@@ -228,17 +230,17 @@ export function EditorTabBar({
             type="button"
             onClick={onCloseSavedTabs}
             className="rounded px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-slate-200/70 hover:text-slate-800"
-            title="关闭所有已保存的标签页"
+            title={t('tabs.closeSavedTitle')}
           >
-            清已保存
+            {t('tabs.closeSaved')}
           </button>
           <button
             type="button"
             onClick={() => onCloseOtherTabs(activeTabPath)}
             className="rounded px-1.5 py-0.5 text-[11px] text-slate-500 hover:bg-slate-200/70 hover:text-slate-800"
-            title="仅保留当前标签页"
+            title={t('tabs.closeOthersTitle')}
           >
-            关闭其他
+            {t('tabs.closeOthers')}
           </button>
         </div>
       ) : null}

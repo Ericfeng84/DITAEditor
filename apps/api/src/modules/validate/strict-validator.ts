@@ -1,3 +1,5 @@
+import { apiT } from '../../i18n/messages.js';
+import type { ApiLocale } from '../../i18n/locale.js';
 import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
@@ -28,6 +30,8 @@ export interface StrictValidationInput {
   runtimeOptions?: DitaRuntimeOptions;
   timeoutMs?: number;
   signal?: AbortSignal;
+  /** UI locale of the requesting client; diagnostics fall back messages follow it. */
+  locale?: ApiLocale;
 }
 
 export interface StrictValidationResult {
@@ -53,36 +57,44 @@ function toPosix(path: string): string {
   return path.split(sep).join('/');
 }
 
-function ensureInside(workDir: string, absPath: string): string {
+function ensureInside(workDir: string, absPath: string, locale: ApiLocale): string {
   const rel = relative(workDir, absPath);
   if (rel.startsWith('..') || isAbsolute(rel)) {
-    throw new Error(`校验路径超出工作区：${absPath}`);
+    throw new Error(apiT(locale, 'validate.pathOutside', { path: absPath }));
   }
   return toPosix(rel);
 }
 
-export function resolveValidationTarget(workDir: string, rawPath: string): string {
+export function resolveValidationTarget(
+  workDir: string,
+  rawPath: string,
+  locale: ApiLocale = 'zh-CN',
+): string {
   const absPath = isAbsolute(rawPath) ? resolve(rawPath) : resolve(workDir, rawPath);
-  const posixPath = ensureInside(workDir, absPath);
+  const posixPath = ensureInside(workDir, absPath, locale);
   if (!existsSync(absPath)) {
-    throw new Error(`文件不存在：${posixPath}`);
+    throw new Error(apiT(locale, 'validate.fileMissing', { path: posixPath }));
   }
   const extension = extname(absPath).toLowerCase();
   if (!VALIDATABLE_EXTENSIONS.has(extension)) {
-    throw new Error(`不支持严格校验的文件类型：${posixPath}`);
+    throw new Error(apiT(locale, 'validate.unsupportedType', { path: posixPath }));
   }
   return posixPath;
 }
 
 /** DITAVAL is only read by DITA-OT, so constrain it to the workspace and its expected suffix. */
-export function resolveDitavalTarget(workDir: string, rawPath: string): string {
+export function resolveDitavalTarget(
+  workDir: string,
+  rawPath: string,
+  locale: ApiLocale = 'zh-CN',
+): string {
   const absPath = isAbsolute(rawPath) ? resolve(rawPath) : resolve(workDir, rawPath);
-  const posixPath = ensureInside(workDir, absPath);
+  const posixPath = ensureInside(workDir, absPath, locale);
   if (!existsSync(absPath)) {
-    throw new Error(`DITAVAL 文件不存在：${posixPath}`);
+    throw new Error(apiT(locale, 'validate.ditavalMissing', { path: posixPath }));
   }
   if (extname(absPath).toLowerCase() !== '.ditaval') {
-    throw new Error(`DITAVAL 文件必须以 .ditaval 结尾：${posixPath}`);
+    throw new Error(apiT(locale, 'validate.ditavalSuffix', { path: posixPath }));
   }
   return posixPath;
 }
@@ -106,11 +118,12 @@ interface SingleTargetResult {
  * Each target gets its own temporary output directory so a map cannot mask a sibling failure.
  */
 export async function validateStrict(input: StrictValidationInput): Promise<StrictValidationResult> {
+  const locale: ApiLocale = input.locale ?? 'zh-CN';
   const startedAt = Date.now();
   const workDir = resolve(input.workDir);
   const runtimeOptions = input.runtimeOptions ?? {};
   const command = resolveDitaCommand(runtimeOptions);
-  const runtime = await detectDitaRuntime(runtimeOptions);
+  const runtime = await detectDitaRuntime(runtimeOptions, { locale });
   const timeoutMs = input.timeoutMs ?? DEFAULT_TIMEOUT_MS;
 
   if (!runtime.available) {
@@ -123,15 +136,15 @@ export async function validateStrict(input: StrictValidationInput): Promise<Stri
       command,
       logTail: '',
       runtime,
-      message:
-        runtime.error ??
-        '未检测到 DITA-OT CLI。请安装 DITA-OT 4.x、设置 DITA_OT_HOME，或使用项目 Docker 镜像。',
+      message: runtime.error ?? apiT(locale, 'validate.noCli'),
     };
   }
 
   let targets: string[];
   try {
-    targets = [...new Set(input.paths.map((path) => resolveValidationTarget(workDir, path)))];
+    targets = [
+      ...new Set(input.paths.map((path) => resolveValidationTarget(workDir, path, locale))),
+    ];
   } catch (err) {
     return {
       available: true,
@@ -155,14 +168,14 @@ export async function validateStrict(input: StrictValidationInput): Promise<Stri
       command,
       logTail: '',
       runtime,
-      message: '请至少选择一个待校验的文件或 Root Map。',
+      message: apiT(locale, 'validate.selectTargets'),
     };
   }
 
   let rootMap: string | null = null;
   if (input.rootMapPath) {
     try {
-      rootMap = resolveValidationTarget(workDir, input.rootMapPath);
+      rootMap = resolveValidationTarget(workDir, input.rootMapPath, locale);
     } catch (err) {
       return {
         available: true,
@@ -268,10 +281,10 @@ export async function validateStrict(input: StrictValidationInput): Promise<Stri
         fallbackDitaDiagnostic(
           result.target,
           result.timedOut
-            ? 'DITA-OT 严格校验超时。'
+            ? apiT(locale, 'validate.timeout')
             : result.cancelled
-              ? 'DITA-OT 严格校验已取消。'
-              : 'DITA-OT 严格校验失败，请查看构建日志。',
+              ? apiT(locale, 'validate.cancelled')
+              : apiT(locale, 'validate.failed'),
         ),
       );
     }

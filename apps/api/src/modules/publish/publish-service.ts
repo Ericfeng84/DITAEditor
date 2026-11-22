@@ -14,7 +14,9 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import type { DitaDatabase } from '../../db/client.js';
 import { publishJobs, type PublishJobRow } from '../../db/schema.js';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError } from '../errors.js';
+import { apiT } from '../../i18n/messages.js';
+import type { ApiLocale } from '../../i18n/locale.js';
 import type { IdentityUser } from '../identity/identity-service.js';
 import type { WorkspaceManager } from '../files/workspace-fs.js';
 import {
@@ -47,6 +49,8 @@ export interface CreatePublishJobInput {
   format: PublishFormat;
   ditaval?: string | null;
   title?: string;
+  /** UI locale of the requesting client, persisted with the job so stored build errors match it. */
+  locale?: ApiLocale;
 }
 
 export interface PublishJobView {
@@ -201,7 +205,7 @@ export class PublishService {
         .update(publishJobs)
         .set({
           status: 'failed',
-          error: '服务重启后中断，请重新发布。',
+          error: apiT(this.localeForRow(job), 'publish.interrupted'),
           finishedAt: Date.now(),
         })
         .where(eq(publishJobs.id, job.id))
@@ -225,19 +229,16 @@ export class PublishService {
     await this.queue.shutdown();
   }
 
-  async getRuntime(force = true): Promise<DitaRuntimeInfo> {
-    return detectDitaRuntime(this.runtimeOptions, { force });
+  async getRuntime(locale: ApiLocale = 'zh-CN', force = true): Promise<DitaRuntimeInfo> {
+    return detectDitaRuntime(this.runtimeOptions, { force, locale });
   }
 
   async createJob(input: CreatePublishJobInput): Promise<PublishJobView> {
-    const runtime = await this.getRuntime(false);
+    const locale: ApiLocale = input.locale ?? 'zh-CN';
+    const runtime = await this.getRuntime(locale, false);
     if (!runtime.available) {
-      throw new HttpError(
-        503,
-        runtime.error ??
-          '未检测到 DITA-OT CLI。请安装 DITA-OT 4.x、设置 DITA_OT_HOME，或使用项目 Docker 镜像。',
-        { runtime },
-      );
+      if (runtime.error) throw new HttpError(503, runtime.error, { runtime });
+      throw httpError(503, 'publish.noCli', undefined, { runtime });
     }
     const id = `pub-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
     const now = Date.now();
@@ -260,7 +261,7 @@ export class PublishService {
         ditaval: input.ditaval ?? null,
         title,
         status: 'queued',
-        optionsJson: JSON.stringify({ timeoutMs: this.timeoutMs }),
+        optionsJson: JSON.stringify({ timeoutMs: this.timeoutMs, locale }),
         createdAt: now,
         logPath,
         snapshotPath: join(jobDir, 'snapshot'),
@@ -271,7 +272,7 @@ export class PublishService {
 
     this.queue.enqueue(id);
     const view = this.getJob(id);
-    if (!view) throw new HttpError(500, '发布任务创建失败');
+    if (!view) throw httpError(500, 'publish.createFailed');
     return view;
   }
 
@@ -298,10 +299,10 @@ export class PublishService {
 
   async cancelJob(job: PublishJobRow, user: IdentityUser): Promise<PublishJobView> {
     if (user.role !== 'admin' && job.userId !== user.id) {
-      throw new HttpError(403, '只能取消自己发起的发布任务');
+      throw httpError(403, 'publish.cancelOwnOnly');
     }
     if (TERMINAL_STATUSES.includes(job.status as PublishStatus)) {
-      throw new HttpError(409, '任务已结束，无法取消');
+      throw httpError(409, 'publish.alreadyFinished');
     }
     const cancelled = this.queue.cancel(job.id);
     if (cancelled === 'queued') {
@@ -309,7 +310,7 @@ export class PublishService {
         .update(publishJobs)
         .set({
           status: 'cancelled',
-          error: '发布已取消',
+          error: apiT(this.localeForRow(job), 'publish.cancelled'),
           finishedAt: Date.now(),
           cancelRequested: 1,
         })
@@ -359,19 +360,35 @@ export class PublishService {
     };
   }
 
+  /** Locale persisted at job creation (`optionsJson.locale`), defaulting to zh-CN. */
+  private localeForRow(row: PublishJobRow | null): ApiLocale {
+    if (!row?.optionsJson) return 'zh-CN';
+    try {
+      const parsed = JSON.parse(row.optionsJson) as { locale?: string };
+      return parsed.locale === 'en' ? 'en' : 'zh-CN';
+    } catch {
+      return 'zh-CN';
+    }
+  }
+
   private async runJob(jobId: string, signal: AbortSignal): Promise<void> {
     const row = this.getJobRow(jobId);
     if (!row || row.status !== 'queued' || row.cancelRequested === 1) {
       if (row && row.status === 'queued') {
         this.db
           .update(publishJobs)
-          .set({ status: 'cancelled', error: '发布已取消', finishedAt: Date.now() })
+          .set({
+            status: 'cancelled',
+            error: apiT(this.localeForRow(row), 'publish.cancelled'),
+            finishedAt: Date.now(),
+          })
           .where(eq(publishJobs.id, jobId))
           .run();
       }
       return;
     }
 
+    const locale = this.localeForRow(row);
     const startedAt = Date.now();
     this.db
       .update(publishJobs)
@@ -417,7 +434,7 @@ export class PublishService {
 
       const inputAbs = resolve(snapshotDir, row.rootMap);
       if (!isInside(snapshotDir, inputAbs) || !existsSync(inputAbs)) {
-        throw new Error(`Root Map 不存在或已移动：${row.rootMap}`);
+        throw new Error(apiT(locale, 'publish.rootMapMissing', { path: row.rootMap }));
       }
 
       const format = row.format as PublishFormat;
@@ -431,7 +448,7 @@ export class PublishService {
       if (row.ditaval) {
         const ditavalAbs = resolve(snapshotDir, row.ditaval);
         if (!isInside(snapshotDir, ditavalAbs) || !existsSync(ditavalAbs)) {
-          throw new Error(`DITAVAL 文件不存在：${row.ditaval}`);
+          throw new Error(apiT(locale, 'publish.ditavalMissing', { path: row.ditaval }));
         }
         args.push(`--filter=${ditavalAbs}`);
       }
@@ -518,7 +535,7 @@ export class PublishService {
       if (cancelled) {
         finish({
           status: 'cancelled',
-          error: '发布已取消',
+          error: apiT(locale, 'publish.cancelled'),
           finishedAt: Date.now(),
           exitCode: result.exitCode,
           diagnosticsJson: JSON.stringify(diagnostics),
@@ -531,16 +548,14 @@ export class PublishService {
           diagnostics = [
             fallbackDitaDiagnostic(
               row.rootMap,
-              result.timedOut
-                ? 'DITA-OT 发布超时。'
-                : 'DITA-OT 发布失败，请查看构建日志。',
+              result.timedOut ? apiT(locale, 'publish.timeout') : apiT(locale, 'publish.failed'),
             ),
           ];
         }
         const firstError = diagnostics.find((diagnostic) => diagnostic.severity === 'error');
         finish({
           status: 'failed',
-          error: (firstError?.message ?? 'DITA-OT 发布失败').slice(0, 2000),
+          error: (firstError?.message ?? apiT(locale, 'publish.failedShort')).slice(0, 2000),
           finishedAt: Date.now(),
           exitCode: result.exitCode,
           diagnosticsJson: JSON.stringify(diagnostics),
@@ -553,14 +568,14 @@ export class PublishService {
       if (format === 'pdf') {
         const pdfPath = await findFirstPdf(outputDir);
         if (!pdfPath) {
-          throw new Error('DITA-OT 未生成 PDF 文件，请查看构建日志。');
+          throw new Error(apiT(locale, 'publish.noPdf'));
         }
         artifactPath = pdfPath;
         artifactName = `${sanitizeFileStem(row.title)}.pdf`;
       } else {
         const indexExists = existsSync(join(outputDir, 'index.html'));
         if (!indexExists) {
-          throw new Error('DITA-OT 未生成 index.html，请查看构建日志。');
+          throw new Error(apiT(locale, 'publish.noIndexHtml'));
         }
         artifactPath = join(jobDir, 'artifact.zip');
         artifactName = `${sanitizeFileStem(row.title)}-html5.zip`;
@@ -606,7 +621,7 @@ export class PublishService {
       }
       finish({
         status: cancelled ? 'cancelled' : 'failed',
-        error: cancelled ? '发布已取消' : message.slice(0, 2000),
+        error: cancelled ? apiT(locale, 'publish.cancelled') : message.slice(0, 2000),
         finishedAt: Date.now(),
         diagnosticsJson: JSON.stringify(diagnostics),
       });

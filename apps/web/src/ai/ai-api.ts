@@ -1,4 +1,5 @@
 import { getCurrentUserId } from '../services/identity-api';
+import { getCurrentLocale, translate } from '../i18n/index.js';
 import { requestJson } from '../services/workspace-api';
 import type {
   AiConfigPatch,
@@ -49,7 +50,7 @@ export interface AiStreamHandlers {
 }
 
 function abortError(): Error {
-  const error = new Error('AI 请求已取消');
+  const error = new Error(translate(getCurrentLocale(), 'aiApi.cancelled'));
   error.name = 'AbortError';
   return error;
 }
@@ -66,6 +67,7 @@ export async function streamAiRequest(
   const headers: Record<string, string> = {
     accept: 'text/event-stream',
     'content-type': 'application/json',
+    'x-dita-locale': getCurrentLocale(),
   };
   const userId = getCurrentUserId();
   if (userId) headers['x-dita-user-id'] = userId;
@@ -79,9 +81,9 @@ export async function streamAiRequest(
   });
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(payload.error ?? `AI 流式请求失败（HTTP ${String(response.status)}）`);
+    throw new Error(payload.error ?? translate(getCurrentLocale(), 'aiApi.streamFailed', { status: String(response.status) }));
   }
-  if (!response.body) throw new Error('浏览器不支持 AI 流式响应读取');
+  if (!response.body) throw new Error(translate(getCurrentLocale(), 'aiApi.noStream'));
 
   if (signal?.aborted) throw abortError();
 

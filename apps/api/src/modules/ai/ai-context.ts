@@ -1,10 +1,11 @@
 import type { TopicIdIndexEntry } from '@dita/core';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
+import { apiT } from '../../i18n/messages.js';
+import type { ApiLocale } from '../../i18n/locale.js';
 
 const MAX_KEYSPACE_ENTRIES = 60;
 const MAX_TOPIC_ENTRIES = 60;
 const MAX_CATALOG_CHARS = 1500;
-const TRUNCATION_NOTICE = '…（已截断）';
 
 export interface AiContextInput {
   indexer: WorkspaceSemanticIndexer;
@@ -12,6 +13,7 @@ export interface AiContextInput {
   ditavalPath: string | null;
   branch: string;
   currentFilePath: string | null;
+  locale?: ApiLocale;
 }
 
 export interface AiProjectContext {
@@ -32,7 +34,7 @@ export const EMPTY_AI_CONTEXT: AiProjectContext = {
 export function truncateWithNotice(
   text: string,
   maxChars: number,
-  notice = TRUNCATION_NOTICE,
+  notice = apiT('zh-CN', 'ai.context.truncated'),
 ): string {
   if (maxChars <= 0) return '';
   if (text.length <= maxChars) return text;
@@ -57,10 +59,15 @@ function keyDefinitionLine(definition: {
   return `- ${definition.qualifiedKey}: ${label}`;
 }
 
-function topicIndexLine(entry: TopicIdIndexEntry, currentFilePath: string | null): string {
+function topicIndexLine(
+  entry: TopicIdIndexEntry,
+  currentFilePath: string | null,
+  locale: ApiLocale,
+): string {
   const id = entry.rootTopicId ? ` #${entry.rootTopicId}` : '';
   const title = entry.title?.trim() ? ` — ${entry.title.trim()}` : '';
-  const current = currentFilePath === entry.filePath ? '（当前文件）' : '';
+  const current =
+    currentFilePath === entry.filePath ? apiT(locale, 'ai.context.currentFile') : '';
   return `- ${entry.filePath}${id}${title}${current}`;
 }
 
@@ -69,6 +76,10 @@ function topicIndexLine(entry: TopicIdIndexEntry, currentFilePath: string | null
  * degrade silently to empty summaries — AI assistance must never block on indexing.
  */
 export async function buildAiContext(input: AiContextInput): Promise<AiProjectContext> {
+  const locale: ApiLocale = input.locale ?? 'zh-CN';
+  const t = (key: Parameters<typeof apiT>[1], params?: Parameters<typeof apiT>[2]) =>
+    apiT(locale, key, params);
+  const notice = t('ai.context.truncated');
   try {
     const semantic = await input.indexer.getSemanticContext(
       input.rootMapPath,
@@ -88,10 +99,15 @@ export async function buildAiContext(input: AiContextInput): Promise<AiProjectCo
     if (keyDefinitions.length > 0) {
       const lines = keyDefinitions.slice(0, MAX_KEYSPACE_ENTRIES).map(keyDefinitionLine);
       if (keyDefinitions.length > MAX_KEYSPACE_ENTRIES) {
-        lines.push(`…共 ${keyDefinitions.length} 个键，仅列出前 ${MAX_KEYSPACE_ENTRIES} 个`);
+        lines.push(
+          t('ai.context.keysTruncated', {
+            total: String(keyDefinitions.length),
+            limit: String(MAX_KEYSPACE_ENTRIES),
+          }),
+        );
       }
-      keyspaceSummary = truncateWithNotice(lines.join('\n'), MAX_CATALOG_CHARS);
-      badges.push(`键空间 ${keyDefinitions.length} 个键`);
+      keyspaceSummary = truncateWithNotice(lines.join('\n'), MAX_CATALOG_CHARS, notice);
+      badges.push(t('ai.context.keyspaceBadge', { count: String(keyDefinitions.length) }));
     }
 
     const topicIndices = [...semantic.topicIndices].sort((a, b) =>
@@ -100,20 +116,25 @@ export async function buildAiContext(input: AiContextInput): Promise<AiProjectCo
     if (topicIndices.length > 0) {
       const lines = topicIndices
         .slice(0, MAX_TOPIC_ENTRIES)
-        .map((entry) => topicIndexLine(entry, input.currentFilePath));
+        .map((entry) => topicIndexLine(entry, input.currentFilePath, locale));
       if (topicIndices.length > MAX_TOPIC_ENTRIES) {
-        lines.push(`…共 ${topicIndices.length} 个主题，仅列出前 ${MAX_TOPIC_ENTRIES} 个`);
+        lines.push(
+          t('ai.context.topicsTruncated', {
+            total: String(topicIndices.length),
+            limit: String(MAX_TOPIC_ENTRIES),
+          }),
+        );
       }
-      pathIndexSummary = truncateWithNotice(lines.join('\n'), MAX_CATALOG_CHARS);
-      badges.push(`路径与 ID 索引 ${topicIndices.length} 个主题`);
+      pathIndexSummary = truncateWithNotice(lines.join('\n'), MAX_CATALOG_CHARS, notice);
+      badges.push(t('ai.context.pathIndexBadge', { count: String(topicIndices.length) }));
     }
 
     const profilingLines = Object.entries(semantic.profilingCatalog ?? {})
       .filter(([, values]) => values.length > 0)
       .map(([attr, values]) => `- ${attr}: ${[...values].sort().join(', ')}`);
     if (profilingLines.length > 0) {
-      profilingSummary = truncateWithNotice(profilingLines.join('\n'), MAX_CATALOG_CHARS);
-      badges.push(`DITAVAL 属性 ${profilingLines.length} 类`);
+      profilingSummary = truncateWithNotice(profilingLines.join('\n'), MAX_CATALOG_CHARS, notice);
+      badges.push(t('ai.context.profilingBadge', { count: String(profilingLines.length) }));
     }
 
     return { keyspaceSummary, pathIndexSummary, profilingSummary, badges };

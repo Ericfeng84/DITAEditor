@@ -1,7 +1,7 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.1.0-indigo.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.2.0-indigo.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
 
 **简体中文** · [English](README.en.md)
@@ -10,7 +10,7 @@
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
-> 当前版本 **v1.1.0**（覆盖 Phase 0–7：工作台 + 官网 / 离线三栏工作台 / 双语文档站），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
+> 当前版本 **v1.2.0**（覆盖 Phase 0–8：工作台 + 官网 / 离线三栏工作台 / 双语文档站 / 全栈中英双语界面），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
 
 - **项目官网与双语文档（GitHub Pages）**：https://ericfeng84.github.io/DITAEditor/ （英文版：`/en/`）
 - **在线工作台（纯前端离线版）**：https://ericfeng84.github.io/DITAEditor/workbench/ （内置 `demo-dita-project` 内存工作区，免部署体验三栏工作台、Map 树、双模编辑与 Keys/Conref/DITAVAL）
@@ -95,7 +95,7 @@ pnpm --filter @dita/site test     # 双语字典/文档 slug 对称性与预设�
 
 ---
 
-## 核心特性（已实现：Phase 0–6）
+## 核心特性（已实现：Phase 0–8）
 
 ### 1. 100% 无损 XML 往返内核（`@dita/core`）
 - 基于 `slimdom` + `slimdom-sax-parser` + `fontoxpath` 构建前后端同构的 DITA XML 内核，解析时同步记录节点源码起止行列号。
@@ -157,6 +157,24 @@ pnpm --filter @dita/site test     # 双语字典/文档 slug 对称性与预设�
 - **四类任务**：`ask`（只答不改）、`authoring`（重写/扩写/精简/补写 shortdesc 与步骤）、`optimize_tags`（`uicontrol` / `menucascade` / `wintitle` / `filepath` / `codeph` / `parmname` 等语义标签）、`fix_error`（XML 结构、Map 链接、资源路径、Keyref、Conref 环路、DITAVAL 与 DITA-OT 严格校验错误）。
 - **入口遍布工作台**：属性检视区「AI」页签（排在第一位）与文档区右下角 AI 浮动按钮（默认「整篇 Topic」靶向，一句话即可起草或重写完整主题，可一键切到「片段」；目标徽标 + 上下文徽标 + 流式输出 + Diff 确认）、行内气泡栏「AI 改写 / 询问」、源码 XML 错误横幅「AI 修复」、问题面板与严格校验逐条修复；请求始终携带当前未保存的编辑器缓冲区。
 - **模型与审计**：`@dita/api` 用 LangChain.js（`@langchain/core` + `@langchain/openai`）封装 OpenAI 兼容 `ChatOpenAI`，默认 DeepSeek，可配置私有化/内网代理 `baseURL`、模型名、API Key、超时与重试；SQLite `ai_settings` 保存管理员配置（Key 仅返回掩码），`ai_usage_logs` 记录调用人、任务、文件、状态、重试次数、token 与耗时，`GET /api/ai/usage` 汇总按天/任务/用户/模型分组。写操作继续强守 Check-out 独占锁：管理员与文件所有者直接应用，未检出的编辑者先签出，只读或他人锁定仅可预览。
+
+### 9. 全栈中英双语界面（Phase 8）
+- **零依赖强类型 i18n**：`@dita/core` 提供 `UiLocale`（`zh-CN` / `en`）、`normalizeLocale` 与 `formatMessage`；`@dita/web` 的
+  `src/i18n/messages/zh-CN.ts` 是**唯一文案源**（`MessageKey` 由它派生），`en.ts` 用 `Record<MessageKey, string>` 强制键集合一致，
+  `pnpm --filter @dita/web typecheck` 即校验缺失/拼错的键，运行期再无 `undefined` 文案。
+- **无损热切换**：顶栏 `中文 / EN` 切换只更新 Zustand locale store + `html[lang]`，不刷新页面、不重建 ProseMirror /
+  CodeMirror 实例；未保存的缓冲区、多 Tab、选区与 `Cmd/Ctrl+Z` 撤销栈全部保留，ProseMirror 装饰通过
+  `DITA_DECORATIONS_KEY` 的 locale 元数据单事务刷新，`index.css` 的 `:root[lang="en"]` 同步替换 5 个 DITA 区块伪标签。
+- **DITA 元素词典双语**：`dita-rules.ts` 为 110+ 元素与属性补充英文标签/说明/占位符（`getElementLabel(spec, locale)` 等），
+  元素插入菜单、属性面板、CodeMirror 补全与标签气泡按当前语言渲染；`createTopicTemplate` / `createMapTemplate` 支持
+  `lang: 'en'` 生成 `xml:lang="en"` 的英文 OASIS 1.3 模板。
+- **服务端也双语**：`@dita/api` 的 `resolveRequestLocale(req)` 依次读取 `x-dita-locale` → `Accept-Language` → `zh-CN`，
+  `HttpError` 携带 `{ key, params }` 由路由按请求语言渲染；锁冲突、Git、校验、发布任务日志与 DITA-OT 缺失提示、
+  语义诊断、身份角色均返回对应语言；AI 提示词、上下文徽标、SSE 状态与解释按界面语言输出，**XML 正文仍遵循文档自身
+  的 `xml:lang`**（解释用界面语言、结构不翻译）。前端所有 API 客户端自动携带 `x-dita-locale`。
+- **防回归门禁**：`apps/web/test/i18n-parity.test.ts`（键集合 / `{param}` 占位符 / 空值）、
+  `apps/web/test/no-hardcoded-cjk.test.ts`（`apps/web/src` 注释剥离后零硬编码中文，白名单只留文案表与示例 DITA 内容）、
+  `apps/api/test/phase8-i18n.test.ts`（角色文案、锁冲突、校验提示、AI 未配置守卫在 `x-dita-locale: en` 下均为英文）。
 
 ---
 
@@ -416,10 +434,10 @@ pnpm typecheck
 pnpm test
 ```
 
-当前测试覆盖（**231/231 Vitest 测试通过**）：
+当前测试覆盖（**246/246 Vitest 测试通过**）：
 - `@dita/core`（81 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因（26 项）。
-- `@dita/web`（92 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，以及 Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥）。
-- `@dita/api`（28 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份，Phase 5 运行时探测、DOTJ/DOTX/file URL 日志归一化、严格校验成功/失败/只读放行、HTML5 ZIP 与预览、PDF 下载、取消与历史排序，以及 Phase 6 AI 配置与 Key 掩码、用量账本聚合、SSE 事件序列、重试与非管理员 403、真实 socket 上的 SSE 回归，以及 DITAVAL 路径必须位于工作区内的安全约束。
+- `@dita/web`（99 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥），以及 Phase 8 双语目录键集合/占位符对称、源码硬编码中文扫描与 AI 靶向标签多语言解析。
+- `@dita/api`（36 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份，Phase 5 运行时探测、DOTJ/DOTX/file URL 日志归一化、严格校验成功/失败/只读放行、HTML5 ZIP 与预览、PDF 下载、取消与历史排序，以及 Phase 6 AI 配置与 Key 掩码、用量账本聚合、SSE 事件序列、重试与非管理员 403、真实 socket 上的 SSE 回归，以及 DITAVAL 路径必须位于工作区内的安全约束，Phase 8 `x-dita-locale` / `Accept-Language` 语言解析、角色文案、锁冲突、校验提示与 AI 未配置守卫的双语断言。
 - `@dita/site`（30 项）：中英双语字典键对称校验、双语文档 slug 对称校验、子路径（`SITE_BASE`）与离线工作台路由辅助单测，以及核心 `@dita/core` 预设无损往返验证。
 
 ---
@@ -434,7 +452,7 @@ pnpm test
 - [x] **Phase 5**：基于 `@dita/api` 直接调度 DITA-OT 4.x CLI（零 Java 业务代码，内置 DITA 1.3 DTD/RNG 严格校验 + 纯 XML Noto CJK 中文 PDF 字体插件）、零 Redis 的 SQLite + 进程内并发限流异步发布与 SSE 实时日志，以及单容器 `Dockerfile` 一键部署。
 - [x] **Phase 6**：LangChain.js AI 辅助（DeepSeek / OpenAI 兼容端点）、`@dita/core` 片段级无损替换与自动校验重试、SSE 流式写作/标签优化/错误修复、强制 Diff 确认与 Check-out 锁守卫、SQLite 配置与 token 用量审计、AI 配置/用量面板；含真实端点端到端脚本 `apps/api/scripts/e2e-ai-live.mts`。
 - [x] **Phase 7**：独立静态官网 `@dita/site`（Astro 5 + React 19 + Tailwind CSS 4，中英双语 + 6 篇对称文档 + Pagefind 搜索 + 首页微演示），并通过 GitHub Pages 同步托管纯前端离线版三栏工作台（`/workbench/`）。
-- [ ] **Phase 8**：全栈英文版界面与双语国际化（规划见 [docs/phase8-i18n-plan.md](docs/phase8-i18n-plan.md)）。
+- [x] **Phase 8**：全栈中英双语界面（`@dita/core` 双语元素词典与语义/AI 诊断、`@dita/web` 强类型 i18n 与无损热切换、`@dita/api` 请求语言解析与双语提示、三套 i18n 防回归测试；规划见 [docs/phase8-i18n-plan.md](docs/phase8-i18n-plan.md)）。
 
 ---
 

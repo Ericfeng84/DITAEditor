@@ -17,6 +17,7 @@ import {
   resolveScopeTarget,
 } from '../src/ai/ai-target';
 import { resetAiStore, useAiStore } from '../src/ai/ai-store';
+import { translate } from '../src/i18n/messages/index.js';
 import type { AiProposal, AiStreamRequest } from '../src/ai/ai-types';
 import {
   resolveAiApplyMode,
@@ -507,9 +508,12 @@ describe('AI target scope (full topic authoring)', () => {
     expect(resolveScopeTarget('fragment', [null, undefined])).toEqual({ mode: 'full-document' });
   });
 
-  it('labels both scopes for the panel toggle', () => {
-    expect(AI_TARGET_SCOPE_LABELS.document).toBe('整篇 Topic');
-    expect(AI_TARGET_SCOPE_LABELS.fragment).toBe('片段');
+  it('labels both scopes for the panel toggle in every locale', () => {
+    // Phase 8: scope labels are message keys resolved at render time, not baked-in Chinese.
+    expect(translate('zh-CN', AI_TARGET_SCOPE_LABELS.document)).toBe('整篇 Topic');
+    expect(translate('zh-CN', AI_TARGET_SCOPE_LABELS.fragment)).toBe('片段');
+    expect(translate('en', AI_TARGET_SCOPE_LABELS.document)).toBe('Full Topic');
+    expect(translate('en', AI_TARGET_SCOPE_LABELS.fragment)).toBe('Fragment');
   });
 });
 

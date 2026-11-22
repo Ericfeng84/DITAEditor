@@ -3,7 +3,8 @@ import { z } from 'zod';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
 import type { IdentityService } from '../identity/identity-service.js';
 import type { LockService } from '../locks/lock-service.js';
-import { isHttpError } from '../errors.js';
+import { isHttpError, localizeErrorMessage } from '../errors.js';
+import { resolveRequestLocale } from '../../i18n/locale.js';
 import {
   WorkspaceConflictError,
   WorkspaceNotFoundError,
@@ -69,9 +70,12 @@ const renameSchema = z.object({
   toPath: z.string().min(1),
 });
 
-export function handleWorkspaceError(err: unknown, reply: FastifyReply) {
+export function handleWorkspaceError(err: unknown, req: FastifyRequest, reply: FastifyReply) {
   if (isHttpError(err)) {
-    return reply.status(err.statusCode).send({ error: err.message, ...(err.details ?? {}) });
+    return reply.status(err.statusCode).send({
+      error: localizeErrorMessage(err, resolveRequestLocale(req)),
+      ...(err.details ?? {}),
+    });
   }
   if (
     err instanceof WorkspacePathError ||
@@ -125,7 +129,7 @@ export function registerWorkspaceFileRoutes(
     try {
       return await workspace.scanWorkspace();
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, _req, reply);
     }
   });
 
@@ -138,7 +142,7 @@ export function registerWorkspaceFileRoutes(
       const target = 'useDefault' in parsed.data ? { useDefault: true as const } : parsed.data.rootDir;
       return await workspace.openWorkspace(target);
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -151,15 +155,15 @@ export function registerWorkspaceFileRoutes(
     try {
       return await workspace.importBatchFiles(parsed.data.projectName, parsed.data.files);
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
-  app.get('/api/workspaces', async (_req, reply) => {
+  app.get('/api/workspaces', async (req, reply) => {
     try {
       return await workspace.listWorkspaces();
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -170,9 +174,12 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      return await workspace.createWorkspace(parsed.data);
+      return await workspace.createWorkspace({
+        ...parsed.data,
+        locale: resolveRequestLocale(req),
+      });
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -185,7 +192,7 @@ export function registerWorkspaceFileRoutes(
     try {
       return { workspaces: await workspace.forgetWorkspace(parsed.data.path) };
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -199,7 +206,7 @@ export function registerWorkspaceFileRoutes(
         topicTitles: snapshot.topicTitles,
       };
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, _req, reply);
     }
   });
 
@@ -211,7 +218,7 @@ export function registerWorkspaceFileRoutes(
     try {
       return await workspace.readFile(query.path);
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -229,7 +236,7 @@ export function registerWorkspaceFileRoutes(
         parsed.data.createDirs ?? true,
       );
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -246,7 +253,7 @@ export function registerWorkspaceFileRoutes(
       }
       return await workspace.createFromTemplate(parsed.data);
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -259,7 +266,7 @@ export function registerWorkspaceFileRoutes(
       requireWriterOrAdmin(req);
       return await workspace.mkdir(parsed.data.path);
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -284,7 +291,7 @@ export function registerWorkspaceFileRoutes(
       }
       return result;
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -306,7 +313,7 @@ export function registerWorkspaceFileRoutes(
       }
       return result;
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -315,10 +322,10 @@ export function registerWorkspaceFileRoutes(
     try {
       const diagnostics = indexer
         ? await indexer.collectDiagnostics(query.rootMap ?? null, query.branch ?? 'default')
-        : await workspace.collectDiagnostics(query.rootMap);
+        : await workspace.collectDiagnostics(query.rootMap, resolveRequestLocale(req));
       return { diagnostics };
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 }

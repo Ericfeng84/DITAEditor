@@ -29,6 +29,7 @@ import { XrefImageDialog } from './components/XrefImageDialog';
 import { AiAssistantPanel } from './ai/AiAssistantPanel';
 import { AiDiffDialog } from './ai/AiDiffDialog';
 import { AiSettingsDialog } from './ai/AiSettingsDialog';
+import { applyDocumentLocale, useI18n } from './i18n/index.js';
 import { buildSourceAiTarget, buildVisualAiTarget } from './ai/ai-target';
 import { useAiStore, type AiPanelIntent } from './ai/ai-store';
 import type { AiTargetSpec } from './ai/ai-types';
@@ -64,6 +65,7 @@ import {
 import { useGitStore } from './store/git-store';
 
 export function App() {
+  const { t, locale } = useI18n();
   const workspaceMode = useEditorStore((s) => s.workspaceMode);
   const workspaceRootDir = useEditorStore((s) => s.workspaceRootDir);
   const workspaceDefaultRootDir = useEditorStore((s) => s.workspaceDefaultRootDir);
@@ -154,6 +156,20 @@ export function App() {
   const setInspectorTarget = useEditorStore((s) => s.setInspectorTarget);
   const setProblemsOpen = useEditorStore((s) => s.setProblemsOpen);
   const announce = useEditorStore((s) => s.announce);
+  useEffect(() => {
+    applyDocumentLocale(locale);
+    document.title = t('app.title');
+  }, [locale, t]);
+
+  // A locale switch is lossless: no reload, no editor remount. Only the server-authored text
+  // (semantic diagnostics, identity role wording) is re-fetched so nothing stays mixed-language.
+  const localeForRefresh = useRef(locale);
+  useEffect(() => {
+    if (localeForRefresh.current === locale) return;
+    localeForRefresh.current = locale;
+    void refreshDiagnostics();
+    void useGitStore.getState().refreshIdentity();
+  }, [locale, refreshDiagnostics]);
   const clearPendingSourceOffset = useEditorStore((s) => s.clearPendingSourceOffset);
   const clearPendingVisualPmPos = useEditorStore((s) => s.clearPendingVisualPmPos);
   const requestSourceJump = useEditorStore((s) => s.requestSourceJump);
@@ -274,7 +290,9 @@ export function App() {
         filePath: activeTabPath,
         locks,
       }),
-    [currentUser?.role, currentUser?.id, activeTabPath, locks],
+    // `resolveFileEditability` renders its reason in the current UI language, so a locale
+    // switch must recompute it — otherwise the admin banner keeps the old language.
+    [currentUser?.role, currentUser?.id, activeTabPath, locks, locale],
   );
   const canEdit = workspaceMode === 'memory' ? true : editability.editable;
   const aiApplyMode = useMemo(
@@ -476,7 +494,7 @@ export function App() {
         target,
         ...(kind === 'rewrite'
           ? {
-              instruction: '请在保持 DITA 语义、结构约束与原文语言的前提下改写选中内容。',
+              instruction: t('app.ai.rewriteInstruction'),
               autoSend: true,
             }
           : {}),
@@ -576,13 +594,13 @@ export function App() {
       if (!activeTab) return;
       const filePath = activeTab.path;
       if (aiApplyMode === 'preview-only') {
-        announce('当前身份或文件锁仅允许预览 AI 修改，未写入编辑缓冲区');
+        announce(t('app.aiPreviewOnly'));
         return;
       }
       if (aiApplyMode === 'checkout-and-apply' && workspaceMode === 'api') {
         const lock = await checkoutFile(filePath);
         if (!lock) {
-          announce('签出失败，AI 修改仅可预览');
+          announce(t('app.aiCheckoutFailed'));
           return;
         }
       }
@@ -602,7 +620,7 @@ export function App() {
       }
       useAiStore.getState().markApplied();
       setAiDiffOpen(false);
-      announce('已应用 AI 修改到编辑缓冲区（尚未保存）');
+      announce(t('app.aiApplied'));
     },
     [activeTab, aiApplyMode, workspaceMode, checkoutFile, announce],
   );
@@ -722,7 +740,7 @@ export function App() {
         const targetPos = snapshot.activeItem.pos;
         visualRef.current?.updateAttr(targetPos, oppositeAttr, null);
         visualRef.current?.updateAttr(targetPos, opts.attrName, opts.value);
-        announce(`已为 <${snapshot.activeItem.tagName}> 绑定 ${opts.attrName}="${opts.value}"`);
+        announce(t('app.conrefBound', { tag: snapshot.activeItem.tagName, attr: opts.attrName, value: opts.value }));
         return;
       }
 
@@ -736,10 +754,10 @@ export function App() {
             : editor.insertBlock(opts.tagName, undefined, initialAttrs);
 
       if (!inserted) {
-        announce(`无法插入 <${opts.tagName}>：请先把光标放到正文段落中再试`);
+        announce(t('app.conrefCannotInsert', { tag: opts.tagName }));
         return;
       }
-      announce(`已插入复用节点 <${opts.tagName} ${opts.attrName}="${opts.value}"/>`);
+      announce(t('app.conrefInserted', { tag: opts.tagName, attr: opts.attrName, value: opts.value }));
     },
     [snapshot, announce],
   );
@@ -851,7 +869,7 @@ export function App() {
           ditavalPath: activeDitavalPath,
           ...(activeRootMapPath ? { rootMapPath: activeRootMapPath } : {}),
         },
-        `签入前严格校验 · ${paths.length} 个文件`,
+        t('app.checkinStrictLabel', { count: paths.length }),
       );
     },
     [activeRootMapPath, activeDitavalPath, openStrictValidation],
@@ -925,7 +943,7 @@ export function App() {
                         mapPath,
                         parentPath,
                         tagName,
-                        navtitle: tagName === 'chapter' ? '新建章节' : '新建分组',
+                        navtitle: tagName === 'chapter' ? t('app.newChapter') : t('app.newGroup'),
                       })
                     }
                     onDeleteNode={deleteMapTreeNode}
@@ -981,7 +999,7 @@ export function App() {
                 }
               />
             </Panel>
-            <Separator className="dita-resize-handle" aria-label="调整左侧边栏宽度" />
+            <Separator className="dita-resize-handle" aria-label={t('app.resizeSidebar')} />
           </>
         ) : null}
 
@@ -1034,8 +1052,8 @@ export function App() {
                 onForceUnlock={() => {
                   if (!activeTabPath) return;
                   const reason = window.prompt(
-                    `强制解锁 ${activeTabPath}？\n当前内容与补丁会写入备份表。请输入原因：`,
-                    '管理员强制解锁',
+                    t('app.forceUnlockPrompt', { path: activeTabPath }),
+                    t('app.forceUnlockReason'),
                   );
                   if (reason !== null) void forceUnlockFile(activeTabPath, reason);
                 }}
@@ -1093,10 +1111,10 @@ export function App() {
                               <div className="flex h-full flex-col items-center justify-center bg-slate-100/70 p-8 text-center">
                                 <Network className="mb-3 h-10 w-10 text-slate-300" aria-hidden="true" />
                                 <h2 className="text-sm font-semibold text-slate-800">
-                                  从左侧 Map 树或文件浏览器打开文档
+                                  {t('app.emptyTitle')}
                                 </h2>
                                 <p className="mt-1 max-w-md text-xs text-slate-500">
-                                  双击任意章节节点打开 Topic 可视化编辑，或点击顶栏切换 Root Map 与工作区。
+                                  {t('app.emptyBody')}
                                 </p>
                                 <div className="mt-4 flex items-center gap-2">
                                   <button
@@ -1108,7 +1126,7 @@ export function App() {
                                     className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
                                   >
                                     <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
-                                    新建 Topic
+                                    {t('app.newTopic')}
                                   </button>
                                   <button
                                     type="button"
@@ -1116,7 +1134,7 @@ export function App() {
                                     className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3.5 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
                                   >
                                     <FolderOpen className="h-3.5 w-3.5" aria-hidden="true" />
-                                    管理本地工作区
+                                    {t('app.manageWorkspace')}
                                   </button>
                                 </div>
                               </div>
@@ -1180,7 +1198,7 @@ export function App() {
                                 {showVisualPane && showSourcePane ? (
                                   <Separator
                                     className="dita-resize-handle"
-                                    aria-label="调整可视化与源码分栏宽度"
+                                    aria-label={t('app.resizeSplit')}
                                   />
                                 ) : null}
 
@@ -1217,8 +1235,8 @@ export function App() {
                               <button
                                 type="button"
                                 onClick={() => openAiPanel()}
-                                aria-label="打开 AI 助手（整篇 Topic 编写）"
-                                title="AI 助手：一句话起草或重写整篇 Topic"
+                                aria-label={t('app.openAiFab')}
+                                title={t('app.openAiFabTitle')}
                                 className="absolute bottom-4 right-4 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white/95 text-indigo-600 shadow-lg shadow-indigo-900/10 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-indigo-600 hover:text-white"
                               >
                                 <Sparkles className="h-4 w-4" aria-hidden="true" />
@@ -1237,7 +1255,7 @@ export function App() {
                           <>
                             <Separator
                               className="dita-resize-handle-y"
-                              aria-label="调整问题诊断面板高度"
+                              aria-label={t('app.resizeProblems')}
                             />
                             <Panel id="problems-pane" defaultSize="28%" minSize="16%" maxSize="55%">
                               <ProblemsPanel
@@ -1251,7 +1269,7 @@ export function App() {
                                     ? () =>
                                         openStrictValidation(
                                           rootMapStrictInput,
-                                          `Root Map 严格校验 · ${activeRootMapPath ?? activeTabPath ?? ''}`,
+                                          t('app.strictLabel', { path: activeRootMapPath ?? activeTabPath ?? '' }),
                                         )
                                     : undefined
                                 }
@@ -1266,7 +1284,7 @@ export function App() {
 
                 {showRightInspector ? (
                   <>
-                    <Separator className="dita-resize-handle" aria-label="调整属性检查器宽度" />
+                    <Separator className="dita-resize-handle" aria-label={t('app.resizeInspector')} />
                     <Panel id="inspector-pane" defaultSize="24%" minSize="18%" maxSize="38%">
                       <div className="relative h-full">
                         {inspectorTarget === 'map-node' ? (
@@ -1287,8 +1305,8 @@ export function App() {
                             <button
                               type="button"
                               onClick={() => setInspectorOpen(false)}
-                              aria-label="收起右侧面板"
-                              title="收起右侧面板"
+                              aria-label={t('app.collapseInspector')}
+                              title={t('app.collapseInspector')}
                               className="absolute right-1.5 top-2 z-10 inline-flex h-6 w-6 items-center justify-center rounded text-slate-400 transition-colors hover:bg-white hover:text-slate-700"
                             >
                               <PanelRightClose className="h-3.5 w-3.5" aria-hidden="true" />

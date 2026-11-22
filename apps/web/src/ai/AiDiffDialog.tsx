@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import type { AiProposal } from './ai-types';
 import { DiffViewer } from '../components/DiffViewer';
+import { useI18n } from '../i18n/index.js';
 
 export interface AiDiffDialogProps {
   open: boolean;
@@ -30,6 +31,7 @@ export function AiDiffDialog({
   onClose,
   onApply,
 }: AiDiffDialogProps) {
+  const { t } = useI18n();
   if (!open || !proposal) return null;
 
   const verification = proposal.verification;
@@ -40,7 +42,7 @@ export function AiDiffDialog({
       className="fixed inset-0 z-[65] flex items-center justify-center bg-slate-950/55 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="AI 修改差异"
+      aria-label={t('aiDiff.aria')}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -50,7 +52,7 @@ export function AiDiffDialog({
           <div className="min-w-0">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
               <FileDiff className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              AI 修改差异
+              {t('aiDiff.title')}
             </h2>
             <p className="mt-0.5 truncate text-[11px] text-slate-500">
               {proposal.explanation}
@@ -60,7 +62,7 @@ export function AiDiffDialog({
             type="button"
             onClick={onClose}
             className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            aria-label="关闭 AI 差异对话框"
+            aria-label={t('aiDiff.closeAria')}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -83,7 +85,7 @@ export function AiDiffDialog({
             ) : (
               <AlertCircle className="h-3 w-3" aria-hidden="true" />
             )}
-            {verification.wellFormed ? 'XML 良构' : 'XML 非良构'}
+            {verification.wellFormed ? t('ai.badge.wellFormed') : t('ai.badge.notWellFormed')}
           </span>
           <span
             className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium ${
@@ -92,7 +94,7 @@ export function AiDiffDialog({
                 : 'bg-rose-100 text-rose-800'
             }`}
           >
-            {verification.prosemirrorCompatible ? '可视化兼容' : '可视化不兼容'}
+            {verification.prosemirrorCompatible ? t('ai.badge.visualOk') : t('ai.badge.visualFail')}
           </span>
           <span
             className={`inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 font-medium ${
@@ -101,21 +103,21 @@ export function AiDiffDialog({
                 : 'bg-rose-100 text-rose-800'
             }`}
           >
-            {verification.preservedDoctype ? 'DOCTYPE 保留' : 'DOCTYPE 变更'}
+            {verification.preservedDoctype ? t('ai.badge.doctypeKept') : t('ai.badge.doctypeChanged')}
           </span>
           {verification.retryCount > 0 ? (
             <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
-              自动重试 {verification.retryCount}
+              {t('aiDiff.retries', { count: verification.retryCount })}
             </span>
           ) : null}
           {proposal.canRevalidateStrict ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 font-medium text-indigo-700">
               <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-              应用后可重新严格校验
+              {t('aiDiff.revalidate')}
             </span>
           ) : null}
           <span className="ml-auto text-[9.5px] text-slate-400">
-            原始版本 → AI 补丁版本（只读预览）
+            {t('aiDiff.previewHint')}
           </span>
         </div>
 
@@ -123,7 +125,7 @@ export function AiDiffDialog({
           <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-1.5 text-[10.5px] text-amber-900">
             <p className="flex items-center gap-1 font-medium">
               <AlertTriangle className="h-3 w-3" aria-hidden="true" />
-              校验提示
+              {t('aiDiff.verification')}
             </p>
             <ul className="mt-0.5 list-disc pl-5">
               {verification.warnings.map((warning) => (
@@ -137,16 +139,16 @@ export function AiDiffDialog({
           <DiffViewer
             oldText={proposal.originalXml}
             newText={proposal.patchedXml}
-            fromLabel="当前编辑器缓冲区"
-            toLabel="AI 补丁"
+            fromLabel={t('aiDiff.fromLabel')}
+            toLabel={t('aiDiff.toLabel')}
           />
         </div>
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2">
           <span className="text-[10px] text-slate-500">
             {blocked
-              ? '当前身份或检出锁限制：仅可预览，检出文件后可应用。'
-              : '应用只修改编辑器缓冲区（一次事务，可撤销），不会自动保存或提交。'}
+              ? t('aiDiff.lockedHint')
+              : t('aiDiff.applyHint')}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -154,7 +156,7 @@ export function AiDiffDialog({
               onClick={onClose}
               className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
             >
-              关闭
+              {t('common.close')}
             </button>
             <button
               type="button"
@@ -163,7 +165,7 @@ export function AiDiffDialog({
               className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-              应用到编辑器
+              {t('aiDiff.apply')}
             </button>
           </div>
         </div>

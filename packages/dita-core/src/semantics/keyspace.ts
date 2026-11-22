@@ -1,3 +1,5 @@
+import { coreT } from '../i18n/messages.js';
+import type { UiLocale } from '../i18n/locale.js';
 import type * as slimdom from 'slimdom';
 import { normalizePosixPath, resolveDitaHref } from '../map/path-utils.js';
 import { getNodeSourceRange, parseXml } from '../xml/parser.js';
@@ -112,6 +114,7 @@ export function buildKeyspace(
   options: {
     topicTitles?: Record<string, string>;
     getParsedDoc?: (posixPath: string) => ParsedXmlDocument | null;
+    locale?: UiLocale;
   } = {},
 ): KeyspaceResult {
   const normalizedRoot = normalizePosixPath(rootMapPath);
@@ -313,6 +316,7 @@ export function resolveKeyrefInKeyspace(
   keyrefValue: string,
   keyspace: KeyspaceResult | null,
   activeScopePath?: readonly string[],
+  locale: UiLocale = 'zh-CN',
 ): ResolvedKeyrefResult {
   const trimmed = keyrefValue.trim();
   const slashIdx = trimmed.indexOf('/');
@@ -325,7 +329,9 @@ export function resolveKeyrefInKeyspace(
       keyName,
       elementId,
       status: 'unresolved',
-      errorMessage: keyName ? `未在当前 Root Map 中找到 Key 定义："${keyName}"` : '空的 keyref 引用',
+      errorMessage: keyName
+        ? coreT(locale, 'keyspace.undefinedKey', { keyName })
+        : coreT(locale, 'keyspace.emptyKeyref'),
     };
   }
 
@@ -353,7 +359,7 @@ export function resolveKeyrefInKeyspace(
       keyName,
       elementId,
       status: 'unresolved',
-      errorMessage: `未在当前 Root Map 中找到 Key 定义："${keyName}"`,
+      errorMessage: coreT(locale, 'keyspace.undefinedKey', { keyName }),
     };
   }
 

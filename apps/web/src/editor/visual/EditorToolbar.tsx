@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react';
+import { useI18n } from '../../i18n/index.js';
 import {
   AlertCircle,
   Bold,
@@ -86,6 +87,7 @@ export function EditorToolbar({
   onTableAction,
   disabled = false,
 }: EditorToolbarProps) {
+  const { t } = useI18n();
   const toolbarRef = useRef<HTMLDivElement | null>(null);
   useInstantTitles(toolbarRef);
 
@@ -154,26 +156,26 @@ export function EditorToolbar({
   };
 
   const inlineToggleItems = [
-    { tag: 'b', label: '粗体 <b> (⌘B)', icon: Bold },
-    { tag: 'i', label: '斜体 <i> (⌘I)', icon: Italic },
-    { tag: 'u', label: '下划线 <u> (⌘U)', icon: Underline },
-    { tag: 'codeph', label: '行内代码 <codeph> (⌘E)', icon: Code },
-    { tag: 'uicontrol', label: '界面控件 <uicontrol>', icon: LayoutList },
-    { tag: 'filepath', label: '文件路径 <filepath>', icon: FolderTree },
-    { tag: 'varname', label: '变量 <varname>', icon: Variable },
-    { tag: 'keyword', label: '关键字/变量 <keyword>', icon: KeyRound },
+    { tag: 'b', label: t('toolbar.inline.b'), icon: Bold },
+    { tag: 'i', label: t('toolbar.inline.i'), icon: Italic },
+    { tag: 'u', label: t('toolbar.inline.u'), icon: Underline },
+    { tag: 'codeph', label: t('toolbar.inline.codeph'), icon: Code },
+    { tag: 'uicontrol', label: t('toolbar.inline.uicontrol'), icon: LayoutList },
+    { tag: 'filepath', label: t('toolbar.inline.filepath'), icon: FolderTree },
+    { tag: 'varname', label: t('toolbar.inline.varname'), icon: Variable },
+    { tag: 'keyword', label: t('toolbar.inline.keyword'), icon: KeyRound },
   ];
 
   const blockInsertItems = [
-    { tag: 'p', label: '插入段落 <p>', short: 'p', icon: Pilcrow },
-    { tag: 'section', label: '插入章节 <section>', short: 'section', icon: LayoutList },
-    { tag: 'step', label: '插入步骤 <step>', short: 'step', icon: ListChecks },
-    { tag: 'note', label: '插入提示框 <note>', short: 'note', icon: AlertCircle },
-    { tag: 'ul', label: '插入无序列表 <ul>', short: 'ul', icon: List },
-    { tag: 'ol', label: '插入有序列表 <ol>', short: 'ol', icon: ListOrdered },
-    { tag: 'codeblock', label: '插入代码块 <codeblock>', short: 'code', icon: FileCode2 },
-    { tag: 'simpletable', label: '插入简单表格 <simpletable>', short: 'simpletable', icon: Grid2x2 },
-    { tag: 'table', label: '插入 CALS 表格 <table>', short: 'CALS', icon: Table2 },
+    { tag: 'p', label: t('toolbar.block.p'), short: 'p', icon: Pilcrow },
+    { tag: 'section', label: t('toolbar.block.section'), short: 'section', icon: LayoutList },
+    { tag: 'step', label: t('toolbar.block.step'), short: 'step', icon: ListChecks },
+    { tag: 'note', label: t('toolbar.block.note'), short: 'note', icon: AlertCircle },
+    { tag: 'ul', label: t('toolbar.block.ul'), short: 'ul', icon: List },
+    { tag: 'ol', label: t('toolbar.block.ol'), short: 'ol', icon: ListOrdered },
+    { tag: 'codeblock', label: t('toolbar.block.codeblock'), short: 'code', icon: FileCode2 },
+    { tag: 'simpletable', label: t('toolbar.block.simpletable'), short: 'simpletable', icon: Grid2x2 },
+    { tag: 'table', label: t('toolbar.block.table'), short: 'CALS', icon: Table2 },
   ];
 
   return (
@@ -181,17 +183,17 @@ export function EditorToolbar({
       <div
         ref={toolbarRef}
         role="toolbar"
-        aria-label="DITA 文档编辑工具栏"
+        aria-label={t('toolbar.aria')}
         {...({ focusgroup: 'toolbar wrap' } as Record<string, string>)}
         className="dita-toolbar flex flex-wrap items-center gap-1 px-3 py-1.5"
       >
         {/* History group */}
-        <div role="group" aria-label="撤销与重做" className="flex items-center gap-0.5">
+        <div role="group" aria-label={t('toolbar.undoGroup')} className="flex items-center gap-0.5">
           <button
             type="button"
             className="dita-tb-btn"
-            aria-label="撤销 (⌘Z)"
-            title="撤销 (⌘Z)"
+            aria-label={t('toolbar.undo')}
+            title={t('toolbar.undo')}
             aria-disabled={disabled || !canUndo}
             onClick={() => invokeIfEnabled(!canUndo, onUndo)}
           >
@@ -200,8 +202,8 @@ export function EditorToolbar({
           <button
             type="button"
             className="dita-tb-btn"
-            aria-label="重做 (⇧⌘Z)"
-            title="重做 (⇧⌘Z)"
+            aria-label={t('toolbar.redo')}
+            title={t('toolbar.redo')}
             aria-disabled={disabled || !canRedo}
             onClick={() => invokeIfEnabled(!canRedo, onRedo)}
           >
@@ -212,12 +214,12 @@ export function EditorToolbar({
         <span role="separator" aria-orientation="vertical" className="dita-tb-sep" />
 
         {/* Context-Aware Insert Trigger */}
-        <div role="group" aria-label="上下文元素插入" className="flex items-center gap-1">
+        <div role="group" aria-label={t('toolbar.insertGroup')} className="flex items-center gap-1">
           <button
             type="button"
             className="dita-tb-btn dita-tb-btn-primary"
-            aria-label="打开上下文合法元素插入菜单 (⌘/ 或输入 /)"
-            title="上下文合法元素插入 (⌘/ 或输入 /)"
+            aria-label={t('toolbar.insertMenuAria')}
+            title={t('toolbar.insertMenu')}
             aria-disabled={disabled}
             onClick={(e) => {
               if (disabled) return;
@@ -225,7 +227,7 @@ export function EditorToolbar({
             }}
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-            <span>插入元素</span>
+            <span>{t('toolbar.insertElement')}</span>
             <kbd className="ml-0.5 rounded bg-indigo-500/20 px-1 font-mono text-[10px] text-indigo-700">
               /
             </kbd>
@@ -235,7 +237,7 @@ export function EditorToolbar({
         <span role="separator" aria-orientation="vertical" className="dita-tb-sep" />
 
         {/* Inline formatting toggles */}
-        <div role="group" aria-label="行内语义元素" className="flex items-center gap-0.5">
+        <div role="group" aria-label={t('toolbar.inlineGroup')} className="flex items-center gap-0.5">
           {inlineToggleItems.map((item) => {
             const Icon = item.icon;
             const isPressed = activeInline.has(item.tag);
@@ -258,8 +260,8 @@ export function EditorToolbar({
           <button
             type="button"
             className="dita-tb-btn"
-            aria-label="插入交叉引用 <xref> (⌘K)"
-            title="插入交叉引用 <xref> (⌘K)"
+            aria-label={t('toolbar.xref')}
+            title={t('toolbar.xref')}
             aria-disabled={disabled || !canInsertInline('xref')}
             onClick={() => invokeIfEnabled(!canInsertInline('xref'), onOpenXrefDialog)}
           >
@@ -268,8 +270,8 @@ export function EditorToolbar({
           <button
             type="button"
             className="dita-tb-btn"
-            aria-label="插入图片 <image>"
-            title="插入图片 <image>"
+            aria-label={t('toolbar.image')}
+            title={t('toolbar.image')}
             aria-disabled={disabled || (!canInsertBlock('image') && !canInsertInline('image'))}
             onClick={() =>
               invokeIfEnabled(
@@ -284,8 +286,8 @@ export function EditorToolbar({
             <button
               type="button"
               className="dita-tb-btn px-2 text-[11px] text-violet-700"
-              aria-label="插入 Keyref 变量引用"
-              title="从 Root Map Keyspace 选择并插入 Keyref 变量"
+              aria-label={t('toolbar.keyref')}
+              title={t('toolbar.keyrefTitle')}
               aria-disabled={disabled || !canInsertInline('keyword')}
               onClick={() => invokeIfEnabled(!canInsertInline('keyword'), onOpenKeyrefDialog)}
             >
@@ -297,13 +299,13 @@ export function EditorToolbar({
             <button
               type="button"
               className="dita-tb-btn px-2 text-[11px] text-teal-700"
-              aria-label="插入内容复用 Conref / Conkeyref"
-              title="插入或绑定跨文档复用片段 (conref / conkeyref)"
+              aria-label={t('toolbar.conref')}
+              title={t('toolbar.conrefTitle')}
               aria-disabled={disabled}
               onClick={() => invokeIfEnabled(false, onOpenConrefDialog)}
             >
               <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden lg:inline">复用</span>
+              <span className="hidden lg:inline">{t('toolbar.reuse')}</span>
             </button>
           ) : null}
         </div>
@@ -311,7 +313,7 @@ export function EditorToolbar({
         <span role="separator" aria-orientation="vertical" className="dita-tb-sep" />
 
         {/* Contextual Block Quick Inserts */}
-        <div role="group" aria-label="常用块级结构" className="flex items-center gap-0.5">
+        <div role="group" aria-label={t('toolbar.blockGroup')} className="flex items-center gap-0.5">
           {blockInsertItems.map((item) => {
             const Icon = item.icon;
             const allowed = canInsertBlock(item.tag);
@@ -323,7 +325,7 @@ export function EditorToolbar({
                 type="button"
                 className="dita-tb-btn px-2 text-[11px]"
                 aria-label={item.label}
-                title={allowed ? item.label : `当前上下文不允许插入 <${item.tag}>`}
+                title={allowed ? item.label : t('toolbar.notAllowed', { tag: item.tag })}
                 aria-disabled={disabled || !allowed}
                 onClick={() => invokeIfEnabled(!allowed, () => onInsertBlock(item.tag))}
               >
@@ -339,16 +341,16 @@ export function EditorToolbar({
       {tableInfo && !disabled ? (
         <div
           role="group"
-          aria-label="表格操作工具栏"
+          aria-label={t('toolbar.tableGroup')}
           className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 bg-slate-50/90 px-3 py-1 text-[11px]"
         >
           <span className="inline-flex items-center gap-1 rounded bg-slate-200/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700">
-            {tableInfo.kind === 'cals' ? `CALS table · ${tableInfo.cols} 列` : `simpletable · ${tableInfo.cols} 列`}
+            {tableInfo.kind === 'cals' ? t('toolbar.tableSummaryCals', { cols: tableInfo.cols }) : t('toolbar.tableSummarySimple', { cols: tableInfo.cols })}
           </span>
 
           {tableInfo.isMultiTgroup ? (
             <span className="text-amber-700">
-              多 &lt;tgroup&gt; 表格已锁定结构修改（请在源码模式编辑行列）
+              {t('toolbar.tgroupLocked')}
             </span>
           ) : (
             <>
@@ -356,28 +358,28 @@ export function EditorToolbar({
                 type="button"
                 onClick={() => onTableAction('addRowBefore')}
                 className="dita-mini-btn"
-                title="在上方插入行"
+                title={t('toolbar.rowAbove')}
               >
                 <Rows className="h-3 w-3" aria-hidden="true" />
-                上插行
+                {t('toolbar.rowAboveShort')}
               </button>
               <button
                 type="button"
                 onClick={() => onTableAction('addRowAfter')}
                 className="dita-mini-btn"
-                title="在下方插入行"
+                title={t('toolbar.rowBelow')}
               >
                 <Rows className="h-3 w-3" aria-hidden="true" />
-                下插行
+                {t('toolbar.rowBelowShort')}
               </button>
               <button
                 type="button"
                 onClick={() => onTableAction('deleteRow')}
                 className="dita-mini-btn text-rose-700 hover:bg-rose-50"
-                title="删除当前行"
+                title={t('toolbar.rowDelete')}
               >
                 <Minus className="h-3 w-3" aria-hidden="true" />
-                删行
+                {t('toolbar.rowDeleteShort')}
               </button>
 
               <span className="mx-0.5 h-3.5 w-px bg-slate-300" aria-hidden="true" />
@@ -386,28 +388,28 @@ export function EditorToolbar({
                 type="button"
                 onClick={() => onTableAction('addColBefore')}
                 className="dita-mini-btn"
-                title="在左侧插入列"
+                title={t('toolbar.colLeft')}
               >
                 <Columns className="h-3 w-3" aria-hidden="true" />
-                左插列
+                {t('toolbar.colLeftShort')}
               </button>
               <button
                 type="button"
                 onClick={() => onTableAction('addColAfter')}
                 className="dita-mini-btn"
-                title="在右侧插入列"
+                title={t('toolbar.colRight')}
               >
                 <Columns className="h-3 w-3" aria-hidden="true" />
-                右插列
+                {t('toolbar.colRightShort')}
               </button>
               <button
                 type="button"
                 onClick={() => onTableAction('deleteCol')}
                 className="dita-mini-btn text-rose-700 hover:bg-rose-50"
-                title="删除当前列"
+                title={t('toolbar.colDelete')}
               >
                 <Trash2 className="h-3 w-3" aria-hidden="true" />
-                删列
+                {t('toolbar.colDeleteShort')}
               </button>
 
               {tableInfo.kind === 'cals' ? (
@@ -418,30 +420,30 @@ export function EditorToolbar({
                     onClick={() => onTableAction('mergeRight')}
                     disabled={!tableInfo.canMergeRight}
                     className="dita-mini-btn disabled:opacity-40"
-                    title="向右合并单元格（生成 namest/nameend）"
+                    title={t('toolbar.mergeRightTitle')}
                   >
                     <Merge className="h-3 w-3" aria-hidden="true" />
-                    右合并
+                    {t('toolbar.mergeRightShort')}
                   </button>
                   <button
                     type="button"
                     onClick={() => onTableAction('mergeDown')}
                     disabled={!tableInfo.canMergeDown}
                     className="dita-mini-btn disabled:opacity-40"
-                    title="向下合并单元格（生成 morerows）"
+                    title={t('toolbar.mergeDownTitle')}
                   >
                     <Merge className="h-3 w-3 rotate-90" aria-hidden="true" />
-                    下合并
+                    {t('toolbar.mergeDownShort')}
                   </button>
                   <button
                     type="button"
                     onClick={() => onTableAction('splitCell')}
                     disabled={!tableInfo.canSplitCell}
                     className="dita-mini-btn disabled:opacity-40"
-                    title="拆分当前合并单元格"
+                    title={t('toolbar.splitTitle')}
                   >
                     <SplitSquareHorizontal className="h-3 w-3" aria-hidden="true" />
-                    拆分 ({tableInfo.colspan}×{tableInfo.rowspan})
+                    {t('toolbar.splitShort', { colspan: tableInfo.colspan, rowspan: tableInfo.rowspan })}
                   </button>
                 </>
               ) : null}

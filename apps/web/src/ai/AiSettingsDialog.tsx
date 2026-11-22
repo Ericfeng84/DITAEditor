@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAiStore } from './ai-store';
 import type { AiConfigPatch, AiConfigTestResult } from './ai-types';
+import { useI18n } from '../i18n/index.js';
 
 export interface AiSettingsDialogProps {
   open: boolean;
@@ -32,6 +33,7 @@ function formatNumber(value: number): string {
  * identities can inspect the active model but all mutation controls stay disabled.
  */
 export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
+  const { t } = useI18n();
   const config = useAiStore((state) => state.config);
   const configLoading = useAiStore((state) => state.configLoading);
   const configError = useAiStore((state) => state.configError);
@@ -130,7 +132,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
       className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/55 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="AI 助手设置"
+      aria-label={t('ai.settings')}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget) onClose();
       }}
@@ -140,17 +142,17 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
               <Sparkles className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              AI 助手设置
+              {t('ai.settings')}
             </h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              OpenAI 兼容端点 · 仅管理员可修改；API Key 只保存在本地 SQLite，不返回明文。
+              {t('aiSettings.subtitle')}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
             className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800"
-            aria-label="关闭 AI 设置"
+            aria-label={t('aiSettings.closeAria')}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -161,12 +163,12 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
             <section className="space-y-3">
               <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
                 <Settings2 className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
-                模型服务
+                {t('aiSettings.modelService')}
               </h3>
 
               {!canEdit ? (
                 <p className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10.5px] text-slate-600">
-                  当前身份为只读：可查看配置，但不能修改端点或密钥。
+                  {t('aiSettings.readOnlyHint')}
                 </p>
               ) : null}
 
@@ -183,7 +185,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
               </label>
 
               <label className="block">
-                <span className="text-[10.5px] font-medium text-slate-600">模型</span>
+                <span className="text-[10.5px] font-medium text-slate-600">{t('aiSettings.model')}</span>
                 <input
                   value={model}
                   disabled={!canEdit}
@@ -201,15 +203,15 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   <span className="ml-auto rounded bg-white px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500">
                     {config
                       ? config.apiKeySource === 'db'
-                        ? '数据库密钥'
+                        ? t('aiSettings.keySource.db')
                         : config.apiKeySource === 'env'
-                          ? '环境变量'
-                          : '未配置'
-                      : '加载中'}
+                          ? t('aiSettings.keySource.env')
+                          : t('aiSettings.keySource.none')
+                      : t('common.loading')}
                   </span>
                 </div>
                 <p className="mt-1 font-mono text-[10px] text-slate-500">
-                  {config?.maskedApiKey ?? (config?.hasApiKey ? '••••••••' : '未检测到密钥')}
+                  {config?.maskedApiKey ?? (config?.hasApiKey ? '••••••••' : t('aiSettings.noKey'))}
                 </p>
                 <input
                   type="password"
@@ -219,7 +221,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                     setApiKey(event.target.value);
                     if (event.target.value) setClearApiKey(false);
                   }}
-                  placeholder="输入新密钥以替换（留空保持不变）"
+                  placeholder={t('aiSettings.keyPlaceholder')}
                   autoComplete="new-password"
                   className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50"
                 />
@@ -237,9 +239,9 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                         : 'border-slate-300 bg-white text-slate-600 hover:bg-slate-50'
                     } disabled:cursor-not-allowed disabled:opacity-40`}
                   >
-                    {clearApiKey ? '保存后将清除数据库密钥' : '清除数据库密钥'}
+                    {clearApiKey ? t('aiSettings.clearKeyPending') : t('aiSettings.clearKey')}
                   </button>
-                  <span className="text-slate-400">清除后回退到 DEEPSEEK_API_KEY 环境变量</span>
+                  <span className="text-slate-400">{t('aiSettings.clearKeyHint')}</span>
                 </div>
               </div>
 
@@ -258,7 +260,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-[10.5px] font-medium text-slate-600">最大重试</span>
+                  <span className="text-[10.5px] font-medium text-slate-600">{t('aiSettings.maxRetries')}</span>
                   <input
                     type="number"
                     min={0}
@@ -270,7 +272,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   />
                 </label>
                 <label className="block">
-                  <span className="text-[10.5px] font-medium text-slate-600">超时 (ms)</span>
+                  <span className="text-[10.5px] font-medium text-slate-600">{t('aiSettings.timeout')}</span>
                   <input
                     type="number"
                     min={5000}
@@ -284,7 +286,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
               </div>
 
               <p className="text-[9.5px] text-slate-400">
-                上下文上限 {config ? formatNumber(config.maxContextChars) : '—'} 字符 · 修改后对新请求生效
+                {t('aiSettings.contextLimit', { value: config ? formatNumber(config.maxContextChars) : '—' })}
               </p>
 
               {configError ? (
@@ -296,7 +298,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
               {saved ? (
                 <p className="flex items-center gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10.5px] text-emerald-800">
                   <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-                  配置已保存
+                  {t('aiSettings.saved')}
                 </p>
               ) : null}
               {testResult ? (
@@ -313,7 +315,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                     <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
                   )}
                   <span>
-                    {testResult.ok ? '连接成功' : '连接失败'} · {testResult.model} ·{' '}
+                    {testResult.ok ? t('aiSettings.testOk') : t('aiSettings.testFail')} · {testResult.model} ·{' '}
                     {testResult.latencyMs} ms
                     {testResult.message ? ` · ${testResult.message}` : ''}
                   </span>
@@ -338,7 +340,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   ) : (
                     <Save className="h-3 w-3" aria-hidden="true" />
                   )}
-                  保存配置
+                  {t('aiSettings.save')}
                 </button>
                 <button
                   type="button"
@@ -351,7 +353,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   ) : (
                     <RefreshCw className="h-3 w-3" aria-hidden="true" />
                   )}
-                  测试连接
+                  {t('aiSettings.test')}
                 </button>
               </div>
             </section>
@@ -359,16 +361,16 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
             <section className="space-y-2">
               <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
                 <Clock className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
-                使用统计（最近 30 天）
+                {t('aiSettings.usageTitle')}
               </h3>
               {!canEdit ? (
                 <p className="rounded border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10.5px] text-slate-600">
-                  使用统计仅管理员可见。
+                  {t('aiSettings.usageAdminOnly')}
                 </p>
               ) : usageLoading ? (
                 <p className="flex items-center gap-1.5 text-[10.5px] text-slate-500">
                   <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                  正在加载使用统计…
+                  {t('aiSettings.usageLoading')}
                 </p>
               ) : usageError ? (
                 <p className="rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[10.5px] text-rose-800">
@@ -378,10 +380,10 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                 <>
                   <div className="grid grid-cols-2 gap-1.5">
                     {[
-                      { label: '请求', value: formatNumber(usageTotals.calls) },
-                      { label: '成功', value: formatNumber(usageTotals.succeeded) },
-                      { label: '失败', value: formatNumber(usageTotals.failed) },
-                      { label: '取消', value: formatNumber(usageTotals.cancelled) },
+                      { label: t('aiSettings.usage.calls'), value: formatNumber(usageTotals.calls) },
+                      { label: t('aiSettings.usage.succeeded'), value: formatNumber(usageTotals.succeeded) },
+                      { label: t('aiSettings.usage.failed'), value: formatNumber(usageTotals.failed) },
+                      { label: t('aiSettings.usage.cancelled'), value: formatNumber(usageTotals.cancelled) },
                       { label: 'Prompt Tokens', value: formatNumber(usageTotals.promptTokens) },
                       {
                         label: 'Completion Tokens',
@@ -396,7 +398,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                       </div>
                     ))}
                     <div className="col-span-2 rounded border border-indigo-200 bg-indigo-50 px-2 py-1">
-                      <p className="text-[9px] text-indigo-600">总 Tokens</p>
+                      <p className="text-[9px] text-indigo-600">{t('aiSettings.usage.totalTokens')}</p>
                       <p className="font-mono text-[12px] font-semibold text-indigo-900">
                         {formatNumber(usageTotals.totalTokens)}
                       </p>
@@ -405,12 +407,12 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
 
                   {usage.byModel.length > 0 ? (
                     <div>
-                      <p className="text-[10px] font-medium text-slate-600">按模型</p>
+                      <p className="text-[10px] font-medium text-slate-600">{t('aiSettings.usage.byModel')}</p>
                       <ul className="mt-0.5 space-y-0.5">
                         {usage.byModel.slice(0, 5).map((bucket) => (
                           <li key={bucket.model} className="flex items-center gap-2 text-[9.5px] text-slate-600">
                             <span className="min-w-0 flex-1 truncate font-mono">{bucket.model}</span>
-                            <span>{bucket.calls} 次</span>
+                            <span>{t('aiSettings.usage.callCount', { count: bucket.calls })}</span>
                             <span className="font-mono">{formatNumber(bucket.totalTokens)} tok</span>
                           </li>
                         ))}
@@ -420,7 +422,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
 
                   {usage.recent.length > 0 ? (
                     <div>
-                      <p className="text-[10px] font-medium text-slate-600">最近请求</p>
+                      <p className="text-[10px] font-medium text-slate-600">{t('aiSettings.usage.recent')}</p>
                       <ul className="mt-0.5 divide-y divide-slate-100 rounded border border-slate-200">
                         {usage.recent.slice(0, 8).map((entry) => (
                           <li key={entry.id} className="flex items-center gap-1.5 px-1.5 py-1 text-[9.5px]">
@@ -448,7 +450,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   ) : null}
                 </>
               ) : (
-                <p className="text-[10.5px] text-slate-500">暂无使用记录。</p>
+                <p className="text-[10.5px] text-slate-500">{t('aiSettings.usage.empty')}</p>
               )}
             </section>
           </div>
@@ -460,7 +462,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
             onClick={onClose}
             className="rounded-md border border-slate-200 bg-white px-3 py-1 text-[11px] text-slate-600 hover:bg-slate-50"
           >
-            关闭
+            {t('common.close')}
           </button>
         </div>
       </div>

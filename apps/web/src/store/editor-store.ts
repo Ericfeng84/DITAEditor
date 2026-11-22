@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { getCurrentLocale, onLocaleChange, t } from '../i18n/index.js';
 import {
   checkXmlWellFormed,
   classifyDitaFileKind,
@@ -41,6 +42,9 @@ import {
 import {
   buildSnapshotFromMemoryFiles,
   createInMemoryDemoWorkspace,
+  type InMemoryDemoWorkspace,
+} from '../services/demo-workspace.js';
+import {
   createWorkspaceDir,
   createWorkspaceFile,
   createWorkspaceProject,
@@ -342,6 +346,8 @@ const EMPTY_PROFILING_CATALOG: Record<DitaProfilingAttrName, string[]> = {
 };
 
 const memorySemanticIndex = new DitaSemanticIndex();
+memorySemanticIndex.setUiLocale(getCurrentLocale());
+onLocaleChange((locale) => memorySemanticIndex.setUiLocale(locale));
 let overlayDebounceTimer: ReturnType<typeof setTimeout> | null = null;
 
 function computeMemoryDiagnostics(
@@ -547,7 +553,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       openTabs: [],
       activeTabPath: null,
       loadingWorkspace: false,
-      statusMessage: reason ?? '已加载离线示例工作区',
+      statusMessage: reason ?? t('status.loadedOfflineDemo'),
     });
 
     if (defaultRootMap) {
@@ -614,7 +620,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     async initWorkspace() {
       if (import.meta.env.VITE_STATIC_DEMO === 'true') {
         activateMemoryFallback(
-          '已进入纯前端离线工作台（GitHub Pages 演示版：支持多文件 Map 树、双模编辑与 Keys/Conref/DITAVAL；Git/发布与 AI 需自托管 Docker）',
+          t('status.offlineDemo'),
         );
         return;
       }
@@ -638,7 +644,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           documentOverlays: {},
           selectedMapNode: firstMap ? { mapPath: firstMap, elementPath: null } : null,
           loadingWorkspace: false,
-          statusMessage: `已连接本地工作区：${snapshot.name}（${snapshot.stats.totalTopics} 篇 Topic，${snapshot.stats.totalMaps} 个 Map）`,
+          statusMessage: t('status.workspaceConnected', { name: snapshot.name, topics: snapshot.stats.totalTopics, maps: snapshot.stats.totalMaps }),
         });
 
         if (firstMap) {
@@ -655,7 +661,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         await get().refreshSemantics();
         await get().refreshDiagnostics();
       } catch {
-        activateMemoryFallback('未检测到本地 API 服务，已启用内置多文件离线示例工作区');
+        activateMemoryFallback(t('status.apiMissing'));
       }
     },
 
@@ -693,7 +699,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         documentOverlays: {},
         selectedMapNode: nextRootMap ? { mapPath: nextRootMap, elementPath: null } : null,
         loadingWorkspace: false,
-        statusMessage: statusMessage ?? `已切换到分支工作区：${snapshot.rootDir}`,
+        statusMessage: statusMessage ?? t('status.branchSwitched', { path: snapshot.rootDir }),
       });
 
       if (nextRootMap) {
@@ -762,7 +768,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       set({
         openTabs: nextTabs,
         mapBuffers: nextBuffers,
-        statusMessage: `已从磁盘重新加载 ${uniquePaths.length} 个文件`,
+        statusMessage: t('status.reloaded', { count: uniquePaths.length }),
       });
       await get().refreshSemantics();
       await get().refreshDiagnostics();
@@ -772,11 +778,11 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       set({ loadingWorkspace: true });
       try {
         const snapshot = await openWorkspaceDir(target);
-        await adoptApiWorkspaceSnapshot(snapshot, `已打开本地项目：${snapshot.name}`);
+        await adoptApiWorkspaceSnapshot(snapshot, t('status.openedProject', { name: snapshot.name }));
       } catch (err) {
         set({
           loadingWorkspace: false,
-          statusMessage: `打开目录失败：${err instanceof Error ? err.message : String(err)}`,
+          statusMessage: t('status.openDirFailed', { message: err instanceof Error ? err.message : String(err) }),
         });
         throw err;
       }
@@ -806,7 +812,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         const snapshot = await createWorkspaceProject(options);
         await adoptApiWorkspaceSnapshot(
           snapshot,
-          `已创建空白工作区：${snapshot.name}（${snapshot.rootDir}）`,
+          t('status.blankWorkspace', { name: snapshot.name, path: snapshot.rootDir }),
         );
       } catch (err) {
         set({ loadingWorkspace: false });
@@ -830,7 +836,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           const snapshot = await importWorkspaceProject(projectName, files);
           await adoptApiWorkspaceSnapshot(
             snapshot,
-            `已导入本地文件夹项目：${projectName}（${snapshot.stats.totalTopics} 个主题）`,
+            t('status.importedFolder', { name: projectName, topics: snapshot.stats.totalTopics }),
           );
           return;
         } catch {
@@ -866,7 +872,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         activeDitaval: null,
         documentOverlays: {},
         loadingWorkspace: false,
-        statusMessage: `已在离线内存工作区导入项目：${projectName}`,
+        statusMessage: t('status.importedMemory', { name: projectName }),
       });
       if (firstMap) {
         await loadMapTreeBuffers(firstMap, true);
@@ -878,14 +884,14 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     },
 
     restoreOfflineDemo() {
-      activateMemoryFallback('已恢复内置多文件离线示例工作区');
+      activateMemoryFallback(t('status.restoredDemo'));
     },
 
     async selectRootMap(mapPath) {
       set({
         activeRootMapPath: mapPath,
         selectedMapNode: { mapPath, elementPath: null },
-        statusMessage: `已激活 Root Map：${mapPath}`,
+        statusMessage: t('status.rootMapActivated', { path: mapPath }),
       });
       await loadMapTreeBuffers(mapPath, false);
       await get().refreshSemantics();
@@ -897,7 +903,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         set({
           activeDitavalPath: null,
           activeDitaval: null,
-          statusMessage: '已关闭 DITAVAL 条件过滤（显示完整文档）',
+          statusMessage: t('status.ditavalOff'),
         });
         return;
       }
@@ -906,21 +912,21 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       if (state.workspaceMode === 'memory') {
         const dv = memorySemanticIndex.getDitaval(ditavalPath);
         if (!dv) {
-          set({ statusMessage: `未找到 DITAVAL 文件：${ditavalPath}` });
+          set({ statusMessage: t('status.ditavalNotFound', { path: ditavalPath }) });
           return;
         }
         if (!dv.ok) {
           set({
             activeDitavalPath: ditavalPath,
             activeDitaval: null,
-            statusMessage: `DITAVAL 解析失败：${dv.error.message}`,
+            statusMessage: t('status.ditavalParseFailed', { message: dv.error.message }),
           });
           return;
         }
         set({
           activeDitavalPath: ditavalPath,
           activeDitaval: dv.parsed,
-          statusMessage: `已启用 DITAVAL 过滤配置：${ditavalPath}（${dv.parsed.rules.length} 条规则）`,
+          statusMessage: t('status.ditavalEnabled', { path: ditavalPath, count: dv.parsed.rules.length }),
         });
         return;
       }
@@ -930,22 +936,22 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         set({
           activeDitavalPath: ditavalPath,
           activeDitaval: res.ditaval,
-          statusMessage: `已启用 DITAVAL 过滤配置：${ditavalPath}（${res.ditaval.rules.length} 条规则）`,
+          statusMessage: t('status.ditavalEnabled', { path: ditavalPath, count: res.ditaval.rules.length }),
         });
       } catch (err) {
         set({
           activeDitavalPath: ditavalPath,
           activeDitaval: null,
-          statusMessage: `加载 DITAVAL 失败：${err instanceof Error ? err.message : String(err)}`,
+          statusMessage: t('status.ditavalLoadFailed', { message: err instanceof Error ? err.message : String(err) }),
         });
       }
     },
 
     setDitavalDisplayMode(mode) {
       const labelMap: Record<DitavalDisplayMode, string> = {
-        'show-all': '已切换为“全部显示 + 条件徽章”视图',
-        'dim-excluded': '已切换为“淡化被排除内容”视图',
-        'hide-excluded': '已切换为“隐藏被排除内容”视图',
+        'show-all': t('status.ditavalView.showAll'),
+        'dim-excluded': t('status.ditavalView.dimExcluded'),
+        'hide-excluded': t('status.ditavalView.hideExcluded'),
       };
       set({ ditavalDisplayMode: mode, statusMessage: labelMap[mode] });
     },
@@ -1113,7 +1119,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           ),
           inspectorTarget: 'topic',
           pendingSourceOffset: nextMode !== 'visual' ? nextOffset : null,
-          statusMessage: `已切换到 ${existing.fileName}`,
+          statusMessage: t('status.switchedToFile', { name: existing.fileName }),
         });
         if (existing.kind === 'topic') {
           void get().refreshDocumentOverlay(filePath, existing.xml);
@@ -1123,7 +1129,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
 
       const kind = classifyDitaFileKind(filePath);
       if (kind === 'image') {
-        set({ statusMessage: `图片资产：${filePath}` });
+        set({ statusMessage: t('status.imageAsset', { path: filePath }) });
         return;
       }
 
@@ -1131,7 +1137,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const mapBuf = state.mapBuffers[filePath];
       let xml: string | null = mapBuf ? mapBuf.xml : await readTextFromActiveSource(filePath);
       if (xml === null) {
-        set({ statusMessage: `无法打开文件（不存在或不可读）：${filePath}` });
+        set({ statusMessage: t('status.cannotOpen', { path: filePath }) });
         return;
       }
 
@@ -1168,7 +1174,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         activeTabPath: filePath,
         inspectorTarget: 'topic',
         pendingSourceOffset: defaultMode !== 'visual' ? jumpOffset : null,
-        statusMessage: `已打开 ${fileName}`,
+        statusMessage: t('status.openedFile', { name: fileName }),
       }));
 
       if (kind === 'topic') {
@@ -1182,7 +1188,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       set({
         activeTabPath: filePath,
         inspectorTarget: 'topic',
-        statusMessage: `已切换到 ${tab.fileName}`,
+        statusMessage: t('status.switchedToFile', { name: tab.fileName }),
       });
       if (tab.kind === 'topic') {
         void get().refreshDocumentOverlay(filePath, tab.xml);
@@ -1264,7 +1270,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
               ? { ...s.topicTitles, [filePath]: nextTitle }
               : s.topicTitles,
           savingPaths: s.savingPaths.filter((p) => p !== filePath),
-          statusMessage: `已保存 ${filePath}`,
+          statusMessage: t('status.savedFile', { path: filePath }),
         }));
 
         await get().refreshWorkspaceTree();
@@ -1274,7 +1280,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       } catch (err) {
         set((s) => ({
           savingPaths: s.savingPaths.filter((p) => p !== filePath),
-          statusMessage: `保存失败 (${filePath})：${err instanceof Error ? err.message : String(err)}`,
+          statusMessage: t('status.saveFailed', { path: filePath, message: err instanceof Error ? err.message : String(err) }),
         }));
         return false;
       }
@@ -1304,7 +1310,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       for (const p of dirtyPaths) {
         await get().saveFile(p);
       }
-      set({ statusMessage: `已保存全部 ${dirtyPaths.size} 个改动文件` });
+      set({ statusMessage: t('status.savedAll', { count: dirtyPaths.size }) });
     },
 
     resetCurrentToBaseline() {
@@ -1335,7 +1341,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
               },
             }
           : s.mapBuffers,
-        statusMessage: `已还原 ${active.fileName} 至上次保存版本`,
+        statusMessage: t('status.reverted', { name: active.fileName }),
       }));
     },
 
@@ -1350,16 +1356,20 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         const check = checkXmlWellFormed(active.xml, { position: false });
         if (!check.ok) {
           set({
-            openTabs: state.openTabs.map((t) =>
-              t.path === active.path
+            openTabs: state.openTabs.map((tab) =>
+              tab.path === active.path
                 ? {
-                    ...t,
+                    ...tab,
                     xmlError: check.error,
-                    switchBlockedReason: `第 ${check.error.line} 行第 ${check.error.column} 列存在 XML 语法错误：${check.error.message}。请修复后再切换到可视化模式。`,
+                    switchBlockedReason: t('status.xmlErrorSwitchBlocked', {
+                      line: check.error.line,
+                      column: check.error.column,
+                      message: check.error.message,
+                    }),
                   }
-                : t,
+                : tab,
             ),
-            statusMessage: 'XML 语法非法，已拦截切换到可视化视图',
+            statusMessage: t('status.xmlInvalidBlocked'),
           });
           return false;
         }
@@ -1375,7 +1385,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
                 }
               : t,
           ),
-          statusMessage: nextMode === 'visual' ? '已切换到可视化模式' : '已切换到双栏对比模式',
+          statusMessage: nextMode === 'visual' ? t('status.modeVisual') : t('status.modeSplit'),
         });
         return true;
       }
@@ -1388,10 +1398,10 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         ),
         statusMessage:
           nextMode === 'source'
-            ? '已切换到 XML 源码模式'
+            ? t('status.modeSource')
             : nextMode === 'split'
-              ? '已切换到双栏对比模式'
-              : '已切换到可视化模式',
+              ? t('status.modeSplit')
+              : t('status.modeVisual'),
       });
       return true;
     },
@@ -1559,9 +1569,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
 
     setTagDisplayMode(tagDisplayMode) {
       const labelMap: Record<TagDisplayMode, string> = {
-        none: '已隐藏段落与元素标签',
-        tags: '已切换为紧凑元素标签视图',
-        full: '已切换为完整标签与属性视图',
+        none: t('status.tags.none'),
+        tags: t('status.tags.tags'),
+        full: t('status.tags.full'),
       };
       set({ tagDisplayMode, statusMessage: labelMap[tagDisplayMode] });
     },
@@ -1642,7 +1652,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             : t,
         ),
         memoryFiles: s.workspaceMode === 'memory' ? { ...s.memoryFiles, [mapPath]: previousXml } : s.memoryFiles,
-        statusMessage: `已撤销 ${mapPath} 结构修改`,
+        statusMessage: t('status.mapUndo', { path: mapPath }),
       }));
       if (state.workspaceMode === 'memory') {
         void get().refreshSemantics();
@@ -1678,7 +1688,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             : t,
         ),
         memoryFiles: s.workspaceMode === 'memory' ? { ...s.memoryFiles, [mapPath]: nextXml } : s.memoryFiles,
-        statusMessage: `已重做 ${mapPath} 结构修改`,
+        statusMessage: t('status.mapRedo', { path: mapPath }),
       }));
       if (state.workspaceMode === 'memory') {
         void get().refreshSemantics();
@@ -1711,7 +1721,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       }
 
       for (const upd of plan.updates) {
-        get().mutateMapXml(upd.mapPath, upd.xml, '已调整 Map 目录结构');
+        get().mutateMapXml(upd.mapPath, upd.xml, t('status.mapStructureUpdated'));
       }
     },
 
@@ -1775,7 +1785,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         navtitle: title,
       });
 
-      get().mutateMapXml(mapPath, inserted.xml, `已新建并挂载 ${relPath}`);
+      get().mutateMapXml(mapPath, inserted.xml, t('status.mountedNew', { path: relPath }));
       set({
         selectedMapNode: { mapPath, elementPath: inserted.insertedPath },
       });
@@ -1809,7 +1819,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         navtitle: derivedTitle,
       });
 
-      get().mutateMapXml(mapPath, inserted.xml, `已挂载 ${targetFilePath}`);
+      get().mutateMapXml(mapPath, inserted.xml, t('status.mounted', { path: targetFilePath }));
       set({
         selectedMapNode: { mapPath, elementPath: inserted.insertedPath },
         inspectorTarget: 'map-node',
@@ -1843,7 +1853,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         keydefKeyword,
       });
 
-      get().mutateMapXml(mapPath, inserted.xml, `已插入 <${tagName}>`);
+      get().mutateMapXml(mapPath, inserted.xml, t('status.insertedTag', { tag: tagName }));
       set({
         selectedMapNode: { mapPath, elementPath: inserted.insertedPath },
         inspectorTarget: 'map-node',
@@ -1854,21 +1864,21 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const buf = get().mapBuffers[mapPath];
       if (!buf) return;
       const res = updateMapNodeAttr(buf.xml, elementPath, attrName, value);
-      get().mutateMapXml(mapPath, res.xml, `已更新属性 ${attrName}`);
+      get().mutateMapXml(mapPath, res.xml, t('status.attrUpdated', { name: attrName }));
     },
 
     updateMapNavtitle(mapPath, elementPath, navtitle) {
       const buf = get().mapBuffers[mapPath];
       if (!buf) return;
       const res = updateMapNodeNavtitle(buf.xml, elementPath, navtitle);
-      get().mutateMapXml(mapPath, res.xml, '已更新导航标题');
+      get().mutateMapXml(mapPath, res.xml, t('status.navtitleUpdated'));
     },
 
     updateMapRootTitle(mapPath, title) {
       const buf = get().mapBuffers[mapPath];
       if (!buf) return;
       const res = updateMapTitle(buf.xml, title);
-      get().mutateMapXml(mapPath, res.xml, '已更新 Map 标题');
+      get().mutateMapXml(mapPath, res.xml, t('status.mapTitleUpdated'));
     },
 
     deleteMapTreeNode(mapPath, elementPath) {
@@ -1876,7 +1886,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       if (!buf) return;
       const res = deleteMapNode(buf.xml, elementPath);
       if (res.deleted) {
-        get().mutateMapXml(mapPath, res.xml, '已从 Map 中移除节点');
+        get().mutateMapXml(mapPath, res.xml, t('status.nodeRemoved'));
         set({ selectedMapNode: { mapPath, elementPath: null } });
       }
     },
@@ -1913,7 +1923,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       await get().refreshWorkspaceTree();
       await get().refreshSemantics();
       await get().openFileTab(relPath, { mode: 'visual' });
-      set({ statusMessage: `已新建 ${relPath}` });
+      set({ statusMessage: t('status.created', { path: relPath }) });
     },
 
     async createNewMapFile({ kind, fileName, id, title, lang, targetDir = '' }) {
@@ -1935,7 +1945,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       await get().refreshWorkspaceTree();
       await get().selectRootMap(relPath);
       await get().openFileTab(relPath, { mode: 'source' });
-      set({ statusMessage: `已新建并激活 ${relPath}` });
+      set({ statusMessage: t('status.createdActive', { path: relPath }) });
     },
 
     async importSingleLocalFile(fileName, content) {
@@ -1959,7 +1969,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         await get().refreshSemantics();
       }
       await get().openFileTab(relPath);
-      set({ statusMessage: `已导入 ${relPath}` });
+      set({ statusMessage: t('status.imported', { path: relPath }) });
     },
 
     async createWorkspaceFolder(dirPath) {
@@ -1969,7 +1979,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         await createWorkspaceDir(clean);
       }
       await get().refreshWorkspaceTree();
-      set({ statusMessage: `已创建目录 ${clean}` });
+      set({ statusMessage: t('status.createdDir', { path: clean }) });
     },
 
     async renameWorkspaceFile(fromPath, toPath) {
@@ -1996,7 +2006,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       await get().refreshWorkspaceTree();
       await get().refreshSemantics();
       await get().refreshDiagnostics();
-      set({ statusMessage: `已重命名 ${fromPath} -> ${toPath}` });
+      set({ statusMessage: t('status.renamed', { from: fromPath, to: toPath }) });
     },
 
     async deleteWorkspaceFile(filePath) {
@@ -2012,7 +2022,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       await get().refreshWorkspaceTree();
       await get().refreshSemantics();
       await get().refreshDiagnostics();
-      set({ statusMessage: `已删除 ${filePath}` });
+      set({ statusMessage: t('status.deleted', { path: filePath }) });
     },
 
     setLeftSidebarOpen(open) {

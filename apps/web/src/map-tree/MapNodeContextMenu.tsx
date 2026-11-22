@@ -10,6 +10,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import type { CompositeMapTreeNode } from './map-tree-utils';
+import { useI18n } from '../i18n/index.js';
 
 export interface MapNodeMenuTarget {
   node: CompositeMapTreeNode;
@@ -52,6 +53,7 @@ export function MapNodeContextMenu({
   onInspectNode,
   onRemoveNode,
 }: MapNodeContextMenuProps) {
+  const { t } = useI18n();
   const anchorRef = useRef<HTMLDivElement | null>(null);
   const popoverRef = useRef<HTMLDivElement | null>(null);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -256,7 +258,7 @@ export function MapNodeContextMenu({
         <div
           ref={menuRef}
           {...({ focusgroup: 'menu nomemory' } as Record<string, string>)}
-          aria-label="Map 节点操作菜单"
+          aria-label={t('mapMenu.aria')}
           className="dita-ctx-menu"
         >
           <button
@@ -266,7 +268,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, onOpenTarget)}
           >
             <BookOpen className="dita-ctx-icon text-indigo-600" aria-hidden="true" />
-            <span>{node?.isSubmapRef ? '打开子 Map 文件' : '打开目标 Topic'}</span>
+            <span>{node?.isSubmapRef ? t('mapMenu.openSubmap') : t('mapMenu.openTopic')}</span>
           </button>
           <button
             type="button"
@@ -274,7 +276,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, onViewSource)}
           >
             <Code2 className="dita-ctx-icon text-sky-600" aria-hidden="true" />
-            <span>在 Map XML 源码中定位</span>
+            <span>{t('mapMenu.locate')}</span>
           </button>
 
           <hr />
@@ -286,7 +288,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, onCreateChildTopic)}
           >
             <FilePlus2 className="dita-ctx-icon text-emerald-600" aria-hidden="true" />
-            <span>新建子 Topic 并挂载…</span>
+            <span>{t('mapMenu.createChild')}</span>
           </button>
           <button
             type="button"
@@ -295,7 +297,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, onMountExisting)}
           >
             <Link2 className="dita-ctx-icon text-indigo-600" aria-hidden="true" />
-            <span>挂载已有 Topic / 子 Map…</span>
+            <span>{t('mapMenu.mountExisting')}</span>
           </button>
 
           <hr />
@@ -307,7 +309,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, isBookmap ? 'chapter' : 'topichead'))}
           >
             <FolderPlus className="dita-ctx-icon text-amber-600" aria-hidden="true" />
-            <span>{isBookmap ? '插入子 <chapter>' : '插入分组 <topichead>'}</span>
+            <span>{isBookmap ? t('mapMenu.insertChapter') : t('mapMenu.insertGroup')}</span>
           </button>
           <button
             type="button"
@@ -316,7 +318,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, 'keydef'))}
           >
             <KeyRound className="dita-ctx-icon text-violet-600" aria-hidden="true" />
-            <span>插入变量定义 &lt;keydef&gt;</span>
+            <span>{t('mapMenu.insertKeydef')}</span>
           </button>
 
           <hr />
@@ -327,7 +329,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, onInspectNode)}
           >
             <SlidersHorizontal className="dita-ctx-icon text-slate-600" aria-hidden="true" />
-            <span>编辑节点属性</span>
+            <span>{t('mapMenu.editAttrs')}</span>
           </button>
           <button
             type="button"
@@ -336,7 +338,7 @@ export function MapNodeContextMenu({
             onClick={(ev) => runAction(ev, onRemoveNode)}
           >
             <Trash2 className="dita-ctx-icon text-rose-500" aria-hidden="true" />
-            <span>从 Map 中移除</span>
+            <span>{t('mapMenu.remove')}</span>
           </button>
         </div>
       </div>

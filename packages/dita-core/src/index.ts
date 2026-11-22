@@ -1,5 +1,9 @@
 export const DITA_CORE_VERSION = '1.0.0';
 
+// UI locale primitives & bilingual core diagnostics
+// (generic UI strings live in the consuming app; core only owns XML/semantics wording)
+export * from './i18n/index.js';
+
 // XML layer
 export * from './xml/types.js';
 export * from './xml/parser.js';

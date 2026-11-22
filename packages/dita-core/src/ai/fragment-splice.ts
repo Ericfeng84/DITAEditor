@@ -7,6 +7,8 @@ import {
   findRootElementStartOffset,
 } from '../xml/parser.js';
 import type { XmlDoctypeInfo } from '../xml/types.js';
+import { coreT } from '../i18n/messages.js';
+import type { UiLocale } from '../i18n/locale.js';
 import type {
   AiFragmentExtraction,
   AiSpliceErrorCode,
@@ -52,14 +54,17 @@ export function spliceAndVerifyAiXml(
   originalXml: string,
   extraction: AiFragmentExtraction,
   candidateXml: string,
+  locale: UiLocale = 'zh-CN',
 ): AiSpliceResult {
+  const t = (key: Parameters<typeof coreT>[1], params?: Parameters<typeof coreT>[2]) =>
+    coreT(locale, key, params);
   const normalized = normalizeCandidateXml(candidateXml);
   if (normalized.length === 0) {
     return failure(
       'candidate-empty',
-      'AI 返回的候选片段为空。',
+      t('ai.candidateEmpty'),
       null,
-      failedVerification(['候选片段为空，请返回完整的 XML 片段。']),
+      failedVerification([t('ai.candidateEmptyWarning')]),
     );
   }
 
@@ -71,12 +76,12 @@ export function spliceAndVerifyAiXml(
   // legitimately be a sibling run / partial region; the patched document is the real gate there.
   const requiresSingleElement = extraction.mode === 'element';
   if (requiresSingleElement && (!candidateParsed.ok || candidateRootTag === '')) {
-    const detail = candidateParsed.ok ? '候选片段没有根元素。' : candidateParsed.error.message;
+    const detail = candidateParsed.ok ? t('ai.candidateNoRoot') : candidateParsed.error.message;
     return failure(
       'candidate-malformed',
-      `候选片段不是良构的单个 XML 元素：${detail}`,
+      t('ai.candidateMalformed', { detail }),
       null,
-      failedVerification([`候选片段良构性校验失败：${detail}`]),
+      failedVerification([t('ai.candidateMalformedWarning', { detail })]),
     );
   }
 
@@ -87,9 +92,9 @@ export function spliceAndVerifyAiXml(
   ) {
     return failure(
       'invalid-target',
-      `不支持的 AI 定位模式：${String(extraction.mode)}。`,
+      t('ai.unsupportedTargetMode', { mode: String(extraction.mode) }),
       null,
-      failedVerification([`不支持的定位模式：${String(extraction.mode)}。`]),
+      failedVerification([t('ai.unsupportedTargetMode', { mode: String(extraction.mode) })]),
     );
   }
 
@@ -103,23 +108,29 @@ export function spliceAndVerifyAiXml(
   ) {
     return failure(
       'invalid-target',
-      `无效的替换区间 [${String(startOffset)}, ${String(endOffset)})，原文长度为 ${originalXml.length}。`,
+      t('ai.invalidRange', {
+        start: String(startOffset),
+        end: String(endOffset),
+        length: String(originalXml.length),
+      }),
       null,
-      failedVerification([`替换区间 [${String(startOffset)}, ${String(endOffset)}) 超出原文范围。`]),
+      failedVerification([
+        t('ai.invalidRangeWarning', { start: String(startOffset), end: String(endOffset) }),
+      ]),
     );
   }
   if (extraction.originalXml.length > 0 && extraction.originalXml !== originalXml) {
     return failure(
       'invalid-target',
-      '提取结果与当前原文不一致，请重新定位目标片段后再回拼。',
+      t('ai.originalMismatch'),
       null,
-      failedVerification(['提取时使用的原文与本次回拼的原文不一致（文件可能已被修改）。']),
+      failedVerification([t('ai.originalMismatchWarning')]),
     );
   }
 
   const warnings: string[] = [];
   if (hasModelDecorations(candidateXml)) {
-    warnings.push('候选片段中的 Markdown 代码围栏 / 包装元素 / 序言已被移除。');
+    warnings.push(t('ai.wrapperRemoved'));
   }
 
   let patchedXml: string;
@@ -128,7 +139,7 @@ export function spliceAndVerifyAiXml(
     const prolog = rootStart > 0 ? originalXml.slice(0, rootStart) : '';
     patchedXml = prolog + normalized;
     if (prolog.length > 0) {
-      warnings.push('已逐字复用原始 XML 声明 / DOCTYPE / 序言。');
+      warnings.push(t('ai.prologReused'));
     }
   } else {
     patchedXml = originalXml.slice(0, startOffset) + normalized + originalXml.slice(endOffset);
@@ -149,12 +160,17 @@ export function spliceAndVerifyAiXml(
   let structureValid = true;
   if (extraction.parentTag && !isChildAllowed(extraction.parentTag, candidateRootTag)) {
     structureValid = false;
-    structureWarnings.push(`<${candidateRootTag}> 不允许作为 <${extraction.parentTag}> 的子元素。`);
+    structureWarnings.push(
+        t('ai.childNotAllowed', { child: candidateRootTag, parent: extraction.parentTag ?? '' }),
+      );
   }
   if (wellFormedResult.ok && extraction.rootTagName && patchedRootTag !== extraction.rootTagName) {
     structureValid = false;
     structureWarnings.push(
-      `根元素被改动：<${extraction.rootTagName}> → <${patchedRootTag || '(无)'}>。`,
+      t('ai.rootChanged', {
+        from: extraction.rootTagName ?? '',
+        to: patchedRootTag || t('ai.none'),
+      }),
     );
   }
 
@@ -167,7 +183,9 @@ export function spliceAndVerifyAiXml(
     } catch (err) {
       prosemirrorCompatible = false;
       pmWarnings.push(
-        `Visual 模式转换失败：${err instanceof Error ? err.message : String(err)}`,
+        t('ai.visualConversionFailed', {
+          message: err instanceof Error ? err.message : String(err),
+        }),
       );
     }
   }
@@ -183,11 +201,15 @@ export function spliceAndVerifyAiXml(
 
   if (!wellFormedResult.ok) {
     verification.warnings.push(
-      `回拼后 XML 非良构：第 ${wellFormedResult.error.line} 行第 ${wellFormedResult.error.column} 列 ${wellFormedResult.error.message}`,
+      t('ai.patchedMalformedAt', {
+        line: String(wellFormedResult.error.line),
+        column: String(wellFormedResult.error.column),
+        message: wellFormedResult.error.message,
+      }),
     );
     return failure(
       'patched-malformed',
-      `回拼后 XML 非良构：${wellFormedResult.error.message}`,
+      t('ai.patchedMalformed', { message: wellFormedResult.error.message }),
       null,
       verification,
     );
@@ -196,7 +218,10 @@ export function spliceAndVerifyAiXml(
   if (!preservedXmlDeclaration) {
     return failure(
       'xml-declaration-changed',
-      `回拼后 XML 声明被改动：${originalDeclaration?.raw ?? '(无)'} → ${patchedDeclaration?.raw ?? '(无)'}。`,
+      t('ai.declarationChanged', {
+        from: originalDeclaration?.raw ?? t('ai.none'),
+        to: patchedDeclaration?.raw ?? t('ai.none'),
+      }),
       patchedXml,
       verification,
     );
@@ -205,7 +230,10 @@ export function spliceAndVerifyAiXml(
   if (!preservedDoctype) {
     return failure(
       'doctype-changed',
-      `回拼后 DOCTYPE 被改动：${originalDoctypeLabel(extractDoctype(originalXml))} → ${originalDoctypeLabel(extractDoctype(patchedXml))}。`,
+      t('ai.doctypeChanged', {
+        from: originalDoctypeLabel(extractDoctype(originalXml), locale),
+        to: originalDoctypeLabel(extractDoctype(patchedXml), locale),
+      }),
       patchedXml,
       verification,
     );
@@ -214,7 +242,7 @@ export function spliceAndVerifyAiXml(
   if (!prosemirrorCompatible) {
     return failure(
       'prosemirror-incompatible',
-      '回拼后的文档无法在 Visual（ProseMirror）模式中无损渲染。',
+      t('ai.visualIncompatible'),
       patchedXml,
       verification,
     );
@@ -223,7 +251,7 @@ export function spliceAndVerifyAiXml(
   if (!structureValid) {
     return failure(
       'structure-invalid',
-      structureWarnings.length > 0 ? structureWarnings.join(' ') : '回拼后的文档结构不合法。',
+      structureWarnings.length > 0 ? structureWarnings.join(' ') : t('ai.structureInvalid'),
       patchedXml,
       verification,
     );
@@ -293,8 +321,11 @@ function doctypeSignature(doctype: XmlDoctypeInfo | null): string | null {
   return doctype.raw ?? `${doctype.name}|${doctype.publicId}|${doctype.systemId}`;
 }
 
-function originalDoctypeLabel(doctype: XmlDoctypeInfo | null): string {
-  if (!doctype) return '(无)';
+function originalDoctypeLabel(
+  doctype: XmlDoctypeInfo | null,
+  locale: UiLocale = 'zh-CN',
+): string {
+  if (!doctype) return coreT(locale, 'ai.none');
   return doctype.raw ?? doctype.name;
 }
 

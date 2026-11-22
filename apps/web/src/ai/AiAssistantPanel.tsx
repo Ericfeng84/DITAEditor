@@ -18,6 +18,13 @@ import {
 import type { AiTargetMode, AiTargetSpec } from '@dita/core';
 import type { WorkspaceDiagnostic } from '../services/workspace-api';
 import {
+  getCurrentLocale,
+  translate,
+  useI18n,
+  type MessageKey,
+  type MessageParams,
+} from '../i18n/index.js';
+import {
   useAiStore,
   type AiPanelIntent,
 } from '../ai/ai-store';
@@ -53,40 +60,46 @@ export interface AiAssistantPanelProps {
   onOpenSettings?: () => void;
 }
 
-const TASK_OPTIONS: Array<{ id: AiTaskType; label: string; hint: string }> = [
-  { id: 'ask', label: '提问', hint: '解释结构、语义或给出建议（不修改 XML）' },
-  { id: 'authoring', label: '改写', hint: '按指令改写当前目标并生成补丁' },
-  { id: 'optimize_tags', label: '优化标签', hint: '改用更精确的 DITA 1.3 元素' },
-  { id: 'fix_error', label: '修复', hint: '修复 XML / 诊断 / 严格校验错误' },
+const TASK_OPTIONS: Array<{ id: AiTaskType; labelKey: MessageKey; hintKey: MessageKey }> = [
+  { id: 'ask', labelKey: 'ai.task.ask', hintKey: 'ai.task.askHint' },
+  { id: 'authoring', labelKey: 'ai.task.authoring', hintKey: 'ai.task.authoringHint' },
+  { id: 'optimize_tags', labelKey: 'ai.task.optimize', hintKey: 'ai.task.optimizeHint' },
+  { id: 'fix_error', labelKey: 'ai.task.fix', hintKey: 'ai.task.fixHint' },
 ];
 
-const TARGET_MODE_LABELS: Record<AiTargetMode, string> = {
-  element: '元素靶向',
-  'line-window': '行窗口',
-  'full-document': '整篇文档',
+const TARGET_MODE_LABEL_KEYS: Record<AiTargetMode, MessageKey> = {
+  element: 'ai.targetMode.element',
+  'line-window': 'ai.targetMode.lineWindow',
+  'full-document': 'ai.targetMode.fullDocument',
 };
 
 function defaultInstruction(taskType: AiTaskType, subAction?: AiSubAction): string {
-  if (subAction === 'fix_xml') return '请修复当前 XML 的良构性错误，保持其它内容不变。';
-  if (subAction === 'fix_diagnostic') return '请修复当前工作区诊断所指出的问题，保持 DITA 语义与格式。';
-  if (subAction === 'fix_strict') return '请修复 DITA-OT 严格校验报错，保持 DTD/RNG 合法性。';
-  if (taskType === 'optimize_tags') return '请在保持语义不变的前提下，把通用标签优化为更精确的 DITA 1.3 元素。';
-  if (taskType === 'authoring') return '请在保持 DITA 语义与结构的前提下改写选中内容。';
-  if (taskType === 'fix_error') return '请修复当前问题，保持其它内容不变。';
-  return '请解释当前选中内容的 DITA 语义、结构约束与可改进之处。';
+  const tr = (key: MessageKey, params?: MessageParams) => translate(getCurrentLocale(), key, params);
+  if (subAction === 'fix_xml') return tr('ai.instruction.fixXml');
+  if (subAction === 'fix_diagnostic') return tr('ai.instruction.fixDiagnostic');
+  if (subAction === 'fix_strict') return tr('ai.instruction.fixStrict');
+  if (taskType === 'optimize_tags') return tr('ai.instruction.optimize');
+  if (taskType === 'authoring') return tr('ai.instruction.authoring');
+  if (taskType === 'fix_error') return tr('ai.instruction.fixError');
+  return tr('ai.instruction.ask');
 }
 
 function targetLabel(target: AiTargetSpec | null): string {
-  if (!target) return '未定位';
+  const tr = (key: MessageKey, params?: MessageParams) => translate(getCurrentLocale(), key, params);
+  if (!target) return tr('ai.target.none');
   if (target.mode === 'element') {
-    return `元素 ${target.elementPath && target.elementPath.length > 0 ? target.elementPath.join('/') : '根元素'}`;
+    return tr('ai.target.element', {
+      path: target.elementPath && target.elementPath.length > 0 ? target.elementPath.join('/') : tr('ai.target.rootElement'),
+    });
   }
   if (target.mode === 'line-window') {
     const start = target.line ?? 1;
     const end = target.lineEnd ?? start;
-    return end > start ? `第 ${String(start)}–${String(end)} 行` : `第 ${String(start)} 行`;
+    return end > start
+      ? tr('ai.target.lineRange', { start, end })
+      : tr('ai.target.line', { start });
   }
-  return '整篇文档';
+  return tr('ai.target.fullDocument');
 }
 
 function toDiagnosticContext(
@@ -136,6 +149,7 @@ export function AiAssistantPanel({
   onPreviewDiff,
   onOpenSettings,
 }: AiAssistantPanelProps) {
+  const { t } = useI18n();
   const panelPhase = useAiStore((state) => state.phase);
   const messages = useAiStore((state) => state.messages);
   const draft = useAiStore((state) => state.draft);
@@ -175,7 +189,13 @@ export function AiAssistantPanel({
 
   useEffect(() => {
     const el = scrollRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    // Keep the empty state pinned to its first line; only follow the stream once there is a turn.
+    if (messages.length === 0 && !proposal && !error) {
+      el.scrollTop = 0;
+      return;
+    }
+    el.scrollTop = el.scrollHeight;
   }, [messages, deltaText, proposal, error]);
 
   const runSend = async (
@@ -249,37 +269,37 @@ export function AiAssistantPanel({
     return [
       {
         ok: proposal.verification.wellFormed,
-        label: proposal.verification.wellFormed ? 'XML 良构' : 'XML 非良构',
+        label: proposal.verification.wellFormed ? t('ai.badge.wellFormed') : t('ai.badge.notWellFormed'),
       },
       {
         ok: proposal.verification.prosemirrorCompatible,
-        label: proposal.verification.prosemirrorCompatible ? '可视化兼容' : '可视化不兼容',
+        label: proposal.verification.prosemirrorCompatible ? t('ai.badge.visualOk') : t('ai.badge.visualFail'),
       },
       {
         ok: proposal.verification.preservedDoctype,
-        label: proposal.verification.preservedDoctype ? 'DOCTYPE 保留' : 'DOCTYPE 变更',
+        label: proposal.verification.preservedDoctype ? t('ai.badge.doctypeKept') : t('ai.badge.doctypeChanged'),
       },
     ];
-  }, [proposal]);
+  }, [proposal, t]);
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white text-xs" data-testid="ai-assistant-panel">
       <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-white px-2.5">
         <Sparkles className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
-        <span className="font-semibold text-slate-800">AI 助手</span>
+        <span className="shrink-0 whitespace-nowrap font-semibold text-slate-800">{t('ai.title')}</span>
         {meta?.model ?? config?.model ? (
-          <span className="truncate rounded bg-white/80 px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500">
+          <span className="min-w-0 flex-1 truncate rounded bg-white/80 px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500">
             {meta?.model ?? config?.model}
           </span>
         ) : null}
-        <div className="ml-auto flex items-center gap-0.5">
+        <div className="ml-auto flex shrink-0 items-center gap-0.5">
           {onOpenSettings ? (
             <button
               type="button"
               onClick={onOpenSettings}
               className="rounded p-1 text-slate-500 hover:bg-white hover:text-indigo-700"
-              title="AI 助手设置"
-              aria-label="AI 助手设置"
+              title={t('ai.settings')}
+              aria-label={t('ai.settings')}
             >
               <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
             </button>
@@ -288,8 +308,8 @@ export function AiAssistantPanel({
             type="button"
             onClick={closePanel}
             className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"
-            title="关闭 AI 助手"
-            aria-label="关闭 AI 助手"
+            title={t('ai.close')}
+            aria-label={t('ai.close')}
           >
             <X className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -301,7 +321,7 @@ export function AiAssistantPanel({
           <p className="flex items-start gap-1.5">
             <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
             <span className="flex-1">
-              {configError ?? '尚未配置 AI 模型服务，请先在设置中填写 Base URL、模型与 API Key。'}
+              {configError ?? t('ai.notConfigured')}
             </span>
           </p>
           {onOpenSettings ? (
@@ -310,7 +330,7 @@ export function AiAssistantPanel({
               onClick={onOpenSettings}
               className="ml-4 mt-1 rounded border border-amber-300 bg-white px-1.5 py-0.5 font-medium text-amber-900 hover:bg-amber-100"
             >
-              打开 AI 设置
+              {t('ai.openSettings')}
             </button>
           ) : null}
         </div>
@@ -320,7 +340,7 @@ export function AiAssistantPanel({
         <div
           className="inline-flex overflow-hidden rounded-full border border-indigo-200 bg-white font-medium"
           role="group"
-          aria-label="AI 靶向范围"
+          aria-label={t('ai.scopeAria')}
         >
           {(['fragment', 'document'] as AiTargetScope[]).map((option) => (
             <button
@@ -334,17 +354,17 @@ export function AiAssistantPanel({
                   : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
               }`}
             >
-              {AI_TARGET_SCOPE_LABELS[option]}
+              {t(AI_TARGET_SCOPE_LABELS[option])}
             </button>
           ))}
         </div>
         <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-1.5 py-0.5 font-medium text-indigo-800">
           <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
           {scope === 'document'
-            ? '整篇模式 · 完整 Topic'
+            ? t('ai.scopeBanner.document')
             : effectiveTarget && effectiveTarget.mode !== 'full-document'
-              ? `${TARGET_MODE_LABELS[effectiveTarget.mode]} · ${targetLabel(effectiveTarget)}`
-              : '未定位 · 发送时回退整篇文档'}
+              ? `${t(TARGET_MODE_LABEL_KEYS[effectiveTarget.mode])} · ${targetLabel(effectiveTarget)}`
+              : t('ai.scopeBanner.fallback')}
         </span>
         {scope === 'fragment' && meta?.targetTag ? (
           <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-slate-700">
@@ -370,7 +390,7 @@ export function AiAssistantPanel({
             onClick={() => setShowHistory((value) => !value)}
             className="ml-auto text-[9.5px] text-slate-400 hover:text-slate-700"
           >
-            {showHistory ? '隐藏历史' : `历史 ${String(messages.length)}`}
+            {showHistory ? t('ai.historyHide') : t('ai.historyShow', { count: messages.length })}
           </button>
         ) : null}
       </div>
@@ -380,14 +400,13 @@ export function AiAssistantPanel({
           <div className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/40 p-2.5 text-[10.5px] leading-relaxed text-slate-600">
             <p className="flex items-center gap-1 font-semibold text-indigo-800">
               <Wand2 className="h-3 w-3" aria-hidden="true" />
-              编写整篇 Topic，或改写选中片段
+              {t('ai.empty.title')}
             </p>
             <p className="mt-1">
-              默认按「整篇 Topic」靶向：一句话即可起草或重写整个主题，系统保留 XML 声明与 DOCTYPE，
-              结果先经过良构 / 可视化 / DOCTYPE 校验，再由你确认应用。
+              {t('ai.empty.body')}
             </p>
             <p className="mt-1 text-slate-400">
-              只改选中元素时，把上方范围切到「片段」，或在可视化编辑器里选中文字后用气泡工具栏的 AI 按钮。
+              {t('ai.empty.tip')}
             </p>
           </div>
         ) : null}
@@ -400,7 +419,7 @@ export function AiAssistantPanel({
               className={`flex flex-col gap-0.5 ${message.role === 'user' ? 'items-end' : 'items-start'}`}
             >
               <span className="px-1 text-[9px] font-medium uppercase tracking-wide text-slate-400">
-                {message.role === 'user' ? '我' : 'AI'}
+                {message.role === 'user' ? t('ai.role.me') : t('ai.role.ai')}
               </span>
               <div
                 className={`max-w-[95%] whitespace-pre-wrap break-words rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed ${
@@ -413,7 +432,7 @@ export function AiAssistantPanel({
                 {isLastStreaming ? (
                   <span className="ml-1 inline-flex items-center gap-1 text-indigo-600">
                     <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />
-                    生成中
+                    {t('ai.generating')}
                   </span>
                 ) : null}
               </div>
@@ -425,7 +444,7 @@ export function AiAssistantPanel({
           <p className="flex items-start gap-1.5 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10px] text-amber-900">
             <RotateCcw className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
             <span>
-              第 {retry.attempt}/{retry.maxRetries} 次重试：{retry.reason}
+              {t('ai.retry', { attempt: retry.attempt, max: retry.maxRetries, reason: retry.reason })}
             </span>
           </p>
         ) : null}
@@ -437,7 +456,7 @@ export function AiAssistantPanel({
               <span className="flex-1">{error}</span>
             </p>
             <p className="mt-1 text-[9.5px] text-rose-600">
-              可按 Ctrl+Z 撤销已应用的修改；若连续失败，请检查 AI 设置中的端点与密钥。
+              {t('ai.retryHint')}
             </p>
           </div>
         ) : null}
@@ -446,9 +465,9 @@ export function AiAssistantPanel({
           <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-2">
             <div className="flex items-center gap-1.5">
               <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-              <span className="text-[11px] font-semibold text-emerald-900">AI 修改提案</span>
+              <span className="text-[11px] font-semibold text-emerald-900">{t('ai.proposal.title')}</span>
               <span className="ml-auto rounded bg-white px-1.5 py-0.5 text-[9px] text-slate-500">
-                {TARGET_MODE_LABELS[proposal.targetMode]}
+                {t(TARGET_MODE_LABEL_KEYS[proposal.targetMode])}
                 {proposal.targetTag ? ` · <${proposal.targetTag}>` : ''}
               </span>
             </div>
@@ -478,12 +497,12 @@ export function AiAssistantPanel({
               ))}
               {proposal.verification.retryCount > 0 ? (
                 <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] text-amber-800">
-                  重试 {proposal.verification.retryCount}
+                  {t('ai.proposal.retries', { count: proposal.verification.retryCount })}
                 </span>
               ) : null}
               {proposal.canRevalidateStrict ? (
                 <span className="rounded bg-white px-1.5 py-0.5 text-[9px] text-slate-500">
-                  可重新严格校验
+                  {t('ai.proposal.revalidate')}
                 </span>
               ) : null}
             </div>
@@ -496,7 +515,7 @@ export function AiAssistantPanel({
             ) : null}
             {applied ? (
               <p className="mt-1.5 rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-900">
-                已应用到编辑器（可 Ctrl+Z 撤销），尚未保存到文件。
+                {t('ai.proposal.applied')}
               </p>
             ) : (
               <div className="mt-2 flex items-center gap-1.5">
@@ -507,7 +526,7 @@ export function AiAssistantPanel({
                     className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50"
                   >
                     <Eye className="h-2.5 w-2.5" aria-hidden="true" />
-                    查看差异
+                    {t('ai.proposal.viewDiff')}
                   </button>
                 ) : null}
                 <button
@@ -515,10 +534,10 @@ export function AiAssistantPanel({
                   disabled={!canApply || readOnly}
                   title={
                     !canApply
-                      ? '当前身份或检出锁限制：仅可预览 AI 修改'
+                      ? t('ai.proposal.applyLocked')
                       : readOnly
-                        ? '只读模式下无法应用'
-                        : '把提案写入编辑器缓冲区'
+                        ? t('ai.proposal.applyReadOnly')
+                        : t('ai.proposal.applyHint')
                   }
                   onClick={() => {
                     if (onRequestApply) onRequestApply(proposal.targetMode);
@@ -527,7 +546,7 @@ export function AiAssistantPanel({
                   className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   <CheckCircle2 className="h-2.5 w-2.5" aria-hidden="true" />
-                  应用
+                  {t('ai.proposal.apply')}
                 </button>
                 <button
                   type="button"
@@ -535,13 +554,13 @@ export function AiAssistantPanel({
                   className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-600 hover:bg-slate-50"
                 >
                   <Ban className="h-2.5 w-2.5" aria-hidden="true" />
-                  忽略
+                  {t('ai.proposal.dismiss')}
                 </button>
               </div>
             )}
             {!canApply && !applied ? (
               <p className="mt-1 text-[9.5px] text-amber-700">
-                只读 / 未检出：仍可查看差异，检出文件后才能应用。
+                {t('ai.proposal.readOnlyHint')}
               </p>
             ) : null}
           </div>
@@ -549,11 +568,11 @@ export function AiAssistantPanel({
 
         {showHistory ? (
           <div className="rounded border border-slate-200 bg-white p-1.5 text-[9.5px] text-slate-500">
-            <p className="font-medium text-slate-600">发送历史（最多 6 轮作为上下文）</p>
+            <p className="font-medium text-slate-600">{t('ai.history.title')}</p>
             <ul className="mt-1 space-y-0.5">
               {historyFromMessages(messages).map((item, index) => (
                 <li key={`${item.role}-${String(index)}`} className="truncate">
-                  {item.role === 'user' ? '我' : 'AI'}：{item.content}
+                  {item.role === 'user' ? t('ai.role.me') : t('ai.role.ai')}：{item.content}
                 </li>
               ))}
             </ul>
@@ -567,7 +586,7 @@ export function AiAssistantPanel({
             <button
               key={option.id}
               type="button"
-              title={option.hint}
+              title={t(option.hintKey)}
               onClick={() => setTaskType(option.id)}
               className={`rounded px-1.5 py-0.5 text-[9.5px] font-medium transition-colors ${
                 taskType === option.id
@@ -575,7 +594,7 @@ export function AiAssistantPanel({
                   : 'text-slate-500 hover:bg-slate-200/80 hover:text-slate-800'
               }`}
             >
-              {option.label}
+              {t(option.labelKey)}
             </button>
           ))}
           <span className="ml-auto truncate font-mono text-[9px] text-slate-400">
@@ -595,11 +614,11 @@ export function AiAssistantPanel({
           placeholder={
             taskType === 'ask'
               ? scope === 'document'
-                ? '询问整篇 Topic 的结构、语义或修改建议…（Ctrl+Enter 发送）'
-                : '询问当前片段的结构、语义或修改建议…（Ctrl+Enter 发送）'
+                ? t('ai.placeholder.documentAsk')
+                : t('ai.placeholder.fragmentAsk')
               : scope === 'document'
-                ? '描述要编写或重写的完整 Topic，例如：写一篇「安装前检查」的 task，含前置条件与 3 个步骤…（Ctrl+Enter 发送）'
-                : '描述希望如何修改当前靶向内容…（Ctrl+Enter 发送）'
+                ? t('ai.placeholder.documentAuthor')
+                : t('ai.placeholder.fragmentAuthor')
           }
           className="w-full resize-none rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
         />
@@ -611,7 +630,7 @@ export function AiAssistantPanel({
               className="inline-flex items-center gap-1 rounded border border-rose-200 bg-white px-2 py-1 text-[10px] font-medium text-rose-700 hover:bg-rose-50"
             >
               <Square className="h-2.5 w-2.5" aria-hidden="true" />
-              停止
+              {t('ai.stop')}
             </button>
           ) : (
             <button
@@ -621,15 +640,15 @@ export function AiAssistantPanel({
               className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Send className="h-2.5 w-2.5" aria-hidden="true" />
-              发送
+              {t('ai.send')}
             </button>
           )}
           <span className="text-[9px] text-slate-400">
-            {readOnly ? '只读模式：可提问，不能生成修改' : 'AI 生成内容需要人工确认后才会写入'}
+            {readOnly ? t('ai.footer.readOnly') : t('ai.footer.confirm')}
           </span>
           {deltaText && streaming ? (
             <span className="ml-auto font-mono text-[9px] text-indigo-500">
-              +{deltaText.length} 字符
+              +{t('ai.chars', { count: deltaText.length })}
             </span>
           ) : null}
         </div>

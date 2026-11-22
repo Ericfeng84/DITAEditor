@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useI18n } from '../i18n/index.js';
 import type { KeyDefinition, KeyspaceResult } from '@dita/core';
 import {
   AlertTriangle,
@@ -23,6 +24,7 @@ export function KeyspacePanel({
   onInsertKeyref,
   onJumpToKeyDef,
 }: KeyspacePanelProps) {
+  const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [activeScope, setActiveScope] = useState<string>('__all__');
 
@@ -54,8 +56,8 @@ export function KeyspacePanel({
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center text-xs text-slate-400">
         <KeyRound className="mb-2 h-7 w-7 text-slate-300" aria-hidden="true" />
-        <p>请先在顶部选择激活的 Root Map</p>
-        <p className="mt-1 text-[11px]">Keyspace 会从 Root Map 按广度优先规则自动解析。</p>
+        <p>{t('keyspace.pickRoot')}</p>
+        <p className="mt-1 text-[11px]">{t('keyspace.pickRootHint')}</p>
       </div>
     );
   }
@@ -96,7 +98,7 @@ export function KeyspacePanel({
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              全部
+              {t('keyspace.scope.all')}
             </button>
             <button
               type="button"
@@ -107,7 +109,7 @@ export function KeyspacePanel({
                   : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
               }`}
             >
-              全局
+              {t('keyspace.scope.global')}
             </button>
             {scopes.map((sc) => (
               <button
@@ -138,8 +140,8 @@ export function KeyspacePanel({
             type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="搜索 key 名称、值或目标路径..."
-            aria-label="搜索 Keyspace 定义"
+            placeholder={t('keyspace.searchPlaceholder')}
+            aria-label={t('keyspace.searchAria')}
             className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-violet-500 focus:bg-white focus:outline-none"
           />
         </div>
@@ -150,7 +152,7 @@ export function KeyspacePanel({
         <div className="mx-2.5 mt-2 rounded border border-rose-200 bg-rose-50 px-2.5 py-1.5 text-[11px] text-rose-800">
           <div className="flex items-center gap-1 font-semibold">
             <AlertTriangle className="h-3.5 w-3.5 text-rose-600" aria-hidden="true" />
-            <span>Keyspace 遍历检测到 {keyspace.mapCycles.length} 处子地图循环</span>
+            <span>{t('keyspace.cycles', { count: keyspace.mapCycles.length })}</span>
           </div>
         </div>
       ) : null}
@@ -160,14 +162,14 @@ export function KeyspacePanel({
         {definitions.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400">
             {totalKeys === 0
-              ? '当前 Root Map 暂无 <keydef> 或 keys="..." 定义。'
-              : '没有匹配筛选条件的 Key。'}
+              ? t('keyspace.emptyRoot')
+              : t('keyspace.emptyFiltered')}
           </div>
         ) : (
           definitions.map((def) => {
             const preview =
               def.inlineText ??
-              (def.targetTitle ? `${def.targetTitle} (${def.resolvedHref ?? def.href})` : def.resolvedHref ?? def.href ?? '（无绑定值）');
+              (def.targetTitle ? `${def.targetTitle} (${def.resolvedHref ?? def.href})` : def.resolvedHref ?? def.href ?? t('keyspace.noValue'));
 
             return (
               <div
@@ -187,9 +189,9 @@ export function KeyspacePanel({
                     {def.shadowedCount > 0 ? (
                       <span
                         className="shrink-0 rounded bg-amber-100 px-1 py-0.5 font-mono text-[9.5px] text-amber-800"
-                        title={`广度优先先定义生效，已覆盖 ${def.shadowedCount} 个同名定义`}
+                        title={t('keyspace.shadowedTooltip', { count: def.shadowedCount })}
                       >
-                        +{def.shadowedCount} 覆盖
+                        {t('keyspace.shadowedCount', { count: def.shadowedCount })}
                       </span>
                     ) : null}
                   </div>
@@ -208,21 +210,21 @@ export function KeyspacePanel({
                       <button
                         type="button"
                         onClick={() => onInsertKeyref(def.qualifiedKey)}
-                        title="在当前光标插入 <keyword keyref='...'>"
+                        title={t('keyspace.insertTooltip')}
                         className="inline-flex items-center gap-0.5 rounded bg-violet-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-violet-500"
                       >
                         <PlusCircle className="h-2.5 w-2.5" aria-hidden="true" />
-                        插入
+                        {t('keyspace.insert')}
                       </button>
                     ) : null}
                     <button
                       type="button"
                       onClick={() => onJumpToKeyDef(def)}
-                      title="跳转到 Key 定义源码位置"
+                      title={t('keyspace.jumpTooltip')}
                       className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
                     >
                       <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
-                      定义
+                      {t('attributes.define')}
                     </button>
                   </div>
                 </div>

@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import type { PublishDiagnostic, StrictValidationInput } from '../../services/publish-api';
 import { usePublishStore } from '../../store/publish-store';
+import { useI18n } from '../../i18n/index.js';
 
 export interface StrictValidationDialogProps {
   open: boolean;
@@ -33,6 +34,7 @@ export function StrictValidationDialog({
   onAiFixDiagnostic,
   aiApplied = false,
 }: StrictValidationDialogProps) {
+  const { t } = useI18n();
   const runtime = usePublishStore((state) => state.runtime);
   const strictResult = usePublishStore((state) => state.strictResult);
   const strictRunning = usePublishStore((state) => state.strictRunning);
@@ -58,7 +60,7 @@ export function StrictValidationDialog({
       className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/55 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="DITA-OT 严格校验"
+      aria-label={t('strict.aria')}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !strictRunning) onClose();
       }}
@@ -68,10 +70,10 @@ export function StrictValidationDialog({
           <div className="min-w-0">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
               <ShieldCheck className="h-4 w-4 text-indigo-600" aria-hidden="true" />
-              DITA-OT 严格校验
+              {t('strict.title')}
             </h2>
             <p className="mt-0.5 truncate text-[11px] text-slate-500">
-              {targetLabel || '按 Root Map 校验'} · 使用 OASIS DITA 1.3 DTD/RNG +{' '}
+              {targetLabel || t('strict.fallbackTarget')} · {t('strict.badgeSuffix')}{' '}
               <code className="font-mono">--processing-mode=strict</code>
             </p>
           </div>
@@ -80,7 +82,7 @@ export function StrictValidationDialog({
             onClick={onClose}
             disabled={strictRunning}
             className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50"
-            aria-label="关闭严格校验对话框"
+            aria-label={t('strict.closeAria')}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -95,7 +97,7 @@ export function StrictValidationDialog({
         {strictRunning ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-slate-500">
             <Loader2 className="h-5 w-5 animate-spin text-indigo-600" aria-hidden="true" />
-            <p>正在调用 DITA-OT 预检 DTD/RNG 与严格处理模式…</p>
+            <p>{t('strict.running')}</p>
             {strictTargets.length > 0 ? (
               <p className="font-mono text-[10.5px] text-slate-400">
                 {strictTargets.join('  ·  ')}
@@ -121,16 +123,16 @@ export function StrictValidationDialog({
                 ) : (
                   <AlertCircle className="h-3 w-3" aria-hidden="true" />
                 )}
-                {!strictResult.available ? 'DITA-OT 不可用' : strictResult.ok ? '校验通过' : '校验未通过'}
+                {!strictResult.available ? t('strict.unavailable') : strictResult.ok ? t('strict.passed') : t('strict.failed')}
               </span>
               <span className="rounded bg-rose-50 px-1.5 py-0.5 text-[10px] font-medium text-rose-700">
-                {errors.length} 错误
+                {t('strict.errorCount', { count: errors.length })}
               </span>
               <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">
-                {warnings.length} 警告
+                {t('strict.warningCount', { count: warnings.length })}
               </span>
               <span className="text-[10px] text-slate-500">
-                {strictResult.targets.length} 个输入 · {(strictResult.durationMs / 1000).toFixed(1)} s
+                {t('strict.summary', { count: strictResult.targets.length, seconds: (strictResult.durationMs / 1000).toFixed(1) })}
               </span>
               {strictResult.runtime.version ? (
                 <span className="text-[10px] text-slate-400">
@@ -145,14 +147,14 @@ export function StrictValidationDialog({
             {aiApplied ? (
               <div className="flex shrink-0 items-center gap-1.5 border-b border-emerald-200 bg-emerald-50 px-4 py-1.5 text-[11px] text-emerald-800">
                 <CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-                已应用 AI 修复建议，请点击“重新校验”确认严格校验结果。
+                {t('strict.aiApplied')}
               </div>
             ) : null}
 
             {unavailable ? (
               <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] text-amber-900">
                 {strictResult.message ??
-                  '未检测到可用的 DITA-OT CLI，严格校验暂时无法运行。请安装 DITA-OT 4.x 并配置 DITA_OT_HOME。'}
+                  t('strict.noCli')}
               </div>
             ) : null}
 
@@ -160,9 +162,9 @@ export function StrictValidationDialog({
               {strictResult.diagnostics.length === 0 ? (
                 <div className="flex h-full flex-col items-center justify-center gap-2 p-6 text-xs text-emerald-700">
                   <CheckCircle2 className="h-6 w-6" aria-hidden="true" />
-                  <p className="font-medium">未发现 DTD/RNG 或严格处理模式问题</p>
+                  <p className="font-medium">{t('strict.cleanTitle')}</p>
                   <p className="text-[10.5px] text-emerald-600">
-                    该结果来自真实 DITA-OT 调用，可作为发布前质量门禁。
+                    {t('strict.cleanBody')}
                   </p>
                 </div>
               ) : (
@@ -203,8 +205,8 @@ export function StrictValidationDialog({
                         <button
                           type="button"
                           onClick={() => onAiFixDiagnostic(diagnostic)}
-                          title="用 AI 修复此问题"
-                          aria-label="用 AI 修复此问题"
+                          title={t('strict.fixWithAi')}
+                          aria-label={t('strict.fixWithAi')}
                           className="mt-1.5 shrink-0 rounded p-1 text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
                         >
                           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
@@ -219,7 +221,7 @@ export function StrictValidationDialog({
             {strictResult.logTail ? (
               <details className="shrink-0 border-t border-slate-200 bg-slate-50">
                 <summary className="cursor-pointer px-4 py-1.5 text-[10.5px] font-medium text-slate-600">
-                  查看 DITA-OT 原始输出（尾部）
+                  {t('strict.rawOutput')}
                 </summary>
                 <pre className="dita-scroller max-h-32 overflow-auto px-4 pb-2 font-mono text-[10px] leading-relaxed text-slate-600">
                   {strictResult.logTail}
@@ -229,13 +231,13 @@ export function StrictValidationDialog({
           </>
         ) : (
           <div className="flex flex-1 items-center justify-center text-xs text-slate-500">
-            没有可校验的目标。
+            {t('strict.noTargets')}
           </div>
         )}
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2">
           <span className="text-[10px] text-slate-500">
-            严格校验只读取工作区文件，不修改 XML；发布任务同样会先执行严格校验。
+            {t('strict.footnote')}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -244,7 +246,7 @@ export function StrictValidationDialog({
               disabled={strictRunning}
               className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
-              关闭
+              {t('common.close')}
             </button>
             <button
               type="button"
@@ -258,7 +260,7 @@ export function StrictValidationDialog({
                 className={`h-3 w-3 ${strictRunning ? 'animate-spin' : ''}`}
                 aria-hidden="true"
               />
-              重新校验
+              {t('strict.revalidate')}
             </button>
           </div>
         </div>

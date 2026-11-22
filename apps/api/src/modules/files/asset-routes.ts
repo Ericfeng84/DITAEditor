@@ -118,7 +118,7 @@ export function registerAssetRoutes(
         size: fileBuffer.length,
       };
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -136,7 +136,7 @@ export function registerAssetRoutes(
         .header('Cache-Control', 'no-cache')
         .send(asset.buffer);
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -160,7 +160,7 @@ export function registerAssetRoutes(
         .header('Cache-Control', 'no-cache')
         .send(asset.buffer);
     } catch (err) {
-      return handleWorkspaceError(err, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 }

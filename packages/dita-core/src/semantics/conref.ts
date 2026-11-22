@@ -1,3 +1,5 @@
+import { coreT } from '../i18n/messages.js';
+import type { UiLocale } from '../i18n/locale.js';
 import * as slimdom from 'slimdom';
 import { extractProfilingValuesFromDocument } from '../ditaval/ditaval.js';
 import { resolveDitaHref } from '../map/path-utils.js';
@@ -263,6 +265,7 @@ export interface ResolveConrefOptions {
   getParsedDoc: (posixPath: string) => ParsedXmlDocument | null;
   hasFile?: (posixPath: string) => boolean;
   resolveTopicRootId: (posixPath: string) => string | undefined;
+  locale?: UiLocale;
 }
 
 /**
@@ -270,6 +273,7 @@ export interface ResolveConrefOptions {
  * substitution, chained conrefs, tag compatibility checks, and DFS cycle detection).
  */
 export function resolveConrefReference(options: ResolveConrefOptions): ResolvedConrefResult {
+  const locale: UiLocale = options.locale ?? 'zh-CN';
   const {
     sourceFilePath,
     sourceTagName,
@@ -317,7 +321,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
       return {
         ok: false,
         status: 'invalid-syntax',
-        errorMessage: `${currAttr} 不能为空`,
+        errorMessage: coreT(locale, 'conref.emptyAttr', { attr: currAttr }),
       };
     }
 
@@ -329,7 +333,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         return {
           ok: false,
           status: 'invalid-syntax',
-          errorMessage: `无效的 conkeyref 语法："${trimmed}"（应为 key/elementId）`,
+          errorMessage: coreT(locale, 'conref.invalidConkeyref', { value: trimmed }),
         };
       }
       const keyDef = keyspace?.keys[keyName];
@@ -337,14 +341,14 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         return {
           ok: false,
           status: 'missing-key',
-          errorMessage: `未在当前 Root Map 中找到 Key 定义："${keyName}"`,
+          errorMessage: coreT(locale, 'conref.missingKey', { keyName }),
         };
       }
       if (!keyDef.resolvedHref) {
         return {
           ok: false,
           status: 'missing-file',
-          errorMessage: `Key "${keyName}" 未绑定有效的本地目标文件 href`,
+          errorMessage: coreT(locale, 'conref.keyWithoutHref', { keyName }),
         };
       }
       const topicFromKey = keyDef.fragment?.split('/')[0];
@@ -354,7 +358,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
           ok: false,
           status: 'missing-target',
           targetFilePath: keyDef.resolvedHref,
-          errorMessage: `目标文件 ${keyDef.resolvedHref} 未包含有效的根 Topic ID`,
+          errorMessage: coreT(locale, 'conref.targetWithoutTopicId', { path: keyDef.resolvedHref }),
         };
       }
       return {
@@ -371,7 +375,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
       return {
         ok: false,
         status: 'invalid-syntax',
-        errorMessage: `conref 缺少 #topicId/elementId 片段："${trimmed}"`,
+        errorMessage: coreT(locale, 'conref.missingFragment', { value: trimmed }),
       };
     }
 
@@ -381,7 +385,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
       return {
         ok: false,
         status: 'invalid-syntax',
-        errorMessage: `conref 片段标识符不能为空："${trimmed}"`,
+        errorMessage: coreT(locale, 'conref.emptyFragment', { value: trimmed }),
       };
     }
 
@@ -392,7 +396,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         return {
           ok: false,
           status: 'missing-file',
-          errorMessage: `无法解析本地 conref 目标路径："${trimmed}"`,
+          errorMessage: coreT(locale, 'conref.unresolvablePath', { value: trimmed }),
         };
       }
       targetFilePath = resolved.targetPath;
@@ -412,7 +416,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         ok: false,
         status: 'invalid-syntax',
         targetFilePath,
-        errorMessage: `无法解析 conref 所属 Topic ID："${trimmed}"`,
+        errorMessage: coreT(locale, 'conref.unresolvableTopicId', { value: trimmed }),
       };
     }
 
@@ -460,7 +464,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
       (sourceEl.tagName === 'keyword' || sourceEl.tagName === 'ph' || sourceEl.tagName === 'term') &&
       sourceEl.childNodes.length === 0
     ) {
-      const resolvedKey = resolveKeyrefInKeyspace(keyrefVal, keyspace);
+      const resolvedKey = resolveKeyrefInKeyspace(keyrefVal, keyspace, undefined, locale);
       if (resolvedKey.status === 'resolved' && resolvedKey.resolvedText) {
         cloned.appendChild(targetDoc.createTextNode(resolvedKey.resolvedText));
         return { ok: true, element: cloned };
@@ -557,7 +561,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         conrefend,
         status: 'missing-file',
         targetFilePath: addr.targetFilePath,
-        errorMessage: `复用目标文件不存在：${addr.targetFilePath}`,
+        errorMessage: coreT(locale, 'conref.missingTargetFile', { path: addr.targetFilePath }),
       };
     }
 
@@ -572,8 +576,8 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         status: hasFile ? 'malformed-target' : 'missing-file',
         targetFilePath: addr.targetFilePath,
         errorMessage: hasFile
-          ? `复用目标文件 XML 语法非法：${addr.targetFilePath}`
-          : `复用目标文件不存在或无法解析：${addr.targetFilePath}`,
+          ? coreT(locale, 'conref.malformedTargetFile', { path: addr.targetFilePath })
+          : coreT(locale, 'conref.unresolvableTargetFile', { path: addr.targetFilePath }),
       };
     }
 
@@ -589,7 +593,11 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         targetFilePath: addr.targetFilePath,
         targetTopicId: addr.topicId,
         targetElementId: addr.elemId,
-        errorMessage: `在 ${addr.targetFilePath} 中未找到目标 ID：#${addr.topicId}${addr.elemId ? `/${addr.elemId}` : ''}`,
+        errorMessage: coreT(locale, 'conref.missingTargetId', {
+          path: addr.targetFilePath,
+          topicId: addr.topicId,
+          elemId: addr.elemId ? `/${addr.elemId}` : '',
+        }),
       };
     }
 
@@ -605,7 +613,10 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         targetTopicId: addr.topicId,
         targetElementId: addr.elemId,
         targetTagName: targetEl.tagName,
-        errorMessage: `元素类型不兼容：<${currTag}> 无法复用 <${targetEl.tagName}>`,
+        errorMessage: coreT(locale, 'conref.incompatibleTag', {
+          sourceTag: currTag,
+          targetTag: targetEl.tagName,
+        }),
       };
     }
 
@@ -627,7 +638,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         targetElementId: addr.elemId,
         targetTagName: targetEl.tagName,
         cycleChain,
-        errorMessage: `检测到循环内容复用：${cycleChain.join(' → ')}`,
+        errorMessage: coreT(locale, 'conref.cycle', { chain: cycleChain.join(' → ') }),
       };
     }
 
@@ -642,7 +653,10 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
         status: 'cycle',
         targetFilePath: addr.targetFilePath,
         cycleChain,
-        errorMessage: `内容复用嵌套深度超过限制 (${MAX_CONREF_DEPTH})：${cycleChain.join(' → ')}`,
+        errorMessage: coreT(locale, 'conref.depthLimit', {
+          depth: String(MAX_CONREF_DEPTH),
+          chain: cycleChain.join(' → '),
+        }),
       };
     }
 
@@ -675,7 +689,9 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
             conrefend,
             status: endAddr.status,
             targetFilePath: addr.targetFilePath,
-            errorMessage: `conrefend 解析失败：${endAddr.errorMessage}`,
+            errorMessage: coreT(locale, 'conref.conrefendFailed', {
+              message: endAddr.errorMessage ?? '',
+            }),
           };
         }
         const endEl = locateElementInDoc(parsedTarget.document, endAddr.topicId, endAddr.elemId);
@@ -688,7 +704,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
             conrefend,
             status: 'missing-target',
             targetFilePath: addr.targetFilePath,
-            errorMessage: `conrefend 目标 "${currEnd}" 必须与起始目标处于同一父容器`,
+            errorMessage: coreT(locale, 'conref.conrefendDifferentParent', { value: currEnd }),
           };
         }
         const siblings: slimdom.Element[] = [];
@@ -706,7 +722,7 @@ export function resolveConrefReference(options: ResolveConrefOptions): ResolvedC
             conrefend,
             status: 'invalid-syntax',
             targetFilePath: addr.targetFilePath,
-            errorMessage: `conrefend 结束节点不能位于起始节点之前`,
+            errorMessage: coreT(locale, 'conref.conrefendOutOfOrder'),
           };
         }
         rawElements = siblings.slice(startIdx, endIdx + 1);

@@ -18,6 +18,8 @@ import {
 } from '@dita/core';
 import type { TagDisplayMode } from '../../store/editor-store';
 import { renderConrefPreviewDom, sanitizeCssColor } from './conref-renderer';
+import { getElementLabel, type UiLocale } from '@dita/core';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 
 export interface BlockGapOpenMenuPayload {
   containerTag: string;
@@ -41,6 +43,7 @@ export interface VisualSemanticContext {
 
 export interface DitaDecorationPluginState {
   tagMode: TagDisplayMode;
+  locale: UiLocale;
   activeNodePos: number | null;
   semantic?: VisualSemanticContext;
   decorations: DecorationSet;
@@ -48,6 +51,7 @@ export interface DitaDecorationPluginState {
 
 export interface DitaDecorationMeta {
   tagMode?: TagDisplayMode;
+  locale?: UiLocale;
   activeNodePos?: number | null;
   semantic?: VisualSemanticContext;
 }
@@ -178,6 +182,7 @@ function createOxygenTagDom(
     isUnknown: boolean;
     onSelect: (pos: number) => void;
   },
+  locale: UiLocale,
 ): HTMLElement {
   const wrapper = document.createElement('span');
   wrapper.className = [
@@ -193,7 +198,7 @@ function createOxygenTagDom(
   wrapper.dataset.oxDir = direction;
   wrapper.dataset.oxTag = tagName;
   wrapper.dataset.oxSelected = String(options.isSelected);
-  wrapper.title = `点击选中 <${tagName}> 并编辑属性`;
+  wrapper.title = translate(locale, 'decor.selectElementTitle', { tag: tagName });
 
   const body = document.createElement('span');
   body.className = 'dita-ox-body';
@@ -258,6 +263,7 @@ function createDitavalFlagPillDom(text: string, color?: string | null, backcolor
 function createConrefWidgetDom(
   resolved: ResolvedConrefResult,
   isInline: boolean,
+  locale: UiLocale,
   onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void,
 ): HTMLElement {
   if (resolved.status !== 'resolved') {
@@ -276,20 +282,20 @@ function createConrefWidgetDom(
     title.className = 'dita-conref-alert-title';
     title.textContent =
       resolved.status === 'cycle'
-        ? `⛔ 循环复用 (${resolved.attrName}="${resolved.rawValue}")`
-        : `⚠ 复用错误 (${resolved.attrName}="${resolved.rawValue}")`;
+        ? translate(locale, 'decor.conrefCycle', { attr: resolved.attrName, value: resolved.rawValue })
+        : translate(locale, 'decor.conrefError', { attr: resolved.attrName, value: resolved.rawValue });
     alert.appendChild(title);
 
     const msg = document.createElement('span');
     msg.className = 'dita-conref-alert-msg';
-    msg.textContent = resolved.errorMessage ?? '无法解析复用目标';
+    msg.textContent = resolved.errorMessage ?? translate(locale, 'decor.conrefUnresolved');
     alert.appendChild(msg);
 
     if (resolved.targetFilePath && onJumpToSource) {
       const jumpBtn = document.createElement('button');
       jumpBtn.type = 'button';
       jumpBtn.className = 'dita-conref-jump-btn';
-      jumpBtn.textContent = '查看目标 ↗';
+      jumpBtn.textContent = translate(locale, 'decor.conrefViewTarget');
       jumpBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -308,11 +314,11 @@ function createConrefWidgetDom(
     const pill = document.createElement('span');
     pill.contentEditable = 'false';
     pill.className = 'dita-conref-preview-inline';
-    pill.title = `${resolved.attrName}="${resolved.rawValue}"\n来源: ${resolved.targetFilePath}:${resolved.targetLine}`;
+    pill.title = `${resolved.attrName}="${resolved.rawValue}"\n${translate(locale, 'decor.conrefSource')}: ${resolved.targetFilePath}:${resolved.targetLine}`;
 
     const badge = document.createElement('span');
     badge.className = 'dita-conref-inline-badge';
-    badge.textContent = '复用';
+    badge.textContent = translate(locale, 'decor.conrefBadge');
     pill.appendChild(badge);
 
     pill.appendChild(renderConrefPreviewDom(resolved.resolvedXml ?? '', true));
@@ -322,7 +328,7 @@ function createConrefWidgetDom(
       jump.type = 'button';
       jump.className = 'dita-conref-inline-jump';
       jump.textContent = '↗';
-      jump.title = `跳转到源定义 (${resolved.targetFilePath}:${resolved.targetLine ?? 1})`;
+      jump.title = translate(locale, 'decor.conrefJumpTitle', { path: resolved.targetFilePath, line: String(resolved.targetLine ?? 1) });
       jump.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -351,7 +357,7 @@ function createConrefWidgetDom(
 
   const readonlyChip = document.createElement('span');
   readonlyChip.className = 'dita-conref-ro-chip';
-  readonlyChip.textContent = '只读复用展开';
+  readonlyChip.textContent = translate(locale, 'decor.conrefReadonly');
   header.appendChild(readonlyChip);
 
   if (resolved.targetFilePath) {
@@ -364,7 +370,7 @@ function createConrefWidgetDom(
       const jumpBtn = document.createElement('button');
       jumpBtn.type = 'button';
       jumpBtn.className = 'dita-conref-jump-btn';
-      jumpBtn.textContent = '跳转源定义 ↗';
+      jumpBtn.textContent = translate(locale, 'decor.conrefJump');
       jumpBtn.addEventListener('mousedown', (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -394,6 +400,7 @@ function createBlockGapInserterDom(
   quickTags: readonly string[],
   hasMoreLegalElements: boolean,
   callbacks: DitaDecorationsCallbacks,
+  locale: UiLocale,
 ): HTMLElement {
   const row = document.createElement('div');
   row.className = 'dita-block-inserter';
@@ -409,15 +416,15 @@ function createBlockGapInserterDom(
   const bar = document.createElement('div');
   bar.className = 'dita-bi-bar';
   bar.setAttribute('role', 'group');
-  bar.setAttribute('aria-label', `在 <${containerTag}> 中插入块`);
+  bar.setAttribute('aria-label', translate(locale, 'decor.insertBlockAria', { tag: containerTag }));
 
   // Primary `+` button opens full context-aware DITA insert menu for this container
   const plusBtn = document.createElement('button');
   plusBtn.type = 'button';
   plusBtn.className = 'dita-bi-plus';
   plusBtn.textContent = '+';
-  plusBtn.title = `在此处插入合法的 <${containerTag}> 子块`;
-  plusBtn.setAttribute('aria-label', `在 <${containerTag}> 此处插入元素`);
+  plusBtn.title = translate(locale, 'decor.insertBlockHint', { tag: containerTag });
+  plusBtn.setAttribute('aria-label', translate(locale, 'decor.insertElementAria', { tag: containerTag }));
   plusBtn.addEventListener('mousedown', (ev) => {
     ev.preventDefault();
     ev.stopPropagation();
@@ -443,7 +450,9 @@ function createBlockGapInserterDom(
     const chip = document.createElement('button');
     chip.type = 'button';
     chip.className = 'dita-bi-chip';
-    chip.title = spec ? `插入 <${tag}> (${spec.labelZh})` : `插入 <${tag}>`;
+    chip.title = spec
+      ? translate(locale, 'decor.insertQuickTagLabeled', { tag, label: getElementLabel(spec, locale) })
+      : translate(locale, 'decor.insertQuickTag', { tag });
 
     const plusMark = document.createElement('span');
     plusMark.className = 'dita-bi-chip-plus';
@@ -451,7 +460,7 @@ function createBlockGapInserterDom(
     chip.appendChild(plusMark);
 
     const text = document.createElement('span');
-    text.textContent = spec ? spec.labelZh : tag;
+    text.textContent = spec ? getElementLabel(spec, locale) : tag;
     chip.appendChild(text);
 
     const tagCode = document.createElement('code');
@@ -475,8 +484,8 @@ function createBlockGapInserterDom(
     const moreBtn = document.createElement('button');
     moreBtn.type = 'button';
     moreBtn.className = 'dita-bi-chip dita-bi-chip-more';
-    moreBtn.textContent = '更多…';
-    moreBtn.title = `查看 <${containerTag}> 允许的全部 DITA 1.3 元素`;
+    moreBtn.textContent = translate(locale, 'decor.more');
+    moreBtn.title = translate(locale, 'decor.moreTitle', { tag: containerTag });
     moreBtn.addEventListener('mousedown', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
@@ -511,6 +520,7 @@ export function collectDitaDecorations(
   callbacks: DitaDecorationsCallbacks,
   selectionPos: number | null = null,
   semantic?: VisualSemanticContext,
+  locale: UiLocale = getCurrentLocale(),
 ): DecorationSet {
   const decorations: Decoration[] = [];
 
@@ -659,7 +669,7 @@ export function collectDitaDecorations(
           decorations.push(
             Decoration.widget(
               widgetPos,
-              () => createConrefWidgetDom(resolved, isInline, callbacks.onJumpToSource),
+              () => createConrefWidgetDom(resolved, isInline, locale, callbacks.onJumpToSource),
               {
                 side: widgetSide,
                 key: `conref-${pos}-${overlayKey}-${resolved.status}-${resolved.resolvedXml?.length ?? 0}`,
@@ -697,13 +707,21 @@ export function collectDitaDecorations(
         Decoration.widget(
           openPos,
           () =>
-            createOxygenTagDom('open', tagName, rawAttrs, tagMode, pos, {
-              isInlineTag,
-              isContainerStrip,
-              isSelected,
-              isUnknown,
-              onSelect: callbacks.onSelectTagNode,
-            }),
+            createOxygenTagDom(
+              'open',
+              tagName,
+              rawAttrs,
+              tagMode,
+              pos,
+              {
+                isInlineTag,
+                isContainerStrip,
+                isSelected,
+                isUnknown,
+                onSelect: callbacks.onSelectTagNode,
+              },
+              locale,
+            ),
           {
             side: openSide,
             key: `ox-open-${pos}-${tagName}-${tagMode}-${isSelected}`,
@@ -730,13 +748,21 @@ export function collectDitaDecorations(
         Decoration.widget(
           closePos,
           () =>
-            createOxygenTagDom('close', tagName, rawAttrs, tagMode, pos, {
-              isInlineTag,
-              isContainerStrip,
-              isSelected,
-              isUnknown,
-              onSelect: callbacks.onSelectTagNode,
-            }),
+            createOxygenTagDom(
+              'close',
+              tagName,
+              rawAttrs,
+              tagMode,
+              pos,
+              {
+                isInlineTag,
+                isContainerStrip,
+                isSelected,
+                isUnknown,
+                onSelect: callbacks.onSelectTagNode,
+              },
+              locale,
+            ),
           {
             side: closeSide,
             key: `ox-close-${pos}-${tagName}-${tagMode}-${isSelected}`,
@@ -801,6 +827,7 @@ export function collectDitaDecorations(
                       quickTags,
                       hasMore,
                       callbacks,
+                      locale,
                     ),
                   {
                     side: -5,
@@ -826,6 +853,7 @@ export function collectDitaDecorations(
                       quickTags,
                       hasMore,
                       callbacks,
+                      locale,
                     ),
                   {
                     side: isLastChild ? 2 : -5,
@@ -875,6 +903,7 @@ export function createDitaDecorationsPlugin(
   initialTagMode: TagDisplayMode,
   callbacks: DitaDecorationsCallbacks,
   initialSemantic?: VisualSemanticContext,
+  initialLocale: UiLocale = getCurrentLocale(),
 ): Plugin<DitaDecorationPluginState> {
   return new Plugin<DitaDecorationPluginState>({
     key: DITA_DECORATIONS_KEY,
@@ -882,6 +911,7 @@ export function createDitaDecorationsPlugin(
       init(_, state) {
         return {
           tagMode: initialTagMode,
+          locale: initialLocale,
           activeNodePos: null,
           semantic: initialSemantic,
           decorations: collectDitaDecorations(
@@ -891,6 +921,7 @@ export function createDitaDecorationsPlugin(
             callbacks,
             state.selection.from,
             initialSemantic,
+            initialLocale,
           ),
         };
       },
@@ -899,21 +930,23 @@ export function createDitaDecorationsPlugin(
         const nextTagMode = meta?.tagMode ?? prev.tagMode;
         const nextActivePos =
           meta && 'activeNodePos' in meta ? (meta.activeNodePos ?? null) : prev.activeNodePos;
-        const nextSemantic =
-          meta && 'semantic' in meta ? meta.semantic : prev.semantic;
+        const nextSemantic = meta && 'semantic' in meta ? meta.semantic : prev.semantic;
+        const nextLocale = meta?.locale ?? prev.locale;
 
         if (
           !tr.docChanged &&
           !tr.selectionSet &&
           nextTagMode === prev.tagMode &&
           nextActivePos === prev.activeNodePos &&
-          nextSemantic === prev.semantic
+          nextSemantic === prev.semantic &&
+          nextLocale === prev.locale
         ) {
           return prev;
         }
 
         return {
           tagMode: nextTagMode,
+          locale: nextLocale,
           activeNodePos: nextActivePos,
           semantic: nextSemantic,
           decorations: collectDitaDecorations(
@@ -923,6 +956,7 @@ export function createDitaDecorationsPlugin(
             callbacks,
             newState.selection.from,
             nextSemantic,
+            nextLocale,
           ),
         };
       },

@@ -1,6 +1,7 @@
 import { getCurrentUserId } from './identity-api.js';
 import { requestJson } from './workspace-api.js';
 
+import { getCurrentLocale, translate } from '../i18n/index.js';
 export type PublishFormat = 'html5' | 'pdf';
 export type PublishStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
 
@@ -167,7 +168,10 @@ export async function streamPublishJobEvents(
   handlers: PublishEventHandlers,
   signal?: AbortSignal,
 ): Promise<void> {
-  const headers: Record<string, string> = { accept: 'text/event-stream' };
+  const headers: Record<string, string> = {
+    accept: 'text/event-stream',
+    'x-dita-locale': getCurrentLocale(),
+  };
   const userId = getCurrentUserId();
   if (userId) headers['x-dita-user-id'] = userId;
   const response = await fetch(
@@ -176,9 +180,9 @@ export async function streamPublishJobEvents(
   );
   if (!response.ok) {
     const payload = (await response.json().catch(() => ({}))) as { error?: string };
-    throw new Error(payload.error ?? `日志流连接失败（HTTP ${String(response.status)}）`);
+    throw new Error(payload.error ?? translate(getCurrentLocale(), 'publishApi.logStreamFailed', { status: String(response.status) }));
   }
-  if (!response.body) throw new Error('浏览器不支持流式日志读取');
+  if (!response.body) throw new Error(translate(getCurrentLocale(), 'publishApi.noStream'));
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useI18n } from '../i18n/index.js';
 import {
   FileDiff,
   GitBranch,
@@ -11,6 +12,9 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useGitStore } from '../store/git-store';
+import { roleLabel } from '../services/identity-api';
+import type { MessageKey } from '../i18n/messages/index.js';
+import type { GitFileChange } from '../services/git-api';
 
 export interface GitPanelProps {
   activePath: string | null;
@@ -24,7 +28,18 @@ function shortDate(value: string): string {
   return date.toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
 }
 
+/** Git change badges are localized on the client so the API stays locale-free. */
+function changeLabelKey(change: GitFileChange): MessageKey {
+  if (change.untracked) return 'git.change.added';
+  if (change.renamed) return 'git.change.renamed';
+  if (change.deleted) return 'git.change.deleted';
+  if (change.staged && change.workingTree !== ' ') return 'git.change.stagedModified';
+  if (change.staged) return 'git.change.staged';
+  return 'git.change.modified';
+}
+
 export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProps) {
+  const { t } = useI18n();
   const identity = useGitStore((state) => state.identity);
   const currentUser = useGitStore((state) => state.currentUser);
   const status = useGitStore((state) => state.status);
@@ -79,14 +94,14 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
   return (
     <div className="flex h-full flex-col overflow-hidden text-xs">
       <div className="flex shrink-0 items-center justify-between border-b border-slate-200 bg-slate-50 px-2.5 py-1.5">
-        <span className="text-[11px] font-semibold text-slate-700">本地 Git 与检出</span>
+        <span className="text-[11px] font-semibold text-slate-700">{t('git.panelTitle')}</span>
         <button
           type="button"
           disabled={loading}
           onClick={() => void refreshAll()}
           className="inline-flex items-center justify-center rounded border border-slate-200 bg-white p-1 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50"
-          title="刷新 Git 状态与检出锁"
-          aria-label="刷新 Git 状态与检出锁"
+          title={t('git.refresh')}
+          aria-label={t('git.refresh')}
         >
           <RefreshCw className={`h-3 w-3 ${loading ? 'animate-spin' : ''}`} aria-hidden="true" />
         </button>
@@ -101,9 +116,9 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
 
         {!initialized ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-2.5">
-            <p className="text-[11px] font-semibold text-amber-900">尚未初始化本地 Git 仓库</p>
+            <p className="text-[11px] font-semibold text-amber-900">{t('git.notInitialized')}</p>
             <p className="mt-1 text-[10px] leading-relaxed text-amber-800">
-              初始化会创建仓库、维护分支隔离的 worktree，并提交当前工作区作为首个版本。
+              {t('git.initHint')}
             </p>
             {canWrite ? (
               <button
@@ -113,10 +128,10 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                 className="mt-2 inline-flex items-center gap-1 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 <GitBranch className="h-3 w-3" aria-hidden="true" />
-                初始化 Git 仓库
+                {t('git.init')}
               </button>
             ) : (
-              <p className="mt-2 text-[10px] font-medium text-amber-800">只读身份无法初始化仓库</p>
+              <p className="mt-2 text-[10px] font-medium text-amber-800">{t('git.readonlyInit')}</p>
             )}
           </div>
         ) : (
@@ -124,19 +139,19 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
             <section className="rounded-lg border border-slate-200 bg-white p-2">
               <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 <GitBranch className="h-3 w-3" aria-hidden="true" />
-                分支
+                {t('git.branch')}
               </div>
               <select
                 value={branch ?? ''}
                 disabled={!canWrite || loading}
                 onChange={(event) => void switchBranch(event.target.value)}
                 className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] text-slate-800 outline-none focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-500"
-                aria-label="切换 Git 分支"
+                aria-label={t('git.switchBranchAria')}
               >
                 {branches.map((item) => (
                   <option key={item.name} value={item.name}>
                     {item.name}
-                    {item.primary ? ' · 主工作区' : item.worktreePath ? ' · worktree' : ''}
+                    {item.primary ? t('git.primaryWorktree') : item.worktreePath ? ' · worktree' : ''}
                   </option>
                 ))}
               </select>
@@ -145,19 +160,19 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                   <input
                     value={newBranch}
                     onChange={(event) => setNewBranch(event.target.value)}
-                    placeholder="新分支名，如 release/2.0"
+                    placeholder={t('git.newBranchPlaceholder')}
                     className="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-1 text-[10px] outline-none focus:border-indigo-400"
-                    aria-label="新分支名"
+                    aria-label={t('git.newBranchAria')}
                   />
                   <button
                     type="button"
                     disabled={creating || !newBranch.trim()}
                     onClick={() => void handleCreateBranch()}
                     className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-slate-50 px-1.5 py-1 text-[10px] font-medium text-slate-700 hover:bg-white disabled:opacity-40"
-                    title="创建并切换到新分支"
+                    title={t('git.createBranchTooltip')}
                   >
                     <Plus className="h-3 w-3" aria-hidden="true" />
-                    创建
+                    {t('common.create')}
                   </button>
                 </div>
               ) : null}
@@ -172,7 +187,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   <Lock className="h-3 w-3" aria-hidden="true" />
-                  检出锁 · {locks.length}
+                  {t('git.locks', { count: locks.length })}
                 </span>
                 {eligiblePaths.length > 0 ? (
                   <button
@@ -180,12 +195,12 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                     onClick={() => onOpenCheckin(eligiblePaths)}
                     className="rounded bg-emerald-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-emerald-700"
                   >
-                    签入 {eligiblePaths.length}
+                    {t('git.checkin', { count: eligiblePaths.length })}
                   </button>
                 ) : null}
               </div>
               {locks.length === 0 ? (
-                <p className="mt-1.5 text-[10px] text-slate-500">当前分支没有文件被检出。</p>
+                <p className="mt-1.5 text-[10px] text-slate-500">{t('git.noLocks')}</p>
               ) : (
                 <ul className="mt-1 space-y-1">
                   {locks.map((lock) => (
@@ -212,8 +227,8 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                           disabled={busyPath === lock.filePath}
                           onClick={() => void release(lock.filePath)}
                           className="shrink-0 rounded border border-slate-200 bg-white p-0.5 text-slate-500 hover:text-slate-800 disabled:opacity-50"
-                          title="释放检出锁（保留磁盘改动）"
-                          aria-label={`释放 ${lock.filePath}`}
+                          title={t('git.releaseTooltip')}
+                          aria-label={t('git.releaseAria', { path: lock.filePath })}
                         >
                           <LockOpen className="h-3 w-3" aria-hidden="true" />
                         </button>
@@ -223,14 +238,14 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                           disabled={busyPath === lock.filePath}
                           onClick={() => {
                             const reason = window.prompt(
-                              `强制解锁 ${lock.filePath}（${lock.userName}）\n请输入原因：`,
-                              '管理员强制解锁',
+                              t('git.forceUnlockPrompt', { path: lock.filePath, user: lock.userName }),
+                              t('git.forceUnlockPromptTitle'),
                             );
                             if (reason !== null) void forceUnlock(lock.filePath, reason);
                           }}
                           className="shrink-0 rounded border border-rose-200 bg-white p-0.5 text-rose-600 hover:bg-rose-50 disabled:opacity-50"
-                          title="管理员强制解锁并备份"
-                          aria-label={`强制解锁 ${lock.filePath}`}
+                          title={t('git.forceUnlockTooltip')}
+                          aria-label={t('git.forceUnlockAria', { path: lock.filePath })}
                         >
                           <ShieldAlert className="h-3 w-3" aria-hidden="true" />
                         </button>
@@ -245,7 +260,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
               <div className="flex items-center justify-between">
                 <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                   <FileDiff className="h-3 w-3" aria-hidden="true" />
-                  工作区改动 · {dirtyFiles.length}
+                  {t('git.dirty', { count: dirtyFiles.length })}
                 </span>
                 {activePath && dirtySet.has(activePath) ? (
                   <button
@@ -253,12 +268,12 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                     onClick={() => onOpenDiff({ path: activePath, from: 'HEAD' })}
                     className="rounded border border-slate-200 px-1.5 py-0.5 text-[10px] text-slate-600 hover:bg-slate-50"
                   >
-                    当前文件差异
+                    {t('git.currentDiff')}
                   </button>
                 ) : null}
               </div>
               {dirtyFiles.length === 0 ? (
-                <p className="mt-1.5 text-[10px] text-slate-500">工作区与 HEAD 一致。</p>
+                <p className="mt-1.5 text-[10px] text-slate-500">{t('git.clean')}</p>
               ) : (
                 <ul className="mt-1 space-y-0.5">
                   {dirtyFiles.slice(0, 80).map((file) => (
@@ -267,13 +282,13 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                         type="button"
                         onClick={() => onOpenDiff({ path: file.path, from: 'HEAD' })}
                         className="flex w-full items-center justify-between gap-1 rounded px-1 py-0.5 text-left hover:bg-slate-50"
-                        title={`查看 ${file.path} 的工作区差异`}
+                        title={t('git.viewDiffTooltip', { path: file.path })}
                       >
                         <span className="min-w-0 truncate text-[10px] text-slate-700">
                           {file.renamed ? `${file.originalPath} → ${file.path}` : file.path}
                         </span>
                         <span className="shrink-0 rounded bg-slate-100 px-1 text-[9px] text-slate-500">
-                          {file.label}
+                          {t(changeLabelKey(file))}
                         </span>
                       </button>
                     </li>
@@ -285,10 +300,10 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
             <section className="rounded-lg border border-slate-200 bg-white p-2">
               <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 <History className="h-3 w-3" aria-hidden="true" />
-                提交历史{activePath ? ` · ${activePath.split('/').pop()}` : ' · 全分支'}
+                {activePath ? t('git.historyForFile', { name: activePath.split('/').pop() ?? '' }) : t('git.historyAllBranches')}
               </div>
               {history.length === 0 ? (
-                <p className="mt-1.5 text-[10px] text-slate-500">当前分支还没有提交。</p>
+                <p className="mt-1.5 text-[10px] text-slate-500">{t('git.noCommits')}</p>
               ) : (
                 <ul className="mt-1 space-y-1">
                   {history.slice(0, 30).map((commit) => (
@@ -314,9 +329,9 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                               })
                             }
                             className="shrink-0 rounded border border-slate-200 px-1 py-0.5 text-[9px] text-slate-600 hover:bg-slate-50"
-                            title="对比该提交的此文件版本"
+                            title={t('git.compareCommitTooltip')}
                           >
-                            差异
+                            {t('git.diff')}
                           </button>
                         ) : null}
                       </div>
@@ -331,10 +346,10 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
 
       <div className="shrink-0 border-t border-slate-200 bg-slate-50 px-2.5 py-1 text-[9px] text-slate-500">
         {currentUser
-          ? `${currentUser.displayName} · ${identity?.roles.find((role) => role.id === currentUser.role)?.label ?? currentUser.role}`
-          : '身份加载中'}
+                    ? `${currentUser.displayName} · ${roleLabel(currentUser.role)}`
+          : t('git.identityLoading')}
         {' · '}
-        本地 Git，无远端依赖
+        {t('git.localOnly')}
       </div>
     </div>
   );

@@ -3,6 +3,7 @@ import { CheckCircle2, FileDiff, Lock, ShieldCheck, X } from 'lucide-react';
 import type { FileLock } from '../services/git-api';
 import { useGitStore } from '../store/git-store';
 import { DiffViewer } from './DiffViewer';
+import { useI18n } from '../i18n/index.js';
 
 export interface CheckinCandidate {
   path: string;
@@ -25,6 +26,7 @@ export function CheckinDialog({
   onConfirm,
   onStrictValidate,
 }: CheckinDialogProps) {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<string[]>([]);
   const [message, setMessage] = useState('');
   const [previewPath, setPreviewPath] = useState<string | null>(null);
@@ -63,7 +65,7 @@ export function CheckinDialog({
       className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"
       role="dialog"
       aria-modal="true"
-      aria-label="签入检出文件"
+      aria-label={t('checkin.aria')}
       onMouseDown={(event) => {
         if (event.target === event.currentTarget && !submitting) onClose();
       }}
@@ -71,9 +73,9 @@ export function CheckinDialog({
       <div className="flex h-[80vh] w-[min(1180px,95vw)] flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
         <div className="flex shrink-0 items-center justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
           <div>
-            <h2 className="text-sm font-semibold text-slate-900">签入 · 提交并释放检出锁</h2>
+            <h2 className="text-sm font-semibold text-slate-900">{t('checkin.title')}</h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
-              仅提交当前身份已检出且有改动的文件；提交成功后自动释放这些文件的锁。
+              {t('checkin.subtitle')}
             </p>
           </div>
           <button
@@ -81,7 +83,7 @@ export function CheckinDialog({
             onClick={onClose}
             disabled={submitting}
             className="rounded-md border border-slate-200 p-1.5 text-slate-500 hover:bg-slate-50 hover:text-slate-800 disabled:opacity-50"
-            aria-label="关闭签入对话框"
+            aria-label={t('checkin.closeAria')}
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -90,12 +92,12 @@ export function CheckinDialog({
         <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)]">
           <div className="flex min-h-0 flex-col border-r border-slate-200">
             <div className="border-b border-slate-200 bg-slate-50 px-3 py-1.5 text-[11px] font-semibold text-slate-600">
-              已检出文件（{selected.length}/{candidates.length}）
+              {t('checkin.selectedCount', { selected: selected.length, total: candidates.length })}
             </div>
             <div className="min-h-0 flex-1 overflow-auto p-2">
               {candidates.length === 0 ? (
                 <p className="px-2 py-6 text-center text-[11px] text-slate-500">
-                  当前没有“已检出且有改动”的文件。
+                  {t('checkin.noFiles')}
                 </p>
               ) : (
                 candidates.map((item) => (
@@ -111,7 +113,7 @@ export function CheckinDialog({
                       type="checkbox"
                       checked={selectedSet.has(item.path)}
                       onChange={() => toggle(item.path)}
-                      aria-label={`选择 ${item.path}`}
+                      aria-label={t('checkin.selectAria', { path: item.path })}
                       className="h-3 w-3 accent-indigo-600"
                     />
                     <button
@@ -143,21 +145,21 @@ export function CheckinDialog({
                 />
               ) : (
                 <div className="flex flex-1 items-center justify-center rounded-lg border border-slate-200 text-xs text-slate-500">
-                  {diffLoading ? '正在计算差异…' : '选择左侧文件查看工作区差异'}
+                  {diffLoading ? t('checkin.diffLoading') : t('checkin.diffHint')}
                 </div>
               )
             ) : (
               <div className="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 text-xs text-slate-500">
-                没有可预览的文件
+                {t('checkin.noPreview')}
               </div>
             )}
 
             <label className="shrink-0">
-              <span className="mb-1 block text-[11px] font-semibold text-slate-600">提交说明</span>
+              <span className="mb-1 block text-[11px] font-semibold text-slate-600">{t('checkin.messageLabel')}</span>
               <input
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                placeholder="例如：更新单源化主题的产品名称 keyref"
+                placeholder={t('checkin.messagePlaceholder')}
                 className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
               />
             </label>
@@ -166,7 +168,7 @@ export function CheckinDialog({
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2">
           <span className="text-[10px] text-slate-500">
-            只会提交到本地 Git 仓库；不会推送到任何远端。
+            {t('checkin.localOnly')}
           </span>
           <div className="flex items-center gap-2">
             {onStrictValidate ? (
@@ -175,10 +177,10 @@ export function CheckinDialog({
                 disabled={selected.length === 0 || submitting}
                 onClick={() => onStrictValidate(selected)}
                 className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
-                title="签入前调用 DITA-OT 严格校验选中文件"
+                title={t('checkin.strictTooltip')}
               >
                 <ShieldCheck className="h-3 w-3" aria-hidden="true" />
-                严格校验
+                {t('checkin.strict')}
               </button>
             ) : null}
             <button
@@ -187,7 +189,7 @@ export function CheckinDialog({
               disabled={submitting}
               className="rounded-md border border-slate-200 bg-white px-2.5 py-1 text-[11px] text-slate-600 hover:bg-slate-50 disabled:opacity-50"
             >
-              取消
+              {t('common.cancel')}
             </button>
             <button
               type="button"
@@ -201,7 +203,7 @@ export function CheckinDialog({
               className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-3 py-1 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-40"
             >
               <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-              {submitting ? '提交中…' : `提交 ${selected.length} 个文件`}
+              {submitting ? t('checkin.submitting') : t('checkin.submit', { count: selected.length })}
             </button>
           </div>
         </div>

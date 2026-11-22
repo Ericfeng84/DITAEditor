@@ -1,6 +1,8 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { BlockConvertOption } from './block-transforms';
+import { useI18n } from '../../i18n/index.js';
+import type { MessageKey } from '../../i18n/messages/index.js';
 
 export interface BlockHandleProps {
   /** Viewport coords of the handle row (aligned with the block's first line). */
@@ -20,11 +22,11 @@ export interface BlockHandleProps {
   onCloseMenu: () => void;
 }
 
-const MODE_LABEL: Record<string, string> = {
-  inline: '保留文本',
-  'wrap-inline': '包裹段落',
-  'wrap-block': '包裹整块',
-  text: '转为纯文本',
+const MODE_LABEL_KEYS: Record<string, MessageKey> = {
+  inline: 'block.mode.inline',
+  'wrap-inline': 'block.mode.wrapInline',
+  'wrap-block': 'block.mode.wrapBlock',
+  text: 'block.mode.text',
 };
 
 const MENU_WIDTH = 232;
@@ -50,6 +52,7 @@ export function BlockHandle({
   onDelete,
   onCloseMenu,
 }: BlockHandleProps) {
+  const { t } = useI18n();
   const rootRef = useRef<HTMLDivElement | null>(null);
   const [menuPos, setMenuPos] = useState<{ top: number; left: number } | null>(null);
 
@@ -95,8 +98,8 @@ export function BlockHandle({
       <button
         type="button"
         className="dita-block-handle-btn"
-        title={`在 <${containerTag}> 中插入块`}
-        aria-label={`在 <${containerTag}> 中插入块`}
+        title={t('block.insertBlockTitle', { tag: containerTag })}
+        aria-label={t('block.insertBlockTitle', { tag: containerTag })}
         onMouseDown={(event) => event.preventDefault()}
         onClick={onInsert}
       >
@@ -105,8 +108,8 @@ export function BlockHandle({
       <button
         type="button"
         className="dita-block-handle-btn dita-block-handle-grip"
-        title={`拖动或点击以转换 <${blockTag}>`}
-        aria-label={`拖动或点击以转换 <${blockTag}>`}
+        title={t('block.convertTitle', { tag: blockTag })}
+        aria-label={t('block.convertTitle', { tag: blockTag })}
         aria-haspopup="menu"
         aria-expanded={menuOptions !== null}
         onPointerDown={onStartDrag}
@@ -124,14 +127,14 @@ export function BlockHandle({
         <div
           className="dita-block-menu"
           role="menu"
-          aria-label={`转换 <${blockTag}> 为其他块`}
+          aria-label={t('block.convertMenuAria', { tag: blockTag })}
           style={{ top: menuPos.top, left: menuPos.left }}
           onKeyDown={handleKeyDown}
           data-testid="block-type-menu"
         >
           <div className="dita-block-menu-head">
             <span className="dita-block-menu-tag">{`<${blockTag}>`}</span>
-            <span className="dita-block-menu-hint">{`转换为 · <${containerTag}> 内合法块`}</span>
+            <span className="dita-block-menu-hint">{t('block.convertMenuHint', { tag: containerTag })}</span>
           </div>
           <div className="dita-block-menu-list">
             {menuOptions.map((option) => (
@@ -144,17 +147,17 @@ export function BlockHandle({
               >
                 <span className="dita-block-menu-item-label">{option.spec.labelZh}</span>
                 <span className="dita-block-menu-item-tag">{`<${option.spec.tag}>`}</span>
-                <span className="dita-block-menu-mode">{MODE_LABEL[option.mode] ?? option.mode}</span>
+                <span className="dita-block-menu-mode">{MODE_LABEL_KEYS[option.mode] ? t(MODE_LABEL_KEYS[option.mode]!) : option.mode}</span>
               </button>
             ))}
             {menuOptions.length === 0 ? (
-              <div className="dita-block-menu-empty">当前容器内没有可转换的块</div>
+              <div className="dita-block-menu-empty">{t('block.noConvertible')}</div>
             ) : null}
           </div>
           <div className="dita-block-menu-sep" role="separator" />
           <button type="button" role="menuitem" className="dita-block-menu-action" onClick={onDuplicate}>
             <Copy size={12} aria-hidden />
-            复制块
+            {t('block.duplicate')}
           </button>
           <button
             type="button"
@@ -163,7 +166,7 @@ export function BlockHandle({
             onClick={onDelete}
           >
             <Trash2 size={12} aria-hidden />
-            删除块
+            {t('block.delete')}
           </button>
         </div>
       ) : null}

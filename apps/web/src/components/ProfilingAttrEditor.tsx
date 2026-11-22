@@ -5,6 +5,7 @@ import {
   type DitaProfilingAttrName,
 } from '@dita/core';
 import { Plus, X } from 'lucide-react';
+import { useI18n } from '../i18n/index.js';
 
 export interface ProfilingAttrEditorProps {
   attrName: DitaProfilingAttrName;
@@ -32,6 +33,7 @@ export function ProfilingAttrEditor({
   placeholder,
   onChange,
 }: ProfilingAttrEditorProps) {
+  const { t } = useI18n();
   const [draft, setDraft] = useState('');
   const tokens = parseProfilingAttrValue(value);
   const badgeStyle = ATTR_BADGE_COLORS[attrName] ?? ATTR_BADGE_COLORS.props;
@@ -70,7 +72,7 @@ export function ProfilingAttrEditor({
               <button
                 type="button"
                 onClick={() => removeToken(token)}
-                aria-label={`移除 ${attrName} 值 ${token}`}
+                aria-label={t('profiling.removeAria', { name: attrName, value: token })}
                 className="rounded hover:bg-black/10"
               >
                 <X className="h-2.5 w-2.5" aria-hidden="true" />
@@ -94,14 +96,14 @@ export function ProfilingAttrEditor({
               }
             }
           }}
-          placeholder={placeholder ?? `输入 ${attrName} 值后按 Enter…`}
+          placeholder={placeholder ?? t('profiling.placeholder', { name: attrName })}
           className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
         />
         <button
           type="button"
           onClick={() => commitToken(draft)}
           disabled={!draft.trim()}
-          aria-label={`添加 ${attrName} 条件值`}
+          aria-label={t('profiling.addAria', { name: attrName })}
           className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded border border-slate-200 bg-slate-50 text-slate-600 hover:bg-slate-100 disabled:opacity-40"
         >
           <Plus className="h-3 w-3" aria-hidden="true" />
@@ -110,7 +112,7 @@ export function ProfilingAttrEditor({
 
       {suggestions.length > 0 ? (
         <div className="flex flex-wrap items-center gap-1">
-          <span className="text-[10px] text-slate-400">已有值:</span>
+          <span className="text-[10px] text-slate-400">{t('profiling.existing')}</span>
           {suggestions.map((sug) => {
             const active = tokens.includes(sug);
             return (

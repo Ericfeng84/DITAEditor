@@ -1,8 +1,15 @@
 import { useState } from 'react';
+import { useI18n } from '../../i18n/index.js';
+import type { MessageKey } from '../../i18n/messages/index.js';
 import {
   evaluateElementConditions,
   getAttributesForElement,
   getElementSpec,
+  getAttributeDescription,
+  getAttributeLabel,
+  getAttributePlaceholder,
+  getElementDescription,
+  getElementLabel,
   getRawAttr,
   makeConrefOverlayKey,
   type DitaAttributeGroup,
@@ -48,12 +55,20 @@ export interface AttributesPanelProps {
   onDeleteNode: (nodePos: number) => void;
 }
 
-const GROUP_LABELS: Record<DitaAttributeGroup, { title: string; subtitle: string }> = {
-  element: { title: '元素专属属性', subtitle: 'Element' },
-  core: { title: '通用核心属性', subtitle: 'Universal' },
-  profiling: { title: '条件过滤 (DITAVAL)', subtitle: 'Profiling' },
-  reuse: { title: '内容复用 (Conref)', subtitle: 'Reuse' },
-  presentation: { title: '排版展示', subtitle: 'Display' },
+const GROUP_SUBTITLES: Record<DitaAttributeGroup, string> = {
+  element: 'Element',
+  core: 'Universal',
+  profiling: 'Profiling',
+  reuse: 'Reuse',
+  presentation: 'Display',
+};
+
+const GROUP_TITLE_KEYS: Record<DitaAttributeGroup, MessageKey> = {
+  element: 'attributes.group.element',
+  core: 'attributes.group.core',
+  profiling: 'attributes.group.profiling',
+  reuse: 'attributes.group.reuse',
+  presentation: 'attributes.group.presentation',
 };
 
 export function AttributesPanel({
@@ -69,6 +84,7 @@ export function AttributesPanel({
   onMoveNode,
   onDeleteNode,
 }: AttributesPanelProps) {
+  const { t, locale } = useI18n();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
     element: true,
     core: true,
@@ -85,15 +101,15 @@ export function AttributesPanel({
   if (!activeItem || !snapshot) {
     return (
       <aside
-        aria-label="元素属性面板"
+        aria-label={t('attributes.panelAria')}
         className="flex h-full flex-col border-l border-slate-200 bg-slate-50/70"
       >
         <div className="border-b border-slate-200 px-3 py-2.5">
-          <h2 className="text-xs font-semibold text-slate-800">属性检查器</h2>
+          <h2 className="text-xs font-semibold text-slate-800">{t('attributes.title')}</h2>
         </div>
         <div className="flex flex-1 flex-col items-center justify-center p-6 text-center text-xs text-slate-400">
           <Tag className="mb-2 h-6 w-6 text-slate-300" aria-hidden="true" />
-          <p>在可视化视图中点击任意元素或底部面包屑节点以查看和编辑其 DITA 属性。</p>
+          <p>{t('attributes.emptyBody')}</p>
         </div>
       </aside>
     );
@@ -161,7 +177,7 @@ export function AttributesPanel({
 
   return (
     <aside
-      aria-label="DITA 元素属性检查器"
+      aria-label={t('attributes.inspectorAria')}
       className="flex h-full flex-col border-l border-slate-200 bg-white text-slate-800"
     >
       {/* Selected Element Header */}
@@ -174,16 +190,16 @@ export function AttributesPanel({
               </code>
               {activeItem.isUnknown ? (
                 <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-800">
-                  未知/特化透传
+                  {t('attributes.unknown')}
                 </span>
               ) : null}
             </div>
             <p className="mt-1 truncate text-xs font-medium text-slate-700">
-              {spec ? `${spec.labelZh} · ${spec.label}` : '自定义 / 特化 DITA 元素'}
+              {spec ? `${getElementLabel(spec, locale)} · <${spec.tag}>` : t('attributes.customSpec')}
             </p>
             {spec?.description ? (
               <p className="mt-0.5 text-[11px] leading-snug text-slate-500">
-                {spec.description}
+                {getElementDescription(spec, locale)}
               </p>
             ) : null}
           </div>
@@ -196,40 +212,40 @@ export function AttributesPanel({
             disabled={!canSelectParent}
             onClick={() => parentCrumb && onSelectBreadcrumb(parentCrumb.pos)}
             className="dita-mini-btn disabled:opacity-40"
-            title="选中父级容器元素"
+            title={t('attributes.selectParent')}
           >
             <ArrowUpLeft className="h-3 w-3" aria-hidden="true" />
-            选父级
+            {t('attributes.selectParentShort')}
           </button>
           <button
             type="button"
             disabled={isRootElement || activeItem.node.isInline}
             onClick={() => onMoveNode(activeItem.pos, 'up')}
             className="dita-mini-btn disabled:opacity-40"
-            title="上移同级块"
+            title={t('attributes.moveUp')}
           >
             <ArrowUp className="h-3 w-3" aria-hidden="true" />
-            上移
+            {t('attributes.moveUpShort')}
           </button>
           <button
             type="button"
             disabled={isRootElement || activeItem.node.isInline}
             onClick={() => onMoveNode(activeItem.pos, 'down')}
             className="dita-mini-btn disabled:opacity-40"
-            title="下移同级块"
+            title={t('attributes.moveDown')}
           >
             <ArrowDown className="h-3 w-3" aria-hidden="true" />
-            下移
+            {t('attributes.moveDownShort')}
           </button>
           <button
             type="button"
             disabled={isRootElement}
             onClick={() => onDeleteNode(activeItem.pos)}
             className="dita-mini-btn ml-auto text-rose-700 hover:bg-rose-50 disabled:opacity-40"
-            title="删除当前元素"
+            title={t('attributes.deleteTitle')}
           >
             <Trash2 className="h-3 w-3" aria-hidden="true" />
-            删除
+            {t('common.delete')}
           </button>
         </div>
       </div>
@@ -249,7 +265,7 @@ export function AttributesPanel({
               ) : (
                 <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
               )}
-              已设置属性（原始 XML 顺序）
+              {t('attributes.rawTitle')}
             </span>
             <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
               {rawAttrs.length}
@@ -259,7 +275,7 @@ export function AttributesPanel({
           {expandedGroups.raw ? (
             <div className="mt-2 space-y-1.5">
               {rawAttrs.length === 0 ? (
-                <p className="text-[11px] text-slate-400">当前元素暂无 XML 属性</p>
+                <p className="text-[11px] text-slate-400">{t('attributes.none')}</p>
               ) : (
                 rawAttrs.map((entry) => (
                   <div
@@ -276,7 +292,7 @@ export function AttributesPanel({
                     <span className="text-slate-400">=</span>
                     <input
                       type="text"
-                      aria-label={`属性 ${entry.name}`}
+                      aria-label={t('attributes.attrAria', { name: entry.name })}
                       value={entry.value}
                       onChange={(e) => onUpdateAttr(activeItem.pos, entry.name, e.target.value)}
                       className="min-w-0 flex-1 rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-800 ring-1 ring-slate-200 focus:ring-indigo-500 focus:outline-none"
@@ -284,8 +300,8 @@ export function AttributesPanel({
                     <button
                       type="button"
                       onClick={() => onUpdateAttr(activeItem.pos, entry.name, null)}
-                      aria-label={`移除属性 ${entry.name}`}
-                      title="移除属性"
+                      aria-label={t('attributes.removeAria', { name: entry.name })}
+                      title={t('attributes.remove')}
                       className="rounded p-0.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
                     >
                       <X className="h-3 w-3" aria-hidden="true" />
@@ -300,23 +316,23 @@ export function AttributesPanel({
                   type="text"
                   value={customAttrName}
                   onChange={(e) => setCustomAttrName(e.target.value)}
-                  placeholder="属性名"
-                  aria-label="新属性名"
+                  placeholder={t('attributes.namePlaceholder')}
+                  aria-label={t('attributes.nameAria')}
                   className="w-24 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
                 />
                 <input
                   type="text"
                   value={customAttrValue}
                   onChange={(e) => setCustomAttrValue(e.target.value)}
-                  placeholder="属性值"
-                  aria-label="新属性值"
+                  placeholder={t('attributes.valuePlaceholder')}
+                  aria-label={t('attributes.valueAria')}
                   className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
                 />
                 <button
                   type="submit"
-                  aria-label="添加自定义属性"
+                  aria-label={t('attributes.addCustomAria')}
                   className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-white hover:bg-slate-700"
-                  title="添加自定义/特化属性"
+                  title={t('attributes.addCustom')}
                 >
                   <Plus className="h-3.5 w-3.5" aria-hidden="true" />
                 </button>
@@ -330,7 +346,6 @@ export function AttributesPanel({
           (groupKey) => {
             const attrs = grouped.get(groupKey);
             if (!attrs || attrs.length === 0) return null;
-            const meta = GROUP_LABELS[groupKey];
             const isOpen = Boolean(expandedGroups[groupKey]);
             const filledCount = attrs.filter((a) => getRawAttr(rawAttrs, a.name) !== undefined).length;
 
@@ -347,7 +362,7 @@ export function AttributesPanel({
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
                     )}
-                    {meta.title}
+                    {t(GROUP_TITLE_KEYS[groupKey])}
                   </span>
                   {groupKey === 'profiling' && conditionEval ? (
                     <span
@@ -360,17 +375,17 @@ export function AttributesPanel({
                       }`}
                     >
                       {conditionEval.status === 'exclude'
-                        ? '已排除'
+                        ? t('attributes.condition.excluded')
                         : conditionEval.status === 'flag'
-                          ? '标记高亮'
-                          : '包含'}
+                          ? t('attributes.condition.flagged')
+                          : t('attributes.condition.included')}
                     </span>
                   ) : filledCount > 0 ? (
                     <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700">
                       {filledCount}
                     </span>
                   ) : (
-                    <span className="text-[10px] font-normal text-slate-400">{meta.subtitle}</span>
+                    <span className="text-[10px] font-normal text-slate-400">{GROUP_SUBTITLES[groupKey]}</span>
                   )}
                 </button>
 
@@ -387,7 +402,7 @@ export function AttributesPanel({
                         <div className="flex items-center justify-between gap-2">
                           <span className="font-semibold">
                             {resolvedKeyref.status === 'resolved'
-                              ? `Key 解析：${resolvedKeyref.resolvedText ?? resolvedKeyref.targetFilePath ?? '有效'}`
+                              ? t('attributes.keyResolved', { target: resolvedKeyref.resolvedText ?? resolvedKeyref.targetFilePath ?? t('attributes.valid') })
                               : resolvedKeyref.errorMessage}
                           </span>
                           {resolvedKeyref.definition && onJumpToSource ? (
@@ -402,7 +417,7 @@ export function AttributesPanel({
                               className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100"
                             >
                               <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
-                              定义
+                              {t('attributes.define')}
                             </button>
                           ) : null}
                         </div>
@@ -418,7 +433,7 @@ export function AttributesPanel({
                             className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-teal-200 bg-teal-50 px-2.5 py-1.5 text-[11px] font-medium text-teal-800 hover:bg-teal-100"
                           >
                             <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
-                            从项目 ID 列表选取复用目标…
+                            {t('attributes.pickReuse')}
                           </button>
                         ) : null}
                         {resolvedConref ? (
@@ -432,7 +447,7 @@ export function AttributesPanel({
                             <div className="flex items-center justify-between gap-2">
                               <span className="font-semibold">
                                 {resolvedConref.status === 'resolved'
-                                  ? `已解析：${resolvedConref.targetFilePath}`
+                                  ? t('attributes.resolved', { path: resolvedConref.targetFilePath ?? '' })
                                   : resolvedConref.errorMessage}
                               </span>
                               {resolvedConref.targetFilePath && onJumpToSource ? (
@@ -448,7 +463,7 @@ export function AttributesPanel({
                                   className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-teal-700 ring-1 ring-teal-200 hover:bg-teal-100"
                                 >
                                   <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
-                                  源定义
+                                  {t('attributes.sourceDef')}
                                 </button>
                               ) : null}
                             </div>
@@ -468,11 +483,11 @@ export function AttributesPanel({
                             <label
                               htmlFor={inputId}
                               className="flex items-center gap-1 text-[11px] font-medium text-slate-700"
-                              title={attr.description}
+                              title={getAttributeDescription(attr, locale)}
                             >
                               <code className="font-mono text-slate-900">{attr.name}</code>
                               {attr.required ? (
-                                <span className="text-rose-500" aria-label="必填">
+                                <span className="text-rose-500" aria-label={t('attributes.required')}>
                                   *
                                 </span>
                               ) : null}
@@ -483,7 +498,7 @@ export function AttributesPanel({
                                 onClick={() => onUpdateAttr(activeItem.pos, attr.name, null)}
                                 className="text-[10px] text-slate-400 hover:text-rose-600"
                               >
-                                清除
+                                {t('attributes.clear')}
                               </button>
                             ) : null}
                           </div>
@@ -494,7 +509,7 @@ export function AttributesPanel({
                               inputId={inputId}
                               value={currentVal}
                               suggestions={profilingCatalog[attr.name as DitaProfilingAttrName] ?? []}
-                              placeholder={attr.placeholder ?? attr.label}
+                              placeholder={getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale)}
                               onChange={(nextVal) => onUpdateAttr(activeItem.pos, attr.name, nextVal)}
                             />
                           ) : attr.values && attr.values.length > 0 ? (
@@ -510,7 +525,7 @@ export function AttributesPanel({
                               }
                               className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 focus:border-indigo-500 focus:outline-none"
                             >
-                              <option value="">（未设置）</option>
+                              <option value="">{t('attributes.unset')}</option>
                               {currentVal && !attr.values.includes(currentVal) ? (
                                 <option value={currentVal}>{currentVal}</option>
                               ) : null}
@@ -525,7 +540,7 @@ export function AttributesPanel({
                               id={inputId}
                               type="text"
                               value={currentVal}
-                              placeholder={attr.placeholder ?? attr.label}
+                              placeholder={getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale)}
                               onChange={(e) =>
                                 onUpdateAttr(
                                   activeItem.pos,
@@ -551,13 +566,13 @@ export function AttributesPanel({
           <section className="bg-emerald-50/40 p-3">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800">
               <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" aria-hidden="true" />
-              无损 XML 文档元信息已锁定保真
+              {t('attributes.metaLocked')}
             </div>
             <dl className="mt-2 space-y-1 font-mono text-[10px] text-slate-600">
               <div>
-                <dt className="text-slate-400">XML 声明</dt>
+                <dt className="text-slate-400">{t('attributes.xmlDecl')}</dt>
                 <dd className="truncate text-slate-800">
-                  {docMetadata.xmlDeclaration?.raw ?? '（无）'}
+                  {docMetadata.xmlDeclaration?.raw ?? t('attributes.noneValue')}
                 </dd>
               </div>
               <div>
@@ -565,14 +580,16 @@ export function AttributesPanel({
                 <dd className="break-all text-slate-800">
                   {doctypeItem && doctypeItem.type === 'doctype'
                     ? doctypeItem.info.raw ?? `<!DOCTYPE ${doctypeItem.info.name}>`
-                    : '（无）'}
+                    : t('attributes.noneValue')}
                 </dd>
               </div>
               <div>
-                <dt className="text-slate-400">文档级注释 / PI</dt>
+                <dt className="text-slate-400">{t('attributes.docPi')}</dt>
                 <dd className="text-slate-800">
-                  Prolog {docMetadata.prolog.filter((p) => p.type !== 'doctype').length} 项 · Epilog{' '}
-                  {docMetadata.epilog.length} 项
+                  {t('attributes.piCounts', {
+                    prolog: docMetadata.prolog.filter((p) => p.type !== 'doctype').length,
+                    epilog: docMetadata.epilog.length,
+                  })}
                 </dd>
               </div>
             </dl>

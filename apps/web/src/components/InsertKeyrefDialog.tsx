@@ -5,6 +5,7 @@ import {
   type RawAttrs,
 } from '@dita/core';
 import { AlertTriangle, KeyRound, Search, X } from 'lucide-react';
+import { useI18n } from '../i18n/index.js';
 
 export interface InsertKeyrefDialogProps {
   open: boolean;
@@ -21,6 +22,7 @@ export function InsertKeyrefDialog({
   onClose,
   onConfirm,
 }: InsertKeyrefDialogProps) {
+  const { t } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
 
@@ -107,12 +109,12 @@ export function InsertKeyrefDialog({
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
         <h2 id={titleId} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
           <KeyRound className="h-4 w-4 text-violet-600" aria-hidden="true" />
-          插入 Keyref 变量引用
+          {t('keyref.title')}
         </h2>
         <button
           type="button"
           onClick={() => dialogRef.current?.close()}
-          aria-label="关闭对话框"
+          aria-label={t('keyref.closeAria')}
           className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
         >
           <X className="h-4 w-4" aria-hidden="true" />
@@ -121,9 +123,9 @@ export function InsertKeyrefDialog({
 
       <form onSubmit={handleSubmit} className="space-y-3 p-5 text-xs">
         <div className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
-          <span className="text-slate-500">当前 Root Map</span>
+          <span className="text-slate-500">{t('keyref.currentRootMap')}</span>
           <code className="font-mono text-[11px] font-semibold text-slate-800">
-            {rootMapPath ?? '（未选择 Root Map）'}
+            {rootMapPath ?? t('keyref.noRootMap')}
           </code>
         </div>
 
@@ -138,19 +140,19 @@ export function InsertKeyrefDialog({
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="筛选 Root Map Key 定义…"
+              placeholder={t('keyref.filterPlaceholder')}
               className="w-full rounded-lg border border-slate-200 py-1.5 pr-3 pl-8 text-xs focus:border-violet-500 focus:outline-none"
             />
           </div>
           {keyspace && keyspace.scopes.length > 0 ? (
             <select
-              aria-label="按 Keyscope 筛选"
+              aria-label={t('keyref.scopeAria')}
               value={scopeFilter}
               onChange={(e) => setScopeFilter(e.target.value)}
               className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-violet-500 focus:outline-none"
             >
-              <option value="__all__">全部 Scope</option>
-              <option value="__root__">全局</option>
+              <option value="__all__">{t('keyref.scopeAll')}</option>
+              <option value="__root__">{t('keyref.scopeRoot')}</option>
               {keyspace.scopes.map((sc) => (
                 <option key={sc} value={sc}>
                   {sc}
@@ -163,7 +165,7 @@ export function InsertKeyrefDialog({
         {/* Available keys picker */}
         <div className="dita-scroller max-h-44 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
           {filteredDefs.length === 0 ? (
-            <p className="p-4 text-center text-slate-400">当前 Keyspace 中无匹配定义，也可在下方手动输入 keyref。</p>
+            <p className="p-4 text-center text-slate-400">{t('keyref.empty')}</p>
           ) : (
             filteredDefs.map((def) => {
               const active = selectedKey === def.qualifiedKey;
@@ -188,7 +190,7 @@ export function InsertKeyrefDialog({
                       ) : null}
                     </div>
                     <p className="truncate text-[11px] text-slate-600">
-                      {def.inlineText ?? def.resolvedHref ?? def.href ?? '（无绑定值）'}
+                      {def.inlineText ?? def.resolvedHref ?? def.href ?? t('keyref.noBinding')}
                     </p>
                   </div>
                   <span className="shrink-0 font-mono text-[10px] text-slate-400">
@@ -203,7 +205,7 @@ export function InsertKeyrefDialog({
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label htmlFor="keyref-input" className="mb-1 block font-medium text-slate-700">
-              keyref 属性值
+              {t('keyref.valueLabel')}
             </label>
             <input
               id="keyref-input"
@@ -211,13 +213,13 @@ export function InsertKeyrefDialog({
               required
               value={selectedKey}
               onChange={(e) => setSelectedKey(e.target.value)}
-              placeholder="例如：prod_name"
+              placeholder={t('keyref.valuePlaceholder')}
               className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-violet-500 focus:outline-none"
             />
           </div>
           <div>
             <label htmlFor="keyref-tag" className="mb-1 block font-medium text-slate-700">
-              承载元素标签
+              {t('keyref.tagLabel')}
             </label>
             <select
               id="keyref-tag"
@@ -225,24 +227,24 @@ export function InsertKeyrefDialog({
               onChange={(e) => setTagName(e.target.value as 'keyword' | 'ph' | 'xref' | 'term')}
               className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-violet-500 focus:outline-none"
             >
-              <option value="keyword">&lt;keyword&gt; (变量词)</option>
-              <option value="ph">&lt;ph&gt; (短语)</option>
-              <option value="xref">&lt;xref&gt; (交叉引用)</option>
-              <option value="term">&lt;term&gt; (术语)</option>
+              <option value="keyword">&lt;keyword&gt; ({t('keyref.tagKeyword')})</option>
+              <option value="ph">&lt;ph&gt; ({t('keyref.tagPh')})</option>
+              <option value="xref">&lt;xref&gt; ({t('keyref.tagXref')})</option>
+              <option value="term">&lt;term&gt; ({t('keyref.tagTerm')})</option>
             </select>
           </div>
         </div>
 
         <div>
           <label htmlFor="keyref-fallback" className="mb-1 block font-medium text-slate-700">
-            标签内默认回退文本（可选，留空则生成自闭合变量标签）
+            {t('keyref.fallbackLabel')}
           </label>
           <input
             id="keyref-fallback"
             type="text"
             value={fallbackText}
             onChange={(e) => setFallbackText(e.target.value)}
-            placeholder="留空生成 <keyword keyref='...'/>，实时渲染 Root Map 解析值"
+            placeholder={t('keyref.fallbackPlaceholder')}
             className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-violet-500 focus:outline-none"
           />
         </div>
@@ -250,9 +252,9 @@ export function InsertKeyrefDialog({
         {selectedKey.trim() && previewResolution ? (
           previewResolution.status === 'resolved' ? (
             <div className="rounded-lg border border-emerald-200 bg-emerald-50/70 px-3 py-2 text-[11px] text-emerald-900">
-              解析结果：
+              {t('keyref.resolution')}
               <strong className="ml-1 font-semibold">
-                {previewResolution.resolvedText ?? previewResolution.targetFilePath ?? '已定义'}
+                {previewResolution.resolvedText ?? previewResolution.targetFilePath ?? t('keyref.defined')}
               </strong>
               {previewResolution.definition ? (
                 <span className="ml-2 font-mono text-[10px] text-emerald-700">
@@ -263,7 +265,7 @@ export function InsertKeyrefDialog({
           ) : (
             <div className="flex items-center gap-1.5 rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-[11px] text-rose-800">
               <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-rose-600" aria-hidden="true" />
-              <span>{previewResolution.errorMessage}（插入后将在编辑器标红告警）</span>
+              <span>{t('keyref.errorWarning', { message: previewResolution.errorMessage ?? '' })}</span>
             </div>
           )
         ) : null}
@@ -274,14 +276,14 @@ export function InsertKeyrefDialog({
             onClick={() => dialogRef.current?.close()}
             className="rounded-lg border border-slate-200 px-3.5 py-1.5 font-medium text-slate-700 hover:bg-slate-50"
           >
-            取消
+            {t('common.cancel')}
           </button>
           <button
             type="submit"
             disabled={!selectedKey.trim()}
             className="rounded-lg bg-violet-600 px-4 py-1.5 font-semibold text-white hover:bg-violet-500 disabled:opacity-45"
           >
-            插入 &lt;{tagName}&gt;
+            {t('keyref.submit')} &lt;{tagName}&gt;
           </button>
         </div>
       </form>

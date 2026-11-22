@@ -40,6 +40,8 @@ afterEach(() => {
 });
 
 describe('Phase 4 Git + check-out locks', () => {
+  // Full end-to-end git + lock flow (checkout, commit, diff, worktree branch); it needs more
+  // than Vitest's 5 s default when the workspace test matrix runs in parallel.
   it('enforces role/lock rules, commits, diffs and branch isolation', async () => {
     const fixture = createFixture();
     const app = createServer({
@@ -345,5 +347,5 @@ describe('Phase 4 Git + check-out locks', () => {
     expect(nonAdminForce.statusCode).toBe(403);
 
     await app.close();
-  });
+  }, 30_000);
 });

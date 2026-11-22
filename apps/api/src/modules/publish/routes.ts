@@ -3,7 +3,9 @@ import { readFile, realpath, stat } from 'node:fs/promises';
 import { extname, isAbsolute, join, relative, resolve } from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError, localizeErrorMessage } from '../errors.js';
+import { resolveRequestLocale } from '../../i18n/locale.js';
+import { apiT } from '../../i18n/messages.js';
 import type { IdentityUser } from '../identity/identity-service.js';
 import { resolveSafeWorkspacePath } from '../files/workspace-fs.js';
 import {
@@ -62,14 +64,14 @@ function parseLimit(raw: unknown): number {
 function requireJob(options: PublishRouteOptions, id: string, projectId: string): PublishJobRow {
   const job = options.publish.getJobRow(id);
   if (!job || job.projectId !== projectId) {
-    throw new HttpError(404, '发布任务不存在');
+    throw httpError(404, 'publish.jobNotFound');
   }
   return job;
 }
 
 function requirePublisher(user: IdentityUser): void {
   if (user.role === 'viewer') {
-    throw new HttpError(403, '只读角色无权发布或取消发布任务');
+    throw httpError(403, 'publish.viewerForbidden');
   }
 }
 
@@ -81,13 +83,13 @@ async function resolveWorkspacePath(
 ): Promise<string> {
   const safe = await resolveSafeWorkspacePath(workDir, rawPath);
   if (!extensions.includes(extname(safe.posixPath).toLowerCase())) {
-    throw new HttpError(400, `${label} 文件类型不受支持：${safe.posixPath}`);
+    throw httpError(400, 'publish.unsupportedFile', { label, path: safe.posixPath });
   }
   try {
     const info = await stat(safe.absPath);
     if (!info.isFile()) throw new Error('not a file');
   } catch {
-    throw new HttpError(404, `${label} 文件不存在：${safe.posixPath}`);
+    throw httpError(404, 'publish.fileNotFound', { label, path: safe.posixPath });
   }
   return safe.posixPath;
 }
@@ -119,12 +121,12 @@ async function resolvePreviewFile(outputPath: string, wildcard: string): Promise
 }
 
 export function registerPublishRoutes(app: FastifyInstance, options: PublishRouteOptions): void {
-  app.get('/api/publish/runtime', async (_req, reply) => {
+  app.get('/api/publish/runtime', async (req, reply) => {
     try {
-      const runtime = await options.publish.getRuntime(true);
+      const runtime = await options.publish.getRuntime(resolveRequestLocale(req), true);
       return { runtime, publishRootDir: options.publish.rootDir };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -140,14 +142,18 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
         jobs: options.publish.listJobs(scope.projectId, scope.branch, parseLimit(req.query && (req.query as { limit?: unknown }).limit)),
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
   app.post('/api/publish/jobs', async (req, reply) => {
     const parsed = createJobSchema.safeParse(req.body);
     if (!parsed.success) {
-      return reply.status(400).send({ error: parsed.error.issues[0]?.message ?? '参数错误' });
+      return reply
+        .status(400)
+        .send({
+          error: parsed.error.issues[0]?.message ?? apiT(resolveRequestLocale(req), 'publish.invalidParams'),
+        });
     }
     try {
       const scope = await resolvePhase4Scope(req, options);
@@ -170,10 +176,11 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
         format: parsed.data.format,
         ditaval,
         title: parsed.data.title,
+        locale: resolveRequestLocale(req),
       });
       return reply.status(202).send({ job });
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -184,7 +191,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const job = options.publish.getJob(requireJob(options, id, scope.projectId).id);
       return { job };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -198,7 +205,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const job = await options.publish.cancelJob(row, scope.user);
       return { job };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -236,7 +243,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
           nextOffset >= contentBuffer.length,
       };
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 
@@ -246,7 +253,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const { id } = req.params as { id: string };
       requireJob(options, id, scope.projectId);
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
 
     reply.hijack();
@@ -330,19 +337,19 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const { id } = req.params as { id: string };
       const row = requireJob(options, id, scope.projectId);
       if (row.format !== 'html5' || row.status !== 'succeeded' || !row.outputPath) {
-        throw new HttpError(404, '该任务没有可预览的 HTML5 输出');
+        throw httpError(404, 'publish.noHtmlPreview');
       }
       const wildcard = (req.params as { '*': string })['*'] ?? '';
       const filePath = await resolvePreviewFile(row.outputPath, wildcard);
       if (!filePath) {
-        throw new HttpError(404, '预览文件不存在');
+        throw httpError(404, 'publish.previewMissing');
       }
       const extension = extname(filePath).toLowerCase();
       reply.header('cache-control', extension === '.html' ? 'no-cache' : 'public, max-age=300');
       reply.type(MIME_TYPES[extension] ?? 'application/octet-stream');
       return reply.send(createReadStream(filePath));
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   };
   app.get('/api/publish/jobs/:id/preview', previewHandler);
@@ -354,15 +361,15 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const { id } = req.params as { id: string };
       const row = requireJob(options, id, scope.projectId);
       if (row.status !== 'succeeded' || !row.artifactPath) {
-        throw new HttpError(404, '该任务还没有可下载的产物');
+        throw httpError(404, 'publish.noArtifact');
       }
       let info;
       try {
         info = await stat(row.artifactPath);
       } catch {
-        throw new HttpError(404, '产物文件已被清理');
+        throw httpError(404, 'publish.artifactPruned');
       }
-      if (!info.isFile()) throw new HttpError(404, '产物文件不存在');
+      if (!info.isFile()) throw httpError(404, 'publish.artifactMissing');
       const query = (req.query ?? {}) as { inline?: string };
       const inline = query.inline === '1' || query.inline === 'true';
       const name = row.artifactName ?? (row.format === 'pdf' ? 'publish.pdf' : 'publish-html5.zip');
@@ -375,7 +382,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       }
       return reply.send(createReadStream(row.artifactPath));
     } catch (err) {
-      return handlePhase4Error(err, reply);
+      return handlePhase4Error(err, req, reply);
     }
   });
 }

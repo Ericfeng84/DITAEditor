@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { useI18n } from '../i18n/index.js';
 import { parseDitaMap, resolveDitaHref } from '@dita/core';
 import {
   AlertTriangle,
@@ -31,6 +32,7 @@ export function MapOverviewPane({
   onOpenTopic,
   onCreateAndMount,
 }: MapOverviewPaneProps) {
+  const { t } = useI18n();
   const parsed = useMemo(() => {
     try {
       return { ok: true as const, data: parseDitaMap(xml) };
@@ -46,7 +48,7 @@ export function MapOverviewPane({
     return (
       <div className="flex h-full flex-col items-center justify-center bg-slate-50 p-8 text-center">
         <AlertTriangle className="mb-2 h-8 w-8 text-rose-500" aria-hidden="true" />
-        <h3 className="text-sm font-semibold text-slate-900">Map XML 存在语法错误</h3>
+        <h3 className="text-sm font-semibold text-slate-900">{t('mapOverview.parseErrorTitle')}</h3>
         <p className="mt-1 max-w-md font-mono text-xs text-rose-700">{parsed.error}</p>
         <button
           type="button"
@@ -54,7 +56,7 @@ export function MapOverviewPane({
           className="mt-4 inline-flex items-center gap-1.5 rounded-lg bg-slate-900 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-slate-800"
         >
           <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
-          切换至 XML 源码修复
+          {t('mapOverview.fixInSource')}
         </button>
       </div>
     );
@@ -94,7 +96,7 @@ export function MapOverviewPane({
             </div>
 
             <label htmlFor="map-overview-title" className="mt-3 block text-[11px] font-medium text-slate-500">
-              {map.kind === 'bookmap' ? '书籍标题 (<booktitle>/<mainbooktitle>)' : '地图标题 (<title>)'}
+              {map.kind === 'bookmap' ? t('mapOverview.bookTitle') : t('mapOverview.mapTitle')}
             </label>
             <input
               id="map-overview-title"
@@ -111,7 +113,7 @@ export function MapOverviewPane({
               onClick={() => onActivateRootMap(mapPath)}
               className="rounded-lg border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-medium text-sky-800 hover:bg-sky-100"
             >
-              在左侧 Map 树打开
+              {t('mapOverview.openInTree')}
             </button>
             <button
               type="button"
@@ -119,7 +121,7 @@ export function MapOverviewPane({
               className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
             >
               <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
-              新建 Topic 并挂载
+              {t('mapTree.createMounted')}
             </button>
             <button
               type="button"
@@ -127,7 +129,7 @@ export function MapOverviewPane({
               className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
               <Code2 className="h-3.5 w-3.5" aria-hidden="true" />
-              编辑 XML 源码
+              {t('mapOverview.editSource')}
             </button>
           </div>
         </div>
@@ -135,19 +137,19 @@ export function MapOverviewPane({
         {/* Summary Metrics */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="text-[11px] text-slate-500">顶层导航节点</div>
+            <div className="text-[11px] text-slate-500">{t('mapOverview.topNavNodes')}</div>
             <div className="mt-0.5 text-lg font-bold text-slate-900">{map.nodes.length}</div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="text-[11px] text-slate-500">引用总数 (含 reltable)</div>
+            <div className="text-[11px] text-slate-500">{t('mapOverview.totalRefs')}</div>
             <div className="mt-0.5 text-lg font-bold text-slate-900">{map.references.length}</div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="text-[11px] text-slate-500">嵌套子 Map</div>
+            <div className="text-[11px] text-slate-500">{t('mapOverview.submaps')}</div>
             <div className="mt-0.5 text-lg font-bold text-sky-700">{submapCount}</div>
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-            <div className="text-[11px] text-slate-500">断链检测</div>
+            <div className="text-[11px] text-slate-500">{t('mapOverview.brokenLinks')}</div>
             <div
               className={`mt-0.5 text-lg font-bold ${
                 brokenRefs.length > 0 ? 'text-rose-600' : 'text-emerald-700'
@@ -162,8 +164,11 @@ export function MapOverviewPane({
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50/50 px-3.5 py-2.5 text-xs text-emerald-900">
           <ShieldCheck className="h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
           <span>
-            无损保真：DOCTYPE（{map.preservedMetaSummary.hasDoctype ? '有' : '无'}）、XML 注释（
-            {map.preservedMetaSummary.commentCount}）、处理指令（{map.preservedMetaSummary.piCount}）
+{t('mapOverview.lossless', {
+              doctype: map.preservedMetaSummary.hasDoctype ? t('mapOverview.yes') : t('mapOverview.no'),
+              comments: map.preservedMetaSummary.commentCount,
+              pis: map.preservedMetaSummary.piCount,
+            })}
             {map.preservedMetaSummary.hasReltable ? '、<reltable>' : ''}
             {map.preservedMetaSummary.hasBookmeta ? '、<bookmeta>' : ''}
             {map.preservedMetaSummary.hasTopicmeta ? '、<topicmeta>' : ''}
@@ -172,10 +177,10 @@ export function MapOverviewPane({
 
         {/* References Table */}
         <div>
-          <h3 className="mb-2 text-xs font-semibold text-slate-700">引用的 Topic 与子 Map</h3>
+          <h3 className="mb-2 text-xs font-semibold text-slate-700">{t('mapOverview.refsTitle')}</h3>
           {map.references.length === 0 ? (
             <p className="rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
-              当前 Map 尚未挂载任何 Topic 引用
+              {t('mapOverview.noRefs')}
             </p>
           ) : (
             <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
@@ -209,11 +214,11 @@ export function MapOverviewPane({
                         onClick={() => onOpenTopic(res.targetPath)}
                         className="shrink-0 rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50"
                       >
-                        打开
+                        {t('mapOverview.open')}
                       </button>
                     ) : !exists ? (
                       <span className="shrink-0 text-[11px] font-medium text-rose-600">
-                        文件缺失
+                        {t('mapOverview.fileMissing')}
                       </span>
                     ) : null}
                   </div>

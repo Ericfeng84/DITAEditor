@@ -1,3 +1,5 @@
+import { coreT } from '../i18n/messages.js';
+import type { UiLocale } from '../i18n/locale.js';
 import type * as slimdom from 'slimdom';
 import {
   DITA_PROFILING_ATTRS,
@@ -62,6 +64,17 @@ export class DitaSemanticIndex {
   >();
   private readonly keyspaceCache = new Map<string, KeyspaceResult>();
   private profilingCatalogCache: Record<DitaProfilingAttrName, string[]> | null = null;
+  /** UI locale used for every diagnostic message this index emits. */
+  private uiLocale: UiLocale = 'zh-CN';
+
+  /** Switch the message locale without invalidating any cached parse/keyspace data. */
+  setUiLocale(locale: UiLocale): void {
+    this.uiLocale = locale;
+  }
+
+  getUiLocale(): UiLocale {
+    return this.uiLocale;
+  }
 
   /**
    * Bulk-load a complete workspace map of POSIX paths -> XML text contents.
@@ -238,6 +251,7 @@ export class DitaSemanticIndex {
       {
         topicTitles: this.getTopicTitles(),
         getParsedDoc: (p) => this.getParsedDoc(p),
+        locale: this.uiLocale,
       },
     );
     this.keyspaceCache.set(norm, built);
@@ -331,7 +345,7 @@ export class DitaSemanticIndex {
     scopePath?: readonly string[],
   ): ResolvedKeyrefResult {
     const keyspace = rootMapPath ? this.getKeyspace(rootMapPath) : null;
-    return resolveKeyrefInKeyspace(keyref, keyspace, scopePath);
+    return resolveKeyrefInKeyspace(keyref, keyspace, scopePath, this.uiLocale);
   }
 
   resolveConref(params: {
@@ -358,6 +372,7 @@ export class DitaSemanticIndex {
       getParsedDoc: (p) => this.getParsedDoc(p),
       hasFile: (p) => this.hasFile(p),
       resolveTopicRootId: (p) => this.getTopicIndex(p)?.rootTopicId,
+      locale: this.uiLocale,
     });
   }
 
@@ -393,7 +408,7 @@ export class DitaSemanticIndex {
               column: check.error.column,
               severity: 'error',
               source: 'xml',
-              message: `XML 良构错误：${check.error.message}`,
+              message: coreT(this.uiLocale, 'semantic.malformedXml', { message: check.error.message }),
             },
           ],
         };
@@ -425,7 +440,7 @@ export class DitaSemanticIndex {
       const rawKeyref = usage.keyref.trim();
       if (!rawKeyref) continue;
       if (!(rawKeyref in keyrefs)) {
-        const res = resolveKeyrefInKeyspace(rawKeyref, keyspace);
+        const res = resolveKeyrefInKeyspace(rawKeyref, keyspace, undefined, this.uiLocale);
         keyrefs[rawKeyref] = res;
       }
       const res = keyrefs[rawKeyref]!;
@@ -441,7 +456,8 @@ export class DitaSemanticIndex {
           severity: 'error',
           source: 'keyref',
           keyName: res.keyName,
-          message: res.errorMessage ?? `未定义的 keyref："${rawKeyref}"`,
+          message:
+            res.errorMessage ?? coreT(this.uiLocale, 'semantic.undefinedKeyref', { value: rawKeyref }),
         });
       }
     }
@@ -482,7 +498,8 @@ export class DitaSemanticIndex {
           column,
           severity: 'error',
           source: res.status === 'cycle' ? 'conref-cycle' : 'conref',
-          message: res.errorMessage ?? `无效的内容复用：${usage.value}`,
+          message:
+            res.errorMessage ?? coreT(this.uiLocale, 'semantic.invalidConref', { value: usage.value }),
           resolvedPath: res.targetFilePath,
           cycleChain: res.cycleChain,
         });
@@ -532,7 +549,7 @@ export class DitaSemanticIndex {
           column: xmlErr.column,
           severity: 'error',
           source: 'xml',
-          message: `XML 良构错误：${xmlErr.message}`,
+          message: coreT(this.uiLocale, 'semantic.malformedXml', { message: xmlErr.message }),
         });
         continue;
       }
@@ -548,7 +565,7 @@ export class DitaSemanticIndex {
             column: dv.error.column,
             severity: 'error',
             source: 'ditaval',
-            message: `DITAVAL 语法错误：${dv.error.message}`,
+            message: coreT(this.uiLocale, 'semantic.ditavalSyntax', { message: dv.error.message }),
           });
         }
         continue;
@@ -576,7 +593,7 @@ export class DitaSemanticIndex {
               column,
               severity: 'warning',
               source: 'asset-ref',
-              message: `引用图片不存在或超出工作区：${href}`,
+              message: coreT(this.uiLocale, 'semantic.missingImage', { href }),
               targetHref: href,
               resolvedPath: resolved.targetPath || undefined,
             });
@@ -634,7 +651,7 @@ export class DitaSemanticIndex {
             column,
             severity: 'error',
             source: 'map-ref',
-            message: `引用路径超出工作区根目录：${ref.href}`,
+            message: coreT(this.uiLocale, 'semantic.pathEscapesRoot', { href: ref.href }),
             targetHref: ref.href,
           });
           continue;
@@ -648,7 +665,10 @@ export class DitaSemanticIndex {
             column,
             severity: 'error',
             source: 'map-ref',
-            message: `目标文件不存在：${ref.href}（解析路径：${resolved.targetPath}）`,
+            message: coreT(this.uiLocale, 'semantic.missingTargetFile', {
+                href: ref.href,
+                resolved: resolved.targetPath,
+              }),
             targetHref: ref.href,
             resolvedPath: resolved.targetPath,
           });
@@ -664,7 +684,10 @@ export class DitaSemanticIndex {
               column,
               severity: 'error',
               source: 'map-ref',
-              message: `检测到循环子地图引用 (<mapref>)：${mapPath} -> ${resolved.targetPath}`,
+              message: coreT(this.uiLocale, 'semantic.mapCycle', {
+                from: mapPath,
+                to: resolved.targetPath,
+              }),
               targetHref: ref.href,
               resolvedPath: resolved.targetPath,
             });

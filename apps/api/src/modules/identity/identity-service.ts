@@ -1,7 +1,7 @@
 import { asc, eq } from 'drizzle-orm';
 import { users, type UserRow } from '../../db/schema.js';
 import type { DitaDatabase } from '../../db/client.js';
-import { HttpError } from '../errors.js';
+import { HttpError, httpError } from '../errors.js';
 
 export type UserRole = 'admin' | 'writer' | 'viewer';
 
@@ -109,14 +109,14 @@ export class IdentityService {
     }
     const fallback = this.get(DEFAULT_ADMIN_ID);
     if (!fallback) {
-      throw new HttpError(500, '身份初始化失败');
+      throw httpError(500, 'identity.initFailed');
     }
     return fallback;
   }
 
   requireRole(user: IdentityUser, allowed: UserRole[]): void {
     if (!allowed.includes(user.role)) {
-      throw new HttpError(403, `当前角色（${user.role}）无权执行此操作`);
+      throw httpError(403, 'identity.forbidden', { role: user.role });
     }
   }
 

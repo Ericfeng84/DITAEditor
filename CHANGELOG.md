@@ -3,6 +3,55 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.2.0] — 2026-11-22
+
+Phase 8 交付：全栈中英双语界面（`zh-CN` / `en`）。顶栏一键切换语言，页面不刷新、不重建编辑器实例，未保存缓冲区、
+多 Tab、选区和 `Cmd/Ctrl+Z` 撤销历史全部保留。全仓测试 246 项全绿（`@dita/core` 81 / `@dita/web` 99 / `@dita/api` 36 / `@dita/site` 30）。
+
+### Added
+
+- **`@dita/core` i18n 内核**：新增 `src/i18n/{locale,messages,index}.ts`（`UiLocale`、`normalizeLocale`、`formatMessage`、
+  `coreT(locale, key, params)` 与中英双语核心文案表），并从包入口导出。
+- **双语 DITA 词典**：`model/dita-rules.ts` 为 110+ 元素与属性补齐英文标签/说明/占位符，新增
+  `DITA_CATEGORY_LABELS`、`getElementLabel` / `getElementDescription` / `getAttributeLabel` /
+  `getAttributeDescription` / `getAttributePlaceholder`（全部接受 `UiLocale`）。
+- **英文模板**：`createTopicTemplate` / `createMapTemplate` 支持 `lang: 'en'`，输出 `xml:lang="en"` 的英文
+  OASIS DITA 1.3 concept / task / reference / topic 与 map / bookmap 骨架（中文输出保持不变）。
+- **语义与 AI 诊断双语化**：`conref.ts`、`keyspace.ts`、`semantic-engine.ts`（新增 `setUiLocale` / `getUiLocale`）、
+  `ai/fragment-locator.ts`、`ai/fragment-splice.ts`（新增第 4 个 `locale` 参数）、`ai/schema-prompt.ts`
+  （`buildDitaConstraintSummary(rootTag, parentTag, locale)`）全部改用 `coreT` 渲染提示与错误。
+- **`@dita/web` 强类型 i18n**：`src/i18n/messages/zh-CN.ts` 为唯一文案源（`MessageKey` 由其派生），`en.ts` 使用
+  `Record<MessageKey, string>`，共 1028 条键值；`useLocaleStore`（持久化键 `dita.uiLocale`）、`useI18n()`、`t()`、
+  `getCurrentLocale()`、`onLocaleChange()`、`translate()`、`formatDateTime` / `formatRelativeTime` / `formatDuration`、
+  `applyDocumentLocale()`（同步 `html[lang]` 与 `data-locale`）。
+- **全工作台双语化**：顶栏 `LocaleSwitcher`；工作台外壳、三栏布局、编辑器工具栏与行内气泡栏、块手柄、插入元素菜单、
+  属性/复用/AI 检视区、Map 结构树与上下文菜单、Keys 面板、Git/锁/签入/Diff、发布与严格校验弹窗、AI 助手 / Diff / 设置、
+  问题面板与诊断、CodeMirror 补全与 Lint、ProseMirror 装饰与 NodeView 文案全部走文案表。
+- **无损热刷新**：ProseMirror 装饰插件状态携带 `locale`，切换时仅派发 `DITA_DECORATIONS_KEY` 元数据事务（不重建
+  `EditorView`）；`index.css` 新增 `:root[lang="en"]` 规则替换 5 个 DITA 区块伪标签；切换语言后轻量重取身份与语义诊断。
+- **`@dita/api` 请求语言**：新增 `src/i18n/{messages,locale}.ts`（`apiT`、`resolveRequestLocale`：`x-dita-locale` →
+  `Accept-Language` → `zh-CN`），`HttpError` 携带 `{ key, params }`，`httpError()` / `localizeErrorMessage()` 统一本地化；
+  identity、locks、git、files、indexer、validate（含 DITA-OT 运行时探测）、publish（任务与日志按创建时语言渲染）、
+  AI（提示词 `ZH_PROMPTS` / `EN_PROMPTS`、上下文徽标、SSE 状态、AI 设置与用量）全部双语，前端所有 API 客户端
+  自动携带 `x-dita-locale`。
+
+### Changed
+
+- 前端 `AI_TARGET_SCOPE_LABELS`、Git 变更徽标、身份角色文案等由「中文字面量」改为「MessageKey + 运行期翻译」，
+  `GitPanel` 自行按当前语言渲染变更类型，不再依赖接口返回的中文（接口文案作为其他客户端的兜底）。
+- 演示工作区（离线模式的示例 DITA 项目）迁出到 `apps/web/src/services/demo-workspace.ts`，与 UI 文案彻底分离。
+- `apps/web/vite.config.ts` 增加 `test.setupFiles`，把测试环境的 UI 语言固定为 `zh-CN`（Node 的 `navigator.language`
+  为 `en-US`，否则浏览器语言探测会把既有断言翻成英文）。
+
+### Tests
+
+- `apps/web/test/i18n-parity.test.ts`：键集合、`{param}` 占位符集合、空值与英文目录残留中文的对称性校验。
+- `apps/web/test/no-hardcoded-cjk.test.ts`：剥离注释后扫描 `apps/web/src`，除文案表与示例 DITA 内容外零硬编码中文。
+- `apps/api/test/phase8-i18n.test.ts`：`normalizeLocale` 与 `localizeErrorMessage` 单测，`x-dita-locale: en` 下
+  角色文案、锁冲突、严格校验提示与 AI 未配置守卫的端到端断言，以及 AI 系统提示词随界面语言切换（英文提示要求
+  `<explanation>` 用英文、正文仍保持文档 `xml:lang`）。
+- `apps/web/test/setup-locale.ts`：测试环境固定 `zh-CN` 界面语言（Node 的 `navigator.language` 为 `en-US`）。
+
 ## [1.1.0] — 2026-11-22
 
 Phase 7 交付：独立静态官网 `@dita/site`、零后端浏览器交互式 DITA 1.3 沙箱与中英双语文档站；工作台侧代码零改动，

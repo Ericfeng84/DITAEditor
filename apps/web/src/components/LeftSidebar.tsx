@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
 import { ChevronDown, FolderOpen, FolderTree, GitBranch, KeyRound, Network, PanelLeftClose } from 'lucide-react';
 import type { LeftSidebarTab } from '../store/editor-store';
+import { useI18n } from '../i18n/index.js';
 
 export interface LeftSidebarProps {
   activeTab: LeftSidebarTab;
@@ -34,6 +35,7 @@ export function LeftSidebar({
   keyspaceSlot,
   gitSlot,
 }: LeftSidebarProps) {
+  const { t } = useI18n();
   const mapTabId = useId();
   const filesTabId = useId();
   const keysTabId = useId();
@@ -118,7 +120,7 @@ export function LeftSidebar({
 
   return (
     <aside
-      aria-label="项目导航工作区"
+      aria-label={t('sidebar.aria')}
       className="@container flex h-full flex-col border-r border-slate-200 bg-white"
     >
       {/* Top strip aligned with the workbench header height (h-12) */}
@@ -135,8 +137,11 @@ export function LeftSidebar({
           <button
             type="button"
             onClick={onOpenWorkspaceDialog}
-            title={`当前工作区：${workspaceName}（${workspaceMode === 'api' ? '本地磁盘' : '离线内存'}）— 点击切换、新建空白工作区或导入目录`}
-            aria-label={`切换工作区，当前为 ${workspaceName}`}
+            title={t('sidebar.workspace.title', {
+              name: workspaceName,
+              mode: t(workspaceMode === 'api' ? 'sidebar.mode.api' : 'sidebar.mode.memory'),
+            })}
+            aria-label={t('sidebar.workspace.aria', { name: workspaceName })}
             className="inline-flex h-6 min-w-0 max-w-[160px] flex-1 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
           >
             <FolderOpen className="h-3 w-3 shrink-0 text-amber-600" aria-hidden="true" />
@@ -147,8 +152,8 @@ export function LeftSidebar({
             type="button"
             onClick={onCollapse}
             className="inline-flex shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white p-1.5 text-slate-600 transition-colors hover:bg-slate-50 hover:text-slate-900"
-            title="收起左侧栏 (⌘\\)"
-            aria-label="收起项目与 Map 导航栏"
+            title={t('sidebar.collapseTitle')}
+            aria-label={t('sidebar.collapseAria')}
           >
             <PanelLeftClose className="h-3.5 w-3.5" aria-hidden="true" />
           </button>
@@ -158,7 +163,7 @@ export function LeftSidebar({
       <div
         ref={tablistRef}
         {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
-        aria-label="导航视图切换"
+        aria-label={t('sidebar.viewGroup')}
         className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-4 border-b border-slate-200 bg-slate-50"
       >
         <button
@@ -170,7 +175,7 @@ export function LeftSidebar({
           className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
         >
           <FolderTree className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>文件</span>
+          <span>{t('sidebar.tab.files')}</span>
         </button>
         <button
           type="button"
@@ -181,7 +186,7 @@ export function LeftSidebar({
           className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
         >
           <Network className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Map 树</span>
+          <span>{t('sidebar.tab.map')}</span>
         </button>
         <button
           type="button"
@@ -203,7 +208,7 @@ export function LeftSidebar({
           className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
         >
           <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>版本</span>
+          <span>{t('sidebar.tab.git')}</span>
         </button>
       </div>
 

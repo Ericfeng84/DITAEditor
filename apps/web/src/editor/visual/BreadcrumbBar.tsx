@@ -1,5 +1,6 @@
 import { ChevronRight, ShieldCheck } from 'lucide-react';
 import type { BreadcrumbItem } from './selection-info';
+import { useI18n } from '../../i18n/index.js';
 
 export interface BreadcrumbBarProps {
   breadcrumbs: BreadcrumbItem[];
@@ -27,18 +28,19 @@ export function BreadcrumbBar({
   diagnosticsCount = 0,
   onToggleProblems,
 }: BreadcrumbBarProps) {
+  const { t } = useI18n();
   return (
     <footer className="flex h-7 shrink-0 items-center justify-between gap-3 border-t border-slate-200 bg-slate-50 px-3 text-[11px] text-slate-600">
       <nav
-        aria-label="DITA 元素层级面包屑"
+        aria-label={t('breadcrumb.aria')}
         className="flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto"
       >
         {mode === 'source' ? (
           <span className="text-slate-400">
-            XML 源码模式 · 切换至可视化或双栏视图可浏览交互式元素路径
+            {t('breadcrumb.sourceMode')}
           </span>
         ) : breadcrumbs.length === 0 ? (
-          <span className="text-slate-400">点击文档内任意元素查看层级路径</span>
+          <span className="text-slate-400">{t('breadcrumb.empty')}</span>
         ) : (
           breadcrumbs.map((crumb, idx) => {
             const isSelected = crumb.pos === activePos;
@@ -57,7 +59,7 @@ export function BreadcrumbBar({
                         ? 'text-amber-700 hover:bg-amber-100/70'
                         : 'text-slate-700 hover:bg-slate-200/80'
                   }`}
-                  title={`点击选中并检查 <${crumb.tagName}> 属性`}
+                  title={t('breadcrumb.selectTitle', { tag: crumb.tagName })}
                 >
                   <span>{crumb.tagName}</span>
                   {crumb.id ? (
@@ -76,7 +78,7 @@ export function BreadcrumbBar({
         )}
       </nav>
 
-      <div className="flex shrink-0 items-center gap-3 text-[11px]">
+      <div className="flex shrink-0 items-center gap-3 pr-3 text-[11px]">
         {activePath ? (
           <span className="hidden font-mono text-slate-400 lg:inline">{activePath}</span>
         ) : null}
@@ -90,17 +92,17 @@ export function BreadcrumbBar({
                 : 'text-slate-500 hover:bg-slate-200/70'
             }`}
           >
-            诊断: {diagnosticsCount}
+            {t('breadcrumb.diagnostics', { count: diagnosticsCount })}
           </button>
         ) : null}
         <span className="font-mono text-slate-500">
           {diffStats.isIdentical
-            ? '与基线 0 行差异'
-            : `Diff: ${diffStats.changedLines} 行变动`}
+            ? t('breadcrumb.diffNone')
+            : t('breadcrumb.diff', { count: diffStats.changedLines })}
         </span>
         <span className="inline-flex items-center gap-1 text-emerald-700">
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="hidden sm:inline">@dita/core 无损内核</span>
+          <span className="hidden sm:inline">{t('breadcrumb.kernel')}</span>
         </span>
       </div>
     </footer>

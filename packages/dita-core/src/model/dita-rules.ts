@@ -4,6 +4,7 @@
  * and CodeMirror 6 XML Source Editor (context-aware tag & attribute autocomplete).
  */
 
+import type { UiLocale } from '../i18n/locale.js';
 import type { XmlAttributeEntry } from '../xml/types.js';
 
 export type DitaElementCategory =
@@ -18,9 +19,13 @@ export type DitaElementCategory =
 
 export interface DitaElementSpec {
   tag: string;
+  /** English display label (OASIS terminology). */
   label: string;
   labelZh: string;
+  /** English description. */
   description: string;
+  /** Optional Chinese description; falls back to `description`. */
+  descriptionZh?: string;
   category: DitaElementCategory;
   kind: 'block' | 'inline';
   pmNodeType?: string;
@@ -37,12 +42,18 @@ export type DitaAttributeGroup =
 
 export interface DitaAttributeSpec {
   name: string;
+  /** English label. */
   label: string;
+  labelZh?: string;
   group: DitaAttributeGroup;
+  /** English description. */
   description: string;
+  descriptionZh?: string;
   required?: boolean;
   values?: readonly string[];
+  /** English placeholder. */
   placeholder?: string;
+  placeholderZh?: string;
 }
 
 export const DITA_CORE_INLINE_TAGS: readonly string[] = [
@@ -350,6 +361,287 @@ const ELEMENT_SPEC_LIST: readonly DitaElementSpec[] = [
 export const DITA_ELEMENT_SPECS: ReadonlyMap<string, DitaElementSpec> = new Map(
   ELEMENT_SPEC_LIST.map((spec) => [spec.tag, spec]),
 );
+
+// ---------------------------------------------------------------------------
+// Bilingual display helpers (Phase 8)
+// ---------------------------------------------------------------------------
+
+export const DITA_CATEGORY_LABELS: Readonly<Record<UiLocale, Readonly<Record<DitaElementCategory, string>>>> = {
+  'zh-CN': {
+    topic: '主题根元素',
+    map: 'Map 与 Bookmap',
+    structure: '结构分区',
+    task: '任务流程',
+    block: '块级内容',
+    table: '表格',
+    inline: '行内元素',
+    metadata: '元数据',
+  },
+  en: {
+    topic: 'Topic Roots',
+    map: 'Map & Bookmap',
+    structure: 'Structure',
+    task: 'Task Flow',
+    block: 'Block Content',
+    table: 'Tables',
+    inline: 'Inline Elements',
+    metadata: 'Metadata',
+  },
+};
+
+const ELEMENT_DESCRIPTIONS_ZH: Readonly<Record<string, string>> = {
+  topic: '基础 DITA 主题根元素',
+  concept: '回答“是什么”与“为什么”的概念说明主题',
+  task: '分步骤的操作任务指南',
+  reference: '结构化规格、参数与表格速查主题',
+  map: '组织主题与子地图的根导航地图',
+  bookmap: '包含前置部分、篇、章与附录的书籍地图',
+  booktitle: '书籍库、主标题与副标题的容器',
+  mainbooktitle: '书籍地图的主标题',
+  booktitlealt: '书籍地图的副标题或版次标语',
+  bookmeta: '书籍地图的出版元数据',
+  frontmatter: '章节之前的内容：目录、声明与序言',
+  backmatter: '章节之后的附记、索引与清单',
+  booklists: '自动生成的目录、插图清单或索引容器',
+  chapter: '指向主题或分组的书籍顶级章节',
+  part: '组合多个章节的书籍大分篇',
+  appendix: '书籍末尾的补充参考资料',
+  preface: '书籍前置部分中的引言叙述',
+  notices: '法律声明或安全提示',
+  topicref: '引用一个 DITA 主题或嵌套子主题引用',
+  mapref: '在此层级引用子 .ditamap 或 .bookmap',
+  topichead: '不带目标主题文件的纯标题导航节点',
+  topicgroup: '共享属性或 collection-type 的无标题逻辑分组',
+  keydef: '将 key 名称绑定到目标或内联关键字的资源型定义',
+  topicmeta: '地图条目的导航标题、关键字与元数据',
+  navtitle: '覆盖目录与 Map 树中显示的标题',
+  reltable: '定义主题之间非层级性的相关链接',
+  title: '主题、章节、插图或表格的标题',
+  shortdesc: '用于预览与搜索的简明主题摘要',
+  prolog: '作者、日期、关键字与主题元数据',
+  'related-links': '指向相关主题的交叉引用',
+  link: 'related-links 中的单条相关主题链接',
+  body: '基础主题的正文',
+  conbody: '概念主题的正文',
+  taskbody: '任务主题的结构化正文',
+  refbody: '参考主题的正文',
+  section: '主题正文中带标题的组织分区',
+  example: '用于说明概念、任务或参考用法的示例块',
+  refsyn: '参考主题中的语法签名或端点块',
+  prereq: '执行任务前需要满足的条件',
+  context: '操作流程的背景说明',
+  steps: '按顺序编号的操作步骤',
+  'steps-unordered': '不要求顺序的操作步骤',
+  step: '包含指令（cmd）的单个操作步骤',
+  cmd: '步骤中必须执行的操作指令',
+  info: '补充解释该步骤的额外细节',
+  substeps: '步骤内部嵌套的有序子步骤',
+  substep: '带 cmd 的单个嵌套子步骤',
+  choices: '完成步骤的可选分支',
+  choice: 'choices 中的单个分支选项',
+  stepxmp: '说明步骤的具体示例',
+  stepresult: '完成步骤后的预期结果',
+  result: '任务整体的预期结果',
+  postreq: '完成任务后的后续操作',
+  p: '标准文本段落',
+  note: '提示框（note、tip、caution、warning、danger）',
+  ul: '无序项目符号列表',
+  ol: '有序编号列表',
+  li: 'ul 或 ol 中的列表项',
+  dl: '术语与定义列表',
+  dlentry: '术语（dt）与解释（dd）的配对',
+  dt: 'dlentry 中定义的术语',
+  dd: '定义术语的说明',
+  codeblock: '保留空白的多行代码片段（预格式化）',
+  pre: '保留空白的预格式化文本块',
+  fig: '承载图片或代码的带标题插图容器',
+  desc: '插图或表格的题注与说明',
+  simpletable: '轻量级等列 DITA 简单表格',
+  sthead: '简单表格的表头行',
+  strow: '简单表格的表体行',
+  stentry: 'sthead 或 strow 中的单元格',
+  table: '支持标题、colspec 与合并单元格的 OASIS CALS 表格',
+  tgroup: '包含 colspec、thead 与 tbody 的列表组',
+  colspec: '定义列名、序号、宽度与对齐方式',
+  thead: 'CALS 表格的表头行区域',
+  tbody: 'CALS 表格的表体行区域',
+  row: 'CALS thead 或 tbody 中的表格行',
+  entry: 'CALS 行中的单元格（支持 namest/nameend/morerows）',
+  b: '粗体强调',
+  i: '斜体强调',
+  u: '下划线文本',
+  codeph: '行内代码片段',
+  xref: '指向其他主题、元素或外部 URL 的链接',
+  uicontrol: '按钮、菜单项或界面控件标签',
+  filepath: '文件或目录路径',
+  varname: '由读者替换的变量占位符',
+  ph: '可复用的行内短语容器（conref/keyref/条件属性）',
+  keyword: '行内关键字或 keyref 变量引用',
+  cmdname: '命令行命令名',
+  parmname: 'API 或命令行参数名',
+  userinput: '用户输入的原始文本',
+  systemoutput: '系统或终端返回的输出',
+  wintitle: '对话框、面板或窗口标题',
+  menucascade: '依次导航的 UI 菜单路径',
+  term: '术语表或技术术语引用',
+  option: '命令行标志或选项',
+  apiname: '端点、类或函数名',
+  fn: '行内脚注注释',
+  image: '引用的图片资源（行内或 placement="break"）',
+};
+
+export function getElementLabel(spec: DitaElementSpec, locale: UiLocale = 'zh-CN'): string {
+  return locale === 'en' ? spec.label : spec.labelZh;
+}
+
+export function getElementDescription(
+  spec: DitaElementSpec,
+  locale: UiLocale = 'zh-CN',
+): string {
+  return locale === 'en' ? spec.description : (spec.descriptionZh ?? ELEMENT_DESCRIPTIONS_ZH[spec.tag] ?? spec.description);
+}
+
+export function getAttributeLabel(spec: DitaAttributeSpec, locale: UiLocale = 'zh-CN'): string {
+  return locale === 'en' ? spec.label : (spec.labelZh ?? ATTRIBUTE_LABELS_ZH[spec.name] ?? spec.label);
+}
+
+export function getAttributeDescription(
+  spec: DitaAttributeSpec,
+  locale: UiLocale = 'zh-CN',
+): string {
+  return locale === 'en'
+    ? spec.description
+    : (spec.descriptionZh ?? ATTRIBUTE_DESCRIPTIONS_ZH[spec.name] ?? spec.description);
+}
+
+export function getAttributePlaceholder(
+  spec: DitaAttributeSpec,
+  locale: UiLocale = 'zh-CN',
+): string | undefined {
+  return locale === 'en' ? spec.placeholder : (spec.placeholderZh ?? spec.placeholder);
+}
+
+const ATTRIBUTE_LABELS_ZH: Readonly<Record<string, string>> = {
+  id: 'ID',
+  outputclass: '输出类',
+  'xml:lang': '语言',
+  translate: '可翻译',
+  status: '状态',
+  dir: '文本方向',
+  audience: '受众',
+  platform: '平台',
+  product: '产品',
+  otherprops: '其他属性',
+  props: '条件属性',
+  rev: '修订版本',
+  conref: '内容引用',
+  conkeyref: '键内容引用',
+  conrefend: '引用结束',
+  conaction: '内容引用动作',
+  href: '目标链接',
+  navtitle: '导航标题',
+  keys: '键名',
+  keyref: '键引用',
+  keyscope: '键作用域',
+  format: '格式',
+  scope: '范围',
+  type: '目标类型',
+  'processing-role': '处理角色',
+  toc: '包含在目录',
+  linking: '链接规则',
+  'collection-type': '集合类型',
+  chunk: '分块指令',
+  'copy-to': '复制到',
+  locktitle: '锁定标题',
+  title: '地图标题属性',
+  othertype: '自定义类型',
+  role: '关联角色',
+  alt: '替代文本',
+  placement: '放置方式',
+  align: '对齐方式',
+  width: '宽度',
+  height: '高度',
+  scalefit: '缩放适应',
+  'xml:space': 'XML 空白',
+  scale: '字号缩放 (%)',
+  frame: '边框',
+  importance: '重要性',
+  relcolwidth: '相对列宽',
+  keycol: '关键列',
+  colsep: '列分隔线',
+  rowsep: '行分隔线',
+  pgwide: '占满页宽',
+  cols: '列数',
+  colnum: '列序号',
+  colname: '列名',
+  colwidth: '列宽',
+  namest: '跨列起点',
+  nameend: '跨列终点',
+  morerows: '跨行数',
+  valign: '垂直对齐',
+  callout: '脚注符号',
+};
+
+const ATTRIBUTE_DESCRIPTIONS_ZH: Readonly<Record<string, string>> = {
+  id: '用于交叉引用（xref）与内容复用（conref）的唯一标识符',
+  outputclass: '传递给 HTML5/PDF 输出的 CSS 或发布角色提示',
+  'xml:lang': 'BCP-47 语言标签（例如 zh-CN、en-US）',
+  translate: '指示元素文本是否参与本地化',
+  status: '编辑修订状态',
+  dir: '双向文本覆盖方向',
+  audience: '用于 DITAVAL 过滤的目标读者角色',
+  platform: '目标操作系统或运行时平台',
+  product: '目标产品版本或 SKU',
+  otherprops: '自定义条件筛选标记',
+  props: '基础条件属性',
+  rev: '用于变更标记的产品/文档修订标识',
+  conref: '直接内容引用（file.dita#topicId/elemId）',
+  conkeyref: '基于 key 的内容引用（key/elemId）',
+  conrefend: '区间内容引用的结束目标',
+  conaction: '内容引用推送动作',
+  href: '指向目标 .dita 主题、子地图或资源的相对路径',
+  navtitle: '目录中显示的标题',
+  keys: '绑定到该条目的 key 名称（空格分隔）',
+  keyref: '通过根 Map 解析的间接键引用',
+  keyscope: '嵌套 key 定义的作用域前缀',
+  format: '目标文档格式',
+  scope: '目标资源范围',
+  type: '目标主题或元素类型',
+  'processing-role': '条目出现在正常输出中或仅作为资源',
+  toc: '条目是否包含在目录中',
+  linking: '控制自动相关链接的生成方式',
+  'collection-type': '子主题引用之间的同级关系语义',
+  chunk: '输出分块指令（例如 to-content、by-topic）',
+  'copy-to': '复用主题实例的备用输出文件名',
+  locktitle: '在目录中使用 navtitle 而非目标主题标题',
+  title: '旧版 @title 属性（建议改用 <title> 元素）',
+  othertype: 'type="other" 时的自定义标签',
+  role: '关联关系角色',
+  alt: '用于无障碍访问的替代文本',
+  placement: '行内流或独立块级放置',
+  align: '水平对齐方式',
+  width: '显示宽度（例如 480px、80%）',
+  height: '显示高度',
+  scalefit: '按容器边界缩放图片',
+  'xml:space': '空白处理模式',
+  scale: '相对字号百分比',
+  frame: '边框样式',
+  importance: '将步骤标记为可选或必需',
+  relcolwidth: '空格分隔的比例列宽（例如 1* 2* 3*）',
+  keycol: '作为行标题的列序号（从 1 开始）',
+  colsep: '显示垂直列分隔线',
+  rowsep: '显示水平行分隔线',
+  pgwide: '在 PDF 中占满整页宽度',
+  cols: '此 CALS tgroup 的列数',
+  colnum: '列序号（从 1 开始）',
+  colname: 'namest/nameend 使用的符号列名（例如 c1）',
+  colwidth: '比例或固定列宽（例如 1.5*、120pt）',
+  namest: '水平跨列的起始列名',
+  nameend: '水平跨列的结束列名',
+  morerows: '垂直跨行的额外行数（rowspan - 1）',
+  valign: '单元格垂直对齐方式',
+  callout: '自定义脚注标记符号（例如 *、a、1）',
+};
 
 export function getElementSpec(tagName: string): DitaElementSpec | undefined {
   return DITA_ELEMENT_SPECS.get(tagName);

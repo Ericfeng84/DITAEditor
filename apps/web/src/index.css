@@ -1797,6 +1797,22 @@ dialog.dita-dialog::backdrop {
   cursor: pointer;
 }
 
+/* English tab labels are 25–40% longer ("Map Tree", "Keys" + icons); keep them on one line
+   inside the fixed 4-column sidebar tablist instead of wrapping into a two-row header. */
+.dita-sidebar-tab {
+  white-space: nowrap;
+}
+
+:root[lang="en"] .dita-sidebar-tab {
+  font-size: 11px;
+  letter-spacing: -0.01em;
+}
+
+:root[lang="en"] .dita-sidebar-tab svg {
+  width: 12px;
+  height: 12px;
+}
+
 .dita-tab-btn:focus-visible,
 .dita-sidebar-tab:focus-visible {
   outline: 2px solid #4f46e5;
@@ -2328,4 +2344,29 @@ dialog.dita-dialog::backdrop {
   background: #fce7f3;
   border-color: #f9a8d4;
   color: #9d174d;
+}
+
+/* ---------------------------------------------------------------------------
+ * English UI labels for the section / related-links pseudo headers.
+ * `applyDocumentLocale()` (apps/web/src/i18n/locale.ts) mirrors the active UI
+ * locale onto <html lang="en"> so a pure CSS swap is enough — no re-render.
+ * ------------------------------------------------------------------------- */
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="prereq"]::before {
+  content: "Prerequisites · prereq";
+}
+
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="context"]::before {
+  content: "Context · context";
+}
+
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="result"]::before {
+  content: "Result · result";
+}
+
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="postreq"]::before {
+  content: "Post-requirements · postreq";
+}
+
+:root[lang="en"] .dita-prosemirror-doc nav[data-dita-tag="related-links"]::before {
+  content: "Related Links · related-links";
 }

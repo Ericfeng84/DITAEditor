@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { t } from '../i18n/index.js';
 import {
   cancelCheckout,
   checkinFiles,
@@ -55,6 +56,8 @@ export interface GitWorkbenchState {
   refreshAll: () => Promise<void>;
   refreshLocks: () => Promise<void>;
   refreshGit: () => Promise<void>;
+  /** Re-fetch identities so API-localized role labels follow a UI-locale switch. */
+  refreshIdentity: () => Promise<void>;
   checkout: (path: string) => Promise<FileLock | null>;
   release: (path: string) => Promise<void>;
   cancel: (path: string) => Promise<void>;
@@ -178,7 +181,7 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
       if (!user) return;
       setCurrentUserId(user.id);
       set({ currentUser: user, error: null, diff: null });
-      announce(`已切换身份：${user.displayName}（${user.role}）`);
+      announce(t('gitStatus.identitySwitched', { name: user.displayName, role: user.role }));
       set({ loading: true });
       try {
         const refreshed = await fetchIdentity();
@@ -195,6 +198,18 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
     refreshLocks,
     refreshGit,
 
+    async refreshIdentity() {
+      try {
+        const identity = await fetchIdentity();
+        const current =
+          identity.users.find((user) => user.id === get().currentUser?.id) ??
+          identity.currentUser;
+        set({ identity, currentUser: current });
+      } catch {
+        // identity text is cosmetic; keep the previous snapshot on transient errors
+      }
+    },
+
     async checkout(path) {
       set({ busyPath: path, error: null });
       try {
@@ -203,13 +218,13 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         await refreshGit().catch(() => undefined);
         announce(
           response.autoLocked
-            ? `已为新文件自动创建检出锁：${path}`
-            : `已检出 ${path}，现在可以编辑并提交`,
+            ? t('gitStatus.autoLocked', { path })
+            : t('gitStatus.checkedOut', { path }),
         );
         return response.lock ?? null;
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`检出失败：${messageOf(err)}`);
+        announce(t('gitStatus.checkoutFailed', { message: messageOf(err) }));
         return null;
       } finally {
         set({ busyPath: null });
@@ -222,10 +237,10 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         const response = await releaseLock(path);
         applyLockOperation(response);
         await refreshGit().catch(() => undefined);
-        announce(`已释放检出：${path}`);
+        announce(t('gitStatus.released', { path }));
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`释放失败：${messageOf(err)}`);
+        announce(t('gitStatus.releaseFailed', { message: messageOf(err) }));
       } finally {
         set({ busyPath: null });
       }
@@ -238,10 +253,10 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         applyLockOperation(response);
         await useEditorStore.getState().reloadFilesFromDisk([path]);
         await refreshGit().catch(() => undefined);
-        announce(`已取消检出并回滚：${path}`);
+        announce(t('gitStatus.cancelled', { path }));
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`取消检出失败：${messageOf(err)}`);
+        announce(t('gitStatus.cancelFailed', { message: messageOf(err) }));
       } finally {
         set({ busyPath: null });
       }
@@ -249,7 +264,7 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
 
     async checkin(paths, message) {
       if (paths.length === 0) {
-        set({ error: '请至少选择一个已检出的文件' });
+        set({ error: t('gitStatus.noFilesSelected') });
         return null;
       }
       set({ busyPath: paths[0] ?? null, error: null });
@@ -259,11 +274,11 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         await refreshGit().catch(() => undefined);
         await useEditorStore.getState().refreshWorkspaceTree().catch(() => undefined);
         await useEditorStore.getState().reloadFilesFromDisk(paths).catch(() => undefined);
-        announce(`已提交 ${response.commit.shortHash}：${response.commit.message}`);
+        announce(t('gitStatus.committed', { hash: response.commit.shortHash, message: response.commit.message }));
         return response;
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`提交失败：${messageOf(err)}`);
+        announce(t('gitStatus.commitFailed', { message: messageOf(err) }));
         return null;
       } finally {
         set({ busyPath: null });
@@ -278,11 +293,15 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         await useEditorStore.getState().reloadFilesFromDisk([path]);
         await refreshGit().catch(() => undefined);
         announce(
-          `已强制解锁 ${path}（原检出人：${response.released.userName}），备份补丁长度 ${response.backup.patchPreview.length} 字符`,
+          t('gitStatus.forceUnlocked', {
+            path,
+            user: response.released.userName,
+            chars: response.backup.patchPreview.length,
+          }),
         );
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`强制解锁失败：${messageOf(err)}`);
+        announce(t('gitStatus.forceUnlockFailed', { message: messageOf(err) }));
       } finally {
         set({ busyPath: null });
       }
@@ -294,12 +313,12 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         const response = await initGitRepository();
         await refreshGit();
         announce(
-          response.created ? '已初始化本地 Git 仓库并创建首个提交' : 'Git 仓库已存在',
+          response.created ? t('gitStatus.initialized') : t('gitStatus.alreadyInitialized'),
         );
         return true;
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`初始化 Git 失败：${messageOf(err)}`);
+        announce(t('gitStatus.initFailed', { message: messageOf(err) }));
         return false;
       } finally {
         set({ loading: false });
@@ -311,11 +330,11 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
       try {
         const response = await createGitBranch(name);
         await refreshGit();
-        announce(`已创建分支：${response.branch}`);
+        announce(t('gitStatus.branchCreated', { branch: response.branch }));
         return true;
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`创建分支失败：${messageOf(err)}`);
+        announce(t('gitStatus.branchCreateFailed', { message: messageOf(err) }));
         return false;
       } finally {
         set({ loading: false });
@@ -339,14 +358,14 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
           .getState()
           .reloadWorkspaceFromSnapshot(
             response.snapshot,
-            `已切换至分支 ${response.branch}：${response.workDir}`,
+            t('gitStatus.branchSwitchedPath', { branch: response.branch, path: response.workDir }),
           );
         await refreshGit().catch(() => undefined);
-        announce(`已切换至分支 ${response.branch}`);
+        announce(t('gitStatus.branchSwitched', { branch: response.branch }));
         return true;
       } catch (err) {
         set({ error: messageOf(err) });
-        announce(`切换分支失败：${messageOf(err)}`);
+        announce(t('gitStatus.branchSwitchFailed', { message: messageOf(err) }));
         return false;
       } finally {
         set({ loading: false });
@@ -371,7 +390,7 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         return diff;
       } catch (err) {
         set({ error: messageOf(err), diff: null });
-        announce(`加载差异失败：${messageOf(err)}`);
+        announce(t('gitStatus.diffFailed', { message: messageOf(err) }));
         return null;
       } finally {
         set({ diffLoading: false });
