@@ -29,7 +29,18 @@ function browserStreamStubPlugin(): Plugin {
   };
 }
 
-const site = process.env.SITE_URL ?? 'https://ditaeditor.dev';
+/** Lowercase the host so `github.repository_owner` casing never leaks into canonicals. */
+function normaliseOrigin(value: string): string {
+  try {
+    const url = new URL(value);
+    url.hostname = url.hostname.toLowerCase();
+    return url.toString().replace(/\/$/, '');
+  } catch {
+    return value.replace(/\/$/, '');
+  }
+}
+
+const site = normaliseOrigin(process.env.SITE_URL ?? 'https://ditaeditor.dev');
 // GitHub Pages project sites live under https://<user>.github.io/<repo>, so allow a sub-path base.
 const base = process.env.SITE_BASE ?? '/';
 
