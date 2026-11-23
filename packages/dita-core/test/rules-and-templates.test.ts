@@ -42,8 +42,9 @@ describe('DITA 1.3 Rules, Templates, and Bidirectional Path Mapping', () => {
   }
 
   it('enforces DITA 1.3 parent -> child content model rules', () => {
-    expect(getAllowedChildElementTags('steps')).toEqual(['step']);
+    expect(getAllowedChildElementTags('steps')).toEqual(['stepsection', 'step']);
     expect(isChildAllowed('steps', 'step')).toBe(true);
+    expect(isChildAllowed('steps', 'stepsection')).toBe(true);
     expect(isChildAllowed('steps', 'p')).toBe(false);
 
     expect(isChildAllowed('taskbody', 'steps')).toBe(true);

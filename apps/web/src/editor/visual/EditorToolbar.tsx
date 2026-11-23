@@ -451,6 +451,8 @@ export function EditorToolbar({
           )}
         </div>
       ) : null}
+
+      <span className="ml-auto" />
     </div>
   );
 }

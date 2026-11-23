@@ -8,6 +8,12 @@
 
 import type * as slimdom from 'slimdom';
 import { validateChildSequence, type StructureIssue } from '../model/dita-structure.js';
+import {
+  detectTaskContentModel,
+  resolveTaskContentModel,
+  type TaskContentModel,
+  type TaskContentModelSetting,
+} from '../model/task-model.js';
 import { checkXmlWellFormed, getNodeSourceRange } from './parser.js';
 import type { XmlParseError } from './types.js';
 
@@ -21,8 +27,14 @@ export interface XmlStructureIssue extends StructureIssue {
   endOffset: number;
 }
 
-/** Collect content-model issues from an already position-tracked document. */
-export function collectXmlStructureIssues(document: slimdom.Document): XmlStructureIssue[] {
+/**
+ * Collect content-model issues from an already position-tracked document.
+ * `taskModel` selects the task shell variant (strict by default).
+ */
+export function collectXmlStructureIssues(
+  document: slimdom.Document,
+  taskModel: TaskContentModel = 'strict',
+): XmlStructureIssue[] {
   const issues: XmlStructureIssue[] = [];
 
   const walk = (el: slimdom.Element): void => {
@@ -34,7 +46,10 @@ export function collectXmlStructureIssues(document: slimdom.Document): XmlStruct
     const childTags = children.map((child) => child.tagName);
     const contentIsReused =
       el.hasAttribute('conref') || el.hasAttribute('conkeyref');
-    for (const issue of validateChildSequence(el.tagName, childTags, { contentIsReused })) {
+    for (const issue of validateChildSequence(el.tagName, childTags, {
+      contentIsReused,
+      taskModel,
+    })) {
       const target = issue.index === undefined ? el : children[issue.index];
       const range = target ? getNodeSourceRange(target) : undefined;
       const open = range?.open;
@@ -59,9 +74,28 @@ export type XmlStructureCheckResult =
   | { ok: true; issues: XmlStructureIssue[] }
   | { ok: false; error: XmlParseError };
 
+export interface XmlStructureCheckOptions {
+  /**
+   * Task shell variant: `'auto'` (default) reads the document's `<!DOCTYPE …>` so a
+   * `generalTask.dtd` / `ditabase.dtd` topic is checked against the unconstrained model, while an
+   * explicit `'strict'` / `'general'` overrides the document.
+   */
+  taskModel?: TaskContentModelSetting;
+}
+
 /** Parse + validate; malformed XML short-circuits with the parser error. */
-export function checkXmlStructure(xml: string): XmlStructureCheckResult {
+export function checkXmlStructure(
+  xml: string,
+  options: XmlStructureCheckOptions = {},
+): XmlStructureCheckResult {
   const wellFormed = checkXmlWellFormed(xml);
   if (!wellFormed.ok) return { ok: false, error: wellFormed.error };
-  return { ok: true, issues: collectXmlStructureIssues(wellFormed.parsed.document) };
+  const taskModel = resolveTaskContentModel(
+    options.taskModel,
+    detectTaskContentModel(xml),
+  );
+  return {
+    ok: true,
+    issues: collectXmlStructureIssues(wellFormed.parsed.document, taskModel),
+  };
 }

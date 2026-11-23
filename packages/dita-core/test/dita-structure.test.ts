@@ -3,6 +3,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import {
+  checkChildRemoval,
   checkXmlStructure,
   collectXmlStructureIssues,
   createTopicTemplate,
@@ -64,13 +65,18 @@ describe('DITA 1.3 ordered content models (sequence + cardinality)', () => {
     ]);
   });
 
-  it('enforces the steps | steps-unordered | steps-informal exclusive choice inside taskbody', () => {
+  it('enforces the steps | steps-unordered exclusive choice inside taskbody', () => {
     expect(
       codes(validateChildSequence('taskbody', ['context', 'steps', 'steps-unordered'])),
     ).toContain('slot-exclusive');
+    // `<steps-informal>` belongs to the unconstrained generalTask/ditabase model only: the strict
+    // shell reports it as forbidden, while general mode turns it into an exclusive-choice conflict.
+    expect(codes(validateChildSequence('taskbody', ['steps-informal', 'steps']))).toEqual([
+      'child-not-allowed',
+    ]);
     expect(
-      codes(validateChildSequence('taskbody', ['steps-informal', 'steps'])),
-    ).toContain('slot-exclusive');
+      codes(validateChildSequence('taskbody', ['steps-informal', 'steps'], { taskModel: 'general' })),
+    ).toEqual(['slot-exclusive']);
     // Even when separated by a later slot, exclusive conflict is reported directly (not only out-of-order).
     expect(
       codes(validateChildSequence('taskbody', ['steps', 'result', 'steps-unordered'])),
@@ -192,11 +198,34 @@ describe('DITA 1.3 ordered content models (sequence + cardinality)', () => {
   });
 
   it('leaves unordered containers (including OASIS DITA 1.3 refbody) unconstrained', () => {
-    for (const parentTag of ['body', 'conbody', 'refbody', 'li', 'dd', 'note', 'entry']) {
+    // `conbody` is deliberately absent: concept.mod declares
+    // `((body.cnt)*, (section | example | conbodydiv)*)`, so it IS ordered (see next test).
+    for (const parentTag of ['body', 'refbody', 'li', 'dd', 'note', 'entry']) {
       expect(
-        validateChildSequence(parentTag, ['example', 'section', 'table', 'simpletable', 'refsyn']),
+        validateChildSequence(parentTag, ['example', 'section', 'table', 'simpletable']),
       ).toEqual([]);
     }
+    // `<body>` really is unordered — a paragraph may follow a section there.
+    expect(validateChildSequence('body', ['section', 'p'])).toEqual([]);
+  });
+
+  it('enforces the concept-body order (plain blocks before sections / examples / divisions)', () => {
+    expect(validateChildSequence('conbody', ['p', 'p', 'section', 'example'])).toEqual([]);
+    expect(validateChildSequence('conbody', ['p', 'example', 'section', 'conbodydiv'])).toEqual([]);
+    expect(validateChildSequence('conbody', ['section', 'section', 'example'])).toEqual([]);
+
+    const trailingParagraph = validateChildSequence('conbody', ['section', 'p']);
+    expect(trailingParagraph).toHaveLength(1);
+    expect(trailingParagraph[0]).toMatchObject({
+      code: 'child-out-of-order',
+      parentTag: 'conbody',
+      childTag: 'p',
+      index: 1,
+    });
+    expect(validateChildSequence('conbody', ['section', 'p', 'section'])[0]).toMatchObject({
+      childTag: 'p',
+      index: 1,
+    });
   });
 });
 
@@ -210,6 +239,8 @@ describe('sequence-aware insertion slots', () => {
   });
 
   it('places workflow elements at their sequence slot, even when existing children are misordered', () => {
+    // Strict taskbody order: `prereq?` comes before `context?`, so a late prereq insert has to
+    // jump in front of the existing `context` instead of appending after it.
     expect(getInsertionSlot('taskbody', ['context', 'result'], 'prereq')).toMatchObject({
       ok: true,
       index: 0,
@@ -412,5 +443,49 @@ describe('ProseMirror structure diagnostics', () => {
       '</taskbody></task>';
     const { pmDoc } = xmlToPmDoc(xml);
     expect(validatePmStructure(pmDoc)).toEqual([]);
+  });
+});
+
+describe('structure-aware removal guard', () => {
+  it('refuses removing the root element', () => {
+    expect(checkChildRemoval('', 'task', ['title', 'taskbody'])).toEqual({
+      code: 'root-element',
+      parentTag: '',
+      childTag: 'task',
+    });
+  });
+
+  it('protects DTD-required body wrappers the sequence model keeps optional', () => {
+    // Editor policy (not a DTD rule): `<taskbody>` is optional in task.content, but the visual
+    // editor needs it as the mount point for every task block.
+    expect(checkChildRemoval('task', 'taskbody', ['title', 'taskbody'])).toEqual({
+      code: 'required-policy',
+      parentTag: 'task',
+      childTag: 'taskbody',
+    });
+    // `<body>` / `<conbody>` / `<refbody>` really are optional in the DITA 1.3 content model.
+    expect(checkChildRemoval('concept', 'conbody', ['title', 'conbody'])).toBeNull();
+  });
+
+  it('protects children of a `required` slot', () => {
+    expect(checkChildRemoval('step', 'cmd', ['cmd'])).toMatchObject({ code: 'required-child' });
+    expect(checkChildRemoval('tgroup', 'tbody', ['colspec', 'tbody'])).toMatchObject({
+      code: 'required-child',
+    });
+  });
+
+  it('keeps the last item of a `oneOrMore` slot', () => {
+    expect(checkChildRemoval('steps', 'step', ['step'])).toMatchObject({
+      code: 'last-of-one-or-more',
+    });
+    expect(checkChildRemoval('steps', 'step', ['step', 'step'])).toBeNull();
+    expect(checkChildRemoval('ul', 'li', ['li'])).toMatchObject({ code: 'last-of-one-or-more' });
+  });
+
+  it('allows removing optional and zero-or-more children', () => {
+    expect(checkChildRemoval('task', 'shortdesc', ['title', 'shortdesc', 'taskbody'])).toBeNull();
+    expect(checkChildRemoval('task', 'related-links', ['title', 'related-links'])).toBeNull();
+    expect(checkChildRemoval('body', 'p', ['p', 'p'])).toBeNull();
+    expect(checkChildRemoval('section', 'p', ['title', 'p'])).toBeNull();
   });
 });

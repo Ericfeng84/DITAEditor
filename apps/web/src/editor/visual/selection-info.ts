@@ -15,7 +15,9 @@ import {
   pmHasMultipleTgroups,
   type DitaElementSpec,
   type RawAttrs,
+  type TaskContentModel,
 } from '@dita/core';
+import { resolveTaskModelForDocument } from '../structure-options';
 
 export interface BreadcrumbItem {
   depth: number;
@@ -151,7 +153,8 @@ export function getSelectionSnapshot(
   }
 
   // Build context-aware insert groups (inline at current textblock + block in enclosing containers)
-  const insertGroups = buildInsertContextGroups(breadcrumbs);
+  const taskModel = resolveTaskModelForDocument(doc);
+  const insertGroups = buildInsertContextGroups(breadcrumbs, taskModel);
 
   // Detect active table context
   const tableInfo = extractActiveTableInfo(state, breadcrumbs);
@@ -171,7 +174,10 @@ export function getSelectionSnapshot(
   };
 }
 
-function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextGroup[] {
+function buildInsertContextGroups(
+  breadcrumbs: BreadcrumbItem[],
+  taskModel: TaskContentModel = 'strict',
+): InsertContextGroup[] {
   const groups: InsertContextGroup[] = [];
   const seenTags = new Set<string>();
 
@@ -179,7 +185,7 @@ function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextG
 
   // 1. Inline elements allowed inside the deepest textblock/inline container
   const deepest = breadcrumbs[breadcrumbs.length - 1]!;
-  const inlineCandidates = getAllowedChildElements(deepest.tagName, 'inline');
+  const inlineCandidates = getAllowedChildElements(deepest.tagName, 'inline', taskModel);
   if (inlineCandidates.length > 0) {
     groups.push({
       containerTag: deepest.tagName,
@@ -198,21 +204,31 @@ function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextG
     const crumb = breadcrumbs[i]!;
     if (crumb.node.isInline) continue;
 
-    const blockCandidates = getAllowedChildElements(crumb.tagName, 'block').filter((spec) => {
-      // Avoid offering redundant inline-only items here, and avoid duplicate block tags across nested levels
-      if (seenTags.has(`block:${spec.tag}`)) return false;
-      // Don't offer inserting <p> directly inside <p> textblock when a parent container already accepts <p>
-      if (crumb.tagName === 'p' && spec.tag === 'p') return false;
-      // Keep structural table sub-elements managed by dedicated table toolbar, not cluttering generic insert
-      if (
-        ['sthead', 'strow', 'stentry', 'tgroup', 'colspec', 'thead', 'tbody', 'row', 'entry'].includes(
-          spec.tag,
-        )
-      ) {
-        return false;
-      }
-      return true;
-    });
+    const blockCandidates = getAllowedChildElements(crumb.tagName, 'block', taskModel).filter(
+      (spec) => {
+        // Avoid offering redundant inline-only items here, and avoid duplicate block tags across nested levels
+        if (seenTags.has(`block:${spec.tag}`)) return false;
+        // Don't offer inserting <p> directly inside <p> textblock when a parent container already accepts <p>
+        if (crumb.tagName === 'p' && spec.tag === 'p') return false;
+        // Keep structural table sub-elements managed by dedicated table toolbar, not cluttering generic insert
+        if (
+          [
+            'sthead',
+            'strow',
+            'stentry',
+            'tgroup',
+            'colspec',
+            'thead',
+            'tbody',
+            'row',
+            'entry',
+          ].includes(spec.tag)
+        ) {
+          return false;
+        }
+        return true;
+      },
+    );
 
     if (blockCandidates.length > 0) {
       // DITA 1.3 cardinality / choice filter: do not offer a slot that is already filled
@@ -222,6 +238,7 @@ function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextG
           crumb.tagName,
           getPmChildTags(crumb.node),
           blockCandidates.map((spec) => spec.tag),
+          taskModel,
         ),
       );
       const availableCandidates = blockCandidates.filter((spec) => insertable.has(spec.tag));
@@ -337,10 +354,11 @@ export function findLegalAncestorDepthForBlock(
     if (['p', 'title', 'shortdesc', 'cmd', 'dt', 'desc', 'codeblock', 'pre'].includes(parentTag)) {
       continue;
     }
-    const allowed = getAllowedChildElements(parentTag, 'block');
+    const taskModel = resolveTaskModelForDocument(state.doc);
+    const allowed = getAllowedChildElements(parentTag, 'block', taskModel);
     if (
       allowed.some((s) => s.tag === tagName) &&
-      getInsertionSlot(parentTag, getPmChildTags(node), tagName).ok
+      getInsertionSlot(parentTag, getPmChildTags(node), tagName, undefined, taskModel).ok
     ) {
       return d;
     }
@@ -359,7 +377,7 @@ export function isInlineTagAllowedAtSelection(state: EditorState, tagName: strin
   for (let d = $from.depth; d >= 1; d--) {
     const parentTag = getPmNodeTagName($from.node(d));
     if (!parentTag) continue;
-    const allowed = getAllowedChildElements(parentTag, 'inline');
+    const allowed = getAllowedChildElements(parentTag, 'inline', resolveTaskModelForDocument(state.doc));
     if (allowed.length === 0 && isUnknownPmNode($from.node(d))) {
       return true;
     }

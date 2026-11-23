@@ -47,6 +47,8 @@ export const coreMessagesZh = {
   'structure.missingRequiredChild': '<{parent}> 缺少必需的子元素 <{child}>',
   'structure.childCardinality': '<{parent}> 中 <{child}> 最多只能出现一次',
   'structure.slotExclusive': '<{parent}> 中 {expected} 只能选择其一，不能与 <{child}> 同时出现',
+  'structure.childNotAllowed':
+    '严格任务模型（task.dtd）不允许 <{parent}> 中出现 <{child}>；可改用 generalTask.dtd / ditabase.dtd，或删除该元素',
 
   // AI target extraction
   'ai.unsupportedMode': '不支持的 AI 定位模式：{mode}',
@@ -140,6 +142,8 @@ export const coreMessagesEn: Record<CoreMessageKey, string> = {
   'structure.missingRequiredChild': '<{parent}> is missing the required child <{child}>',
   'structure.childCardinality': '<{child}> may appear at most once inside <{parent}>',
   'structure.slotExclusive': 'Inside <{parent}>, {expected} is a choice — <{child}> cannot appear together with it',
+  'structure.childNotAllowed':
+    'The strict task model (task.dtd) does not allow <{child}> inside <{parent}>; switch to generalTask.dtd / ditabase.dtd or remove the element',
 
   'ai.unsupportedMode': 'Unsupported AI targeting mode: {mode}',
   'ai.elementPathRequired': 'Element targeting requires elementPath ([] = root element, [0] = first element child).',

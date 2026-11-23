@@ -2,6 +2,7 @@ import { linter, type Diagnostic } from '@codemirror/lint';
 import { checkXmlStructure } from '@dita/core';
 import { getCurrentLocale, translate } from '../../i18n/index.js';
 import { describeStructureIssue } from '../structure-messages.js';
+import { getTaskContentModelSetting } from '../structure-options';
 
 /**
  * CodeMirror 6 real-time XML linter backed directly by `@dita/core`:
@@ -28,7 +29,9 @@ export function createDitaXmlLinter() {
         ];
       }
 
-      const structure = checkXmlStructure(xml);
+      // `auto` (the default) resolves the task shell from this document's own DOCTYPE, so a
+      // `generalTask.dtd` / `ditabase.dtd` topic is linted with the unconstrained taskbody model.
+      const structure = checkXmlStructure(xml, { taskModel: getTaskContentModelSetting() });
       const docLength = view.state.doc.length;
       if (!structure.ok) {
         const { line, column, message, offset } = structure.error;

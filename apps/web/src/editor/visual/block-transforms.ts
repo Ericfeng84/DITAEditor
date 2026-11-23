@@ -2,13 +2,21 @@ import { Fragment, type Node as PMNode } from 'prosemirror-model';
 import type { EditorState } from 'prosemirror-state';
 import {
   DITA_CONTENT_MODEL,
+  checkChildRemoval,
   ditaSchema,
   getAllowedChildElements,
   getElementSpec,
+  getInsertableTagsBySequence,
+  getPmChildTags,
   getPmNodeTagName,
+  hasSequenceModel,
   isChildAllowed,
+  validateChildSequence,
+  type ChildRemovalObstacle,
   type DitaElementSpec,
+  type TaskContentModel,
 } from '@dita/core';
+import { resolveTaskModelForDocument } from '../structure-options';
 
 /**
  * Block containers whose children can be reordered with the Notion-style drag handle.
@@ -17,9 +25,14 @@ import {
  */
 export const BLOCK_CONTAINER_TAGS: ReadonlySet<string> = new Set([
   'body',
+  'bodydiv',
   'conbody',
+  'conbodydiv',
+  'sectiondiv',
   'taskbody',
   'refbody',
+  'refbodydiv',
+  'properties',
   'abstract',
   'section',
   'example',
@@ -31,6 +44,16 @@ export const BLOCK_CONTAINER_TAGS: ReadonlySet<string> = new Set([
   'choices',
   'result',
   'postreq',
+  'tasktroubleshooting',
+  'steps-informal',
+  'steptroubleshooting',
+  'tutorialinfo',
+  'itemgroup',
+  'choicetable',
+  'related-links',
+  'linklist',
+  'linkpool',
+  'linkinfo',
   'step',
   'note',
   'li',
@@ -152,6 +175,73 @@ export interface BlockHandleTarget {
   containerDepth: number;
   containerNode: PMNode;
   containerTag: string;
+  /**
+   * Dragging is only offered inside a movable container (a reorderable sibling list) and never
+   * for pinned blocks (`<title>` / `<shortdesc>` / `<prolog>`), whose position is model-defined.
+   */
+  movable: boolean;
+  /** `null` when the block may be deleted; otherwise the content-model reason it may not. */
+  deleteObstacle: ChildRemovalObstacle | null;
+}
+
+function buildBlockHandleTarget(
+  blockNode: PMNode,
+  blockPos: number,
+  containerNode: PMNode,
+  containerPos: number,
+  containerDepth: number,
+  taskModel: TaskContentModel = 'strict',
+): BlockHandleTarget | null {
+  const blockTag = getPmNodeTagName(blockNode);
+  const containerTag = getPmNodeTagName(containerNode);
+  if (!blockTag || !containerTag) return null;
+  const movable = BLOCK_CONTAINER_TAGS.has(containerTag) && !PINNED_BLOCK_TAGS.has(blockTag);
+  return {
+    blockPos,
+    blockNode,
+    blockTag,
+    containerPos,
+    containerDepth,
+    containerNode,
+    containerTag,
+    movable,
+    deleteObstacle: checkChildRemoval(
+      containerTag,
+      blockTag,
+      getPmChildTags(containerNode),
+      taskModel,
+    ),
+  };
+}
+
+/**
+ * Resolve the block handle target for an explicitly selected element (tag pill, breadcrumb,
+ * attribute inspector). Unlike the caret-based walk this also covers pinned blocks
+ * (`<shortdesc>`, `<prolog>`) and structural children of a topic root (`<taskbody>`, `<steps>`),
+ * so those elements get the same quick tools without becoming draggable.
+ */
+export function findBlockHandleTargetForNode(
+  state: EditorState,
+  nodePos: number,
+): BlockHandleTarget | null {
+  if (nodePos <= 0 || nodePos >= state.doc.content.size) return null;
+  const node = state.doc.nodeAt(nodePos);
+  if (!node || node.isInline || !node.type.isBlock) return null;
+  let $pos;
+  try {
+    $pos = state.doc.resolve(nodePos);
+  } catch {
+    return null;
+  }
+  if ($pos.depth < 1) return null;
+  return buildBlockHandleTarget(
+    node,
+    nodePos,
+    $pos.parent,
+    $pos.before($pos.depth),
+    $pos.depth,
+    resolveTaskModelForDocument(state.doc),
+  );
 }
 
 /**
@@ -176,17 +266,71 @@ export function findBlockHandleTarget(state: EditorState, pos: number): BlockHan
     const parent = $pos.node(depth - 1);
     const parentTag = getPmNodeTagName(parent);
     if (!parentTag || !BLOCK_CONTAINER_TAGS.has(parentTag)) continue;
-    return {
-      blockPos: $pos.before(depth),
-      blockNode: node,
-      blockTag: tag,
-      containerPos: $pos.before(depth - 1),
-      containerDepth: depth - 1,
-      containerNode: parent,
-      containerTag: parentTag,
-    };
+    return buildBlockHandleTarget(
+      node,
+      $pos.before(depth),
+      parent,
+      $pos.before(depth - 1),
+      depth - 1,
+      resolveTaskModelForDocument(state.doc),
+    );
   }
   return null;
+}
+
+/** Whether duplicating `blockTag` stays legal for the container's content model (one-shot slots are not). */
+export function canDuplicateBlock(
+  containerTag: string,
+  containerNode: PMNode,
+  blockTag: string,
+  taskModel: TaskContentModel = 'strict',
+): boolean {
+  return (
+    getInsertableTagsBySequence(containerTag, getPmChildTags(containerNode), [blockTag], taskModel)
+      .length > 0
+  );
+}
+
+/** Index of the handled block among its container's children, or -1 when it is not a child. */
+export function blockIndexInContainer(target: BlockHandleTarget): number {
+  return blockIndexInParent(target.containerPos, target.containerNode, target.blockPos);
+}
+
+/** Index of the child at `childPos` inside `parentNode` (whose own document position is `parentPos`). */
+export function blockIndexInParent(
+  parentPos: number,
+  parentNode: PMNode,
+  childPos: number,
+): number {
+  let offset = parentPos + 1;
+  for (let index = 0; index < parentNode.childCount; index += 1) {
+    if (offset === childPos) return index;
+    offset += parentNode.child(index)!.nodeSize;
+  }
+  return -1;
+}
+
+/**
+ * Whether dropping the block at `gapIndex` (the boundary before child `gapIndex`) keeps the ordered
+ * content model valid — e.g. `<prereq>` must never land after `<steps>` inside `<taskbody>`.
+ * Reordering only ever changes order, so `child-out-of-order` is the only issue that can appear.
+ */
+export function isBlockMoveOrderSafe(
+  containerTag: string,
+  childTags: readonly string[],
+  fromIndex: number,
+  gapIndex: number,
+): boolean {
+  if (fromIndex < 0 || fromIndex >= childTags.length) return false;
+  if (!hasSequenceModel(containerTag)) return true;
+  if (gapIndex === fromIndex || gapIndex === fromIndex + 1) return false;
+  const reordered = [...childTags];
+  const moved = reordered.splice(fromIndex, 1)[0];
+  if (moved === undefined) return false;
+  reordered.splice(gapIndex > fromIndex ? gapIndex - 1 : gapIndex, 0, moved);
+  return !validateChildSequence(containerTag, reordered).some(
+    (issue) => issue.code === 'child-out-of-order',
+  );
 }
 
 /** Gap positions (before the first child, between children, after the last one). */

@@ -24,12 +24,15 @@ import {
 import type {
   DitaProfilingAttrName,
   KeyspaceResult,
+  TaskContentModel,
+  TaskContentModelSetting,
   TopicIdIndexEntry,
   XmlParseError,
 } from '@dita/core';
 import { AlertTriangle, Check, Copy, LocateFixed, Sparkles } from 'lucide-react';
 import { formatDitaXml } from '../bridge/xml-bridge';
 import { getCurrentLocale, translate, useI18n } from '../../i18n/index.js';
+import { TaskModelSwitch } from '../../components/TaskModelSwitch';
 import {
   createDitaXmlCompletionSource,
   type SourceSemanticCompletionContext,
@@ -55,6 +58,17 @@ export interface SourceEditorProps {
   onReplacementApplied?: () => void;
   /** Opens the AI assistant to repair the current well-formedness error. */
   onAiFixXmlError?: () => void;
+  /**
+   * Task content-model preference; `auto` follows this document's DOCTYPE.
+   * The switch itself (`TaskModelSwitch`) is rendered in this toolbar for `<task>` topics only;
+   * changing it also forces a re-lint of the buffer.
+   */
+  taskModelSetting?: TaskContentModelSetting;
+  /** Model `auto` currently resolves to for this document (shown next to the switch). */
+  resolvedTaskModel?: TaskContentModel;
+  onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
+  /** Only `<task>` topics expose the strict / general switch. */
+  showTaskModelSwitch?: boolean;
 }
 
 const sourceEditorTheme = EditorView.theme({
@@ -133,6 +147,10 @@ export function SourceEditor({
   replacementXml = null,
   onReplacementApplied,
   onAiFixXmlError,
+  taskModelSetting = 'auto',
+  resolvedTaskModel = 'strict',
+  onChangeTaskModelSetting,
+  showTaskModelSwitch = false,
 }: SourceEditorProps) {
   const { t, locale } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -230,6 +248,13 @@ export function SourceEditor({
     if (!view) return;
     forceLinting(view);
   }, [locale]);
+
+  // Re-lint when the task content model changes (strict <-> general), without touching the buffer.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    forceLinting(view);
+  }, [taskModelSetting]);
 
   // Sync external XML updates (from Visual edits or document switch) without losing scroll/focus unnecessarily
   useEffect(() => {
@@ -334,6 +359,14 @@ export function SourceEditor({
         </div>
 
         <div className="flex items-center gap-2">
+          {showTaskModelSwitch && onChangeTaskModelSetting ? (
+            <TaskModelSwitch
+              setting={taskModelSetting}
+              resolved={resolvedTaskModel}
+              variant="dark"
+              onChange={onChangeTaskModelSetting}
+            />
+          ) : null}
           <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[11px] text-slate-300">
             Ln {cursorPos.line}, Col {cursorPos.col}
           </span>

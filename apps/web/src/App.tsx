@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import {
+  detectTaskContentModel,
   dirnamePosix,
   type DitaTopicTemplateType,
   type RawAttrs,
@@ -64,6 +65,10 @@ import {
   type EditorViewMode,
 } from './store/editor-store';
 import { useGitStore } from './store/git-store';
+import {
+  setDetectedTaskContentModel,
+  shouldShowTaskModelSwitch,
+} from './editor/structure-options';
 
 export function App() {
   const { t, locale } = useI18n();
@@ -102,6 +107,8 @@ export function App() {
   const selectedMapNode = useEditorStore((s) => s.selectedMapNode);
   const problemsOpen = useEditorStore((s) => s.problemsOpen);
   const tagDisplayMode = useEditorStore((s) => s.tagDisplayMode);
+  const taskModelSetting = useEditorStore((s) => s.taskModelSetting);
+  const setTaskModelSetting = useEditorStore((s) => s.setTaskModelSetting);
   const statusMessage = useEditorStore((s) => s.statusMessage);
   const pendingSourceOffset = useEditorStore((s) => s.pendingSourceOffset);
   const pendingVisualPmPos = useEditorStore((s) => s.pendingVisualPmPos);
@@ -259,6 +266,17 @@ export function App() {
     [openTabs, activeTabPath],
   );
   const diffStats = useMemo(() => getTabDiffStats(activeTab), [activeTab]);
+  // Task content model: `auto` follows the open document's <!DOCTYPE>, so mirror the detection into
+  // the React-free helper used by commands / block transforms / the Source linter.
+  const detectedTaskModel = useMemo(
+    () => detectTaskContentModel(activeTab?.xml),
+    [activeTab?.xml],
+  );
+  const resolvedTaskModel = taskModelSetting === 'auto' ? detectedTaskModel : taskModelSetting;
+  const showTaskModelSwitch = shouldShowTaskModelSwitch(activeTab?.docType);
+  useEffect(() => {
+    setDetectedTaskContentModel(detectedTaskModel);
+  }, [detectedTaskModel]);
   const [diffDialogOpen, setDiffDialogOpen] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [checkinPaths, setCheckinPaths] = useState<string[]>([]);
@@ -1187,6 +1205,10 @@ export function App() {
                                         reloadToken={activeTab.visualReloadToken}
                                         tagDisplayMode={tagDisplayMode}
                                         onChangeTagDisplayMode={setTagDisplayMode}
+                                        taskModelSetting={taskModelSetting}
+                                        resolvedTaskModel={resolvedTaskModel}
+                                        onChangeTaskModelSetting={setTaskModelSetting}
+                                        showTaskModelSwitch={showTaskModelSwitch}
                                         pendingJumpPos={pendingVisualPmPos}
                                         onJumpHandled={clearPendingVisualPmPos}
                                         onXmlChange={updateXmlFromVisual}
@@ -1238,6 +1260,10 @@ export function App() {
                                       keyspace={keyspace}
                                       topicIndices={topicIndices}
                                       profilingCatalog={profilingCatalog}
+                                      taskModelSetting={taskModelSetting}
+                                      resolvedTaskModel={resolvedTaskModel}
+                                      onChangeTaskModelSetting={setTaskModelSetting}
+                                      showTaskModelSwitch={showTaskModelSwitch}
                                       readOnly={!canEdit}
                                     />
                                   </Panel>

@@ -16,6 +16,7 @@ import {
   type KeyspaceResult,
   type TopicIdIndexEntry,
 } from '@dita/core';
+import { resolveTaskModelForXml } from '../structure-options';
 
 export interface SourceSemanticCompletionContext {
   keyspace?: KeyspaceResult | null;
@@ -151,14 +152,17 @@ export function createDitaXmlCompletionSource(
       const afterCursor = context.state.doc.sliceString(context.pos);
       const { parentTag, directChildren } = findEnclosingXmlContext(beforeLt, afterCursor);
 
+      // Task shell follows the document DOCTYPE (or the explicit override), so a generalTask topic
+      // keeps offering `section` / `steps-informal` inside `<taskbody>`.
+      const taskModel = resolveTaskModelForXml(context.state.doc.toString());
       const rawAllowedTags = parentTag
-        ? getAllowedChildElementTags(parentTag)
+        ? getAllowedChildElementTags(parentTag, taskModel)
         : ['concept', 'task', 'reference', 'topic', 'map', 'bookmap'];
 
       // Filter out already-filled single-occurrence slots & exclusive alternatives (e.g. steps | steps-unordered)
       const allowedTags =
         parentTag && rawAllowedTags.length > 0 && hasSequenceModel(parentTag)
-          ? getInsertableTagsBySequence(parentTag, directChildren, rawAllowedTags)
+          ? getInsertableTagsBySequence(parentTag, directChildren, rawAllowedTags, taskModel)
           : rawAllowedTags;
 
       const candidateTags =

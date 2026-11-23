@@ -26,6 +26,9 @@
 
 import type { UiLocale } from '../i18n/locale.js';
 import { coreT, type CoreMessageKey } from '../i18n/messages.js';
+import { DITA_BLOCK_TAGS } from './dita-elements.js';
+import { getAllowedChildElementTags } from './dita-rules.js';
+import type { TaskContentModel } from './task-model.js';
 
 /** DTD-style occurrence indicator for one content-model slot. */
 export type SequenceOccurrence = 'required' | 'optional' | 'zeroOrMore' | 'oneOrMore';
@@ -44,7 +47,13 @@ export type StructureIssueCode =
   /** A `?` / bare slot received more than one child. */
   | 'child-cardinality'
   /** Two different alternatives of a single-occurrence `|` slot appear together (e.g. `steps` + `steps-unordered`). */
-  | 'slot-exclusive';
+  | 'slot-exclusive'
+  /**
+   * A known DITA element the container's variant forbids — e.g. `<section>` or `<steps-informal>`
+   * inside `<taskbody>` under the strict `task.dtd` model. Unknown / specialized elements never
+   * produce this issue, so passthrough content stays lossless.
+   */
+  | 'child-not-allowed';
 
 export interface StructureIssue {
   code: StructureIssueCode;
@@ -64,6 +73,7 @@ export const STRUCTURE_MESSAGE_KEYS = {
   'missing-required-child': 'structure.missingRequiredChild',
   'child-cardinality': 'structure.childCardinality',
   'slot-exclusive': 'structure.slotExclusive',
+  'child-not-allowed': 'structure.childNotAllowed',
 } as const satisfies Record<StructureIssueCode, CoreMessageKey>;
 
 export interface StructureIssueMessageInput {
@@ -111,6 +121,71 @@ const OPEN_TAIL_CONTAINERS: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Strict Task body (`task.dtd` + `strictTaskbodyConstraint.mod`):
+ * `(prereq?, context?, (steps | steps-unordered)?, result?, tasktroubleshooting?,
+ *   example?, postreq?)`
+ * Every slot is single-occurrence and ordered; `<section>` / `<steps-informal>` are not allowed.
+ */
+const STRICT_TASKBODY_SLOTS: readonly DitaSequenceSlot[] = [
+  optional('prereq'),
+  optional('context'),
+  optional('steps', 'steps-unordered'),
+  optional('result'),
+  optional('tasktroubleshooting'),
+  optional('example'),
+  optional('postreq'),
+];
+
+/**
+ * Unconstrained Task body (`generalTask.dtd` / `ditabase.dtd`, plain `task.mod`):
+ * `((prereq | context | section)*, (steps | steps-unordered | steps-informal)?, result?,
+ *   tasktroubleshooting?, example*, postreq*)`
+ * The three leading prose containers share ONE repeating mixed slot because the DTD lets them
+ * interleave freely; splitting them into ordered slots would fabricate `child-out-of-order`.
+ */
+const GENERAL_TASKBODY_SLOTS: readonly DitaSequenceSlot[] = [
+  many('prereq', 'context', 'section'),
+  optional('steps', 'steps-unordered', 'steps-informal'),
+  optional('result'),
+  optional('tasktroubleshooting'),
+  many('example'),
+  many('postreq'),
+];
+
+/** Slot lists that differ between the strict and the general DITA 1.3 task shells. */
+/**
+ * Elements a container accepts only outside the strict task shell. `task.dtd` pulls in
+ * `strictTaskbodyConstraint.mod`, which narrows `<taskbody>` to
+ * `(prereq?, context?, (steps|steps-unordered)?, result?, tasktroubleshooting?, example?, postreq?)`,
+ * so `<section>` and `<steps-informal>` are illegal there while `generalTask.dtd` / `ditabase.dtd`
+ * allow them. Unknown / specialized elements are never listed here — they stay lossless.
+ */
+const STRICT_FORBIDDEN_CHILDREN: Readonly<Record<string, readonly string[]>> = {
+  taskbody: ['section', 'steps-informal'],
+};
+
+export const GENERAL_TASK_SEQUENCE_OVERRIDES: Readonly<
+  Record<string, readonly DitaSequenceSlot[]>
+> = {
+  taskbody: GENERAL_TASKBODY_SLOTS,
+};
+
+/**
+ * Ordered content model of `parentTag` for the given task shell.
+ * Non-task containers are identical in both variants.
+ */
+export function getSequenceSlots(
+  parentTag: string,
+  taskModel: TaskContentModel = 'strict',
+): readonly DitaSequenceSlot[] | undefined {
+  if (taskModel === 'general') {
+    const override = GENERAL_TASK_SEQUENCE_OVERRIDES[parentTag];
+    if (override) return override;
+  }
+  return DITA_SEQUENCE_MODEL[parentTag];
+}
+
+/**
  * DITA 1.3 ordered content models, restricted to the containers whose declared order matters
  * (topic roots, strict task workflow, lists, figures/tables, links and prolog).
  *
@@ -127,6 +202,7 @@ export const DITA_SEQUENCE_MODEL: Readonly<Record<string, readonly DitaSequenceS
     optional('prolog'),
     optional('body'),
     optional('related-links'),
+    many('topic'),
   ],
   concept: [
     required('title'),
@@ -135,6 +211,7 @@ export const DITA_SEQUENCE_MODEL: Readonly<Record<string, readonly DitaSequenceS
     optional('prolog'),
     optional('conbody'),
     optional('related-links'),
+    many('concept'),
   ],
   task: [
     required('title'),
@@ -143,6 +220,7 @@ export const DITA_SEQUENCE_MODEL: Readonly<Record<string, readonly DitaSequenceS
     optional('prolog'),
     optional('taskbody'),
     optional('related-links'),
+    many('task'),
   ],
   reference: [
     required('title'),
@@ -151,19 +229,36 @@ export const DITA_SEQUENCE_MODEL: Readonly<Record<string, readonly DitaSequenceS
     optional('prolog'),
     optional('refbody'),
     optional('related-links'),
+    many('reference'),
   ],
 
-  // Strict Task body (OASIS DITA 1.3 task.dtd / strictTaskbodyConstraint.mod):
-  // ((prereq)?, (context)?, (steps | steps-unordered | steps-informal)?, (result)?, (tasktroubleshooting)?, (example)?, (postreq)?)
-  taskbody: [
-    optional('prereq'),
-    optional('context'),
-    optional('steps', 'steps-unordered', 'steps-informal'),
-    optional('result'),
-    optional('tasktroubleshooting'),
-    optional('example'),
-    optional('postreq'),
+  // Task body — default is Strict Task (OASIS DITA 1.3 `task.dtd`, which pulls in
+  // `strictTaskbodyConstraint.mod`); `GENERAL_TASK_SEQUENCE_OVERRIDES` below swaps in the
+  // unconstrained `generalTask.dtd` / `ditabase.dtd` model when that shell is selected.
+  taskbody: STRICT_TASKBODY_SLOTS,
+
+  // Concept body — OASIS DITA 1.3 `concept.mod`: ((body.cnt)*, (section | example | conbodydiv)*).
+  // Plain blocks must all precede the section/example divisions, which is exactly the rule such
+  // guides call “no orphan paragraph after a section”. `<body>` is genuinely unordered
+  // (`topic.mod`: (body.cnt | bodydiv | example | section)*), so it gets no slots.
+  conbody: [
+    many(
+      'p',
+      'note',
+      'hazardstatement',
+      'ul',
+      'ol',
+      'dl',
+      'codeblock',
+      'pre',
+      'fig',
+      'image',
+      'simpletable',
+      'table',
+    ),
+    many('section', 'example', 'conbodydiv'),
   ],
+  conbodydiv: [many('section', 'example')],
 
   // Title-first open-tail containers
   section: [optional('title')],
@@ -174,6 +269,11 @@ export const DITA_SEQUENCE_MODEL: Readonly<Record<string, readonly DitaSequenceS
   // Tables (OASIS CALS + DITA simpletable)
   table: [optional('title'), optional('desc'), some('tgroup')],
   simpletable: [optional('sthead'), some('strow')],
+
+  // Reference parameter tables (reference.mod: `properties = (prophead?, property+)`).
+  properties: [optional('prophead'), some('property')],
+  prophead: [optional('proptypehd'), optional('propvaluehd'), optional('propdeschd')],
+  property: [optional('proptype'), optional('propvalue'), optional('propdesc')],
   tgroup: [many('colspec'), optional('thead'), required('tbody')],
 
   // Task workflow (OASIS DITA 1.3 task.mod)
@@ -195,9 +295,16 @@ export const DITA_SEQUENCE_MODEL: Readonly<Record<string, readonly DitaSequenceS
   ],
   choices: [some('choice')],
 
+  // topic.mod `titlealts.content` = (navtitle?, searchtitle?)
+  titlealts: [optional('navtitle'), optional('searchtitle')],
+
   // Links & metadata (OASIS DITA 1.3 topic.mod / metaDecl.mod)
   'related-links': [many('link', 'linklist', 'linkpool')],
   link: [optional('linktext'), optional('desc')],
+  // topic.mod `linklist.content` = (title?, desc?, (linklist | link)*, linkinfo?)
+  linklist: [optional('title'), optional('desc'), many('link', 'linklist'), optional('linkinfo')],
+  // topic.mod `linkpool.content` = (linkpool | link)*
+  linkpool: [many('link', 'linkpool')],
   prolog: [
     many('author'),
     optional('source'),
@@ -243,8 +350,12 @@ function resolveRank(
 }
 
 /** Whether this tag is declared by the ordered content model of `parentTag`. */
-export function isSequenceTag(parentTag: string, tag: string): boolean {
-  const slots = DITA_SEQUENCE_MODEL[parentTag];
+export function isSequenceTag(
+  parentTag: string,
+  tag: string,
+  taskModel: TaskContentModel = 'strict',
+): boolean {
+  const slots = getSequenceSlots(parentTag, taskModel);
   if (!slots) return false;
   return findSlotIndex(slots, tag) !== UNKNOWN_RANK;
 }
@@ -261,6 +372,8 @@ export interface SequenceValidationOptions {
    * as a missing required child.
    */
   contentIsReused?: boolean;
+  /** Task shell variant: `strict` (default, `task.dtd`) or `general` (`generalTask.dtd`). */
+  taskModel?: TaskContentModel;
 }
 
 /**
@@ -272,8 +385,9 @@ export function validateChildSequence(
   childTags: readonly string[],
   options: SequenceValidationOptions = {},
 ): StructureIssue[] {
-  const slots = DITA_SEQUENCE_MODEL[parentTag];
-  if (!slots) return [];
+  const membershipIssues = collectForbiddenChildIssues(parentTag, childTags);
+  const slots = getSequenceSlots(parentTag, options.taskModel);
+  if (!slots) return membershipIssues;
 
   const issues: StructureIssue[] = [];
   const counts = new Map<number, number>();
@@ -285,6 +399,22 @@ export function validateChildSequence(
     const rank = resolveRank(parentTag, slots, childTag);
 
     if (rank === UNKNOWN_RANK) {
+      // Strict task shell: `<section>` / `<steps-informal>` are known elements that `task.dtd`
+      // forbids inside `<taskbody>` — report them instead of treating them as passthrough.
+      if (
+        (options.taskModel ?? 'strict') === 'strict' &&
+        STRICT_FORBIDDEN_CHILDREN[parentTag]?.includes(childTag)
+      ) {
+        issues.push({
+          code: 'child-not-allowed',
+          parentTag,
+          childTag,
+          index,
+          expectedTags: slots.flatMap((slot) => slot.tags),
+          severity: 'error',
+        });
+        continue;
+      }
       // Unknown or specialized element in a strict-sequence container: pass through transparently
       // so custom specializations never poison ordering of subsequent valid siblings.
       continue;
@@ -365,7 +495,7 @@ export function validateChildSequence(
     lastRank = rank;
   }
 
-  if (options.contentIsReused) return issues;
+  if (options.contentIsReused) return [...issues, ...membershipIssues];
 
   for (let rank = 0; rank < slots.length; rank++) {
     const slot = slots[rank]!;
@@ -378,6 +508,49 @@ export function validateChildSequence(
       expectedTags: slot.tags,
       // An empty `+` container is still legal-ish while authoring, so keep it a warning.
       severity: slot.occurrence === 'required' ? 'error' : 'warning',
+    });
+  }
+
+  return [...issues, ...membershipIssues];
+}
+
+/**
+ * Containers whose `DITA_CONTENT_MODEL` entry is the *complete* child list (no open tail).
+ * Inside them a declared DITA block that the DTD forbids must be reported instead of being
+ * silently absorbed — this is what catches e.g. `<properties>` written inside `<section>` or a
+ * bare `<p>` written directly in `<refbody>`.
+ */
+const EXHAUSTIVE_MEMBERSHIP_CONTAINERS: ReadonlySet<string> = new Set([
+  'section',
+  'refsyn',
+  'refbody',
+  'refbodydiv',
+]);
+
+/**
+ * Report DITA block children that the content model does not allow in an exhaustive container.
+ * Unknown / specialized elements are never reported — they must stay lossless passthroughs.
+ */
+function collectForbiddenChildIssues(
+  parentTag: string,
+  childTags: readonly string[],
+): StructureIssue[] {
+  if (!EXHAUSTIVE_MEMBERSHIP_CONTAINERS.has(parentTag)) return [];
+
+  const allowed = getAllowedChildElementTags(parentTag);
+  const allowedSet = new Set(allowed);
+  const issues: StructureIssue[] = [];
+
+  for (let index = 0; index < childTags.length; index++) {
+    const childTag = childTags[index]!;
+    if (!DITA_BLOCK_TAGS.has(childTag) || allowedSet.has(childTag)) continue;
+    issues.push({
+      code: 'child-not-allowed',
+      parentTag,
+      childTag,
+      index,
+      expectedTags: allowed,
+      severity: 'error',
     });
   }
 
@@ -410,8 +583,9 @@ export function getInsertionSlot(
   existingChildTags: readonly string[],
   tag: string,
   preferredIndex?: number,
+  taskModel: TaskContentModel = 'strict',
 ): InsertionSlotResult {
-  const slots = DITA_SEQUENCE_MODEL[parentTag];
+  const slots = getSequenceSlots(parentTag, taskModel);
   const fallbackIndex =
     preferredIndex === undefined
       ? existingChildTags.length
@@ -422,6 +596,11 @@ export function getInsertionSlot(
 
   const targetRank = resolveRank(parentTag, slots, tag);
   if (targetRank === UNKNOWN_RANK) {
+    // Known-but-forbidden elements (strict taskbody without `section`) must not be offered as
+    // insertable; unknown / specialized elements keep the permissive fallback.
+    if (taskModel === 'strict' && STRICT_FORBIDDEN_CHILDREN[parentTag]?.includes(tag)) {
+      return { ok: false, index: fallbackIndex, minIndex: 0, maxIndex: existingChildTags.length };
+    }
     return { ok: true, index: fallbackIndex, minIndex: 0, maxIndex: existingChildTags.length };
   }
 
@@ -500,9 +679,77 @@ export function getInsertableTagsBySequence(
   parentTag: string,
   existingChildTags: readonly string[],
   candidateTags: readonly string[],
+  taskModel: TaskContentModel = 'strict',
 ): string[] {
   if (!hasSequenceModel(parentTag)) return [...candidateTags];
   return candidateTags.filter(
-    (tag) => getInsertionSlot(parentTag, existingChildTags, tag).ok,
+    (tag) => getInsertionSlot(parentTag, existingChildTags, tag, undefined, taskModel).ok,
   );
+}
+
+/**
+ * Children this EDITOR refuses to delete because doing so would leave no legal editing anchor,
+ * even though OASIS DITA 1.3 itself keeps the slot optional.
+ *
+ * This is an authoring policy, not a DTD rule: DITA 1.3 `task.content` really is
+ * `(title, titlealts?, (abstract | shortdesc)?, prolog?, (taskbody)?, related-links?, task-info-types*)`,
+ * so a `<task>` without `<taskbody>` is valid DITA. We still keep `<taskbody>` because every block
+ * element inside a task body needs it as a legal ProseMirror parent; removing it would lock visual
+ * editing (see the missing-taskbody skeleton fix in `apps/web/src/editor/visual/commands.ts`).
+ * The sequence model keeps the slot `optional` so incremental authoring never fabricates a
+ * `missing-required-child` diagnostic.
+ */
+const REQUIRED_STRUCTURAL_CHILDREN: Readonly<Record<string, readonly string[]>> = {
+  task: ['taskbody'],
+};
+
+export type ChildRemovalObstacleCode =
+  /** The child is the document root element. */
+  | 'root-element'
+  /** The DITA content model requires this child (`required` slot of the sequence model). */
+  | 'required-child'
+  /** Editor policy: a structurally necessary wrapper the author must keep (see above). */
+  | 'required-policy'
+  /** Deleting would empty a `oneOrMore` slot, e.g. the last `<step>` of `<steps>`. */
+  | 'last-of-one-or-more';
+
+export interface ChildRemovalObstacle {
+  code: ChildRemovalObstacleCode;
+  parentTag: string;
+  childTag: string;
+}
+
+/**
+ * Whether removing `childTag` from a `parentTag` element would break the DITA 1.3 content model.
+ * `parentTag` is the empty string for the document root.
+ *
+ * Only structural obstacles are reported: order of the remaining siblings is irrelevant to a
+ * removal, so `child-out-of-order` / `slot-exclusive` are never produced here.
+ */
+export function checkChildRemoval(
+  parentTag: string,
+  childTag: string,
+  siblingTags: readonly string[],
+  taskModel: TaskContentModel = 'strict',
+): ChildRemovalObstacle | null {
+  if (!parentTag) return { code: 'root-element', parentTag, childTag };
+
+  const declaredRequired = REQUIRED_STRUCTURAL_CHILDREN[parentTag];
+  if (declaredRequired?.includes(childTag)) {
+    return { code: 'required-policy', parentTag, childTag };
+  }
+
+  const slots = getSequenceSlots(parentTag, taskModel);
+  if (!slots) return null;
+  const slot = slots[findSlotIndex(slots, childTag)];
+  if (!slot) return null;
+
+  if (slot.occurrence === 'required') {
+    return { code: 'required-child', parentTag, childTag };
+  }
+  if (slot.occurrence === 'oneOrMore') {
+    const remaining = siblingTags.filter((tag) => slot.tags.includes(tag)).length;
+    if (remaining <= 1) return { code: 'last-of-one-or-more', parentTag, childTag };
+  }
+  return null;
 }

@@ -28,9 +28,11 @@ import {
   type ParsedDitaval,
   type ResolvedConrefResult,
   type TopicIdIndexEntry,
+  type TaskContentModelSetting,
   type XmlAttributeEntry,
   type XmlParseError,
 } from '@dita/core';
+import { setTaskContentModelSetting } from '../editor/structure-options';
 import { computeXmlLineDiffStats } from '../editor/bridge/xml-bridge';
 import { resolveFileEditability, type LockLike } from '../services/lock-helpers';
 import type { IdentityRole } from '../services/identity-api';
@@ -73,6 +75,8 @@ import {
 
 export type EditorViewMode = 'visual' | 'split' | 'source';
 export type TagDisplayMode = 'none' | 'tags' | 'full';
+/** `auto` follows each document's DOCTYPE, otherwise the task content model is forced. */
+export type { TaskContentModelSetting };
 export type LeftSidebarTab = 'map' | 'files' | 'keys' | 'git';
 export type InspectorTarget = 'topic' | 'map-node';
 
@@ -136,6 +140,8 @@ export interface EditorWorkbenchState {
   selectedMapNode: SelectedMapNodeRef | null;
   problemsOpen: boolean;
   tagDisplayMode: TagDisplayMode;
+  /** Task content model preference: `auto` (per-document DOCTYPE) / `strict` (task.dtd) / `general`. */
+  taskModelSetting: TaskContentModelSetting;
   statusMessage: string;
   pendingSourceOffset: number | null;
   pendingVisualPmPos: number | null;
@@ -203,6 +209,7 @@ export interface EditorWorkbenchState {
     options?: { skipVisualReload?: boolean },
   ) => boolean;
   setTagDisplayMode: (mode: TagDisplayMode) => void;
+  setTaskModelSetting: (setting: TaskContentModelSetting) => void;
 
   // Map Tree actions
   mutateMapXml: (mapPath: string, nextXml: string, announcement?: string) => void;
@@ -613,6 +620,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     selectedMapNode: null,
     problemsOpen: false,
     tagDisplayMode: 'full',
+    taskModelSetting: 'auto',
     statusMessage: '',
     pendingSourceOffset: null,
     pendingVisualPmPos: null,
@@ -1574,6 +1582,18 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
         full: t('status.tags.full'),
       };
       set({ tagDisplayMode, statusMessage: labelMap[tagDisplayMode] });
+    },
+
+    setTaskModelSetting(taskModelSetting) {
+      // Mirror into the React-free helper so commands, block transforms, the Source linter and
+      // XML autocomplete switch variant immediately (same pattern as the locale helpers).
+      setTaskContentModelSetting(taskModelSetting);
+      const labelMap: Record<TaskContentModelSetting, string> = {
+        auto: t('status.taskModel.auto'),
+        strict: t('status.taskModel.strict'),
+        general: t('status.taskModel.general'),
+      };
+      set({ taskModelSetting, statusMessage: labelMap[taskModelSetting] });
     },
 
     mutateMapXml(mapPath, nextXml, announcement) {

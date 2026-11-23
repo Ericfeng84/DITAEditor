@@ -138,6 +138,80 @@ dialog.dita-dialog::backdrop {
   padding-inline: 0.55rem;
 }
 
+/* Task content-model switch (strict task.dtd / general generalTask.dtd) */
+.dita-tb-caption {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.dita-tb-select {
+  min-block-size: 28px;
+  padding-block: 0.1rem;
+  padding-inline: 0.35rem 0.15rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #fff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.dita-tb-select:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.dita-tb-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dita-tb-select--compact {
+  min-block-size: 24px;
+  padding-block: 0;
+  padding-inline: 0.3rem 0.1rem;
+  font-size: 11px;
+}
+
+/* ---- Task content-model switch (strict task.dtd vs general generalTask.dtd) ---- */
+.dita-task-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.dita-task-model-resolved {
+  font-size: 10.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* Source editor toolbar is dark; keep the switch legible there. */
+.dita-task-model--dark .dita-tb-caption {
+  color: #94a3b8;
+}
+
+.dita-task-model--dark .dita-tb-select {
+  border-color: #334155;
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+.dita-task-model--dark .dita-task-model-resolved {
+  color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .dita-task-model > .dita-tb-caption,
+  .dita-task-model-resolved {
+    display: none;
+  }
+}
+
 @media (hover: hover) {
   .dita-tb-btn-primary:not([aria-disabled="true"]):hover {
     background-color: #e0e7ff;
@@ -912,6 +986,42 @@ dialog.dita-dialog::backdrop {
   color: #475569;
 }
 
+/* Reference parameter table (`properties` = prophead?, property+) */
+.dita-prosemirror-doc div[data-dita-tag="properties"] {
+  margin: 0.75rem 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div[data-dita-tag="prophead"],
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div[data-dita-tag="property"] {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(130px, 1.1fr) minmax(160px, 2fr);
+  align-items: start;
+  gap: 0 10px;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  color: #334155;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div[data-dita-tag="prophead"] {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div:last-child {
+  border-bottom: none;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] [data-dita-tag="proptype"] {
+  font-family: var(--dita-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12.5px;
+}
+
 /* Simpletable & OASIS CALS Table */
 .dita-prosemirror-doc table[data-dita-tag="simpletable"],
 .dita-prosemirror-doc table[data-dita-tag="tgroup"] {
@@ -1603,9 +1713,27 @@ dialog.dita-dialog::backdrop {
   outline-offset: 1px;
 }
 
+.dita-block-handle-btn:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .dita-block-handle-btn:disabled:hover {
+    background: transparent;
+    border-color: transparent;
+    color: #cbd5e1;
+  }
+}
+
 .dita-block-handle-grip {
   cursor: grab;
   touch-action: none;
+}
+
+/* Pinned / structural blocks cannot be reordered: the grip becomes a plain action menu. */
+.dita-block-handle-grip--static {
+  cursor: pointer;
 }
 
 .dita-block-handle--dragging .dita-block-handle-grip {
@@ -1731,6 +1859,24 @@ dialog.dita-dialog::backdrop {
 
 .dita-block-menu-action--danger:hover {
   background: #fef2f2;
+}
+
+.dita-block-menu-action:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.dita-block-menu-action:disabled:hover {
+  background: transparent;
+}
+
+/* Content-model explanation rendered under a refused delete action. */
+.dita-block-menu-note {
+  margin: 0;
+  padding: 0 10px 8px;
+  color: #94a3b8;
+  font-size: 10.5px;
+  line-height: 1.45;
 }
 
 .dita-block-menu-empty {

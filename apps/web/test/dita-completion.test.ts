@@ -22,7 +22,7 @@ describe('CodeMirror 6 DITA 1.3 XML Autocomplete', () => {
     const res = completeAtEnd('<task id="t"><taskbody><steps><');
     expect(res).not.toBeNull();
     const labels = res!.options.map((o) => o.label);
-    expect(labels).toEqual(['step']);
+    expect(labels).toEqual(['stepsection', 'step']);
   });
 
   it('suggests closing tag matching the open parent element', () => {

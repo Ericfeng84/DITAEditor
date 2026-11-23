@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useI18n } from '../../i18n/index.js';
 import type { MessageKey } from '../../i18n/messages/index.js';
 import {
+  checkChildRemoval,
   evaluateElementConditions,
   getAttributesForElement,
   getElementSpec,
@@ -10,6 +11,7 @@ import {
   getAttributePlaceholder,
   getElementDescription,
   getElementLabel,
+  getPmChildTags,
   getRawAttr,
   makeConrefOverlayKey,
   type DitaAttributeGroup,
@@ -36,6 +38,8 @@ import {
 } from 'lucide-react';
 import { ProfilingAttrEditor } from '../../components/ProfilingAttrEditor';
 import type { EditorSelectionSnapshot } from './selection-info';
+import { blockIndexInParent, isBlockMoveOrderSafe } from './block-transforms';
+import { getTaskContentModel } from '../structure-options';
 
 export interface AttributesPanelProps {
   snapshot: EditorSelectionSnapshot | null;
@@ -160,6 +164,38 @@ export function AttributesPanel({
   const canSelectParent = Boolean(parentCrumb && parentCrumb.pos !== activeItem.pos);
   const isRootElement = activeItem.depth === 1;
 
+  // Structure actions follow the DITA content model instead of failing silently:
+  // required children (`<taskbody>`, `<cmd>`), the last item of a `oneOrMore` slot and the root
+  // element cannot be deleted, and reordering never breaks the ordered content model.
+  const parentTag = parentCrumb?.tagName ?? '';
+  const deleteObstacle = activeItem.node.isInline
+    ? null
+    : isRootElement || !parentCrumb
+      ? ({ code: 'root-element', parentTag, childTag: tagName } as const)
+      : checkChildRemoval(parentTag, tagName, getPmChildTags(parentCrumb.node), getTaskContentModel());
+  const deleteBlockedReason = deleteObstacle
+    ? deleteObstacle.code === 'root-element'
+      ? t('block.deleteBlockedRoot')
+      : deleteObstacle.code === 'required-policy'
+        ? t('block.deleteBlockedPolicy', { tag: tagName, parent: parentTag })
+        : deleteObstacle.code === 'last-of-one-or-more'
+          ? t('block.deleteBlockedLast', { tag: tagName, parent: parentTag })
+          : t('block.deleteBlockedRequired', { tag: tagName, parent: parentTag })
+    : null;
+  const parentChildTags = parentCrumb ? getPmChildTags(parentCrumb.node) : [];
+  const siblingIndex =
+    parentCrumb && !activeItem.node.isInline
+      ? blockIndexInParent(parentCrumb.pos, parentCrumb.node, activeItem.pos)
+      : -1;
+  const canMoveUp =
+    !isRootElement &&
+    !activeItem.node.isInline &&
+    isBlockMoveOrderSafe(parentTag, parentChildTags, siblingIndex, siblingIndex - 1);
+  const canMoveDown =
+    !isRootElement &&
+    !activeItem.node.isInline &&
+    isBlockMoveOrderSafe(parentTag, parentChildTags, siblingIndex, siblingIndex + 2);
+
   const toggleGroup = (key: string) => {
     setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -219,7 +255,7 @@ export function AttributesPanel({
           </button>
           <button
             type="button"
-            disabled={isRootElement || activeItem.node.isInline}
+            disabled={!canMoveUp}
             onClick={() => onMoveNode(activeItem.pos, 'up')}
             className="dita-mini-btn disabled:opacity-40"
             title={t('attributes.moveUp')}
@@ -229,7 +265,7 @@ export function AttributesPanel({
           </button>
           <button
             type="button"
-            disabled={isRootElement || activeItem.node.isInline}
+            disabled={!canMoveDown}
             onClick={() => onMoveNode(activeItem.pos, 'down')}
             className="dita-mini-btn disabled:opacity-40"
             title={t('attributes.moveDown')}
@@ -239,10 +275,10 @@ export function AttributesPanel({
           </button>
           <button
             type="button"
-            disabled={isRootElement}
+            disabled={deleteObstacle !== null}
             onClick={() => onDeleteNode(activeItem.pos)}
             className="dita-mini-btn ml-auto text-rose-700 hover:bg-rose-50 disabled:opacity-40"
-            title={t('attributes.deleteTitle')}
+            title={deleteBlockedReason ?? t('attributes.deleteTitle')}
           >
             <Trash2 className="h-3 w-3" aria-hidden="true" />
             {t('common.delete')}

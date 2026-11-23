@@ -13,6 +13,7 @@ export * from './xml/compare.js';
 export * from './xml/structure-check.js';
 
 // DITA 1.3 element metadata & content/attribute rules
+export * from './model/task-model.js';
 export * from './model/dita-elements.js';
 export * from './model/dita-rules.js';
 export * from './model/dita-structure.js';

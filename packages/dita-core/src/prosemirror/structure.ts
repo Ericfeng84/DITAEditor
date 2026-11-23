@@ -7,6 +7,12 @@
 
 import type { Node as PMNode } from 'prosemirror-model';
 import { validateChildSequence, type StructureIssue } from '../model/dita-structure.js';
+import {
+  detectTaskContentModelFromDoctype,
+  resolveTaskContentModel,
+  type TaskContentModel,
+  type TaskContentModelSetting,
+} from '../model/task-model.js';
 import { getPmNodeRawAttrs, getPmNodeTagName, isUnknownPmNode } from './helpers.js';
 
 export interface PmStructureIssue extends StructureIssue {
@@ -41,12 +47,42 @@ export function getPmChildTags(node: PMNode): string[] {
   return tags;
 }
 
+/** DOCTYPE declaration carried in the document prolog, if any. */
+export function getPmDocDoctype(
+  doc: PMNode,
+): { name?: string; publicId?: string | null; systemId?: string | null } | null {
+  const prolog = doc.attrs.prolog as ReadonlyArray<{ type: string; info?: unknown }> | undefined;
+  const entry = prolog?.find((item) => item.type === 'doctype');
+  if (!entry?.info) return null;
+  return entry.info as { name?: string; publicId?: string | null; systemId?: string | null };
+}
+
+/**
+ * Task shell variant of a document: an explicit setting wins, otherwise the prolog DOCTYPE
+ * decides, otherwise Strict Task.
+ */
+export function resolvePmDocTaskContentModel(
+  doc: PMNode,
+  setting: TaskContentModelSetting = 'auto',
+): TaskContentModel {
+  return resolveTaskContentModel(setting, detectTaskContentModelFromDoctype(getPmDocDoctype(doc)));
+}
+
+export interface PmStructureValidationOptions {
+  /** Task shell variant (default `strict`). Use `resolvePmDocTaskContentModel()` to auto-detect. */
+  taskModel?: TaskContentModel;
+}
+
 /**
  * Validate every modeled element in the document against the DITA ordered content models.
  * Unknown / specialized elements are skipped as containers (their children stay lossless).
  */
-export function validatePmStructure(doc: PMNode): PmStructureIssue[] {
+export function validatePmStructure(
+  doc: PMNode,
+  options: PmStructureValidationOptions = {},
+): PmStructureIssue[] {
   const issues: PmStructureIssue[] = [];
+  const taskModel = options.taskModel ?? 'strict';
 
   doc.descendants((node, pos) => {
     if (node.isLeaf || isUnknownPmNode(node)) return true;
@@ -62,7 +98,7 @@ export function validatePmStructure(doc: PMNode): PmStructureIssue[] {
     const childIssues = validateChildSequence(
       parentTag,
       children.map((child) => child.tag),
-      { contentIsReused: isReusedContent(node) },
+      { contentIsReused: isReusedContent(node), taskModel },
     );
     for (const issue of childIssues) {
       const target = issue.index === undefined ? undefined : children[issue.index];

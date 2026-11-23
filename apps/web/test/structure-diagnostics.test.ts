@@ -5,13 +5,18 @@ import { EditorState, TextSelection, type Command } from 'prosemirror-state';
 import type { DecorationSet } from 'prosemirror-view';
 import {
   checkXmlStructure,
+  DITA_CONTENT_MODEL,
+  DITA_ELEMENT_SPECS,
   getPmNodeTagName,
+  isChildAllowed,
   pmDocToXml,
   validateChildSequence,
   validatePmStructure,
   xmlToPmDoc,
 } from '@dita/core';
 import {
+  createDitaElementSkeleton,
+  handleDitaEnter,
   insertBlockDitaElement,
   insertBlockDitaElementAtPos,
 } from '../src/editor/visual/commands';
@@ -158,6 +163,31 @@ describe('DITA 1.3 ordered content-model diagnostics (web wiring)', () => {
     expect(getPmNodeTagName(nestedState.selection.$from.node(depth!))).toBe('section');
   });
 
+  it('offers <properties> and <refbodydiv> in a reference body', () => {
+    const xml = `<reference id="r"><title>R</title><refbody><section><title>S</title><p>x</p></section></refbody></reference>`;
+
+    const inRefbody = getSelectionSnapshot(cursorIntoTag(makeState(xml), 'refbody'));
+    const offeredInRefbody = inRefbody.insertGroups.flatMap((group) =>
+      group.items.map((item) => item.tag),
+    );
+    expect(offeredInRefbody).toContain('properties');
+    expect(offeredInRefbody).toContain('refbodydiv');
+
+    // `section.cnt` has no `properties` (reference.mod), so the candidate source never yields it.
+    expect(isChildAllowed('section', 'properties')).toBe(false);
+    expect(isChildAllowed('refbody', 'properties')).toBe(true);
+  });
+
+  it('offers <bodydiv> and the related-links family from a topic body', () => {
+    const xml = `<topic id="t"><title>T</title><body><p>x</p></body></topic>`;
+    const offered = getSelectionSnapshot(cursorIntoTag(makeState(xml), 'body')).insertGroups.flatMap(
+      (group) => group.items.map((item) => item.tag),
+    );
+    expect(offered).toContain('bodydiv');
+    expect(offered).toContain('related-links');
+    expect(offered).toContain('section');
+  });
+
   it('offers only one of the mutually exclusive steps | steps-unordered slots', () => {
     const xml = `<task id="t"><title>T</title><taskbody><steps><step><cmd>a</cmd></step></steps></taskbody></task>`;
     const state = cursorIntoTag(makeState(xml), 'taskbody');
@@ -186,6 +216,179 @@ describe('DITA 1.3 ordered content-model diagnostics (web wiring)', () => {
     expect(afterKeys.length).toBeGreaterThan(0);
     expect(beforeKeys[0]).not.toBe(afterKeys[0]);
     expect(afterKeys[0]).toContain('-1-');
+  });
+
+  it('inserts a missing <taskbody> with an editable steps seed when a task arrives without one', () => {
+    const state = cursorIntoTag(
+      makeState(`<task id="t1"><title>task</title><shortdesc>desc</shortdesc></task>`),
+      'shortdesc',
+    );
+    const { state: next, ok } = runCmd(state, insertBlockDitaElement('taskbody'));
+    expect(ok).toBe(true);
+    const out = pmDocToXml(next.doc);
+    expect(out).toContain('<taskbody>');
+    expect(out.indexOf('<taskbody>')).toBeGreaterThan(out.indexOf('<shortdesc>'));
+    // Strict task model has no `<p>` in `<taskbody>`: the seed must be a real <steps><step><cmd/>.
+    expect(out).toContain('<steps>');
+    expect(out).toContain('<cmd/>');
+    expect(checkXmlStructure(out)).toMatchObject({ ok: true, issues: [] });
+    expect(getPmNodeTagName(next.selection.$from.parent)).toBe('cmd');
+  });
+
+  it('inserts missing body wrappers (body / conbody / refbody) with editable content', () => {
+    const cases: { xml: string; tag: string; expected: string }[] = [
+      { xml: `<topic id="t"><title>T</title></topic>`, tag: 'body', expected: '<body>' },
+      { xml: `<concept id="c"><title>T</title></concept>`, tag: 'conbody', expected: '<conbody>' },
+      { xml: `<reference id="r"><title>T</title></reference>`, tag: 'refbody', expected: '<refbody>' },
+    ];
+    for (const { xml, tag, expected } of cases) {
+      const state = cursorIntoTag(makeState(xml), 'title');
+      const { state: next, ok } = runCmd(state, insertBlockDitaElement(tag));
+      expect(ok, `insert ${tag}`).toBe(true);
+      const out = pmDocToXml(next.doc);
+      expect(out).toContain(expected);
+      expect(checkXmlStructure(out)).toMatchObject({ ok: true, issues: [] });
+      expect(next.selection.$from.parent.type.name).toMatch(/dita_(p|codeblock|title)/);
+    }
+  });
+
+  it('creates the missing <taskbody> when pressing Enter at the end of <shortdesc>', () => {
+    const state = cursorIntoTag(
+      makeState(`<task id="t1"><title>task</title><shortdesc>desc</shortdesc></task>`),
+      'shortdesc',
+    );
+    const atEnd = state.apply(
+      state.tr.setSelection(
+        TextSelection.create(state.doc, state.selection.$from.end()),
+      ),
+    );
+    const { state: next, ok } = runCmd(atEnd, handleDitaEnter);
+    expect(ok).toBe(true);
+    const out = pmDocToXml(next.doc);
+    // Never `splitBlock` a single-occurrence <shortdesc> into two.
+    expect(out.match(/<shortdesc>/g)).toHaveLength(1);
+    expect(out).toContain('<taskbody>');
+    expect(checkXmlStructure(out)).toMatchObject({ ok: true, issues: [] });
+    expect(next.selection.$from.parent.type.name).toBe('dita_cmd');
+  });
+
+  it('creates the missing body wrapper from Enter at the end of a topic root <title>', () => {
+    const state = cursorIntoTag(makeState(`<concept id="c"><title>T</title></concept>`), 'title');
+    const atEnd = state.apply(
+      state.tr.setSelection(TextSelection.create(state.doc, state.selection.$from.end())),
+    );
+    const { state: next, ok } = runCmd(atEnd, handleDitaEnter);
+    expect(ok).toBe(true);
+    const out = pmDocToXml(next.doc);
+    expect(out.match(/<title>/g)).toHaveLength(1);
+    expect(out).toContain('<conbody>');
+    expect(next.selection.$from.parent.type.name).toBe('dita_p');
+    expect(checkXmlStructure(out)).toMatchObject({ ok: true, issues: [] });
+  });
+
+  it('provides insertable skeletons for the extended task containers', () => {
+    const cases: ReadonlyArray<readonly [string, string]> = [
+      ['abstract', 'task'],
+      ['tasktroubleshooting', 'taskbody'],
+      ['stepsection', 'steps'],
+      ['steptroubleshooting', 'step'],
+      ['tutorialinfo', 'step'],
+      ['itemgroup', 'step'],
+      ['choicetable', 'step'],
+      // Concept-body grammar (concept.mod) — DITA 1.3 divisions plus topic nesting.
+      ['conbodydiv', 'conbody'],
+      ['sectiondiv', 'section'],
+      ['concept', 'concept'],
+      // Reference-body grammar (reference.dtd) — parameter tables plus DITA 1.3 divisions.
+      ['properties', 'refbody'],
+      ['refbodydiv', 'refbody'],
+      ['property', 'properties'],
+      ['prophead', 'properties'],
+      // Topic-body grammar (topic.dtd) — bodydiv plus the related-links family.
+      ['bodydiv', 'body'],
+      ['linklist', 'related-links'],
+      ['linkpool', 'related-links'],
+      ['linkinfo', 'linklist'],
+      // Kept as a lossless passthrough node on purpose (unknown_block + exact DTD tag names).
+      ['hazardstatement', 'body'],
+    ];
+    for (const [tag, parentTag] of cases) {
+      const node = createDitaElementSkeleton(tag);
+      expect(node, tag).not.toBeNull();
+      expect(isChildAllowed(parentTag, tag), `${parentTag}>${tag}`).toBe(true);
+      const spec = DITA_ELEMENT_SPECS.get(tag);
+      expect(spec, tag).toBeDefined();
+      expect(node!.type.name, tag).toBe(spec!.pmNodeType ?? 'unknown_block');
+    }
+    // `<steps-informal>` stays modeled for generalTask / ditabase documents even though the strict
+    // taskbody model does not allow it, so it must still have an insertable skeleton.
+    const informal = createDitaElementSkeleton('steps-informal');
+    expect(informal).not.toBeNull();
+    expect(informal!.type.name).toBe('dita_steps_informal');
+    expect(isChildAllowed('taskbody', 'steps-informal')).toBe(false);
+
+    // `<choicetable>` seeds one lossless chrow with choption / chdesc children.
+    const choicetable = createDitaElementSkeleton('choicetable')!;
+    const chrow = choicetable.child(0);
+    expect(chrow.type.name).toBe('unknown_block');
+    expect(chrow.attrs.tagName).toBe('chrow');
+    expect(chrow.childCount).toBe(2);
+    // `<hazardstatement>` seeds messagepanel > typeofhazard / consequence / howtoavoid.
+    const hazard = createDitaElementSkeleton('hazardstatement')!;
+    expect(hazard.attrs.tagName).toBe('hazardstatement');
+    expect(hazard.attrs.rawAttrs).toEqual([{ name: 'type', value: 'warning', namespaceURI: null }]);
+    const panel = hazard.child(0);
+    expect(panel.attrs.tagName).toBe('messagepanel');
+    expect(panel.childCount).toBe(3);
+
+    // `<properties>` seeds a header row plus one parameter row with all three columns filled.
+    const properties = createDitaElementSkeleton('properties')!;
+    expect(properties.type.name).toBe('dita_properties');
+    expect(properties.childCount).toBe(2);
+    const prophead = properties.child(0);
+    expect(prophead.type.name).toBe('dita_prophead');
+    expect(prophead.childCount).toBe(3);
+    expect([0, 1, 2].map((index) => prophead.child(index).type.name)).toEqual([
+      'dita_proptypehd',
+      'dita_propvaluehd',
+      'dita_propdeschd',
+    ]);
+    const property = properties.child(1);
+    expect(property.type.name).toBe('dita_property');
+    expect([0, 1, 2].map((index) => property.child(index).type.name)).toEqual([
+      'dita_proptype',
+      'dita_propvalue',
+      'dita_propdesc',
+    ]);
+    for (const index of [0, 1, 2]) {
+      expect(property.child(index).childCount).toBeGreaterThan(0);
+    }
+  });
+
+  it('has a skeleton for every block element the topic insert menu can offer', () => {
+    const topicContainers = [
+      'topic', 'concept', 'task', 'reference', 'body', 'conbody', 'taskbody', 'refbody',
+      'section', 'example', 'refsyn', 'prereq', 'context', 'steps', 'steps-unordered', 'step',
+      'substeps', 'substep', 'choices', 'info', 'stepxmp', 'stepresult', 'result', 'postreq',
+      'related-links', 'ul', 'ol', 'dl', 'dlentry', 'li', 'note', 'fig', 'link', 'choice',
+      // Extended DITA 1.3 task containers (`abstract`, troubleshooting, informal steps, ...)
+      'abstract', 'tasktroubleshooting', 'steps-informal', 'stepsection', 'steptroubleshooting',
+      'tutorialinfo', 'itemgroup', 'choicetable',
+      // Reference-body grammar (`properties` family + `refbodydiv`)
+      'refbodydiv', 'properties',
+    ];
+    // Table internals are managed by the dedicated table toolbar instead of the generic menu.
+    const tableInternals = new Set(['tgroup', 'colspec', 'thead', 'tbody', 'row', 'entry', 'sthead', 'strow', 'stentry']);
+    const missing: string[] = [];
+    for (const parentTag of topicContainers) {
+      for (const childTag of DITA_CONTENT_MODEL[parentTag] ?? []) {
+        if (tableInternals.has(childTag)) continue;
+        const spec = DITA_ELEMENT_SPECS.get(childTag);
+        if (!spec || spec.kind !== 'block') continue;
+        if (!createDitaElementSkeleton(childTag)) missing.push(`${parentTag}>${childTag}`);
+      }
+    }
+    expect(missing).toEqual([]);
   });
 
   it('filters already-filled single-occurrence and exclusive tags in CodeMirror XML source completion', () => {
@@ -244,6 +447,41 @@ describe('DITA 1.3 ordered content-model diagnostics (web wiring)', () => {
     };
     expect(describeStructureIssue(issue, 'zh-CN')).toContain('<prereq>');
     expect(describeStructureIssue(issue, 'en')).toContain('out of order');
+  });
+
+  it('flags a paragraph that trails a section inside conbody (concept.mod ordering)', () => {
+    const xml = `<concept id="c"><title>C</title><conbody><section id="s"><title>S</title><p>a</p></section><p>b</p></conbody></concept>`;
+    const { pmDoc } = xmlToPmDoc(xml);
+    const issues = validatePmStructure(pmDoc);
+    expect(issues).toHaveLength(1);
+    expect(issues[0]).toMatchObject({ code: 'child-out-of-order', parentTag: 'conbody', childTag: 'p' });
+
+    // The same shape stays legal inside a base topic <body>.
+    const topicXml = `<topic id="t"><title>T</title><body><section id="s"><title>S</title><p>a</p></section><p>b</p></body></topic>`;
+    expect(validatePmStructure(xmlToPmDoc(topicXml, { position: false }).pmDoc)).toHaveLength(0);
+  });
+
+  it('re-anchors a paragraph inserted after a conbody section in front of it', () => {
+    const xml = `<concept id="c"><title>C</title><conbody><section id="s"><title>S</title><p>a</p></section></conbody></concept>`;
+    const { pmDoc } = xmlToPmDoc(xml);
+    // Ask the gap menu for a paragraph *after* the whole section (conbody level).
+    let sectionPos = -1;
+    pmDoc.descendants((node, pos) => {
+      if (sectionPos === -1 && node.type.name === 'dita_section') {
+        sectionPos = pos + node.nodeSize;
+      }
+      return true;
+    });
+    expect(sectionPos).toBeGreaterThan(0);
+    const state = EditorState.create({ doc: pmDoc, plugins: [createDitaStructurePlugin('zh-CN')] });
+    const { state: next, ok } = runCmd(state, insertBlockDitaElementAtPos('p', sectionPos));
+    expect(ok).toBe(true);
+    const out = pmDocToXml(next.doc);
+    expect(validatePmStructure(next.doc)).toHaveLength(0);
+    // The new (still empty) paragraph is re-anchored in front of the section instead of trailing it.
+    expect(out).toContain('<p/>');
+    expect(out.indexOf('<p/>')).toBeLessThan(out.indexOf('<section'));
+    expect(out.match(/<p>a<\/p>/g)).toHaveLength(1);
   });
 
   it('keeps a valid document free of structure issues', () => {

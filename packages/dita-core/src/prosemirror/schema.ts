@@ -191,7 +191,13 @@ const nodes: Record<string, NodeSpec> = {
 
   // --- Topic header & metadata ---
   dita_title: makeTextBlockSpec('title', 'h1'),
+  /** DITA `<titlealts>` — optional alternate titles (`navtitle?`, `searchtitle?`). */
+  dita_titlealts: makeBlockContainerSpec('titlealts', 'div'),
+  dita_navtitle: makeTextBlockSpec('navtitle', 'div'),
+  dita_searchtitle: makeTextBlockSpec('searchtitle', 'div'),
   dita_shortdesc: makeTextBlockSpec('shortdesc', 'p'),
+  /** `<abstract>` is a shortdesc alternative for topics (`(abstract | shortdesc)?`). */
+  dita_abstract: makeBlockContainerSpec('abstract', 'section'),
   dita_prolog: makeBlockContainerSpec('prolog', 'aside'),
 
   // --- Bodies & structural sections ---
@@ -202,6 +208,12 @@ const nodes: Record<string, NodeSpec> = {
   dita_section: makeBlockContainerSpec('section', 'section'),
   dita_example: makeBlockContainerSpec('example', 'section'),
   dita_refsyn: makeBlockContainerSpec('refsyn', 'section'),
+  dita_refbodydiv: makeBlockContainerSpec('refbodydiv', 'div'),
+
+  // --- Reference parameter tables (properties / prophead / property) ---
+  dita_properties: makeBlockContainerSpec('properties', 'div'),
+  dita_prophead: makeTextBlockSpec('prophead', 'div'),
+  dita_property: makeTextBlockSpec('property', 'div'),
 
   // --- Task structures ---
   dita_prereq: makeBlockContainerSpec('prereq', 'section'),
@@ -219,10 +231,28 @@ const nodes: Record<string, NodeSpec> = {
   dita_choice: makeBlockContainerSpec('choice', 'li'),
   dita_result: makeBlockContainerSpec('result', 'section'),
   dita_postreq: makeBlockContainerSpec('postreq', 'section'),
+  /** `<tasktroubleshooting>` follows `<result>` in a taskbody. */
+  dita_tasktroubleshooting: makeBlockContainerSpec('tasktroubleshooting', 'section'),
+  /** `<steps-informal>` is a prose-only alternative to `<steps>` / `<steps-unordered>`. */
+  dita_steps_informal: makeBlockContainerSpec('steps-informal', 'div'),
+  /** `<stepsection>` groups steps without restarting numbering (`(stepsection?, step)+`). */
+  dita_stepsection: makeBlockContainerSpec('stepsection', 'li'),
+  dita_steptroubleshooting: makeBlockContainerSpec('steptroubleshooting', 'div'),
+  dita_tutorialinfo: makeBlockContainerSpec('tutorialinfo', 'div'),
+  /** `<itemgroup>` groups sibling items inside `info` / `stepxmp` / `tutorialinfo`. */
+  dita_itemgroup: makeBlockContainerSpec('itemgroup', 'div'),
+  /** `<choicetable>` rows (`chrow` / `choption` / `chdesc`) stay lossless passthrough children. */
+  dita_choicetable: makeBlockContainerSpec('choicetable', 'div'),
 
   // --- Related links ---
   dita_related_links: makeBlockContainerSpec('related-links', 'nav'),
   dita_link: makeBlockContainerSpec('link', 'div'),
+  /** DITA `<linklist>` — titled group of links (topic.mod: title?, desc?, (linklist | link)*, linkinfo?). */
+  dita_linklist: makeBlockContainerSpec('linklist', 'div'),
+  /** DITA `<linkpool>` — title-less container of links (topic.mod: (linkpool | link)*). */
+  dita_linkpool: makeBlockContainerSpec('linkpool', 'div'),
+  /** DITA `<linkinfo>` — extra prose appended after a link list (topic.mod: desc.cnt). */
+  dita_linkinfo: makeBlockContainerSpec('linkinfo', 'div'),
 
   // --- Common block elements ---
   dita_p: makeTextBlockSpec('p', 'p'),
@@ -241,6 +271,12 @@ const nodes: Record<string, NodeSpec> = {
   dita_codeblock: makeTextBlockSpec('codeblock', 'pre', { code: true, whitespace: 'pre' }),
   dita_pre: makeTextBlockSpec('pre', 'pre', { code: true, whitespace: 'pre' }),
   dita_image_block: makeBlockContainerSpec('image', 'figure'),
+  /** DITA 1.3 `<conbodydiv>` — groups sections/examples inside `<conbody>`. */
+  dita_conbodydiv: makeBlockContainerSpec('conbodydiv', 'div'),
+  /** DITA `<bodydiv>` — title-less group of body content (topic.mod: blocks | section | bodydiv). */
+  dita_bodydiv: makeBlockContainerSpec('bodydiv', 'div'),
+  /** DITA 1.3 `<sectiondiv>` — groups blocks inside `<section>`. */
+  dita_sectiondiv: makeBlockContainerSpec('sectiondiv', 'div'),
 
   // --- Simpletable ---
   dita_simpletable: makeBlockContainerSpec('simpletable', 'table'),
@@ -343,6 +379,14 @@ const nodes: Record<string, NodeSpec> = {
   dita_term: makeInlineNodeSpec('term', 'dfn'),
   dita_option: makeInlineNodeSpec('option', 'code'),
   dita_apiname: makeInlineNodeSpec('apiname', 'code'),
+  dita_cite: makeInlineNodeSpec('cite', 'cite'),
+  dita_msgnum: makeInlineNodeSpec('msgnum', 'code'),
+  dita_proptypehd: makeInlineNodeSpec('proptypehd', 'strong'),
+  dita_propvaluehd: makeInlineNodeSpec('propvaluehd', 'strong'),
+  dita_propdeschd: makeInlineNodeSpec('propdeschd', 'strong'),
+  dita_proptype: makeInlineNodeSpec('proptype', 'code'),
+  dita_propvalue: makeInlineNodeSpec('propvalue', 'code'),
+  dita_propdesc: makeInlineNodeSpec('propdesc', 'span'),
 
   // --- Passthrough fallback nodes for unknown / specialized DITA elements ---
   unknown_block: {

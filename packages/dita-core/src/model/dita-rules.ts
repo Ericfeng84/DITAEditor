@@ -6,6 +6,7 @@
 
 import type { UiLocale } from '../i18n/locale.js';
 import type { XmlAttributeEntry } from '../xml/types.js';
+import type { TaskContentModel } from './task-model.js';
 
 export type DitaElementCategory =
   | 'topic'
@@ -83,6 +84,7 @@ export const DITA_CORE_INLINE_TAGS: readonly string[] = [
 const FLOW_BLOCKS: readonly string[] = [
   'p',
   'note',
+  'hazardstatement',
   'ul',
   'ol',
   'dl',
@@ -99,6 +101,7 @@ const BODY_BLOCKS: readonly string[] = [
   'section',
   'example',
   'note',
+  'hazardstatement',
   'ul',
   'ol',
   'dl',
@@ -109,6 +112,12 @@ const BODY_BLOCKS: readonly string[] = [
   'simpletable',
   'table',
 ];
+
+/**
+ * `conbody` reuses the body blocks plus DITA 1.3 `<conbodydiv>`:
+ * `((body.cnt)*, (section | example | conbodydiv)*)` (concept.mod).
+ */
+const CONBODY_BLOCKS: readonly string[] = [...BODY_BLOCKS, 'conbodydiv'];
 
 const MIXED_CONTAINER_CHILDREN: readonly string[] = [
   ...FLOW_BLOCKS,
@@ -121,10 +130,15 @@ const MIXED_CONTAINER_CHILDREN: readonly string[] = [
  */
 export const DITA_CONTENT_MODEL: Readonly<Record<string, readonly string[]>> = {
   // Topic roots
-  topic: ['title', 'shortdesc', 'prolog', 'body', 'related-links'],
-  concept: ['title', 'shortdesc', 'prolog', 'conbody', 'related-links'],
-  task: ['title', 'shortdesc', 'prolog', 'taskbody', 'related-links'],
-  reference: ['title', 'shortdesc', 'prolog', 'refbody', 'related-links'],
+  // The trailing `<topic>`/`<concept>`/… entry is the topic-nesting slot: each shell DTD
+  // overrides `%info-types;` so a concept may only nest concepts, a task only tasks, etc.
+  topic: ['title', 'titlealts', 'shortdesc', 'abstract', 'prolog', 'body', 'related-links', 'topic'],
+  concept: ['title', 'titlealts', 'shortdesc', 'abstract', 'prolog', 'conbody', 'related-links', 'concept'],
+  task: ['title', 'titlealts', 'shortdesc', 'abstract', 'prolog', 'taskbody', 'related-links', 'task'],
+  reference: ['title', 'titlealts', 'shortdesc', 'abstract', 'prolog', 'refbody', 'related-links', 'reference'],
+
+  // Topic alternate titles (topic.mod: titlealts = (navtitle?, searchtitle?))
+  titlealts: ['navtitle', 'searchtitle'],
 
   // Map & Bookmap roots and hierarchy containers
   map: ['title', 'topicmeta', 'topicref', 'mapref', 'topichead', 'topicgroup', 'keydef', 'topicset', 'ditavalref', 'reltable'],
@@ -150,35 +164,94 @@ export const DITA_CONTENT_MODEL: Readonly<Record<string, readonly string[]>> = {
   relcell: ['topicref', 'topicgroup'],
 
   // Bodies
-  body: BODY_BLOCKS,
-  conbody: BODY_BLOCKS,
-  taskbody: ['prereq', 'context', 'steps', 'steps-unordered', 'result', 'example', 'postreq'],
-  refbody: ['refsyn', 'section', 'example', 'simpletable', 'table'],
+  // topic.mod `body.content` = (body.cnt | bodydiv | example | section)*
+  body: [...BODY_BLOCKS, 'bodydiv'],
+  // topic.mod `bodydiv.content` = (`bodydiv.cnt` | bodydiv | section)* — untitled, self-nesting legal.
+  bodydiv: [...FLOW_BLOCKS, 'section', 'bodydiv'],
+  conbody: CONBODY_BLOCKS,
+  conbodydiv: ['section', 'example'],
+  // Strict Task (task.dtd + strictTaskbodyConstraint.mod):
+  // (prereq?, context?, (steps | steps-unordered)?, result?, tasktroubleshooting?,
+  //  example?, postreq?). `section` / `steps-informal` only exist in the unconstrained
+  // `generalTask.dtd` / `ditabase.dtd` models, so they are not offered here.
+  taskbody: [
+    'prereq',
+    'context',
+    'steps',
+    'steps-unordered',
+    'result',
+    'tasktroubleshooting',
+    'example',
+    'postreq',
+  ],
+  tasktroubleshooting: FLOW_BLOCKS,
+  abstract: BODY_BLOCKS,
+  refbody: ['refsyn', 'properties', 'section', 'example', 'simpletable', 'table', 'refbodydiv'],
+  // reference.mod `refbodydiv.cnt` mirrors `refbody.cnt` (self-nesting is legal).
+  refbodydiv: ['refsyn', 'properties', 'section', 'example', 'simpletable', 'table', 'refbodydiv'],
 
-  // Sections & examples
-  section: ['title', ...FLOW_BLOCKS],
+  // Sections & examples (DITA 1.3 adds `<sectiondiv>` inside a section, but neither a nested
+  // `<section>` nor an `<example>` is legal there — see topic.mod `section.cnt`).
+  section: ['title', 'sectiondiv', ...FLOW_BLOCKS],
+  // topic.mod `sectiondiv.cnt` = basic blocks/phrases plus nested `<sectiondiv>` (no title).
+  sectiondiv: [...MIXED_CONTAINER_CHILDREN, 'sectiondiv'],
   example: ['title', ...FLOW_BLOCKS],
   refsyn: ['title', ...FLOW_BLOCKS],
 
   // Task children
   prereq: FLOW_BLOCKS,
   context: FLOW_BLOCKS,
-  steps: ['step'],
-  'steps-unordered': ['step'],
-  step: ['cmd', 'info', 'substeps', 'choices', 'stepxmp', 'stepresult'],
+  steps: ['stepsection', 'step'],
+  'steps-unordered': ['stepsection', 'step'],
+  // steps-informal is pure prose: it has no step structure at all.
+  'steps-informal': FLOW_BLOCKS,
+  stepsection: MIXED_CONTAINER_CHILDREN,
+  // OASIS task.mod: (note*, cmd, (choices | choicetable | info | itemgroup | stepxmp | substeps
+  //                          | tutorialinfo)*, stepresult?, steptroubleshooting?)
+  step: [
+    'note',
+    'hazardstatement',
+    'cmd',
+    'info',
+    'substeps',
+    'choices',
+    'choicetable',
+    'itemgroup',
+    'stepxmp',
+    'tutorialinfo',
+    'stepresult',
+    'steptroubleshooting',
+  ],
   substeps: ['substep'],
-  substep: ['cmd', 'info', 'stepxmp', 'stepresult'],
+  substep: ['note', 'hazardstatement', 'cmd', 'info', 'itemgroup', 'stepxmp', 'tutorialinfo', 'stepresult'],
   choices: ['choice'],
   choice: MIXED_CONTAINER_CHILDREN,
+  choicetable: ['chhead', 'chrow'],
+  chhead: ['choptionhd', 'chdeschd'],
+  chrow: ['choption', 'chdesc'],
+  choption: MIXED_CONTAINER_CHILDREN,
+  chdesc: MIXED_CONTAINER_CHILDREN,
+  choptionhd: MIXED_CONTAINER_CHILDREN,
+  chdeschd: MIXED_CONTAINER_CHILDREN,
   info: FLOW_BLOCKS,
   stepxmp: FLOW_BLOCKS,
   stepresult: FLOW_BLOCKS,
+  steptroubleshooting: FLOW_BLOCKS,
+  tutorialinfo: FLOW_BLOCKS,
+  itemgroup: MIXED_CONTAINER_CHILDREN,
   result: FLOW_BLOCKS,
   postreq: FLOW_BLOCKS,
 
   // Related links & prolog
-  'related-links': ['link'],
+  // topic.mod `related-links.content` = (link | linklist | linkpool)*
+  'related-links': ['link', 'linklist', 'linkpool'],
   link: ['linktext', 'desc'],
+  // topic.mod `linklist.content` = (title?, desc?, (linklist | link)*, linkinfo?)
+  linklist: ['title', 'desc', 'link', 'linklist', 'linkinfo'],
+  // topic.mod `linkpool.content` = (linkpool | link)*
+  linkpool: ['link', 'linkpool'],
+  // topic.mod `linkinfo.content` = (desc.cnt)*
+  linkinfo: FLOW_BLOCKS,
   prolog: ['author', 'critdates', 'metadata'],
   critdates: ['created', 'revised'],
   metadata: ['keywords', 'othermeta'],
@@ -210,6 +283,11 @@ export const DITA_CONTENT_MODEL: Readonly<Record<string, readonly string[]>> = {
   sthead: ['stentry'],
   strow: ['stentry'],
   stentry: MIXED_CONTAINER_CHILDREN,
+
+  // Reference parameter tables (reference.mod: `properties = (prophead?, property+)`).
+  properties: ['prophead', 'property'],
+  prophead: ['proptypehd', 'propvaluehd', 'propdeschd'],
+  property: ['proptype', 'propvalue', 'propdesc'],
 
   // CALS table
   table: ['title', 'desc', 'tgroup'],
@@ -270,24 +348,40 @@ const ELEMENT_SPEC_LIST: readonly DitaElementSpec[] = [
   { tag: 'topicgroup', label: 'Topic Group', labelZh: '无标题逻辑组', description: 'Groups topicrefs to share attributes or collection-type without adding a TOC heading', category: 'map', kind: 'block', keywords: ['group', '组'] },
   { tag: 'keydef', label: 'Key Definition', labelZh: 'Key 变量定义', description: 'Resource-only key definition binding a key name to a target or inline keyword', category: 'map', kind: 'block', keywords: ['keys', 'variable', '键值'] },
   { tag: 'topicmeta', label: 'Topic Metadata', labelZh: '节点元数据', description: 'Navigation title, keywords, and metadata for a map entry', category: 'map', kind: 'block' },
-  { tag: 'navtitle', label: 'Navigation Title', labelZh: '导航标题', description: 'Override title shown in TOC and Map tree', category: 'map', kind: 'block' },
+  { tag: 'navtitle', label: 'Navigation Title', labelZh: '导航标题', description: 'Override title shown in TOC and Map tree (inside titlealts)', category: 'structure', kind: 'block', pmNodeType: 'dita_navtitle', keywords: ['toc', '导航'] },
+  { tag: 'titlealts', label: 'Title Alternatives', labelZh: '替代标题', description: 'Alternate titles for TOC (navtitle) and search results (searchtitle)', category: 'structure', kind: 'block', pmNodeType: 'dita_titlealts', keywords: ['navtitle', 'searchtitle', '替代标题'] },
+  { tag: 'searchtitle', label: 'Search Title', labelZh: '检索标题', description: 'Title used by search engines and search results instead of the H1', category: 'structure', kind: 'block', pmNodeType: 'dita_searchtitle', keywords: ['search', '检索'] },
   { tag: 'reltable', label: 'Relationship Table', labelZh: '关联关系表', description: 'Defines non-hierarchical related links between topics', category: 'map', kind: 'block' },
 
   // Header & metadata
   { tag: 'title', label: 'Title', labelZh: '标题', description: 'Heading for a topic, section, figure, or table', category: 'structure', kind: 'block', pmNodeType: 'dita_title', keywords: ['heading', 'h1', '标题'] },
   { tag: 'shortdesc', label: 'Short Description', labelZh: '摘要', description: 'Concise topic summary used in previews and search', category: 'structure', kind: 'block', pmNodeType: 'dita_shortdesc', keywords: ['summary', 'abstract', '摘要'] },
+  { tag: 'abstract', label: 'Abstract', labelZh: '摘要块', description: 'Multi-block topic summary; the alternative to shortdesc in (abstract | shortdesc)', category: 'structure', kind: 'block', pmNodeType: 'dita_abstract', keywords: ['summary', 'shortdesc', '摘要'] },
   { tag: 'prolog', label: 'Prolog', labelZh: '元数据区', description: 'Author, dates, keywords, and topic metadata', category: 'metadata', kind: 'block', pmNodeType: 'dita_prolog', keywords: ['meta', 'author', '元数据'] },
   { tag: 'related-links', label: 'Related Links', labelZh: '相关链接', description: 'Cross-references to related topics', category: 'structure', kind: 'block', pmNodeType: 'dita_related_links', keywords: ['links', '相关'] },
   { tag: 'link', label: 'Related Link', labelZh: '链接项', description: 'Single related topic link inside related-links', category: 'structure', kind: 'block', pmNodeType: 'dita_link', keywords: ['href', '链接'] },
+  { tag: 'linklist', label: 'Link List', labelZh: '链接列表', description: 'Titled group of related links (title?, desc?, (linklist | link)*, linkinfo?)', category: 'structure', kind: 'block', pmNodeType: 'dita_linklist', keywords: ['links', 'related', '链接列表'] },
+  { tag: 'linkpool', label: 'Link Pool', labelZh: '链接池', description: 'Title-less container of related links, usually filled by a relationship table', category: 'structure', kind: 'block', pmNodeType: 'dita_linkpool', keywords: ['links', 'pool', '链接池'] },
+  { tag: 'linkinfo', label: 'Link Info', labelZh: '链接组说明', description: 'Extra prose appended after a link list (single occurrence, must be last)', category: 'structure', kind: 'block', pmNodeType: 'dita_linkinfo', keywords: ['prose', '链接说明'] },
+  { tag: 'linktext', label: 'Link Text', labelZh: '链接文字', description: 'Overrides the target topic title as the rendered link text', category: 'inline', kind: 'inline', keywords: ['link title', '链接文字'] },
 
   // Bodies & sections
   { tag: 'body', label: 'Body', labelZh: '正文', description: 'Main body of a base topic', category: 'structure', kind: 'block', pmNodeType: 'dita_body' },
+  { tag: 'bodydiv', label: 'Body Division', labelZh: '正文分组', description: 'Title-less group of body blocks that can carry an id for conref reuse', category: 'structure', kind: 'block', pmNodeType: 'dita_bodydiv', keywords: ['group', 'div', '正文分组'] },
   { tag: 'conbody', label: 'Concept Body', labelZh: '概念正文', description: 'Main body of a concept topic', category: 'structure', kind: 'block', pmNodeType: 'dita_conbody' },
+  { tag: 'conbodydiv', label: 'Concept Body Division', labelZh: '正文分区', description: 'Groups sections and examples inside a concept body (DITA 1.3)', category: 'structure', kind: 'block', pmNodeType: 'dita_conbodydiv', keywords: ['group', 'div', '分区'] },
   { tag: 'taskbody', label: 'Task Body', labelZh: '任务正文', description: 'Structured body of a procedural task', category: 'structure', kind: 'block', pmNodeType: 'dita_taskbody' },
   { tag: 'refbody', label: 'Reference Body', labelZh: '参考正文', description: 'Main body of a reference topic', category: 'structure', kind: 'block', pmNodeType: 'dita_refbody' },
   { tag: 'section', label: 'Section', labelZh: '章节', description: 'Titled organizational division within a topic body', category: 'structure', kind: 'block', pmNodeType: 'dita_section', keywords: ['sec', '章节', '小节'] },
+  { tag: 'sectiondiv', label: 'Section Division', labelZh: '章节分组', description: 'Groups blocks inside a section without adding a title (DITA 1.3)', category: 'structure', kind: 'block', pmNodeType: 'dita_sectiondiv', keywords: ['group', 'div', '分组'] },
   { tag: 'example', label: 'Example', labelZh: '示例块', description: 'Illustrates a concept, task, or reference usage', category: 'structure', kind: 'block', pmNodeType: 'dita_example', keywords: ['sample', '示例'] },
   { tag: 'refsyn', label: 'Reference Syntax', labelZh: '语法定义', description: 'Syntax signature or endpoint block in reference topics', category: 'structure', kind: 'block', pmNodeType: 'dita_refsyn', keywords: ['syntax', 'api', '语法'] },
+  { tag: 'refbodydiv', label: 'Reference Body Division', labelZh: '参考正文分区', description: 'Groups reference bodies without adding a title (DITA 1.3)', category: 'structure', kind: 'block', pmNodeType: 'dita_refbodydiv', keywords: ['group', 'div', '分区'] },
+
+  // Reference parameter tables (properties / prophead / property)
+  { tag: 'properties', label: 'Properties Table', labelZh: '属性表', description: 'Two- or three-column parameter table: type, value, description', category: 'table', kind: 'block', pmNodeType: 'dita_properties', keywords: ['param', 'attribute', '参数', '属性'] },
+  { tag: 'prophead', label: 'Properties Header', labelZh: '属性表头', description: 'Optional header row of a properties table', category: 'table', kind: 'block', pmNodeType: 'dita_prophead', keywords: ['header', '表头'] },
+  { tag: 'property', label: 'Property Row', labelZh: '属性行', description: 'One parameter row: type, value and description', category: 'table', kind: 'block', pmNodeType: 'dita_property', keywords: ['row', '参数', '属性行'] },
 
   // Task workflow elements
   { tag: 'prereq', label: 'Prerequisites', labelZh: '前置条件', description: 'Conditions required before performing the task', category: 'task', kind: 'block', pmNodeType: 'dita_prereq', keywords: ['before', '前置'] },
@@ -305,10 +399,20 @@ const ELEMENT_SPEC_LIST: readonly DitaElementSpec[] = [
   { tag: 'stepresult', label: 'Step Result', labelZh: '步骤预期结果', description: 'Expected outcome after completing a step', category: 'task', kind: 'block', pmNodeType: 'dita_stepresult', keywords: ['outcome', '结果'] },
   { tag: 'result', label: 'Task Result', labelZh: '任务结果', description: 'Overall expected result of the task', category: 'task', kind: 'block', pmNodeType: 'dita_result', keywords: ['outcome', '任务结果'] },
   { tag: 'postreq', label: 'Postrequisites', labelZh: '后续操作', description: 'Follow-up actions after finishing the task', category: 'task', kind: 'block', pmNodeType: 'dita_postreq', keywords: ['next', '后续'] },
+  { tag: 'tasktroubleshooting', label: 'Task Troubleshooting', labelZh: '任务排障', description: 'Prose remedy section placed after result in a taskbody', category: 'task', kind: 'block', pmNodeType: 'dita_tasktroubleshooting', keywords: ['trouble', 'troubleshooting', '排障'] },
+  { tag: 'steps-informal', label: 'Informal Steps', labelZh: '非正式步骤', description: 'Prose-only procedure without step structure (no cmd elements)', category: 'task', kind: 'block', pmNodeType: 'dita_steps_informal', keywords: ['prose', 'procedure', '非正式步骤'] },
+  { tag: 'stepsection', label: 'Step Section', labelZh: '步骤分组', description: 'Titled divider that groups steps without restarting step numbering', category: 'task', kind: 'block', pmNodeType: 'dita_stepsection', keywords: ['group', 'phase', '分组'] },
+  { tag: 'steptroubleshooting', label: 'Step Troubleshooting', labelZh: '步骤排障', description: 'Step-scoped remedy text after stepresult', category: 'task', kind: 'block', pmNodeType: 'dita_steptroubleshooting', keywords: ['trouble', '排障'] },
+  { tag: 'tutorialinfo', label: 'Tutorial Info', labelZh: '教学提示', description: 'Teaching-oriented explanation or link attached to a step', category: 'task', kind: 'block', pmNodeType: 'dita_tutorialinfo', keywords: ['tutorial', 'teaching', '教学'] },
+  { tag: 'itemgroup', label: 'Item Group', labelZh: '条目分组', description: 'Groups sibling items (li / sli / choice) inside info, stepxmp, or tutorialinfo', category: 'task', kind: 'block', pmNodeType: 'dita_itemgroup', keywords: ['group', '分组'] },
+  { tag: 'choicetable', label: 'Choice Table', labelZh: '选项表格', description: 'Two-column table form of choices (choption / chdesc rows)', category: 'task', kind: 'block', pmNodeType: 'dita_choicetable', keywords: ['choice', 'table', '选项', '表格'] },
 
   // Common blocks
   { tag: 'p', label: 'Paragraph', labelZh: '段落', description: 'Standard text paragraph', category: 'block', kind: 'block', pmNodeType: 'dita_p', keywords: ['text', 'para', '段落'] },
   { tag: 'note', label: 'Note / Callout', labelZh: '提示框', description: 'Admonition block (note, tip, caution, warning, danger)', category: 'block', kind: 'block', pmNodeType: 'dita_note', keywords: ['tip', 'warning', 'caution', 'callout', '提示', '注意'] },
+  // Kept as a lossless passthrough node: its messagepanel / typeofhazard / consequence children are
+  // the canonical "unknown specialized element" regression fixture, so no PM node type is modeled.
+  { tag: 'hazardstatement', label: 'Hazard Statement', labelZh: '危险警示', description: 'DITA 1.3 safety statement (messagepanel + hazardsymbol); inserted and preserved as passthrough', category: 'block', kind: 'block', keywords: ['safety', 'warning', 'danger', '安全', '警示'] },
   { tag: 'ul', label: 'Bulleted List', labelZh: '无序列表', description: 'Unordered bulleted list', category: 'block', kind: 'block', pmNodeType: 'dita_ul', keywords: ['list', 'bullet', '无序列表'] },
   { tag: 'ol', label: 'Numbered List', labelZh: '有序列表', description: 'Ordered numbered list', category: 'block', kind: 'block', pmNodeType: 'dita_ol', keywords: ['list', 'number', '有序列表'] },
   { tag: 'li', label: 'List Item', labelZh: '列表项', description: 'Item inside ul or ol', category: 'block', kind: 'block', pmNodeType: 'dita_li', keywords: ['item', '列表项'] },
@@ -355,6 +459,17 @@ const ELEMENT_SPEC_LIST: readonly DitaElementSpec[] = [
   { tag: 'option', label: 'CLI Option', labelZh: '命令选项', description: 'Command-line flag or option', category: 'inline', kind: 'inline', pmNodeType: 'dita_option', keywords: ['flag', '选项'] },
   { tag: 'apiname', label: 'API Name', labelZh: 'API 名称', description: 'Endpoint, class, or function name', category: 'inline', kind: 'inline', pmNodeType: 'dita_apiname', keywords: ['api', 'endpoint', '接口'] },
   { tag: 'fn', label: 'Footnote', labelZh: '脚注', description: 'Inline footnote annotation', category: 'inline', kind: 'inline', pmNodeType: 'dita_fn', keywords: ['footnote', '脚注'] },
+  { tag: 'cite', label: 'Citation', labelZh: '引用标题', description: 'Title of a referenced book, standard, or document', category: 'inline', kind: 'inline', pmNodeType: 'dita_cite', keywords: ['citation', 'book', '引用'] },
+  // `<alt>` stays a lossless passthrough node: it lives inside `<image>`, whose children keep
+  // their source whitespace layout, so a dedicated PM node type would reflow golden files.
+  { tag: 'alt', label: 'Alternate Text', labelZh: '替代文本', description: 'Accessible text for an image or object (lossless passthrough)', category: 'inline', kind: 'inline', keywords: ['a11y', 'accessibility', '替代文本'] },
+  { tag: 'msgnum', label: 'Message Number', labelZh: '错误码', description: 'Error or message code shown to the user', category: 'inline', kind: 'inline', pmNodeType: 'dita_msgnum', keywords: ['error', 'code', '错误码'] },
+  { tag: 'proptypehd', label: 'Property Type Header', labelZh: '属性类型表头', description: 'Header cell for the type column of a properties table', category: 'table', kind: 'inline', pmNodeType: 'dita_proptypehd', keywords: ['header', '表头'] },
+  { tag: 'propvaluehd', label: 'Property Value Header', labelZh: '属性值表头', description: 'Header cell for the value column of a properties table', category: 'table', kind: 'inline', pmNodeType: 'dita_propvaluehd', keywords: ['header', '表头'] },
+  { tag: 'propdeschd', label: 'Property Description Header', labelZh: '属性说明表头', description: 'Header cell for the description column of a properties table', category: 'table', kind: 'inline', pmNodeType: 'dita_propdeschd', keywords: ['header', '表头'] },
+  { tag: 'proptype', label: 'Property Type', labelZh: '属性类型', description: 'Data type of a parameter, e.g. integer or string', category: 'table', kind: 'inline', pmNodeType: 'dita_proptype', keywords: ['type', '类型'] },
+  { tag: 'propvalue', label: 'Property Value', labelZh: '属性值', description: 'Default or allowed value of a parameter', category: 'table', kind: 'inline', pmNodeType: 'dita_propvalue', keywords: ['value', '取值'] },
+  { tag: 'propdesc', label: 'Property Description', labelZh: '属性说明', description: 'Explanation of a parameter', category: 'table', kind: 'inline', pmNodeType: 'dita_propdesc', keywords: ['description', '说明'] },
   { tag: 'image', label: 'Image', labelZh: '图片', description: 'Referenced image asset (inline or placement="break")', category: 'block', kind: 'inline', pmNodeType: 'dita_image_block', keywords: ['img', 'graphic', '图片'] },
 ];
 
@@ -417,17 +532,25 @@ const ELEMENT_DESCRIPTIONS_ZH: Readonly<Record<string, string>> = {
   navtitle: '覆盖目录与 Map 树中显示的标题',
   reltable: '定义主题之间非层级性的相关链接',
   title: '主题、章节、插图或表格的标题',
+  titlealts: '目录与检索使用的替代标题组',
+  searchtitle: '供检索系统使用的标题',
   shortdesc: '用于预览与搜索的简明主题摘要',
   prolog: '作者、日期、关键字与主题元数据',
   'related-links': '指向相关主题的交叉引用',
   link: 'related-links 中的单条相关主题链接',
+  linklist: '带标题的一组相关链接',
+  linkpool: '不带标题的链接容器，通常由关系表自动填充',
+  linkinfo: '链接列表之后的补充说明段落',
+  linktext: '覆盖目标主题标题的链接文字',
   body: '基础主题的正文',
   conbody: '概念主题的正文',
   taskbody: '任务主题的结构化正文',
   refbody: '参考主题的正文',
   section: '主题正文中带标题的组织分区',
+  bodydiv: '不带标题的正文分组容器，可为整组元素赋予 id 以便复用',
   example: '用于说明概念、任务或参考用法的示例块',
   refsyn: '参考主题中的语法签名或端点块',
+  refbodydiv: '在不添加标题的前提下成组参考正文的块（DITA 1.3）',
   prereq: '执行任务前需要满足的条件',
   context: '操作流程的背景说明',
   steps: '按顺序编号的操作步骤',
@@ -460,6 +583,16 @@ const ELEMENT_DESCRIPTIONS_ZH: Readonly<Record<string, string>> = {
   sthead: '简单表格的表头行',
   strow: '简单表格的表体行',
   stentry: 'sthead 或 strow 中的单元格',
+  properties: '由“类型 / 取值 / 说明”组成的参数表（至少一行）',
+  prophead: '属性表可选的表头行',
+  property: '属性表中的一行参数',
+  proptypehd: '属性表“类型”列表头',
+  propvaluehd: '属性表“取值”列表头',
+  propdeschd: '属性表“说明”列表头',
+  proptype: '参数的数据类型',
+  propvalue: '参数的默认值或可选值',
+  propdesc: '参数的用途说明',
+  msgnum: '展示给用户的错误码或消息编号',
   table: '支持标题、colspec 与合并单元格的 OASIS CALS 表格',
   tgroup: '包含 colspec、thead 与 tbody 的列表组',
   colspec: '定义列名、序号、宽度与对齐方式',
@@ -647,21 +780,51 @@ export function getElementSpec(tagName: string): DitaElementSpec | undefined {
   return DITA_ELEMENT_SPECS.get(tagName);
 }
 
-export function getAllowedChildElementTags(parentTag: string): readonly string[] {
-  return DITA_CONTENT_MODEL[parentTag] ?? [];
+/**
+ * Children that are legal only in the unconstrained task shells (`generalTask.dtd` /
+ * `ditabase.dtd`) — the strict `task.dtd` forbids them inside `<taskbody>`.
+ */
+export const GENERAL_TASK_CONTENT_MODEL: Readonly<Record<string, readonly string[]>> = {
+  taskbody: [
+    'prereq',
+    'context',
+    'section',
+    'steps',
+    'steps-unordered',
+    'steps-informal',
+    'result',
+    'tasktroubleshooting',
+    'example',
+    'postreq',
+  ],
+};
+
+export function getAllowedChildElementTags(
+  parentTag: string,
+  taskModel: TaskContentModel = 'strict',
+): readonly string[] {
+  const override = taskModel === 'general' ? GENERAL_TASK_CONTENT_MODEL[parentTag] : undefined;
+  return override ?? DITA_CONTENT_MODEL[parentTag] ?? [];
 }
 
-export function isChildAllowed(parentTag: string, childTag: string): boolean {
-  const allowed = DITA_CONTENT_MODEL[parentTag];
-  if (!allowed) return true; // Permissive for unknown/specialized passthrough containers
+export function isChildAllowed(
+  parentTag: string,
+  childTag: string,
+  taskModel: TaskContentModel = 'strict',
+): boolean {
+  const allowed = getAllowedChildElementTags(parentTag, taskModel);
+  if (allowed.length === 0 && !DITA_CONTENT_MODEL[parentTag]) {
+    return true; // Permissive for unknown/specialized passthrough containers
+  }
   return allowed.includes(childTag);
 }
 
 export function getAllowedChildElements(
   parentTag: string,
   filterKind: 'block' | 'inline' | 'all' = 'all',
+  taskModel: TaskContentModel = 'strict',
 ): DitaElementSpec[] {
-  const tags = getAllowedChildElementTags(parentTag);
+  const tags = getAllowedChildElementTags(parentTag, taskModel);
   const result: DitaElementSpec[] = [];
   for (const tag of tags) {
     const spec = DITA_ELEMENT_SPECS.get(tag);

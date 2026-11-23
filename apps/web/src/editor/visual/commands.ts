@@ -8,9 +8,11 @@ import {
   type Transaction,
 } from 'prosemirror-state';
 import {
+  checkChildRemoval,
   ditaSchema,
   getElementSpec,
   getInsertionSlot,
+  getPmChildTags,
   getPmNodeRawAttrs,
   getPmNodeTagName,
   hasSequenceModel,
@@ -19,10 +21,12 @@ import {
   removeRawAttr,
   setRawAttr,
   type RawAttrs,
+  type TaskContentModel,
 } from '@dita/core';
+import { resolveTaskModelForDocument } from '../structure-options';
 import { findLegalAncestorDepthForBlock } from './selection-info';
 import { getCurrentLocale, translate } from '../../i18n/index.js';
-import { buildConvertedBlock, planBlockMove } from './block-transforms';
+import { buildConvertedBlock, isBlockMoveOrderSafe, planBlockMove } from './block-transforms';
 import {
   findSharedInlineTextblock,
   flattenSameTypeInline,
@@ -118,11 +122,34 @@ export function createDitaElementSkeleton(
       stepresult: 'dita_stepresult',
       result: 'dita_result',
       postreq: 'dita_postreq',
+      titlealts: 'dita_titlealts',
+      navtitle: 'dita_navtitle',
+      searchtitle: 'dita_searchtitle',
       'related-links': 'dita_related_links',
       link: 'dita_link',
+      linklist: 'dita_linklist',
+      linkpool: 'dita_linkpool',
+      linkinfo: 'dita_linkinfo',
       prolog: 'dita_prolog',
       simpletable: 'dita_simpletable',
       table: 'cals_table',
+      body: 'dita_body',
+      bodydiv: 'dita_bodydiv',
+      conbody: 'dita_conbody',
+      conbodydiv: 'dita_conbodydiv',
+      sectiondiv: 'dita_sectiondiv',
+      taskbody: 'dita_taskbody',
+      refbody: 'dita_refbody',
+      refbodydiv: 'dita_refbodydiv',
+      properties: 'dita_properties',
+      abstract: 'dita_abstract',
+      tasktroubleshooting: 'dita_tasktroubleshooting',
+      'steps-informal': 'dita_steps_informal',
+      stepsection: 'dita_stepsection',
+      steptroubleshooting: 'dita_steptroubleshooting',
+      tutorialinfo: 'dita_tutorialinfo',
+      itemgroup: 'dita_itemgroup',
+      choicetable: 'dita_choicetable',
     };
     const mappedType = blockTypeMap[tagName];
     if (mappedType) {
@@ -140,6 +167,65 @@ export function createDitaElementSkeleton(
       return makeNode('dita_title', initialAttrs);
     case 'shortdesc':
       return makeNode('dita_shortdesc', initialAttrs);
+    // `<abstract>` is the multi-block alternative to `<shortdesc>`, so it starts with one paragraph.
+    case 'abstract':
+      return makeNode('dita_abstract', initialAttrs, [makeNode('dita_p')]);
+    // Body wrappers: a topic can legitimately arrive without one (hand-edited XML, paste,
+    // specialized shell topic), and every block element needs it as a legal insertion target.
+    case 'body':
+      return makeNode('dita_body', initialAttrs, [makeNode('dita_p')]);
+    case 'conbody':
+      return makeNode('dita_conbody', initialAttrs, [makeNode('dita_p')]);
+    // `<conbodydiv>` may only hold `<section>` / `<example>`, so seed one titled section.
+    case 'conbodydiv':
+      return makeNode('dita_conbodydiv', initialAttrs, [
+        makeNode('dita_section', EMPTY_ATTRS, [
+          makeNode('dita_title'),
+          makeNode('dita_p'),
+        ]),
+      ]);
+    // `<sectiondiv>` groups blocks without adding a title.
+    case 'sectiondiv':
+      return makeNode('dita_sectiondiv', initialAttrs, [makeNode('dita_p')]);
+    // Nested topics: each shell DTD narrows `%info-types;` to the topic's own type, so a concept
+    // may hold concepts, a task tasks, and so on.
+    case 'concept':
+      return makeNode('dita_concept', initialAttrs, [
+        makeNode('dita_title'),
+        makeNode('dita_conbody', EMPTY_ATTRS, [makeNode('dita_p')]),
+      ]);
+    case 'topic':
+      return makeNode('dita_topic', initialAttrs, [
+        makeNode('dita_title'),
+        makeNode('dita_body', EMPTY_ATTRS, [makeNode('dita_p')]),
+      ]);
+    case 'task':
+      return makeNode('dita_task', initialAttrs, [
+        makeNode('dita_title'),
+        makeNode('dita_taskbody', EMPTY_ATTRS, [
+          makeNode('dita_steps', EMPTY_ATTRS, [
+            makeNode('dita_step', EMPTY_ATTRS, [makeNode('dita_cmd')]),
+          ]),
+        ]),
+      ]);
+    case 'reference':
+      return makeNode('dita_reference', initialAttrs, [
+        makeNode('dita_title'),
+        makeNode('dita_refbody', EMPTY_ATTRS, [makeNode('dita_p')]),
+      ]);
+    case 'taskbody':
+      // Strict task model forbids `<p>` directly inside `<taskbody>`, so seed the canonical
+      // minimal workflow `<steps><step><cmd/></step></steps>` to give the user an editable slot.
+      return makeNode('dita_taskbody', initialAttrs, [
+        makeNode('dita_steps', EMPTY_ATTRS, [
+          makeNode('dita_step', EMPTY_ATTRS, [makeNode('dita_cmd')]),
+        ]),
+      ]);
+    case 'refbody':
+      return makeNode('dita_refbody', initialAttrs, [makeNode('dita_refsyn', EMPTY_ATTRS, [
+        makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.syntax'))]),
+        makeNode('dita_codeblock'),
+      ])]);
     case 'cmd':
       return makeNode('dita_cmd', initialAttrs);
     case 'dt':
@@ -162,6 +248,27 @@ export function createDitaElementSkeleton(
         makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.sectionTitle'))]),
         makeNode('dita_p'),
       ]);
+    case 'bodydiv':
+      return makeNode('dita_bodydiv', initialAttrs, [makeNode('dita_p')]);
+    case 'linklist':
+      return makeNode('dita_linklist', initialAttrs, [
+        makeNode('dita_title', EMPTY_ATTRS, [
+          textNode(translate(getCurrentLocale(), 'insertSample.linkListTitle')),
+        ]),
+        makeNode('dita_link', [
+          { name: 'href', value: '../concepts/overview.dita', namespaceURI: null },
+          { name: 'format', value: 'dita', namespaceURI: null },
+        ]),
+      ]);
+    case 'linkpool':
+      return makeNode('dita_linkpool', initialAttrs, [
+        makeNode('dita_link', [
+          { name: 'href', value: '../concepts/overview.dita', namespaceURI: null },
+          { name: 'format', value: 'dita', namespaceURI: null },
+        ]),
+      ]);
+    case 'linkinfo':
+      return makeNode('dita_linkinfo', initialAttrs, [makeNode('dita_p')]);
     case 'example':
       return makeNode('dita_example', initialAttrs, [
         makeNode('dita_title', EMPTY_ATTRS, [textNode(translate(getCurrentLocale(), 'insertSample.example'))]),
@@ -259,6 +366,108 @@ export function createDitaElementSkeleton(
       return makeNode('dita_result', initialAttrs, [makeNode('dita_p')]);
     case 'postreq':
       return makeNode('dita_postreq', initialAttrs, [makeNode('dita_p')]);
+    case 'tasktroubleshooting':
+      return makeNode('dita_tasktroubleshooting', initialAttrs, [makeNode('dita_p')]);
+    case 'steps-informal':
+      return makeNode('dita_steps_informal', initialAttrs, [makeNode('dita_p')]);
+    // `<stepsection>` is a title-like divider (`(listitem.cnt)*`), so it seeds bare text.
+    case 'stepsection':
+      return makeNode('dita_stepsection', initialAttrs, [makeNode('xml_text_block')]);
+    case 'steptroubleshooting':
+      return makeNode('dita_steptroubleshooting', initialAttrs, [makeNode('dita_p')]);
+    case 'tutorialinfo':
+      return makeNode('dita_tutorialinfo', initialAttrs, [makeNode('dita_p')]);
+    case 'itemgroup':
+      return makeNode('dita_itemgroup', initialAttrs, [makeNode('dita_p')]);
+    // `<choicetable>` rows are lossless passthrough nodes (`choption` / `chdesc` carry the text).
+    case 'choicetable':
+      return makeNode('dita_choicetable', initialAttrs, [
+        makeNode(
+          'unknown_block',
+          EMPTY_ATTRS,
+          [
+            makeNode(
+              'unknown_block',
+              EMPTY_ATTRS,
+              [
+                makeNode('xml_text_block', EMPTY_ATTRS, [
+                  textNode(translate(getCurrentLocale(), 'insertSample.option')),
+                ]),
+              ],
+              { tagName: 'choption', preserveWhitespace: false },
+            ),
+            makeNode(
+              'unknown_block',
+              EMPTY_ATTRS,
+              [
+                makeNode('xml_text_block', EMPTY_ATTRS, [
+                  textNode(translate(getCurrentLocale(), 'insertSample.description')),
+                ]),
+              ],
+              { tagName: 'chdesc', preserveWhitespace: false },
+            ),
+          ],
+          { tagName: 'chrow', preserveWhitespace: false },
+        ),
+      ]);
+    // The DITA 1.3 hazardstatement family is deliberately left unmodeled (it is the canonical
+    // unknown/specialized passthrough regression fixture), so the skeleton is assembled from
+    // `unknown_block` nodes that carry the exact DTD tag names and stay 100% lossless.
+    case 'hazardstatement': {
+      const attrs =
+        initialAttrs.length > 0
+          ? initialAttrs
+          : [{ name: 'type', value: 'warning', namespaceURI: null }];
+      const locale = getCurrentLocale();
+      const hazardText = (key: 'insertSample.hazardType' | 'insertSample.hazardConsequence') =>
+        makeNode('xml_text_block', EMPTY_ATTRS, [textNode(translate(locale, key))]);
+      return makeNode(
+        'unknown_block',
+        attrs,
+        [
+          makeNode(
+            'unknown_block',
+            EMPTY_ATTRS,
+            [
+              makeNode('unknown_block', EMPTY_ATTRS, [hazardText('insertSample.hazardType')], {
+                tagName: 'typeofhazard',
+                preserveWhitespace: false,
+              }),
+              makeNode('unknown_block', EMPTY_ATTRS, [hazardText('insertSample.hazardConsequence')], {
+                tagName: 'consequence',
+                preserveWhitespace: false,
+              }),
+              makeNode(
+                'unknown_block',
+                EMPTY_ATTRS,
+                [
+                  makeNode('dita_p', EMPTY_ATTRS, [
+                    textNode(translate(locale, 'insertSample.hazardAvoid')),
+                  ]),
+                ],
+                { tagName: 'howtoavoid', preserveWhitespace: false },
+              ),
+            ],
+            { tagName: 'messagepanel', preserveWhitespace: false },
+          ),
+        ],
+        { tagName: 'hazardstatement', preserveWhitespace: false },
+      );
+    }
+    case 'titlealts':
+      return makeNode('dita_titlealts', initialAttrs, [
+        makeNode('dita_navtitle', EMPTY_ATTRS, [
+          textNode(translate(getCurrentLocale(), 'insertSample.navTitle')),
+        ]),
+      ]);
+    case 'navtitle':
+      return makeNode('dita_navtitle', initialAttrs, [
+        textNode(translate(getCurrentLocale(), 'insertSample.navTitle')),
+      ]);
+    case 'searchtitle':
+      return makeNode('dita_searchtitle', initialAttrs, [
+        textNode(translate(getCurrentLocale(), 'insertSample.searchTitle')),
+      ]);
     case 'related-links':
       return makeNode('dita_related_links', initialAttrs, [
         makeNode('dita_link', [
@@ -304,6 +513,45 @@ export function createDitaElementSkeleton(
           ]),
         ],
       );
+    case 'refbodydiv':
+      return makeNode('dita_refbodydiv', initialAttrs, [
+        makeNode('dita_section', EMPTY_ATTRS, [
+          makeNode('dita_title'),
+          makeNode('dita_p'),
+        ]),
+      ]);
+    // `properties` = `(prophead?, property+)`; seed one header row and one parameter row so the
+    // three-column shape is visible right after insertion (reference.mod).
+    case 'properties':
+      return makeNode('dita_properties', initialAttrs, [
+        makeNode('dita_prophead', EMPTY_ATTRS, [
+          makeNode('dita_proptypehd', EMPTY_ATTRS, [
+            textNode(translate(getCurrentLocale(), 'insertSample.propType')),
+          ]),
+          makeNode('dita_propvaluehd', EMPTY_ATTRS, [
+            textNode(translate(getCurrentLocale(), 'insertSample.propValue')),
+          ]),
+          makeNode('dita_propdeschd', EMPTY_ATTRS, [
+            textNode(translate(getCurrentLocale(), 'insertSample.description')),
+          ]),
+        ]),
+        makeNode('dita_property', EMPTY_ATTRS, [
+          makeNode('dita_proptype', EMPTY_ATTRS, [
+            textNode(translate(getCurrentLocale(), 'insertSample.propTypeSample')),
+          ]),
+          makeNode('dita_propvalue', EMPTY_ATTRS, [
+            textNode(translate(getCurrentLocale(), 'insertSample.propValueSample')),
+          ]),
+          makeNode('dita_propdesc', EMPTY_ATTRS, [
+            textNode(translate(getCurrentLocale(), 'insertSample.description')),
+          ]),
+        ]),
+      ]);
+    // Header / body rows of a properties table (empty on purpose: the author fills the cells).
+    case 'prophead':
+      return makeNode('dita_prophead', initialAttrs);
+    case 'property':
+      return makeNode('dita_property', initialAttrs);
     case 'table':
       return makeNode(
         'cals_table',
@@ -540,6 +788,7 @@ function resolveSequenceAnchor(
   containerTag: string,
   tagName: string,
   preferredPos: number,
+  taskModel: TaskContentModel = 'strict',
 ): { ok: boolean; pos: number } {
   if (!hasSequenceModel(containerTag)) return { ok: true, pos: preferredPos };
 
@@ -566,6 +815,7 @@ function resolveSequenceAnchor(
     elementChildren.map((child) => child.tag),
     tagName,
     preferredIndex,
+    taskModel,
   );
   if (!slot.ok) return { ok: false, pos: -1 };
   if (slot.index === preferredIndex) {
@@ -611,6 +861,7 @@ export function insertBlockDitaElement(
       containerTag,
       tagName,
       preferredPos,
+      resolveTaskModelForDocument(state.doc),
     );
     if (!sequence.ok) return false;
     const insertPos = sequence.pos;
@@ -647,6 +898,7 @@ export function insertBlockDitaElementAtPos(
       parentTag,
       tagName,
       insertPos,
+      resolveTaskModelForDocument(state.doc),
     );
     if (!sequence.ok) return false;
     const targetPos = sequence.pos;
@@ -657,6 +909,51 @@ export function insertBlockDitaElementAtPos(
     dispatch(tr.scrollIntoView());
     return true;
   };
+}
+
+/**
+ * Topic root -> its mandatory body wrapper. `body`/`conbody`/`taskbody`/`refbody` are the only
+ * legal parents for prose blocks, so a topic that arrives without one cannot accept any content
+ * until the wrapper exists.
+ */
+const TOPIC_BODY_WRAPPER: Readonly<Record<string, string>> = {
+  topic: 'body',
+  concept: 'conbody',
+  task: 'taskbody',
+  reference: 'refbody',
+};
+
+/**
+ * Insert the topic root's missing body wrapper at its DTD-correct slot and focus its first
+ * editable textblock. Returns false when the root is not a topic root or already has its wrapper.
+ */
+function insertMissingTopicBody(
+  tr: Transaction,
+  rootNode: PMNode,
+  rootStart: number,
+  rootTag: string,
+  preferredPos: number,
+  taskModel: TaskContentModel = 'strict',
+): boolean {
+  const bodyTag = TOPIC_BODY_WRAPPER[rootTag];
+  if (!bodyTag) return false;
+  if (getPmChildTags(rootNode).includes(bodyTag)) return false;
+  const bodyNode = createDitaElementSkeleton(bodyTag);
+  if (!bodyNode) return false;
+  // Re-anchor to the legal slot so a body inserted while `<related-links>` is present still
+  // lands before it.
+  const anchor = resolveSequenceAnchor(
+    rootNode,
+    rootStart,
+    rootTag,
+    bodyTag,
+    preferredPos,
+    taskModel,
+  );
+  if (!anchor.ok) return false;
+  tr.insert(anchor.pos, bodyNode);
+  selectFirstEditablePos(tr, anchor.pos, bodyNode);
+  return true;
 }
 
 /**
@@ -712,6 +1009,22 @@ export const handleDitaEnter: Command = (state, dispatch) => {
       dispatch(tr.scrollIntoView());
       return true;
     }
+
+    // Topic root without any following sibling: create the missing body wrapper instead of
+    // falling through to `splitBlock`, which would duplicate the single-occurrence <title>.
+    if (
+      insertMissingTopicBody(
+        tr,
+        owner,
+        $from.start($from.depth - 1),
+        ownerTag ?? '',
+        afterTitlePos,
+        resolveTaskModelForDocument(state.doc),
+      )
+    ) {
+      dispatch(tr.scrollIntoView());
+      return true;
+    }
     return false;
   }
 
@@ -722,6 +1035,26 @@ export const handleDitaEnter: Command = (state, dispatch) => {
       if (!dispatch) return true;
       const tr = state.tr;
       tr.setSelection(Selection.near(tr.doc.resolve(afterPos), 1));
+      dispatch(tr.scrollIntoView());
+      return true;
+    }
+
+    const owner = $from.node($from.depth - 1);
+    const ownerTag = getPmNodeTagName(owner) ?? '';
+    if (!dispatch) return true;
+    const tr = state.tr;
+    // Same as <title>: a topic root with <shortdesc> but no body must materialize the body
+    // wrapper, otherwise `splitBlock` would create a second illegal <shortdesc>.
+    if (
+      insertMissingTopicBody(
+        tr,
+        owner,
+        $from.start($from.depth - 1),
+        ownerTag,
+        afterPos,
+        resolveTaskModelForDocument(state.doc),
+      )
+    ) {
       dispatch(tr.scrollIntoView());
       return true;
     }
@@ -1010,20 +1343,27 @@ export function updateNodeRawAttr(
 }
 
 /**
- * Delete a specific DITA element at `nodePos` (protecting the topic root and required root title).
+ * Delete a specific DITA element at `nodePos`.
+ *
+ * The guard is the DITA 1.3 content model, not a tag whitelist: the document root, children of a
+ * `required` slot (e.g. the `<cmd>` of a `<step>`) and the last item of a `oneOrMore` slot (e.g. the
+ * only `<step>` of `<steps>`) are refused; everything else is deletable.
  */
 export function deleteDitaNodeAtPos(nodePos: number): Command {
   return (state, dispatch) => {
-    if (nodePos <= 0) return false; // Never delete root topic
+    if (nodePos <= 0) return false; // Never delete the root element
     const node = state.doc.nodeAt(nodePos);
     if (!node) return false;
     const $pos = state.doc.resolve(nodePos);
-    // Protect root topic's <title>
-    if (node.type.name === 'dita_title' && $pos.depth === 1) return false;
-    // Protect body containers directly under root
+    const parentTag = getPmNodeTagName($pos.parent) ?? '';
+    const nodeTag = getPmNodeTagName(node) ?? '';
     if (
-      ['dita_body', 'dita_conbody', 'dita_taskbody', 'dita_refbody'].includes(node.type.name) &&
-      $pos.depth === 1
+      checkChildRemoval(
+        parentTag,
+        nodeTag,
+        getPmChildTags($pos.parent),
+        resolveTaskModelForDocument(state.doc),
+      )
     ) {
       return false;
     }
@@ -1065,6 +1405,13 @@ export function moveDitaNodeSibling(nodePos: number, direction: 'up' | 'down'): 
       return false;
     }
 
+    // Ordered content models (taskbody workflow slots, `<title>`-first containers, …) must keep
+    // their slot order: swapping two neighbours is only legal when the reordered tags validate.
+    const parentTag = getPmNodeTagName(parent) ?? '';
+    if (!isBlockMoveOrderSafe(parentTag, getPmChildTags(parent), index, direction === 'up' ? index - 1 : index + 2)) {
+      return false;
+    }
+
     if (!dispatch) return true;
 
     const parentStart = $pos.start($pos.depth);
@@ -1096,7 +1443,12 @@ export function convertDitaBlockAtPos(tagName: string, nodePos: number): Command
     const spec = getElementSpec(tagName);
     if (!spec || spec.tag === getPmNodeTagName(node)) return false;
     const parentTag = getPmNodeTagName(state.doc.resolve(nodePos).parent);
-    if (!parentTag || !isChildAllowed(parentTag, spec.tag)) return false;
+    if (
+      !parentTag ||
+      !isChildAllowed(parentTag, spec.tag, resolveTaskModelForDocument(state.doc))
+    ) {
+      return false;
+    }
     const converted = buildConvertedBlock(node, spec);
     if (!converted) return false;
     if (!dispatch) return true;
@@ -1134,6 +1486,30 @@ export function moveDitaBlockToGap(nodePos: number, gapPos: number): Command {
     if (!node || node.isInline) return false;
     const plan = planBlockMove(nodePos, node.nodeSize, gapPos);
     if (!plan) return false;
+
+    // Reordering must keep the ordered content model intact (drag is a *move*, not a re-slot).
+    const $pos = state.doc.resolve(nodePos);
+    if ($pos.depth < 1) return false;
+    const parent = $pos.parent;
+    const fromIndex = $pos.index($pos.depth);
+    const parentStart = $pos.start($pos.depth);
+    let gapIndex = 0;
+    let offset = parentStart;
+    while (gapIndex < parent.childCount && offset !== gapPos) {
+      offset += parent.child(gapIndex)!.nodeSize;
+      gapIndex += 1;
+    }
+    if (
+      !isBlockMoveOrderSafe(
+        getPmNodeTagName(parent) ?? '',
+        getPmChildTags(parent),
+        fromIndex,
+        gapIndex,
+      )
+    ) {
+      return false;
+    }
+
     if (!dispatch) return true;
 
     const tr = state.tr.delete(plan.from, plan.to);

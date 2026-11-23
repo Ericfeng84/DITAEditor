@@ -1,7 +1,7 @@
 import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
-import { validatePmStructure, type UiLocale } from '@dita/core';
+import { validatePmStructure, type TaskContentModel, type UiLocale } from '@dita/core';
 import { getCurrentLocale } from '../../i18n/index.js';
 import { describeStructureIssue } from '../structure-messages.js';
 
@@ -15,14 +15,25 @@ import { describeStructureIssue } from '../structure-messages.js';
  */
 export interface DitaStructurePluginState {
   locale: UiLocale;
+  /** Task shell variant the document is validated against (`task.dtd` strict vs `generalTask.dtd`). */
+  taskModel: TaskContentModel;
   decorations: DecorationSet;
+}
+
+export interface DitaStructurePluginMeta {
+  locale?: UiLocale;
+  taskModel?: TaskContentModel;
 }
 
 export const DITA_STRUCTURE_KEY =
   new PluginKey<DitaStructurePluginState>('ditaStructureDiagnostics');
 
-function buildStructureDecorations(doc: PMNode, locale: UiLocale): DecorationSet {
-  const issues = validatePmStructure(doc);
+function buildStructureDecorations(
+  doc: PMNode,
+  locale: UiLocale,
+  taskModel: TaskContentModel,
+): DecorationSet {
+  const issues = validatePmStructure(doc, { taskModel });
   if (issues.length === 0) return DecorationSet.empty;
 
   const decorations: Decoration[] = [];
@@ -44,10 +55,12 @@ function buildStructureDecorations(doc: PMNode, locale: UiLocale): DecorationSet
 }
 
 /**
- * Structure-diagnostic plugin: recomputes only when the document or the UI locale changes.
+ * Structure-diagnostic plugin: recomputes only when the document, the UI locale or the task
+ * content-model variant changes.
  */
 export function createDitaStructurePlugin(
   initialLocale: UiLocale = getCurrentLocale(),
+  initialTaskModel: TaskContentModel = 'strict',
 ): Plugin<DitaStructurePluginState> {
   return new Plugin({
     key: DITA_STRUCTURE_KEY,
@@ -55,16 +68,25 @@ export function createDitaStructurePlugin(
       init(_, state) {
         return {
           locale: initialLocale,
-          decorations: buildStructureDecorations(state.doc, initialLocale),
+          taskModel: initialTaskModel,
+          decorations: buildStructureDecorations(state.doc, initialLocale, initialTaskModel),
         };
       },
       apply(tr, prev, _oldState, newState) {
-        const meta = tr.getMeta(DITA_STRUCTURE_KEY) as { locale?: UiLocale } | undefined;
+        const meta = tr.getMeta(DITA_STRUCTURE_KEY) as DitaStructurePluginMeta | undefined;
         const nextLocale = meta?.locale ?? prev.locale;
-        if (!tr.docChanged && nextLocale === prev.locale) return prev;
+        const nextTaskModel = meta?.taskModel ?? prev.taskModel;
+        if (
+          !tr.docChanged &&
+          nextLocale === prev.locale &&
+          nextTaskModel === prev.taskModel
+        ) {
+          return prev;
+        }
         return {
           locale: nextLocale,
-          decorations: buildStructureDecorations(newState.doc, nextLocale),
+          taskModel: nextTaskModel,
+          decorations: buildStructureDecorations(newState.doc, nextLocale, nextTaskModel),
         };
       },
     },

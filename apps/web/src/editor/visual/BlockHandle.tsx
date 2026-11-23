@@ -13,6 +13,16 @@ export interface BlockHandleProps {
   dragging: boolean;
   /** Conversion options; non-null while the "turn into" menu is open. */
   menuOptions: BlockConvertOption[] | null;
+  /** Whether a legal sibling block can still be inserted below this block. */
+  canInsert: boolean;
+  /** Dragging is only offered inside a reorderable container and never for pinned blocks. */
+  canMove: boolean;
+  /** Duplicating is refused for single-occurrence slots (`<shortdesc>`, `<title>`, focused ones). */
+  canDuplicate: boolean;
+  /** Deleting is refused for required structure (`<taskbody>`, the last `<step>`, the root). */
+  canDelete: boolean;
+  /** Localized explanation shown while the delete action is refused. */
+  deleteBlockedReason: string | null;
   onInsert: () => void;
   onToggleMenu: () => void;
   onStartDrag: (event: React.PointerEvent<HTMLButtonElement>) => void;
@@ -44,6 +54,11 @@ export function BlockHandle({
   containerTag,
   dragging,
   menuOptions,
+  canInsert,
+  canMove,
+  canDuplicate,
+  canDelete,
+  deleteBlockedReason,
   onInsert,
   onToggleMenu,
   onStartDrag,
@@ -98,8 +113,9 @@ export function BlockHandle({
       <button
         type="button"
         className="dita-block-handle-btn"
-        title={t('block.insertBlockTitle', { tag: containerTag })}
-        aria-label={t('block.insertBlockTitle', { tag: containerTag })}
+        title={canInsert ? t('block.insertBlockTitle', { tag: containerTag }) : t('block.insertBlockUnavailable')}
+        aria-label={canInsert ? t('block.insertBlockTitle', { tag: containerTag }) : t('block.insertBlockUnavailable')}
+        disabled={!canInsert}
         onMouseDown={(event) => event.preventDefault()}
         onClick={onInsert}
       >
@@ -107,12 +123,25 @@ export function BlockHandle({
       </button>
       <button
         type="button"
-        className="dita-block-handle-btn dita-block-handle-grip"
-        title={t('block.convertTitle', { tag: blockTag })}
+        className={`dita-block-handle-btn dita-block-handle-grip${canMove ? '' : ' dita-block-handle-grip--static'}`}
+        title={
+          canMove
+            ? t('block.convertTitle', { tag: blockTag })
+            : t('block.staticTitle', { tag: blockTag, container: containerTag })
+        }
         aria-label={t('block.convertTitle', { tag: blockTag })}
         aria-haspopup="menu"
         aria-expanded={menuOptions !== null}
-        onPointerDown={onStartDrag}
+        data-movable={canMove}
+        onPointerDown={(event) => {
+          if (canMove) {
+            onStartDrag(event);
+            return;
+          }
+          // Pinned / structural blocks cannot be dragged: open the action menu directly.
+          event.preventDefault();
+          onToggleMenu();
+        }}
         onKeyDown={(event) => {
           if (event.key === 'Enter' || event.key === ' ') {
             event.preventDefault();
@@ -155,7 +184,13 @@ export function BlockHandle({
             ) : null}
           </div>
           <div className="dita-block-menu-sep" role="separator" />
-          <button type="button" role="menuitem" className="dita-block-menu-action" onClick={onDuplicate}>
+          <button
+            type="button"
+            role="menuitem"
+            className="dita-block-menu-action"
+            disabled={!canDuplicate}
+            onClick={onDuplicate}
+          >
             <Copy size={12} aria-hidden />
             {t('block.duplicate')}
           </button>
@@ -163,11 +198,18 @@ export function BlockHandle({
             type="button"
             role="menuitem"
             className="dita-block-menu-action dita-block-menu-action--danger"
+            disabled={!canDelete}
+            title={deleteBlockedReason ?? undefined}
             onClick={onDelete}
           >
             <Trash2 size={12} aria-hidden />
             {t('block.delete')}
           </button>
+          {canDelete ? null : (
+            <p className="dita-block-menu-note" data-testid="block-delete-blocked">
+              {deleteBlockedReason}
+            </p>
+          )}
         </div>
       ) : null}
     </div>

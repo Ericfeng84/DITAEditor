@@ -13,6 +13,7 @@ import { EditorState, Selection, TextSelection, type Command } from 'prosemirror
 import { EditorView } from 'prosemirror-view';
 import { Filter, Tags } from 'lucide-react';
 import {
+  checkChildRemoval,
   evaluateElementConditions,
   getAllowedChildElements,
   getInsertableTagsBySequence,
@@ -26,6 +27,8 @@ import {
   type DocumentSemanticOverlay,
   type ParsedDitaval,
   type RawAttrs,
+  type TaskContentModel,
+  type TaskContentModelSetting,
   type XmlDeclaration,
   type XmlPrologItem,
 } from '@dita/core';
@@ -51,13 +54,19 @@ import {
 } from './decorations';
 import { buildDitaKeymapPlugins } from './keymap';
 import { createDitaStructurePlugin, DITA_STRUCTURE_KEY } from './structure-decorations';
+import { resolveTaskModelForDocument } from '../structure-options';
 import { createDitaNodeViews, SemanticViewRegistry } from './node-views';
 import { InsertElementMenu, type InsertElementChoice } from './InsertElementMenu';
 import { InlineBubbleToolbar } from './InlineBubbleToolbar';
+import { TaskModelSwitch } from '../../components/TaskModelSwitch';
 import { BlockHandle } from './BlockHandle';
 import {
+  blockIndexInContainer,
+  canDuplicateBlock,
   findBlockHandleTarget,
+  findBlockHandleTargetForNode,
   getBlockConvertOptions,
+  isBlockMoveOrderSafe,
   planBlockMove,
   type BlockHandleTarget,
 } from './block-transforms';
@@ -112,14 +121,17 @@ function buildBlockInsertGroups(
   containerTag: string,
   containerDepth: number,
   childTags: readonly string[],
+  taskModel: TaskContentModel = 'strict',
 ): InsertContextGroup[] {
   // DITA 1.3 cardinality / choice: never offer a filled single-occurrence slot or the losing side of
   // an exclusive alternative (steps | steps-unordered) in the gap inserter menu.
+  const allowedSpecs = getAllowedChildElements(containerTag, 'block', taskModel);
   const insertable = new Set(
     getInsertableTagsBySequence(
       containerTag,
       childTags,
-      getAllowedChildElements(containerTag, 'block').map((spec) => spec.tag),
+      allowedSpecs.map((spec) => spec.tag),
+      taskModel,
     ),
   );
   return [
@@ -128,7 +140,7 @@ function buildBlockInsertGroups(
       containerDepth,
       containerLabel: translate(getCurrentLocale(), 'visual.insertHere', { tag: containerTag }),
       insertKind: 'block',
-      items: getAllowedChildElements(containerTag, 'block').filter(
+      items: allowedSpecs.filter(
         (spec) => insertable.has(spec.tag) && !NON_INSERTABLE_BLOCK_TAGS.has(spec.tag),
       ),
     },
@@ -194,6 +206,13 @@ export interface VisualEditorProps {
   resolveImageSrc?: (href: string) => string | null;
   /** Read-only mode for viewers or files checked out by another identity. */
   readOnly?: boolean;
+  /** User preference for the task content model (`auto` reads the document DOCTYPE). */
+  taskModelSetting?: TaskContentModelSetting;
+  /** Model `auto` currently resolves to for this document (shown next to the switch). */
+  resolvedTaskModel?: TaskContentModel;
+  onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
+  /** Only `<task>` topics expose the strict / general switch. */
+  showTaskModelSwitch?: boolean;
 }
 
 export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
@@ -217,6 +236,10 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onAnnounce,
       resolveImageSrc,
       readOnly = false,
+      taskModelSetting = 'auto',
+      resolvedTaskModel = 'strict',
+      onChangeTaskModelSetting,
+      showTaskModelSwitch = false,
     },
     ref,
   ) {
@@ -231,6 +254,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     tagModeRef.current = tagDisplayMode;
     const readOnlyRef = useRef(readOnly);
     readOnlyRef.current = readOnly;
+    const taskModelSettingRef = useRef<TaskContentModelSetting>(taskModelSetting);
+    taskModelSettingRef.current = taskModelSetting;
 
     const semanticOverlayRef = useRef<DocumentSemanticOverlay | null>(semanticOverlay);
     const activeDitavalRef = useRef<ParsedDitaval | null>(activeDitaval);
@@ -358,6 +383,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           payload.containerTag,
           payload.containerDepth,
           readGapContainerChildTags(viewRef.current, payload.insertPos, payload.containerTag),
+          viewRef.current ? resolveTaskModelForDocument(viewRef.current.state.doc) : 'strict',
         ),
       });
       setInsertMenuAnchor({ top: rect.bottom + 6, left: rect.left });
@@ -411,15 +437,21 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     /** Viewport anchor of the handle row: aligned with the block's first text line. */
     const resolveHandleAnchor = useCallback((view: EditorView, target: BlockHandleTarget) => {
-      let lineTop: number | null = null;
-      try {
-        lineTop = view.coordsAtPos(target.blockPos + 1).top;
-      } catch {
-        lineTop = null;
-      }
       const dom = view.nodeDOM(target.blockPos);
       const rect = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null;
-      const top = lineTop ?? rect?.top ?? null;
+      let top: number | null;
+      if (target.blockNode.isTextblock) {
+        // Align with the first text line so the handle sits on the baseline of the paragraph.
+        try {
+          top = view.coordsAtPos(target.blockPos + 1).top;
+        } catch {
+          top = rect?.top ?? null;
+        }
+      } else {
+        // Structural containers (`<steps>`, `<taskbody>`, `<shortdesc>`) have no text line of
+        // their own: anchor to the element box so the handle lines up with its tag pill.
+        top = rect?.top ?? null;
+      }
       if (top === null) return null;
       const leftEdge = rect?.left ?? 0;
       return { top: Math.max(8, top), left: Math.max(6, leftEdge - 46) };
@@ -427,12 +459,17 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     /**
      * The gutter handle is not a hover affordance: it follows the block that holds the caret /
-     * selection, so it only shows up after the user clicks into a paragraph.
+     * selection, and an explicitly pinned element (tag pill, breadcrumb, attribute inspector)
+     * takes precedence so `<step>` / `<taskbody>` / `<shortdesc>` are manageable, not just the
+     * textblock nested inside them.
      */
     const syncBlockHandle = useCallback(
       (view: EditorView) => {
         if (blockDragRef.current) return;
-        const target = findBlockHandleTarget(view.state, view.state.selection.from);
+        const pinned = pinnedPosRef.current;
+        const target =
+          (pinned !== null ? findBlockHandleTargetForNode(view.state, pinned) : null) ??
+          findBlockHandleTarget(view.state, view.state.selection.from);
         if (!target) {
           setBlockHandle(null);
           return;
@@ -464,7 +501,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       // Measure the real DOM boxes of the container's children: `coordsAtPos` at node boundaries
       // is unreliable inside DITA NodeViews (note/task/table wrappers), so anchor the drop line
       // to the sibling elements themselves.
-      const candidates: { gap: number; top: number }[] = [];
+      const candidates: { gap: number; top: number; index: number }[] = [];
       let pos = target.containerPos + 1;
       let lastBottom: number | null = null;
       for (let index = 0; index < target.containerNode.childCount; index += 1) {
@@ -472,24 +509,36 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
         const dom = view.nodeDOM(pos);
         const rect = dom instanceof HTMLElement ? dom.getBoundingClientRect() : null;
         if (rect) {
-          candidates.push({ gap: pos, top: rect.top });
+          candidates.push({ gap: pos, top: rect.top, index });
           lastBottom = rect.bottom;
         } else {
           try {
-            candidates.push({ gap: pos, top: view.coordsAtPos(pos, 1).top });
+            candidates.push({ gap: pos, top: view.coordsAtPos(pos, 1).top, index });
           } catch {
             /* unmeasurable edge position */
           }
         }
         pos += child.nodeSize;
       }
-      if (lastBottom !== null) candidates.push({ gap: pos, top: lastBottom });
+      if (lastBottom !== null) {
+        candidates.push({ gap: pos, top: lastBottom, index: target.containerNode.childCount });
+      }
 
+      // Only offer gaps that keep the ordered content model valid (`<prereq>` never lands after
+      // `<steps>` inside `<taskbody>`, `<title>` never moves below prose, …).
+      const containerChildTags = getPmChildTags(target.containerNode);
+      const fromIndex = blockIndexInContainer(target);
       let best: { gap: number; top: number } | null = null;
       for (const candidate of candidates) {
         if (!planBlockMove(target.blockPos, target.blockNode.nodeSize, candidate.gap)) continue;
+        if (
+          target.containerTag &&
+          !isBlockMoveOrderSafe(target.containerTag, containerChildTags, fromIndex, candidate.index)
+        ) {
+          continue;
+        }
         if (!best || Math.abs(candidate.top - clientY) < Math.abs(best.top - clientY)) {
-          best = candidate;
+          best = { gap: candidate.gap, top: candidate.top };
         }
       }
       if (!best) return null;
@@ -579,6 +628,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             target.blockPos + target.blockNode.nodeSize,
             target.containerTag,
           ),
+          viewRef.current ? resolveTaskModelForDocument(viewRef.current.state.doc) : 'strict',
         ),
       });
       setInsertMenuAnchor({ top: (blockHandle?.top ?? 0) + 28, left: (blockHandle?.left ?? 0) + 34 });
@@ -697,7 +747,10 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           ),
           // Guide + (non-blocking) diagnose: ordered DITA content models never reject transactions,
           // they only mark out-of-order / over-cardinality children inline.
-          createDitaStructurePlugin(localeRef.current),
+          createDitaStructurePlugin(
+            localeRef.current,
+            resolveTaskModelForDocument(initialDoc),
+          ),
           dropCursor({ color: '#4f46e5', width: 2 }),
           gapCursor(),
         ],
@@ -836,6 +889,17 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       tr.setMeta(DITA_STRUCTURE_KEY, { locale });
       view.dispatch(tr);
     }, [locale]);
+
+    // Live-swap the task content model (strict <-> general) WITHOUT recreating the view: the
+    // diagnostic plugin re-runs `validatePmStructure` with the new variant.
+    useEffect(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      const tr = view.state.tr.setMeta(DITA_STRUCTURE_KEY, {
+        taskModel: resolveTaskModelForDocument(view.state.doc),
+      });
+      view.dispatch(tr);
+    }, [taskModelSetting]);
 
     // Live-update Keyref / Conref / DITAVAL semantic overlays WITHOUT losing editor history
     useEffect(() => {
@@ -1107,7 +1171,53 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     const bubbleKey = inlineBubble ? `${inlineBubble.info.from}-${inlineBubble.info.to}` : null;
 
-    // Recomputed each render so the "turn into" list always reflects the live block content
+    // Recomputed each render so the gutter actions always reflect the live content model
+    const blockLiveContainer = blockHandle
+      ? (viewRef.current?.state.doc.nodeAt(blockHandle.target.containerPos) ??
+        blockHandle.target.containerNode)
+      : null;
+    const activeTaskModel = viewRef.current
+      ? resolveTaskModelForDocument(viewRef.current.state.doc)
+      : 'strict';
+    const blockInsertGroups =
+      blockHandle && blockLiveContainer
+        ? buildBlockInsertGroups(
+            blockHandle.target.containerTag,
+            blockHandle.target.containerDepth,
+            getPmChildTags(blockLiveContainer),
+            activeTaskModel,
+          )
+        : [];
+    const blockCanInsert = blockInsertGroups.some((group) => group.items.length > 0);
+    const blockCanDuplicate =
+      blockHandle && blockLiveContainer
+        ? canDuplicateBlock(
+            blockHandle.target.containerTag,
+            blockLiveContainer,
+            blockHandle.target.blockTag,
+            activeTaskModel,
+          )
+        : false;
+    // Deleting structure must respect the ordered content model: required slots, the last item of a
+    // `oneOrMore` slot and the root element are refused (`checkChildRemoval`).
+    const blockDeleteObstacle =
+      blockHandle && blockLiveContainer
+        ? checkChildRemoval(
+            blockHandle.target.containerTag,
+            blockHandle.target.blockTag,
+            getPmChildTags(blockLiveContainer),
+            activeTaskModel,
+          )
+        : null;
+    const blockDeleteBlockedReason = blockDeleteObstacle
+      ? blockDeleteObstacle.code === 'root-element'
+        ? t('block.deleteBlockedRoot')
+        : blockDeleteObstacle.code === 'required-policy'
+          ? t('block.deleteBlockedPolicy', { tag: blockDeleteObstacle.childTag, parent: blockDeleteObstacle.parentTag })
+          : blockDeleteObstacle.code === 'last-of-one-or-more'
+            ? t('block.deleteBlockedLast', { tag: blockDeleteObstacle.childTag, parent: blockDeleteObstacle.parentTag })
+            : t('block.deleteBlockedRequired', { tag: blockDeleteObstacle.childTag, parent: blockDeleteObstacle.parentTag })
+      : null;
     const blockMenuOptions =
       blockMenuOpen && blockHandle
         ? getBlockConvertOptions(
@@ -1180,6 +1290,15 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             </span>
           </div>
 
+          <div className="flex shrink-0 items-center gap-2">
+            {showTaskModelSwitch && onChangeTaskModelSetting ? (
+              <TaskModelSwitch
+                setting={taskModelSetting}
+                resolved={resolvedTaskModel}
+                onChange={onChangeTaskModelSetting}
+              />
+            ) : null}
+
           {activeDitaval ? (
             <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[10.5px] font-medium text-teal-800">
               <Filter className="h-3 w-3 text-teal-600" aria-hidden="true" />
@@ -1191,6 +1310,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
               ) : null}
             </div>
           ) : null}
+          </div>
         </div>
 
         <div
@@ -1246,6 +1366,11 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
               containerTag={blockHandle.target.containerTag}
               dragging={blockDragging}
               menuOptions={blockMenuOptions}
+              canInsert={blockCanInsert}
+              canMove={blockHandle.target.movable}
+              canDuplicate={blockCanDuplicate}
+              canDelete={blockDeleteObstacle === null}
+              deleteBlockedReason={blockDeleteBlockedReason}
               onInsert={openInsertMenuAfterBlock}
               onToggleMenu={() => setBlockMenuOpen((open) => !open)}
               onStartDrag={startBlockDrag}
