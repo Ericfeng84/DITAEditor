@@ -1,0 +1,212 @@
+/* Component layer: buttons, chips, cards and shared primitives. */
+
+@layer components {
+  .shell {
+    width: 100%;
+    max-width: 1200px;
+    margin-inline: auto;
+    padding-inline: 24px;
+  }
+
+  .shell-wide {
+    width: 100%;
+    max-width: 1440px;
+    margin-inline: auto;
+    padding-inline: 24px;
+  }
+
+  @media (min-width: 900px) {
+    .shell,
+    .shell-wide {
+      padding-inline: 40px;
+    }
+  }
+
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .eyebrow::before {
+    content: '';
+    width: 18px;
+    height: 1px;
+    background: currentColor;
+    opacity: 0.6;
+  }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 20px;
+    border-radius: 2px;
+    border: 1px solid transparent;
+    font-family: var(--font-display);
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    cursor: pointer;
+    transition:
+      background-color 160ms ease,
+      border-color 160ms ease,
+      color 160ms ease,
+      transform 160ms ease;
+  }
+
+  .btn:active {
+    transform: translateY(1px);
+  }
+
+  .btn-primary {
+    background: var(--color-blue);
+    color: #fff;
+  }
+
+  .btn-primary:hover {
+    background: var(--color-blue-deep);
+  }
+
+  .btn-secondary {
+    background: var(--color-surface);
+    border-color: var(--color-hairline);
+    color: var(--color-ink);
+  }
+
+  .btn-secondary:hover {
+    border-color: #c9c4b8;
+    background: #fdfcf9;
+  }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--color-ink-2);
+  }
+
+  .btn-ghost:hover {
+    background: rgb(20 22 25 / 5%);
+    color: var(--color-ink);
+  }
+
+  .btn-sm {
+    height: 34px;
+    padding: 0 12px;
+    font-size: 12.5px;
+  }
+
+  .card {
+    background: var(--color-surface);
+    border: 1px solid var(--color-hairline);
+    border-radius: 4px;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    border: 1px solid var(--color-hairline);
+    background: var(--color-surface);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-ink-2);
+    white-space: nowrap;
+  }
+
+  .chip-blue {
+    border-color: #c7d5fb;
+    background: #eef3ff;
+    color: var(--color-blue-deep);
+  }
+
+  .chip-amber {
+    border-color: #f3d7a8;
+    background: var(--color-amber-soft);
+    color: var(--color-amber);
+  }
+
+  .chip-green {
+    border-color: #bbe9c9;
+    background: var(--color-green-soft);
+    color: var(--color-green);
+  }
+
+  .hairline {
+    border: 0;
+    border-top: 1px solid var(--color-hairline);
+  }
+
+  .code-panel {
+    background: var(--color-code);
+    border: 1px solid var(--color-code-line);
+    border-radius: 4px;
+    color: #d7dbe4;
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    line-height: 1.7;
+    overflow: auto;
+  }
+
+  .code-panel .tok-tag {
+    color: #7dd3fc;
+  }
+  .code-panel .tok-attr {
+    color: #fcd34d;
+  }
+  .code-panel .tok-str {
+    color: #a7f3d0;
+  }
+  .code-panel .tok-comment {
+    color: #8b93a7;
+    font-style: italic;
+  }
+  .code-panel .tok-root {
+    color: #f0abfc;
+  }
+
+  .has-js .reveal {
+    opacity: 0;
+    transform: translateY(14px);
+    transition:
+      opacity 620ms cubic-bezier(0.16, 1, 0.3, 1),
+      transform 620ms cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .has-js .reveal.is-visible {
+    opacity: 1;
+    transform: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .has-js .reveal {
+      opacity: 1;
+      transform: none;
+    }
+  }
+
+  .skip-link {
+    position: absolute;
+    left: 16px;
+    top: -60px;
+    z-index: 90;
+    padding: 10px 16px;
+    background: var(--color-ink);
+    color: #fff;
+    font-family: var(--font-display);
+    font-size: 13px;
+    transition: top 160ms ease;
+  }
+
+  .skip-link:focus-visible {
+    top: 12px;
+  }
+}

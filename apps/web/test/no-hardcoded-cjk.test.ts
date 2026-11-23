@@ -9,26 +9,30 @@ import { describe, expect, it } from 'vitest';
  * Every string belongs in `src/i18n/messages/zh-CN.ts` + `en.ts`. Two modules are allowed to
  * contain Chinese literals because they hold *content* rather than UI chrome:
  *
- * - `src/i18n/messages/zh-CN.ts` / `en.ts`: the catalogues themselves (en keeps `中文` for the
- *   language switcher).
+ * - `src/i18n/messages/**`: the catalogues themselves, split into per-domain group files (en
+ *   keeps `中文` for the language switcher).
  * - `src/services/demo-workspace.ts`: the offline demo project written in Chinese.
  *
- * Comments and the leftover documentation strings in `index.css` are stripped before scanning so
- * a Chinese code comment (which never reaches the UI) cannot fail the build.
+ * Comments are stripped before scanning so a Chinese code comment (which never reaches the UI)
+ * cannot fail the build.
  */
 
 const SRC_DIR = fileURLToPath(new URL('../src', import.meta.url));
 
 const SKIPPED_FILES = new Set([
-  // Catalogue sources: zh-CN is the source of truth, en intentionally keeps 「中文」.
-  join('i18n', 'messages', 'zh-CN.ts'),
-  join('i18n', 'messages', 'en.ts'),
   // Authored demo DITA content (user content, never UI chrome).
   join('services', 'demo-workspace.ts'),
-  // The five DITA section pseudo-labels (`prereq`, `context`, `postreq`, …) are CSS-only and are
-  // translated in place by the `:root[lang="en"]` overrides further down the same stylesheet.
-  'index.css',
 ]);
+
+/** Catalogue sources: zh-CN is the source of truth, en intentionally keeps 「中文」. */
+const CATALOGUE_PREFIX = `i18n${sep}messages${sep}`;
+
+/**
+ * The stylesheet modules may carry the five DITA section pseudo-labels (`prereq`, `context`,
+ * `postreq`, `related-links`, …) because they are CSS-only and are translated in place by the
+ * `:root[lang="en"]` overrides inside the same modules.
+ */
+const CSS_MODULE_PREFIX = `styles${sep}`;
 
 const CJK = /[\u3400-\u9fff]/;
 
@@ -57,6 +61,8 @@ describe('workbench source carries no hardcoded Chinese UI strings', () => {
     for (const abs of collectFiles(SRC_DIR)) {
       const rel = relative(SRC_DIR, abs);
       if (SKIPPED_FILES.has(rel)) continue;
+      if (rel.startsWith(CATALOGUE_PREFIX)) continue;
+      if (rel.startsWith(CSS_MODULE_PREFIX)) continue;
       const stripped = stripComments(readFileSync(abs, 'utf8'));
       const hits = stripped.split('\n');
       hits.forEach((line, index) => {

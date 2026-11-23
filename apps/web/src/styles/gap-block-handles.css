@@ -1,0 +1,399 @@
+/* Jupyter-style between-block + inserter gaps and the Notion-style left gutter block handle/menu. */
+
+/* --------------------------------------------------------------------------
+ * Jupyter Notebook-Style Between-Block `+` Inserter Dividers (Zero Layout Shift)
+ * -------------------------------------------------------------------------- */
+.dita-block-inserter {
+  position: relative;
+  height: 16px;
+  margin: -1px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+  z-index: 4;
+}
+
+.dita-bi-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1.5px;
+  transform: translateY(-50%);
+  background: transparent;
+  pointer-events: none;
+}
+
+.dita-bi-bar {
+  position: relative;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-bi-line,
+  .dita-bi-bar,
+  .dita-bi-plus,
+  .dita-bi-chip {
+    transition: opacity 130ms ease, background-color 130ms ease, border-color 130ms ease, transform 130ms ease;
+  }
+}
+
+/* "+" dots are hidden by default and stay hidden on hover: they only appear for the gaps
+   directly above and below the block that contains the caret / selection (click to reveal). */
+.dita-gap-active + .dita-block-inserter .dita-bi-bar,
+.dita-block-inserter:has(+ .dita-gap-active) .dita-bi-bar {
+  opacity: 1;
+}
+
+/* Neighbour-triggered state shows just the "+" dot; chips need direct gap hover/focus */
+.dita-block-inserter:not(:hover):not(:focus-within) .dita-bi-chips {
+  display: none;
+}
+
+/* Reveal full Jupyter horizontal guide line + quick-insert pill bar on gap hover or keyboard focus */
+.dita-block-inserter:hover,
+.dita-block-inserter:focus-within {
+  z-index: 12;
+}
+
+.dita-block-inserter:hover .dita-bi-line,
+.dita-block-inserter:focus-within .dita-bi-line {
+  background: linear-gradient(90deg, transparent 0%, #818cf8 12%, #6366f1 50%, #818cf8 88%, transparent 100%);
+}
+
+.dita-block-inserter:hover .dita-bi-bar,
+.dita-block-inserter:focus-within .dita-bi-bar {
+  opacity: 1 !important;
+}
+
+.dita-block-inserter:hover .dita-bi-chips,
+.dita-block-inserter:focus-within .dita-bi-chips {
+  display: inline-flex !important;
+}
+
+.dita-bi-plus {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 9999px;
+  border: 1px solid #a5b4fc;
+  background: #ffffff;
+  color: #4f46e5;
+  font-size: 14px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.dita-bi-plus:hover,
+.dita-bi-plus:focus-visible {
+  background: #4f46e5;
+  border-color: #4f46e5;
+  color: #ffffff;
+  outline: 2px solid #818cf8;
+  outline-offset: 1px;
+}
+
+.dita-bi-chips {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  padding: 1px 4px;
+  border-radius: 9999px;
+  border: 1px solid #e0e7ff;
+  box-shadow: 0 2px 8px rgba(79, 70, 229, 0.12);
+}
+
+.dita-bi-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  background: #ffffff;
+  padding: 1px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 18px;
+  color: #334155;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dita-bi-chip:hover,
+.dita-bi-chip:focus-visible {
+  border-color: #6366f1;
+  background: #eef2ff;
+  color: #312e81;
+  outline: none;
+}
+
+.dita-bi-chip-plus {
+  font-weight: 700;
+  color: #4f46e5;
+}
+
+.dita-bi-chip-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #64748b;
+}
+
+.dita-bi-chip:hover .dita-bi-chip-tag {
+  color: #4338ca;
+}
+
+.dita-bi-chip-more {
+  border-style: dashed;
+  color: #4f46e5;
+  border-color: #c7d2fe;
+}
+
+
+/* ---------------------------------------------------------------------------------------------
+   Notion-style left gutter block handle: `+` inserts a sibling block, the grip drags the block
+   and a plain click opens the "turn into" menu (see BlockHandle.tsx / block-transforms.ts).
+   --------------------------------------------------------------------------------------------- */
+.dita-block-handle {
+  position: fixed;
+  z-index: 46;
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 1px;
+  border-radius: 6px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-block-handle {
+    animation: dita-block-handle-in 90ms ease-out;
+  }
+}
+
+@keyframes dita-block-handle-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.dita-block-handle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 5px;
+  background: transparent;
+  color: #94a3b8;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .dita-block-handle-btn:hover {
+    background: #eef2ff;
+    border-color: #c7d2fe;
+    color: #4338ca;
+  }
+}
+
+.dita-block-handle-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 1px;
+}
+
+.dita-block-handle-btn:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+@media (hover: hover) {
+  .dita-block-handle-btn:disabled:hover {
+    background: transparent;
+    border-color: transparent;
+    color: #cbd5e1;
+  }
+}
+
+.dita-block-handle-grip {
+  cursor: grab;
+  touch-action: none;
+}
+
+/* Pinned / structural blocks cannot be reordered: the grip becomes a plain action menu. */
+.dita-block-handle-grip--static {
+  cursor: pointer;
+}
+
+.dita-block-handle--dragging .dita-block-handle-grip {
+  cursor: grabbing;
+}
+
+.dita-block-menu {
+  position: fixed;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  width: 232px;
+  max-height: 320px;
+  overflow: hidden;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  font-size: 12px;
+  box-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.34), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+.dita-block-menu-head {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 8px 10px 6px;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.dita-block-menu-tag {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border-radius: 4px;
+  background: #eef2ff;
+  color: #4338ca;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.dita-block-menu-hint {
+  overflow: hidden;
+  font-size: 10.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.dita-block-menu-list {
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.dita-block-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 5px 7px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dita-block-menu-item:hover,
+.dita-block-menu-item:focus-visible {
+  background: #eef2ff;
+  outline: none;
+}
+
+.dita-block-menu-item-label {
+  flex: 1 1 auto;
+  font-size: 12px;
+}
+
+.dita-block-menu-item-tag {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #64748b;
+}
+
+.dita-block-menu-mode {
+  padding: 0 5px;
+  border: 1px solid #e0e7ff;
+  border-radius: 9999px;
+  color: #6366f1;
+  font-size: 9.5px;
+}
+
+.dita-block-menu-sep {
+  height: 1px;
+  margin: 2px 0;
+  background: #f1f5f9;
+}
+
+.dita-block-menu-action {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
+  border: none;
+  background: transparent;
+  color: #334155;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dita-block-menu-action:hover,
+.dita-block-menu-action:focus-visible {
+  background: #f8fafc;
+  outline: none;
+}
+
+.dita-block-menu-action--danger {
+  color: #b91c1c;
+}
+
+.dita-block-menu-action--danger:hover {
+  background: #fef2f2;
+}
+
+.dita-block-menu-action:disabled {
+  color: #cbd5e1;
+  cursor: not-allowed;
+}
+
+.dita-block-menu-action:disabled:hover {
+  background: transparent;
+}
+
+/* Content-model explanation rendered under a refused delete action. */
+.dita-block-menu-note {
+  margin: 0;
+  padding: 0 10px 8px;
+  color: #94a3b8;
+  font-size: 10.5px;
+  line-height: 1.45;
+}
+
+.dita-block-menu-empty {
+  padding: 8px 10px;
+  color: #94a3b8;
+  font-size: 11px;
+}
+
+.dita-block-drop-indicator {
+  position: fixed;
+  z-index: 44;
+  height: 2px;
+  border-radius: 9999px;
+  background: #4f46e5;
+  box-shadow: 0 0 0 2px rgba(79, 70, 229, 0.18);
+  pointer-events: none;
+}

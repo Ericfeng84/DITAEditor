@@ -6,28 +6,15 @@ import {
   useRef,
   useState,
 } from 'react';
-import { dropCursor } from 'prosemirror-dropcursor';
-import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
-import { EditorState, Selection, TextSelection, type Command } from 'prosemirror-state';
+import { EditorState, Selection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
-import { Filter, Tags } from 'lucide-react';
 import {
   checkChildRemoval,
-  evaluateElementConditions,
-  getAllowedChildElements,
-  getInsertableTagsBySequence,
   getPmChildTags,
-  getPmDocTitle,
-  getPmNodeRawAttrs,
-  getPmNodeTagName,
-  getRawAttr,
-  pmDocToXml,
-  xmlToPmDoc,
   type DitavalDisplayMode,
   type DocumentSemanticOverlay,
   type ParsedDitaval,
-  type RawAttrs,
   type TaskContentModel,
   type TaskContentModelSetting,
   type XmlDeclaration,
@@ -39,28 +26,24 @@ import {
   convertDitaBlockAtPos,
   deleteDitaNodeAtPos,
   duplicateDitaBlockAtPos,
-  hydrateEmptyContainerAtPos,
   insertBlockDitaElement,
   insertBlockDitaElementAtPos,
   moveDitaBlockToGap,
-  moveDitaNodeSibling,
   selectNodeAtPos,
   toggleInlineDitaElement,
-  updateNodeRawAttr,
 } from './commands';
-import {
-  createDitaDecorationsPlugin,
-  DITA_DECORATIONS_KEY,
-  type BlockGapOpenMenuPayload,
-} from './decorations';
-import { buildDitaKeymapPlugins } from './keymap';
-import { createDitaStructurePlugin, DITA_STRUCTURE_KEY } from './structure-decorations';
+import { DITA_DECORATIONS_KEY, type BlockGapOpenMenuPayload } from './decorations';
+import { DITA_STRUCTURE_KEY } from './structure-decorations';
 import { resolveTaskModelForDocument } from '../structure-options';
-import { createDitaNodeViews, SemanticViewRegistry } from './node-views';
+import { SemanticViewRegistry } from './node-views';
 import { InsertElementMenu, type InsertElementChoice } from './InsertElementMenu';
 import { InlineBubbleToolbar } from './InlineBubbleToolbar';
-import { TaskModelSwitch } from '../../components/TaskModelSwitch';
 import { BlockHandle } from './BlockHandle';
+import { buildBlockInsertGroups, readGapContainerChildTags } from './insert-context';
+import { createVisualEditorHandle, type VisualEditorHandle } from './editor-handle';
+import { useVisualEditorView } from './use-visual-editor-view';
+import { summarizeDitavalTopics } from './ditaval-summary';
+import { VisualEditorSubHeader } from './VisualEditorSubHeader';
 import {
   blockIndexInContainer,
   canDuplicateBlock,
@@ -73,111 +56,12 @@ import {
 } from './block-transforms';
 import { getInlineBubbleInfo, type InlineBubbleInfo } from './inline-selection';
 import {
-  findLegalAncestorDepthForBlock,
   getSelectionSnapshot,
-  isInlineTagAllowedAtSelection,
   type EditorSelectionSnapshot,
   type InsertContextGroup,
 } from './selection-info';
-import {
-  addTableColumn,
-  addTableRow,
-  deleteTableColumn,
-  deleteTableRow,
-  mergeCalsCellDown,
-  mergeCalsCellRight,
-  splitCalsCell,
-} from './table-commands';
 
-/** Table internals and metadata are never offered by the block insert menus. */
-const NON_INSERTABLE_BLOCK_TAGS: ReadonlySet<string> = new Set([
-  'sthead',
-  'strow',
-  'stentry',
-  'tgroup',
-  'colspec',
-  'thead',
-  'tbody',
-  'row',
-  'entry',
-]);
-
-/** Read the current element children of the ancestor container that owns a gap position. */
-function readGapContainerChildTags(
-  view: EditorView | null,
-  insertPos: number,
-  containerTag: string,
-): string[] {
-  if (!view) return [];
-  const clamped = Math.max(0, Math.min(insertPos, view.state.doc.content.size));
-  const $pos = view.state.doc.resolve(clamped);
-  for (let depth = $pos.depth; depth >= 0; depth--) {
-    const node = $pos.node(depth);
-    if (getPmNodeTagName(node) === containerTag) return getPmChildTags(node);
-  }
-  return [];
-}
-
-function buildBlockInsertGroups(
-  containerTag: string,
-  containerDepth: number,
-  childTags: readonly string[],
-  taskModel: TaskContentModel = 'strict',
-): InsertContextGroup[] {
-  // DITA 1.3 cardinality / choice: never offer a filled single-occurrence slot or the losing side of
-  // an exclusive alternative (steps | steps-unordered) in the gap inserter menu.
-  const allowedSpecs = getAllowedChildElements(containerTag, 'block', taskModel);
-  const insertable = new Set(
-    getInsertableTagsBySequence(
-      containerTag,
-      childTags,
-      allowedSpecs.map((spec) => spec.tag),
-      taskModel,
-    ),
-  );
-  return [
-    {
-      containerTag,
-      containerDepth,
-      containerLabel: translate(getCurrentLocale(), 'visual.insertHere', { tag: containerTag }),
-      insertKind: 'block',
-      items: allowedSpecs.filter(
-        (spec) => insertable.has(spec.tag) && !NON_INSERTABLE_BLOCK_TAGS.has(spec.tag),
-      ),
-    },
-  ];
-}
-
-export interface VisualEditorHandle {
-  runCommand: (cmd: Command) => boolean;
-  undo: () => void;
-  redo: () => void;
-  toggleInline: (tag: string, attrs?: RawAttrs, defaultText?: string) => boolean;
-  insertBlock: (tag: string, containerDepth?: number, attrs?: RawAttrs) => boolean;
-  insertBlockAtPos: (tag: string, insertPos: number, attrs?: RawAttrs) => boolean;
-  updateAttr: (nodePos: number, attrName: string, value: string | null) => void;
-  deleteNode: (nodePos: number) => void;
-  moveNode: (nodePos: number, direction: 'up' | 'down') => void;
-  selectNode: (nodePos: number, pinInspector?: boolean) => void;
-  runTableAction: (
-    action:
-      | 'addRowBefore'
-      | 'addRowAfter'
-      | 'deleteRow'
-      | 'addColBefore'
-      | 'addColAfter'
-      | 'deleteCol'
-      | 'mergeRight'
-      | 'mergeDown'
-      | 'splitCell',
-  ) => boolean;
-  openInsertMenuAtElement: (anchorEl: HTMLElement) => void;
-  getCurrentPmState: () => EditorState | null;
-  /** Replace the whole document in one undoable transaction (AI proposal apply). */
-  replaceDocumentXml: (nextXml: string) => boolean;
-  canInsertBlock: (tag: string) => boolean;
-  canInsertInline: (tag: string) => boolean;
-}
+export type { VisualEditorHandle };
 
 export interface VisualEditorProps {
   xml: string;
@@ -693,170 +577,43 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       };
     }, [blockMenuOpen]);
 
-    // Build / reload ProseMirror EditorView whenever `reloadToken` changes (document switch, Source -> Visual)
-    useEffect(() => {
-      const container = mountRef.current;
-      if (!container) return;
-
-      let initialDoc;
-      try {
-        initialDoc = xmlToPmDoc(xml, { position: false }).pmDoc;
-      } catch {
-        return;
-      }
-
-      pinnedPosRef.current = null;
-      slashPosRef.current = null;
-      setInsertMenuOpen(false);
-      setGapInsertContext(null);
-      setInsertMenuInlineOnly(false);
-      setDismissedBubbleKey(null);
-      setInlineBubble(null);
-      setBlockHandle(null);
-      setBlockMenuOpen(false);
-      setBlockDragging(false);
-      setBlockDropGap(null);
-      blockDragRef.current = null;
-      blockDragGapRef.current = null;
-
-      const state = EditorState.create({
-        doc: initialDoc,
-        plugins: [
-          history(),
-          ...buildDitaKeymapPlugins({
-            onOpenInsertMenu: () => {
-              slashPosRef.current = null;
-              openInsertMenuAtCaret(false);
-            },
-            onOpenXrefDialog: () => onXrefRef.current(),
-          }),
-          createDitaDecorationsPlugin(
-            tagModeRef.current,
-            {
-              onSelectTagNode: selectTagNodeFromDecoration,
-              onQuickInsertBlock: handleGapQuickInsert,
-              onOpenGapInsertMenu: handleOpenGapInsertMenu,
-              onJumpToSource: (filePath, line, elementId) =>
-                onJumpToSourceRef.current?.(filePath, line, elementId),
-            },
-            {
-              overlay: semanticOverlayRef.current,
-              ditaval: activeDitavalRef.current,
-              ditavalDisplayMode: ditavalModeRef.current,
-            },
-            localeRef.current,
-          ),
-          // Guide + (non-blocking) diagnose: ordered DITA content models never reject transactions,
-          // they only mark out-of-order / over-cardinality children inline.
-          createDitaStructurePlugin(
-            localeRef.current,
-            resolveTaskModelForDocument(initialDoc),
-          ),
-          dropCursor({ color: '#4f46e5', width: 2 }),
-          gapCursor(),
-        ],
-      });
-
-      const view = new EditorView(container, {
-        state,
-        nodeViews: createDitaNodeViews({
-          resolveImageSrc: (href) => resolveImageSrcRef.current?.(href) ?? null,
-          getSemanticOverlay: () => semanticOverlayRef.current,
-          semanticRegistry: semanticRegistryRef.current,
-          onJumpToSource: (filePath, line, elementId) =>
-            onJumpToSourceRef.current?.(filePath, line, elementId),
-        }),
-        attributes: {
-          class: 'dita-prosemirror-doc',
-          spellcheck: 'false',
-        },
-        editable: () => !readOnlyRef.current,
-        handleTextInput(editorView, from, to, text) {
-          // Trigger floating Context-Aware Insert Menu when typing `/` at start of textblock or after space
-          if (text === '/') {
-            const $pos = editorView.state.doc.resolve(from);
-            const inCode =
-              $pos.parent.type.name === 'dita_codeblock' ||
-              $pos.parent.type.name === 'dita_pre' ||
-              $pos.parent.type.name === 'unknown_pre_block';
-            if (!inCode) {
-              const charBefore =
-                $pos.parentOffset > 0
-                  ? editorView.state.doc.textBetween(Math.max(0, from - 1), from)
-                  : '';
-              if ($pos.parentOffset === 0 || /\s/.test(charBefore)) {
-                const tr = editorView.state.tr.insertText('/', from, to);
-                editorView.dispatch(tr);
-                slashPosRef.current = from;
-                openInsertMenuAtCaret(true);
-                return true;
-              }
-            }
-          }
-          return false;
-        },
-        handleClickOn(editorView, pos, node, nodePos) {
-          // Never hydrate empty containers carrying conref/conkeyref so source XML stays untouched
-          const rawAttrs = getPmNodeRawAttrs(node);
-          if (getRawAttr(rawAttrs, 'conref') || getRawAttr(rawAttrs, 'conkeyref')) {
-            return false;
-          }
-          if (node.childCount === 0 && !node.isTextblock && !node.isAtom) {
-            if (hydrateEmptyContainerAtPos(nodePos)(editorView.state, editorView.dispatch)) {
-              return true;
-            }
-          }
-          void pos;
-          return false;
-        },
-        dispatchTransaction(tr) {
-          // Readers and non-owners must never mutate XML, even via keyboard shortcuts.
-          if (readOnlyRef.current && tr.docChanged) return;
-          const nextState = view.state.apply(tr);
-          view.updateState(nextState);
-
-          if (tr.selectionSet && !tr.getMeta('keepPinnedCrumb')) {
-            pinnedPosRef.current = null;
-          }
-
-          if (tr.docChanged) {
-            const serialized = pmDocToXml(nextState.doc);
-            onXmlChangeRef.current(serialized, getPmDocTitle(nextState.doc));
-          }
-
-          emitSnapshot(nextState);
-          syncInlineBubble(view);
-          syncBlockHandle(view);
-        },
-      });
-
-      viewRef.current = view;
-      emitSnapshot(state);
-      syncInlineBubble(view);
-      syncBlockHandle(view);
-
-      // Keep the bubble and gutter handle glued to the content while scrolling / resizing
-      const handleViewportChange = () => {
-        if (!viewRef.current) return;
-        syncInlineBubble(viewRef.current);
-        syncBlockHandle(viewRef.current);
-      };
-      window.addEventListener('scroll', handleViewportChange, true);
-      window.addEventListener('resize', handleViewportChange);
-
-      return () => {
-        window.removeEventListener('scroll', handleViewportChange, true);
-        window.removeEventListener('resize', handleViewportChange);
-        view.destroy();
-        viewRef.current = null;
-        setInlineBubble(null);
-        setBlockHandle(null);
-        setBlockMenuOpen(false);
-        setBlockDropGap(null);
-      };
-      // Only rebuild ProseMirror view on explicit reloadToken changes
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [reloadToken]);
+    useVisualEditorView({
+      xml,
+      reloadToken,
+      mountRef,
+      viewRef,
+      pinnedPosRef,
+      slashPosRef,
+      tagModeRef,
+      localeRef,
+      readOnlyRef,
+      semanticOverlayRef,
+      activeDitavalRef,
+      ditavalModeRef,
+      onJumpToSourceRef,
+      onXrefRef,
+      onXmlChangeRef,
+      resolveImageSrcRef,
+      semanticRegistryRef,
+      blockDragRef,
+      blockDragGapRef,
+      setInsertMenuOpen,
+      setGapInsertContext,
+      setInsertMenuInlineOnly,
+      setDismissedBubbleKey,
+      setInlineBubble,
+      setBlockHandle,
+      setBlockMenuOpen,
+      setBlockDragging,
+      setBlockDropGap,
+      openInsertMenuAtCaret,
+      selectTagNodeFromDecoration,
+      handleGapQuickInsert,
+      handleOpenGapInsertMenu,
+      emitSnapshot,
+      syncInlineBubble,
+      syncBlockHandle,
+    });
 
     // Toggle editability in place when the check-out state or identity changes.
     useEffect(() => {
@@ -948,174 +705,18 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     useImperativeHandle(
       ref,
-      () => ({
-        runCommand(cmd) {
-          const view = viewRef.current;
-          if (!view) return false;
-          const ok = cmd(view.state, view.dispatch, view);
-          if (ok) view.focus();
-          return ok;
-        },
-        undo() {
-          const view = viewRef.current;
-          if (!view) return;
-          if (undo(view.state, view.dispatch)) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.undo'));
-          }
-        },
-        redo() {
-          const view = viewRef.current;
-          if (!view) return;
-          if (redo(view.state, view.dispatch)) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.redo'));
-          }
-        },
-        toggleInline(tag, attrs = [], defaultText) {
-          const view = viewRef.current;
-          if (!view) return false;
-          const ok = toggleInlineDitaElement(tag, attrs, defaultText)(
-            view.state,
-            view.dispatch,
-          );
-          if (ok) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.inlineApplied', { tag }));
-          }
-          return ok;
-        },
-        insertBlock(tag, containerDepth, attrs = []) {
-          const view = viewRef.current;
-          if (!view) return false;
-          const ok = insertBlockDitaElement(tag, containerDepth, attrs)(
-            view.state,
-            view.dispatch,
-          );
-          if (ok) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.blockInserted', { tag }));
-          }
-          return ok;
-        },
-        insertBlockAtPos(tag, insertPos, attrs = []) {
-          const view = viewRef.current;
-          if (!view) return false;
-          const ok = insertBlockDitaElementAtPos(tag, insertPos, attrs)(
-            view.state,
-            view.dispatch,
-          );
-          if (ok) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.blockInserted', { tag }));
-          }
-          return ok;
-        },
-        updateAttr(nodePos, attrName, value) {
-          const view = viewRef.current;
-          if (!view) return;
-          const keepPinned = pinnedPosRef.current;
-          const ok = updateNodeRawAttr(nodePos, attrName, value)(view.state, (tr) => {
-            tr.setMeta('keepPinnedCrumb', true);
-            view.dispatch(tr);
-          });
-          if (ok && keepPinned !== null) {
-            pinnedPosRef.current = keepPinned;
-            emitSnapshot(view.state);
-          }
-        },
-        deleteNode(nodePos) {
-          const view = viewRef.current;
-          if (!view) return;
-          pinnedPosRef.current = null;
-          if (deleteDitaNodeAtPos(nodePos)(view.state, view.dispatch)) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.deletedElement'));
-          }
-        },
-        moveNode(nodePos, direction) {
-          const view = viewRef.current;
-          if (!view) return;
-          pinnedPosRef.current = null;
-          if (moveDitaNodeSibling(nodePos, direction)(view.state, view.dispatch)) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), direction === 'up' ? 'visual.announce.movedUp' : 'visual.announce.movedDown'));
-          }
-        },
-        selectNode(nodePos, pinInspector = true) {
-          const view = viewRef.current;
-          if (!view) return;
-          pinnedPosRef.current = pinInspector ? nodePos : null;
-          selectNodeAtPos(nodePos)(view.state, (tr) => {
-            tr.setMeta('keepPinnedCrumb', pinInspector);
-            tr.setMeta(DITA_DECORATIONS_KEY, { activeNodePos: nodePos });
-            view.dispatch(tr);
-          });
-          view.focus();
-          emitSnapshot(view.state);
-        },
-        runTableAction(action) {
-          const view = viewRef.current;
-          if (!view) return false;
-          const cmdMap: Record<typeof action, Command> = {
-            addRowBefore: addTableRow('before'),
-            addRowAfter: addTableRow('after'),
-            deleteRow: deleteTableRow,
-            addColBefore: addTableColumn('before'),
-            addColAfter: addTableColumn('after'),
-            deleteCol: deleteTableColumn,
-            mergeRight: mergeCalsCellRight,
-            mergeDown: mergeCalsCellDown,
-            splitCell: splitCalsCell,
-          };
-          const ok = cmdMap[action](view.state, view.dispatch);
-          if (ok) {
-            view.focus();
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.tableUpdated'));
-          } else {
-            onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.tableBlocked'));
-          }
-          return ok;
-        },
-        openInsertMenuAtElement(anchorEl) {
-          slashPosRef.current = null;
-          setGapInsertContext(null);
-          const rect = anchorEl.getBoundingClientRect();
-          setInsertMenuAnchor({ top: rect.bottom + 6, left: rect.left });
-          setInsertIsSlash(false);
-          setInsertMenuOpen(true);
-        },
-        getCurrentPmState() {
-          return viewRef.current?.state ?? null;
-        },
-        replaceDocumentXml(nextXml) {
-          const view = viewRef.current;
-          if (!view) return false;
-          try {
-            const { pmDoc } = xmlToPmDoc(nextXml);
-            const tr = view.state.tr;
-            tr.replaceWith(0, view.state.doc.content.size, pmDoc.content);
-            for (const [key, value] of Object.entries(pmDoc.attrs)) {
-              tr.setDocAttribute(key, value);
-            }
-            view.dispatch(tr);
-            view.focus();
-            return true;
-          } catch {
-            return false;
-          }
-        },
-        canInsertBlock(tag) {
-          const view = viewRef.current;
-          if (!view) return false;
-          return findLegalAncestorDepthForBlock(view.state, tag) !== null;
-        },
-        canInsertInline(tag) {
-          const view = viewRef.current;
-          if (!view) return false;
-          return isInlineTagAllowedAtSelection(view.state, tag);
-        },
-      }),
+      () =>
+        createVisualEditorHandle({
+          viewRef,
+          pinnedPosRef,
+          slashPosRef,
+          onAnnounceRef,
+          emitSnapshot,
+          setGapInsertContext,
+          setInsertMenuAnchor,
+          setInsertIsSlash,
+          setInsertMenuOpen,
+        }),
       [emitSnapshot],
     );
 
@@ -1228,91 +829,21 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           )
         : null;
 
-    const ditavalTopicSummary = (() => {
-      if (!activeDitaval || !viewRef.current) return null;
-      let excluded = 0;
-      let flagged = 0;
-      viewRef.current.state.doc.descendants((node) => {
-        if (!getPmNodeTagName(node)) return true;
-        const ev = evaluateElementConditions(getPmNodeRawAttrs(node), activeDitaval);
-        if (ev.status === 'exclude') excluded++;
-        else if (ev.status === 'flag') flagged++;
-        return true;
-      });
-      return { excluded, flagged };
-    })();
+    const ditavalTopicSummary = summarizeDitavalTopics(activeDitaval, viewRef.current);
 
     return (
       <div className="flex h-full flex-col bg-slate-100/80">
-        {/* Compact Visual Sub-Header Bar (aligned with Source Editor sub-bar) */}
-        <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/95 px-3 py-1.5 text-xs">
-          <div className="flex items-center gap-2.5">
-            <div
-              role="group"
-              aria-label={t('visual.tagModeGroupAria')}
-              className="flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
-            >
-              <Tags className="mx-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
-              {(
-                [
-                  { id: 'none', label: t('visual.tagMode.none'), title: t('visual.tagMode.noneTitle') },
-                  { id: 'tags', label: t('visual.tagMode.tags'), title: t('visual.tagMode.tagsTitle') },
-                  {
-                    id: 'full',
-                    label: t('visual.tagMode.full'),
-                    title: t('visual.tagMode.fullTitle'),
-                  },
-                ] as const
-              ).map((item) => {
-                const active = tagDisplayMode === item.id;
-                return (
-                  <button
-                    key={item.id}
-                    type="button"
-                    aria-pressed={active}
-                    onClick={() => onChangeTagDisplayMode(item.id)}
-                    title={item.title}
-                    className={`whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                      active
-                        ? 'bg-white text-indigo-700 shadow-xs'
-                        : 'text-slate-600 hover:text-slate-900'
-                    }`}
-                  >
-                    {item.label}
-                  </button>
-                );
-              })}
-            </div>
-
-            <span className="hidden min-w-0 truncate text-[11px] text-slate-400 md:inline-block">
-              {t('visual.gapHintBefore')}{' '}
-              <kbd className="rounded border border-slate-200 bg-white px-1 font-mono text-[10px] text-slate-600">+</kbd>{' '}
-              {t('visual.gapHintAfter')}
-            </span>
-          </div>
-
-          <div className="flex shrink-0 items-center gap-2">
-            {showTaskModelSwitch && onChangeTaskModelSetting ? (
-              <TaskModelSwitch
-                setting={taskModelSetting}
-                resolved={resolvedTaskModel}
-                onChange={onChangeTaskModelSetting}
-              />
-            ) : null}
-
-          {activeDitaval ? (
-            <div className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-teal-200 bg-teal-50 px-2.5 py-0.5 text-[10.5px] font-medium text-teal-800">
-              <Filter className="h-3 w-3 text-teal-600" aria-hidden="true" />
-              <span className="max-w-[140px] truncate">{activeDitavalPath?.split('/').pop()}</span>
-              {ditavalTopicSummary ? (
-                <span className="font-mono text-[10px] text-teal-700">
-                  · {t('visual.ditavalExcluded')} {ditavalTopicSummary.excluded} · {t('visual.ditavalFlagged')} {ditavalTopicSummary.flagged}
-                </span>
-              ) : null}
-            </div>
-          ) : null}
-          </div>
-        </div>
+        <VisualEditorSubHeader
+          tagDisplayMode={tagDisplayMode}
+          onChangeTagDisplayMode={onChangeTagDisplayMode}
+          activeDitaval={activeDitaval}
+          activeDitavalPath={activeDitavalPath ?? null}
+          ditavalTopicSummary={ditavalTopicSummary}
+          showTaskModelSwitch={showTaskModelSwitch}
+          taskModelSetting={taskModelSetting}
+          resolvedTaskModel={resolvedTaskModel}
+          onChangeTaskModelSetting={onChangeTaskModelSetting}
+        />
 
         <div
           className="dita-scroller relative min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"

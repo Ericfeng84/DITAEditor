@@ -1,0 +1,271 @@
+/* Small-screen breakpoints and later QA polish (narrow cards, header, CJK spacing). */
+
+/* -------------------------------------------------------- small screens */
+
+@media (max-width: 640px) {
+  .section {
+    padding-block: 64px;
+  }
+
+  .hero {
+    padding-block: 44px 36px;
+  }
+
+  .hero__intro .display-xl {
+    max-width: none;
+  }
+
+  .feature-grid {
+    gap: 14px;
+  }
+
+  .quickstart__actions .btn {
+    flex: 1;
+  }
+}
+
+/* ------------------------------------------------- docs code copy button */
+
+.prose-docs pre {
+  position: relative;
+}
+
+.code-copy {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  border: 1px solid #2b3240;
+  border-radius: 2px;
+  background: #191d25;
+  color: #aeb7c9;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  padding: 4px 8px;
+  cursor: pointer;
+  opacity: 0;
+  transition:
+    opacity 140ms ease,
+    color 140ms ease,
+    border-color 140ms ease;
+}
+
+.prose-docs pre:hover .code-copy,
+.code-copy:focus-visible {
+  opacity: 1;
+}
+
+.code-copy:hover {
+  color: #fff;
+  border-color: #3c465a;
+}
+
+.code-copy.is-copied {
+  opacity: 1;
+  color: #86efac;
+  border-color: #2f6b46;
+}
+
+/* ------------------------------------------------------ phase 7 QA fixes */
+
+/* The architecture layers are a single column: label on top, pills below.
+   (An older two-column rule was squeezing the layer label to 132px.) */
+.arch-layer {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.arch-layer__head h3 {
+  flex: 1;
+  min-width: 0;
+}
+
+.arch__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 8px 0;
+  border-bottom: 1px solid #39414f;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #cfd8e8;
+}
+
+.arch__link:hover {
+  color: #fff;
+  border-bottom-color: #6f8fe0;
+}
+
+/* Flags: a full tint plus a change bar reads better on block elements than a
+   half-height gradient (a note is a block, not a word). */
+.pg-visual-host .is-flagged,
+.pg-visual .is-flagged {
+  background: #fdf6e0;
+  box-shadow: inset 3px 0 0 #f0b429;
+}
+
+/* Docs TOC call to action — `.docs-toc a` styles the anchor for headings, so
+   the chip needs its own rule to stay on one line. */
+.docs-toc a.docs-toc__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: auto;
+  margin-top: 18px;
+  padding: 7px 10px;
+  border: 1px solid #c7d5fb;
+  border-radius: 2px;
+  background: #eef3ff;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  color: var(--color-blue-deep);
+  white-space: nowrap;
+}
+
+.docs-toc a.docs-toc__cta:hover {
+  border-color: #9db6f7;
+  color: var(--color-blue-deep);
+}
+
+/* Compare table on narrow screens: each row becomes a labelled card. The
+   column headers are hidden, so every cell carries its own label. */
+.compare__label {
+  display: none;
+}
+
+.compare__own {
+  display: flex;
+  gap: 7px;
+}
+
+.compare__own svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--color-blue);
+}
+
+@media (max-width: 860px) {
+  .compare__cell {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+    font-size: 13px;
+    text-align: left;
+  }
+
+  .compare__cell::before {
+    content: none;
+  }
+
+  .compare__cell--own {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 3px;
+    margin-top: 4px;
+    padding: 9px 12px;
+    background: #f3f6fe;
+    border-left: 2px solid var(--color-blue);
+  }
+
+  .compare__label {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+  }
+
+  .compare__cell--own .compare__label {
+    color: var(--color-blue-deep);
+  }
+
+  .compare__own {
+    gap: 6px;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero__intro .display-xl {
+    font-size: clamp(2.15rem, 9.2vw, 2.9rem);
+    line-height: 1.18;
+  }
+}
+
+/* Header: on phones the GitHub star button is the first thing to go, and the
+   locale links must never break across two lines. */
+@media (max-width: 700px) {
+  .site-header__inner {
+    gap: 12px;
+  }
+
+  .locale-switch a {
+    padding: 6px 7px;
+    font-size: 10.5px;
+    white-space: nowrap;
+  }
+}
+
+/* A secondary hero action is an editorial text link, not a quiet box. */
+.hero__actions .btn-ghost {
+  align-self: center;
+  height: auto;
+  padding: 2px 0;
+  border-bottom: 1px solid #cbc6b8;
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-ink);
+}
+
+.hero__actions .btn-ghost:hover {
+  background: transparent;
+  border-bottom-color: var(--color-ink);
+  color: var(--color-ink);
+}
+
+/* Latin word spaces need to survive the tight display tracking. CJK has no
+   word spaces, so this only affects the English pages. */
+.display-xl,
+.display-lg,
+.display-md {
+  word-spacing: 0.045em;
+}
+
+/* Docs lists carry short bold labels; a blue marker keeps them scannable. */
+.prose-docs ul {
+  list-style: disc;
+}
+
+.prose-docs ol {
+  list-style: decimal;
+}
+
+.docs-index__note {
+  max-width: 62ch;
+  margin-top: 14px;
+  line-height: 1.6;
+}
+
+/* Resolved keyref chips inside the sandbox visual pane: real keyspace values, read-only. */
+.pg-keyref {
+  display: inline;
+  margin-inline: 1px;
+  padding: 0 4px;
+  border-radius: 2px;
+  background: #eef3ff;
+  box-shadow: inset 0 -1px 0 #c7d5fb;
+  color: #1b3a8b;
+  font-family: var(--font-mono);
+  font-size: 0.79em;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.pg-keyref.is-unresolved {
+  background: #fdecec;
+  box-shadow: inset 0 -1px 0 #f0b4b4;
+  color: #8f1f1f;
+}

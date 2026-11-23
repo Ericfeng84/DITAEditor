@@ -1,0 +1,526 @@
+/* Visual block nodes (note, codeblock, figure, table, related links), inline semantics, passthrough elements and XML metadata chips. */
+
+/* Note / Callout NodeView */
+.dita-nv-note {
+  margin: 0.9rem 0;
+  border-radius: 8px;
+  border: 1px solid #bae6fd;
+  border-left-width: 4px;
+  border-left-color: #0284c7;
+  background: #f0f9ff;
+  padding: 0.6rem 0.9rem;
+}
+
+.dita-nv-note[data-note-type="tip"],
+.dita-nv-note[data-note-type="fastpath"] {
+  border-color: #a7f3d0;
+  border-left-color: #059669;
+  background: #ecfdf5;
+}
+
+.dita-nv-note[data-note-type="warning"],
+.dita-nv-note[data-note-type="caution"],
+.dita-nv-note[data-note-type="attention"] {
+  border-color: #fde68a;
+  border-left-color: #d97706;
+  background: #fffbeb;
+}
+
+.dita-nv-note[data-note-type="danger"],
+.dita-nv-note[data-note-type="restriction"] {
+  border-color: #fecdd3;
+  border-left-color: #e11d48;
+  background: #fff1f2;
+}
+
+.dita-nv-note[data-note-type="important"],
+.dita-nv-note[data-note-type="remember"] {
+  border-color: #c7d2fe;
+  border-left-color: #4f46e5;
+  background: #eef2ff;
+}
+
+.dita-nv-note-header {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 0.25rem;
+}
+
+.dita-nv-note-dot {
+  height: 7px;
+  width: 7px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: 0.7;
+}
+
+.dita-nv-note-select {
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.75);
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: #0f172a;
+  cursor: pointer;
+}
+
+.dita-nv-tag-chip {
+  margin-left: auto;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #64748b;
+  display: none;
+}
+
+.dita-show-tags .dita-nv-tag-chip {
+  display: inline;
+}
+
+/* Codeblock / Pre NodeView */
+.dita-nv-code-card {
+  margin: 0.85rem 0;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+}
+
+.dita-nv-code-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: #1e293b;
+  padding: 0.3rem 0.75rem;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: #94a3b8;
+}
+
+.dita-nv-code-tag {
+  color: #38bdf8;
+  font-weight: 600;
+}
+
+.dita-nv-code-lang {
+  border-radius: 4px;
+  background: #334155;
+  padding: 0.05rem 0.4rem;
+  color: #e2e8f0;
+}
+
+.dita-nv-code-ws {
+  margin-left: auto;
+  color: #64748b;
+}
+
+.dita-nv-code-pre {
+  margin: 0;
+  padding: 0.8rem 0.95rem;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  color: #e2e8f0;
+  white-space: pre;
+  overflow-x: auto;
+}
+
+/* Figures & Images */
+.dita-prosemirror-doc figure[data-dita-tag="fig"] {
+  margin: 1rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  background: #f8fafc;
+  padding: 0.75rem 0.9rem;
+}
+
+.dita-prosemirror-doc figcaption[data-dita-tag="desc"] {
+  margin-top: 0.35rem;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dita-nv-image-block {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  margin: 0.5rem 0;
+  padding: 0.65rem 0.8rem;
+  border-radius: 6px;
+  border: 1px dashed #94a3b8;
+  background: #ffffff;
+}
+
+.dita-nv-image-img {
+  max-width: 100%;
+  max-height: 280px;
+  border-radius: 4px;
+}
+
+.dita-nv-image-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 4px;
+  border: 1px dashed #94a3b8;
+  background: #f8fafc;
+  padding: 0 0.35rem;
+  font-size: 12px;
+}
+
+.dita-nv-image-meta {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #475569;
+}
+
+/* Reference parameter table (`properties` = prophead?, property+) */
+.dita-prosemirror-doc div[data-dita-tag="properties"] {
+  margin: 0.75rem 0;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background: #ffffff;
+  overflow: hidden;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div[data-dita-tag="prophead"],
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div[data-dita-tag="property"] {
+  display: grid;
+  grid-template-columns: minmax(110px, 1fr) minmax(130px, 1.1fr) minmax(160px, 2fr);
+  align-items: start;
+  gap: 0 10px;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid #e2e8f0;
+  font-size: 13px;
+  color: #334155;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div[data-dita-tag="prophead"] {
+  background: #f1f5f9;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] > div:last-child {
+  border-bottom: none;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="properties"] [data-dita-tag="proptype"] {
+  font-family: var(--dita-font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12.5px;
+}
+
+/* Simpletable & OASIS CALS Table */
+.dita-prosemirror-doc table[data-dita-tag="simpletable"],
+.dita-prosemirror-doc table[data-dita-tag="tgroup"] {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 0.75rem 0;
+  font-size: 13.5px;
+  background: #ffffff;
+}
+
+.dita-prosemirror-doc table[data-dita-tag="simpletable"] td,
+.dita-prosemirror-doc table[data-dita-tag="tgroup"] td {
+  border: 1px solid #cbd5e1;
+  padding: 0.45rem 0.65rem;
+  vertical-align: top;
+  min-width: 56px;
+  min-height: 28px;
+}
+
+.dita-prosemirror-doc tr[data-dita-tag="sthead"] > td,
+.dita-prosemirror-doc thead[data-dita-tag="thead"] td {
+  background: #f1f5f9;
+  font-weight: 650;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc td[colspan],
+.dita-prosemirror-doc td[rowspan] {
+  background-image: linear-gradient(135deg, rgba(99, 102, 241, 0.04) 0%, transparent 60%);
+}
+
+.dita-nv-cals-table {
+  margin: 1rem 0;
+}
+
+.dita-nv-cals-multigroup-warn {
+  margin-bottom: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #fcd34d;
+  background: #fffbeb;
+  padding: 0.45rem 0.7rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #92400e;
+}
+
+/* Related Links */
+.dita-prosemirror-doc nav[data-dita-tag="related-links"] {
+  margin-top: 1.5rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dita-prosemirror-doc nav[data-dita-tag="related-links"]::before {
+  content: "相关链接 · related-links";
+  display: block;
+  margin-bottom: 0.4rem;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  text-transform: uppercase;
+}
+
+.dita-prosemirror-doc div[data-dita-tag="link"]::before {
+  content: "↗ link";
+  display: inline-block;
+  margin-right: 0.4rem;
+  border-radius: 4px;
+  background: #eef2ff;
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: #4338ca;
+}
+
+/* Core DITA 1.3 Inline Semantic Styling */
+.dita-prosemirror-doc code[data-dita-tag="codeph"],
+.dita-prosemirror-doc code[data-dita-tag="cmdname"],
+.dita-prosemirror-doc code[data-dita-tag="parmname"],
+.dita-prosemirror-doc code[data-dita-tag="option"],
+.dita-prosemirror-doc code[data-dita-tag="apiname"] {
+  border-radius: 4px;
+  background: #f1f5f9;
+  border: 1px solid #e2e8f0;
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  color: #0f172a;
+}
+
+.dita-prosemirror-doc code[data-dita-tag="filepath"] {
+  border-radius: 4px;
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  color: #0369a1;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="uicontrol"] {
+  border-radius: 4px;
+  background: #eef2ff;
+  padding: 0.05rem 0.35rem;
+  font-weight: 600;
+  font-size: 0.9em;
+  color: #3730a3;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="menucascade"] > span[data-dita-tag="uicontrol"] + span[data-dita-tag="uicontrol"]::before {
+  content: " › ";
+  color: #94a3b8;
+  font-weight: 400;
+  margin-inline: 0.1rem;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="wintitle"] {
+  font-weight: 600;
+  color: #334155;
+  text-decoration: underline dotted #94a3b8;
+  text-underline-offset: 3px;
+}
+
+.dita-prosemirror-doc var[data-dita-tag="varname"] {
+  font-style: italic;
+  font-family: var(--font-mono);
+  font-size: 0.88em;
+  color: #9333ea;
+}
+
+.dita-prosemirror-doc kbd[data-dita-tag="userinput"] {
+  border-radius: 4px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  box-shadow: 0 1px 0 #cbd5e1;
+  padding: 0.05rem 0.3rem;
+  font-family: var(--font-mono);
+  font-size: 0.86em;
+  font-weight: 600;
+}
+
+.dita-prosemirror-doc samp[data-dita-tag="systemoutput"] {
+  border-radius: 4px;
+  background: #0f172a;
+  color: #34d399;
+  padding: 0.05rem 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.84em;
+}
+
+.dita-prosemirror-doc dfn[data-dita-tag="term"] {
+  font-style: normal;
+  border-bottom: 1px dashed #6366f1;
+}
+
+.dita-nv-xref {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  border-radius: 4px;
+  background: #eff6ff;
+  border-bottom: 1px solid #60a5fa;
+  padding: 0 0.25rem;
+  color: #1d4ed8;
+}
+
+.dita-nv-keyword {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+  border-radius: 4px;
+  border-bottom: 1px dashed #8b5cf6;
+  background: #f5f3ff;
+  padding: 0 0.25rem;
+  color: #5b21b6;
+}
+
+.dita-nv-ref-badge {
+  font-family: var(--font-mono);
+  font-size: 0.78em;
+  font-weight: 600;
+  opacity: 0.85;
+}
+
+.dita-prosemirror-doc span[data-dita-tag="fn"] {
+  display: inline-block;
+  border-radius: 4px;
+  background: #fefce8;
+  border: 1px solid #fde047;
+  padding: 0 0.35rem;
+  font-size: 0.85em;
+  color: #854d0e;
+}
+
+/* Passthrough Unknown / Specialized Elements */
+.dita-nv-unknown-block,
+.dita-nv-unknown-pre {
+  margin: 0.85rem 0;
+  border-radius: 8px;
+  border: 1.5px dashed #d97706;
+  background: #fffbeb;
+  padding: 0.55rem 0.8rem;
+}
+
+.dita-nv-unknown-badge {
+  display: inline-block;
+  border-radius: 4px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  padding: 0.05rem 0.4rem;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: #92400e;
+}
+
+.dita-nv-unknown-block > .dita-nv-unknown-badge,
+.dita-nv-unknown-pre > .dita-nv-unknown-badge {
+  margin-bottom: 0.35rem;
+}
+
+.dita-nv-unknown-pre > .dita-nv-unknown-content {
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  white-space: pre;
+  overflow-x: auto;
+  color: #1e293b;
+}
+
+.dita-nv-unknown-inline,
+.dita-nv-unknown-inline-block {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.25rem;
+  border-radius: 4px;
+  border: 1px dashed #d97706;
+  background: #fffbeb;
+  padding: 0 0.3rem;
+}
+
+/* XML Metadata Chips (Comment / PI / CDATA) */
+.dita-nv-comment-block {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  border-radius: 4px;
+  background: #f8fafc;
+  padding: 0.2rem 0.5rem;
+  margin: 0.35rem 0;
+  font-size: 12.5px;
+  color: #64748b;
+}
+
+.dita-nv-comment-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: #f8fafc;
+  padding: 0 0.35rem;
+  border-radius: 4px;
+  font-size: 12px;
+  color: #64748b;
+}
+
+.dita-nv-comment-text {
+  font-style: italic;
+  color: #64748b;
+}
+
+/* Hide Oxygen chevron #comment tags when user selects "无标签" mode */
+.dita-tag-mode-none .dita-ox-comment-tag {
+  display: none;
+}
+
+.dita-tag-mode-none .dita-nv-comment-text::before {
+  content: "<!-- ";
+  font-family: var(--font-mono);
+  font-style: normal;
+  color: #94a3b8;
+}
+
+.dita-tag-mode-none .dita-nv-comment-text::after {
+  content: " -->";
+  font-family: var(--font-mono);
+  font-style: normal;
+  color: #94a3b8;
+}
+
+.dita-prosemirror-doc [data-xml-pi] {
+  border-radius: 4px;
+  background: #faf5ff;
+  border: 1px solid #e9d5ff;
+  padding: 0.15rem 0.45rem;
+  margin: 0.35rem 0;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  color: #7e22ce;
+}
+
+.dita-prosemirror-doc [data-xml-cdata="true"] {
+  border-radius: 4px;
+  background: #ecfeff;
+  border: 1px solid #a5f3fc;
+  padding: 0.25rem 0.5rem;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: #155e75;
+}

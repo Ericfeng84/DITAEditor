@@ -33,9 +33,9 @@ import { AiAssistantPanel } from './ai/AiAssistantPanel';
 import { AiDiffDialog } from './ai/AiDiffDialog';
 import { AiSettingsDialog } from './ai/AiSettingsDialog';
 import { applyDocumentLocale, useI18n } from './i18n/index.js';
-import { buildSourceAiTarget, buildVisualAiTarget } from './ai/ai-target';
-import { useAiStore, type AiPanelIntent } from './ai/ai-store';
 import type { AiTargetSpec } from './ai/ai-types';
+import { useAiStore } from './ai/ai-store';
+import { useAiPanelActions } from './ai/use-ai-panel-actions';
 import { syncSourceToVisual, syncVisualToSource } from './editor/bridge/xml-bridge';
 import { SourceEditor } from './editor/source/SourceEditor';
 import { AttributesPanel } from './editor/visual/AttributesPanel';
@@ -439,215 +439,35 @@ export function App() {
   const [keyrefDialogOpen, setKeyrefDialogOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('attributes');
 
-  /** Current visual selection or source caret, expressed as a contract AiTargetSpec. */
-  const computeAiTarget = useCallback((): AiTargetSpec => {
-    if (!activeTab) return { mode: 'full-document' };
-    const visualMode =
-      activeTab.kind === 'topic' && (activeTab.mode === 'visual' || activeTab.mode === 'split');
-    if (visualMode) {
-      const state = visualRef.current?.getCurrentPmState();
-      if (state) {
-        const { from, to } = state.selection;
-        const selectedText = to > from ? state.doc.textBetween(from, to, '\n') : '';
-        return buildVisualAiTarget(state.doc, from, to, selectedText || undefined);
-      }
-    }
-    if (activeTab.mode === 'source' || activeTab.mode === 'split') {
-      return buildSourceAiTarget(activeTab.xml, sourceCursorOffsetRef.current);
-    }
-    return { mode: 'full-document' };
-  }, [activeTab]);
-
-  const openAiPanel = useCallback(
-    (intent?: AiPanelIntent) => {
-      setInspectorOpen(true);
-      setInspectorTarget('topic');
-      setInspectorTab('ai');
-      const target = intent?.target ?? computeAiTarget();
-      setAiTarget(target);
-      const store = useAiStore.getState();
-      if (intent) {
-        store.openPanel(intent);
-        return;
-      }
-      // Opening the tab by hand must not inherit a stale entry-point fragment: the panel then
-      // defaults to whole-topic scope.
-      store.setIntent(null);
-      store.openPanel();
-    },
-    [computeAiTarget, setInspectorOpen, setInspectorTarget],
-  );
-
-  // Opening the AI tab by hand still needs a live target (selection or source caret).
-  const handleInspectorTabChange = useCallback(
-    (next: InspectorTab) => {
-      setInspectorTab(next);
-      if (next !== 'ai') return;
-      const store = useAiStore.getState();
-      if (!store.panelOpen) openAiPanel();
-    },
-    [openAiPanel],
-  );
-
-  // Switching files or modes invalidates a stale target prepared by an entry point.
-  const aiActivePathRef = useRef<string | null>(null);
-  useEffect(() => {
-    const nextPath = activeTab?.path ?? null;
-    if (aiActivePathRef.current === nextPath) return;
-    aiActivePathRef.current = nextPath;
-    useAiStore.getState().setIntent(null);
-    setAiTarget(null);
-  }, [activeTab?.path]);
-  const aiModeRef = useRef(activeTab?.mode ?? 'visual');
-  useEffect(() => {
-    const nextMode = activeTab?.mode ?? 'visual';
-    if (aiModeRef.current === nextMode) return;
-    aiModeRef.current = nextMode;
-    useAiStore.getState().setIntent(null);
-  }, [activeTab?.mode]);
-
-  const handleVisualAiRequest = useCallback(
-    (kind: 'rewrite' | 'ask') => {
-      const target = computeAiTarget();
-      openAiPanel({
-        taskType: kind === 'rewrite' ? 'authoring' : 'ask',
-        target,
-        ...(kind === 'rewrite'
-          ? {
-              instruction: t('app.ai.rewriteInstruction'),
-              autoSend: true,
-            }
-          : {}),
-        ...(activeTab ? { projectPath: activeTab.path } : {}),
-      });
-    },
-    [activeTab, computeAiTarget, openAiPanel],
-  );
-
-  const handleAiFixXmlError = useCallback(() => {
-    if (!activeTab?.xmlError) return;
-    const error = activeTab.xmlError;
-    openAiPanel({
-      taskType: 'fix_error',
-      subAction: 'fix_xml',
-      target: {
-        mode: 'line-window',
-        line: error.line,
-        column: error.column,
-        lineEnd: error.line,
-      },
-      diagnostics: [
-        {
-          source: 'xml',
-          message: error.message,
-          line: error.line,
-          column: error.column,
-        },
-      ],
-      autoSend: true,
-      projectPath: activeTab.path,
-    });
-  }, [activeTab, openAiPanel]);
-
-  const handleAiFixDiagnostic = useCallback(
-    async (diagnostic: WorkspaceDiagnostic) => {
-      const targetTab = useEditorStore
-        .getState()
-        .openTabs.find((tab) => tab.path === diagnostic.filePath);
-      if (!targetTab || useEditorStore.getState().activeTabPath !== diagnostic.filePath) {
-        await openFileTab(diagnostic.filePath, { mode: 'source', jumpLine: diagnostic.line });
-      }
-      openAiPanel({
-        taskType: 'fix_error',
-        subAction: 'fix_diagnostic',
-        target: {
-          mode: 'line-window',
-          line: diagnostic.line,
-          lineEnd: diagnostic.line,
-        },
-        diagnostics: [
-          {
-            source: diagnostic.source,
-            message: diagnostic.message,
-            line: diagnostic.line,
-            column: diagnostic.column,
-          },
-        ],
-        autoSend: true,
-        projectPath: diagnostic.filePath,
-      });
-    },
-    [openAiPanel, openFileTab],
-  );
-
-  const handleAiFixStrictDiagnostic = useCallback(
-    async (diagnostic: PublishDiagnostic) => {
-      setStrictOpen(false);
-      setStrictAiApplied(false);
-      await openFileTab(diagnostic.filePath, { mode: 'source', jumpLine: diagnostic.line });
-      openAiPanel({
-        taskType: 'fix_error',
-        subAction: 'fix_strict',
-        target: {
-          mode: 'line-window',
-          line: diagnostic.line,
-          column: diagnostic.column,
-          lineEnd: diagnostic.line,
-        },
-        diagnostics: [
-          {
-            source: 'xml',
-            message: diagnostic.message,
-            line: diagnostic.line,
-            column: diagnostic.column,
-          },
-        ],
-        autoSend: true,
-        projectPath: diagnostic.filePath,
-      });
-    },
-    [openAiPanel, openFileTab],
-  );
-
-  const handleApplyAiProposal = useCallback(
-    async (patchedXml: string) => {
-      if (!activeTab) return;
-      const filePath = activeTab.path;
-      if (aiApplyMode === 'preview-only') {
-        announce(t('app.aiPreviewOnly'));
-        return;
-      }
-      if (aiApplyMode === 'checkout-and-apply' && workspaceMode === 'api') {
-        const lock = await checkoutFile(filePath);
-        if (!lock) {
-          announce(t('app.aiCheckoutFailed'));
-          return;
-        }
-      }
-
-      const visualApply =
-        activeTab.kind === 'topic' &&
-        (activeTab.mode === 'visual' || activeTab.mode === 'split') &&
-        (visualRef.current?.replaceDocumentXml(patchedXml) ?? false);
-      useEditorStore
-        .getState()
-        .applyAiPatchedXml(filePath, patchedXml, { skipVisualReload: visualApply });
-      if (!visualApply && (activeTab.mode === 'source' || activeTab.mode === 'split')) {
-        setSourceReplacementXml(patchedXml);
-      }
-      if (useAiStore.getState().pendingIntent?.subAction === 'fix_strict') {
-        setStrictAiApplied(true);
-      }
-      useAiStore.getState().markApplied();
-      setAiDiffOpen(false);
-      announce(t('app.aiApplied'));
-    },
-    [activeTab, aiApplyMode, workspaceMode, checkoutFile, announce],
-  );
-
-  const handleSourceReplacementApplied = useCallback(() => {
-    setSourceReplacementXml(null);
-  }, []);
+  const {
+    computeAiTarget,
+    openAiPanel,
+    handleInspectorTabChange,
+    handleVisualAiRequest,
+    handleAiFixXmlError,
+    handleAiFixDiagnostic,
+    handleAiFixStrictDiagnostic,
+    handleApplyAiProposal,
+    handleSourceReplacementApplied,
+  } = useAiPanelActions({
+    activeTab,
+    visualRef,
+    sourceCursorOffsetRef,
+    aiApplyMode,
+    workspaceMode,
+    checkoutFile,
+    openFileTab,
+    announce,
+    t,
+    setInspectorOpen,
+    setInspectorTarget,
+    setInspectorTab,
+    setAiTarget,
+    setStrictOpen,
+    setStrictAiApplied,
+    setAiDiffOpen,
+    setSourceReplacementXml,
+  });
 
   const handleSnapshotChange = useCallback(
     (

@@ -1,0 +1,401 @@
+/* Semantic projections: keyref badges, conref/conkeyref read-only previews and DITAVAL filtering. */
+
+/* ============================================================================
+   Phase 3: Single-Sourcing Semantic Engine (Keyref, Conref, DITAVAL)
+   ============================================================================ */
+
+/* Inline Keyref resolution badges & jump button */
+.dita-nv-ref[data-keyref-status="resolved"] {
+  background: rgba(16, 185, 129, 0.08);
+  border-color: rgba(16, 185, 129, 0.35);
+  color: #065f46;
+}
+
+.dita-nv-ref[data-keyref-status="unresolved"] {
+  background: rgba(244, 63, 94, 0.08);
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #9f1239;
+}
+
+.dita-nv-ref-jump {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-left: 3px;
+  padding: 0 3px;
+  border-radius: 3px;
+  border: 1px solid rgba(15, 23, 42, 0.14);
+  background: rgba(255, 255, 255, 0.85);
+  color: #0369a1;
+  font-size: 10px;
+  line-height: 1.3;
+  cursor: pointer;
+  vertical-align: baseline;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+
+.dita-nv-ref-jump:hover {
+  background: #e0f2fe;
+  color: #0c4a6e;
+}
+
+/* Conref / Conkeyref host container & read-only preview */
+.dita-conref-host {
+  position: relative;
+  border-radius: 6px;
+}
+
+.dita-conref-host.dita-conref-resolved {
+  background: rgba(245, 158, 11, 0.04);
+  outline: 1px dashed rgba(217, 119, 6, 0.42);
+  outline-offset: 2px;
+}
+
+.dita-conref-host.dita-conref-error,
+.dita-conref-host.dita-conref-cycle {
+  background: rgba(244, 63, 94, 0.05);
+  outline: 1.5px dashed rgba(225, 29, 72, 0.55);
+  outline-offset: 2px;
+}
+
+.dita-conref-preview-block {
+  margin: 4px 0 2px;
+  border-left: 3px solid #d97706;
+  border-radius: 0 6px 6px 0;
+  background: #fffbeb;
+  padding: 6px 10px;
+  user-select: none;
+  color: #1e293b;
+}
+
+.dita-conref-preview-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 5px;
+  font-size: 11px;
+  color: #92400e;
+}
+
+.dita-conref-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  color: #92400e;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.dita-conref-preview-meta {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  color: #78350f;
+}
+
+.dita-conref-jump-btn {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid #fbbf24;
+  background: #ffffff;
+  color: #92400e;
+  font-size: 10.5px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.dita-conref-jump-btn:hover {
+  background: #fef3c7;
+  color: #78350f;
+}
+
+.dita-conref-preview-body {
+  font-size: 13px;
+  line-height: 1.6;
+  color: #334155;
+}
+
+.dita-conref-preview-inline {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 4px;
+  padding: 0 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  border: 1px dashed #d97706;
+  background: #fffbeb;
+  color: #78350f;
+  font-size: 0.92em;
+  user-select: none;
+}
+
+.dita-conref-alert {
+  margin: 4px 0;
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid #fda4af;
+  background: #fff1f2;
+  color: #9f1239;
+  font-size: 12px;
+  line-height: 1.45;
+  user-select: none;
+}
+
+.dita-conref-alert-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 6px;
+  margin: 0 2px;
+  border-radius: 4px;
+  border: 1px solid #fda4af;
+  background: #fff1f2;
+  color: #be123c;
+  font-size: 11px;
+  user-select: none;
+}
+
+.dita-conref-alert-cycle {
+  border-color: #e11d48;
+  background: #ffe4e6;
+  color: #881337;
+}
+
+.dita-conref-cycle-chain {
+  margin-top: 4px;
+  padding: 3px 6px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.72);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 10.5px;
+  word-break: break-all;
+}
+
+/* Read-only rendered DITA preview elements inside conref container */
+.dita-cr-p {
+  margin: 2px 0;
+}
+
+.dita-cr-note {
+  margin: 3px 0;
+  padding: 6px 10px;
+  border-left: 3px solid #0ea5e9;
+  border-radius: 0 4px 4px 0;
+  background: rgba(240, 249, 255, 0.85);
+}
+
+.dita-cr-note[data-note-type="warning"],
+.dita-cr-note[data-note-type="caution"],
+.dita-cr-note[data-note-type="danger"] {
+  border-left-color: #ef4444;
+  background: rgba(254, 242, 242, 0.85);
+}
+
+.dita-cr-note-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #0369a1;
+  margin-bottom: 2px;
+}
+
+.dita-cr-codeblock {
+  margin: 4px 0;
+  padding: 6px 8px;
+  border-radius: 4px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 11.5px;
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.dita-cr-codeph {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: rgba(15, 23, 42, 0.08);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.9em;
+}
+
+.dita-cr-list {
+  margin: 3px 0;
+  padding-left: 18px;
+}
+
+.dita-cr-li {
+  margin: 2px 0;
+}
+
+.dita-cr-step {
+  margin: 2px 0;
+}
+
+.dita-cr-cmd {
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.dita-cr-uicontrol {
+  font-weight: 600;
+  color: #1d4ed8;
+}
+
+.dita-cr-keyref {
+  display: inline-block;
+  padding: 0 4px;
+  border-radius: 3px;
+  background: rgba(16, 185, 129, 0.14);
+  color: #065f46;
+  font-weight: 500;
+}
+
+.dita-cr-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0;
+  font-size: 12px;
+}
+
+.dita-cr-table th,
+.dita-cr-table td {
+  border: 1px solid #cbd5e1;
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.dita-cr-table th {
+  background: #f1f5f9;
+  font-weight: 600;
+}
+
+.dita-cr-title {
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 3px;
+}
+
+/* DITAVAL Conditional Filtering & Flagging Projections */
+.dita-ditaval-excluded-dim {
+  opacity: 0.36;
+  text-decoration: line-through;
+  text-decoration-color: rgba(100, 116, 139, 0.55);
+  background: repeating-linear-gradient(
+    -45deg,
+    rgba(148, 163, 184, 0.08),
+    rgba(148, 163, 184, 0.08) 6px,
+    transparent 6px,
+    transparent 12px
+  );
+  border-radius: 4px;
+  transition: opacity 140ms ease;
+}
+
+.dita-ditaval-excluded-dim:hover {
+  opacity: 0.62;
+}
+
+.dita-ditaval-excluded-hide {
+  display: none !important;
+}
+
+.dita-ditaval-excluded-outline {
+  outline: 1px dashed rgba(148, 163, 184, 0.75);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.dita-ditaval-flagged {
+  border-left: 3px solid #6366f1;
+  padding-left: 8px;
+  border-radius: 0 4px 4px 0;
+}
+
+.dita-ditaval-flag-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  margin: 0 4px 0 0;
+  border-radius: 9999px;
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  background: #eef2ff;
+  color: #3730a3;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.5;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.dita-ditaval-flag-pill-end {
+  margin: 0 0 0 4px;
+}
+
+/* Profiling attribute badge color coding in Show-All / Oxygen tag modes */
+.dita-ox-prof-badge[data-prof-attr="audience"] {
+  background: #ede9fe;
+  border-color: #c4b5fd;
+  color: #5b21b6;
+}
+
+.dita-ox-prof-badge[data-prof-attr="platform"] {
+  background: #e0f2fe;
+  border-color: #7dd3fc;
+  color: #0369a1;
+}
+
+.dita-ox-prof-badge[data-prof-attr="product"] {
+  background: #dcfce7;
+  border-color: #86efac;
+  color: #166534;
+}
+
+.dita-ox-prof-badge[data-prof-attr="otherprops"],
+.dita-ox-prof-badge[data-prof-attr="props"] {
+  background: #fef3c7;
+  border-color: #fcd34d;
+  color: #92400e;
+}
+
+.dita-ox-prof-badge[data-prof-attr="rev"] {
+  background: #fce7f3;
+  border-color: #f9a8d4;
+  color: #9d174d;
+}
+
+/* ---------------------------------------------------------------------------
+ * English UI labels for the section / related-links pseudo headers.
+ * `applyDocumentLocale()` (apps/web/src/i18n/locale.ts) mirrors the active UI
+ * locale onto <html lang="en"> so a pure CSS swap is enough — no re-render.
+ * ------------------------------------------------------------------------- */
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="prereq"]::before {
+  content: "Prerequisites · prereq";
+}
+
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="context"]::before {
+  content: "Context · context";
+}
+
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="result"]::before {
+  content: "Result · result";
+}
+
+:root[lang="en"] .dita-prosemirror-doc section[data-dita-tag="postreq"]::before {
+  content: "Post-requirements · postreq";
+}
+
+:root[lang="en"] .dita-prosemirror-doc nav[data-dita-tag="related-links"]::before {
+  content: "Related Links · related-links";
+}

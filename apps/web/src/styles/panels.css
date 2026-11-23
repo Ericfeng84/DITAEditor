@@ -1,0 +1,267 @@
+/* Multi-tab document bar, sidebar tabs, vertical resize handle and the map context menu. */
+/* --------------------------------------------------------------------------
+ * Phase 2: Multi-Tab Document Bar & Sidebar Tabs (modern-web-guidance: tabs)
+ * -------------------------------------------------------------------------- */
+.dita-scroller-hidden {
+  scrollbar-width: none;
+}
+.dita-scroller-hidden::-webkit-scrollbar {
+  display: none;
+}
+
+.dita-tablist {
+  scroll-padding-inline: 2rem;
+  --fade-size: 2rem;
+  --fade-dir: right;
+  --fade-start-pos: 0;
+  --fade-end-pos: 100%;
+  mask:
+    linear-gradient(black, black) no-clip subtract,
+    linear-gradient(to var(--fade-dir), black, transparent) var(--fade-start-pos) 0 / var(--fade-start) 100% no-repeat no-clip,
+    linear-gradient(to var(--fade-dir), transparent, black) var(--fade-end-pos) 0 / var(--fade-end) 100% no-repeat no-clip;
+  animation: dita-reveal-fade-start linear both, dita-hide-fade-end linear both;
+  animation-timeline: scroll(self inline);
+  animation-range: 0 var(--fade-size), calc(100% - var(--fade-size)) 100%;
+}
+
+@keyframes dita-reveal-fade-start {
+  to {
+    --fade-start: var(--fade-size);
+  }
+}
+
+@keyframes dita-hide-fade-end {
+  from {
+    --fade-end: var(--fade-size);
+  }
+}
+
+@supports not (animation-timeline: scroll()) {
+  .dita-tablist {
+    transition: --fade-start 0.2s, --fade-end 0.2s;
+  }
+  .dita-tablist.more-start {
+    --fade-start: var(--fade-size);
+  }
+  .dita-tablist.more-end {
+    --fade-end: var(--fade-size);
+  }
+}
+
+.dita-tab-group {
+  flex: 0 1 auto;
+  min-inline-size: 112px;
+  max-inline-size: 215px;
+}
+
+.dita-tab-group:has(> .dita-tab-btn[aria-selected="true"]) {
+  min-inline-size: max-content;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-tablist {
+    interpolate-size: allow-keywords;
+  }
+  .dita-tab-group {
+    transition: min-inline-size 160ms ease;
+  }
+}
+
+/* Sidebar tabpanels share a single grid cell so tab switching never remounts a panel.
+ * A panel hidden with `hidden="until-found"` still generates a box (content-visibility: hidden),
+ * and that containment makes it a stacking context painted ABOVE the visible sibling. Without
+ * `pointer-events: none` it swallows every click in the sidebar (files unclickable in the 项目文件
+ * tab and vice versa). Keep the visible panel above as well so paint order matches hit-testing. */
+.dita-sidebar-panel {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.dita-sidebar-panel[hidden] {
+  pointer-events: none;
+}
+
+.dita-sidebar-panel:not([hidden]) {
+  position: relative;
+  z-index: 1;
+}
+
+.dita-tab-btn,
+.dita-sidebar-tab {
+  position: relative;
+  cursor: pointer;
+}
+
+/* English tab labels are 25–40% longer ("Map Tree", "Keys" + icons); keep them on one line
+   inside the fixed 4-column sidebar tablist instead of wrapping into a two-row header. */
+.dita-sidebar-tab {
+  white-space: nowrap;
+}
+
+:root[lang="en"] .dita-sidebar-tab {
+  font-size: 11px;
+  letter-spacing: -0.01em;
+}
+
+:root[lang="en"] .dita-sidebar-tab svg {
+  width: 12px;
+  height: 12px;
+}
+
+.dita-tab-btn:focus-visible,
+.dita-sidebar-tab:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: -2px;
+}
+
+/* Active tab indicator via border on ::after pseudo-element (WCAG 1.4.1 & forced-colors safe) */
+.dita-tab-btn[aria-selected="true"],
+.dita-sidebar-tab[aria-selected="true"] {
+  color: #312e81;
+}
+
+.dita-tab-btn[aria-selected="true"]::after,
+.dita-sidebar-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  border-block-end: 2px solid #4f46e5;
+}
+
+/* --------------------------------------------------------------------------
+ * Phase 2: Vertical Resize Handle & Inline Image Thumbnails
+ * -------------------------------------------------------------------------- */
+.dita-resize-handle-y {
+  height: 5px;
+  background: #e2e8f0;
+  position: relative;
+  cursor: row-resize;
+  transition: background-color 120ms ease;
+}
+
+.dita-resize-handle-y:hover,
+.dita-resize-handle-y[data-resize-handle-active],
+.dita-resize-handle-y[data-separator="active"] {
+  background: #6366f1;
+}
+
+.dita-nv-image-inline-img {
+  max-height: 18px;
+  width: auto;
+  display: inline-block;
+  vertical-align: middle;
+  border-radius: 2px;
+}
+
+/* --------------------------------------------------------------------------
+ * Phase 2: Map Context Menu Popover (modern-web-guidance: menu)
+ * -------------------------------------------------------------------------- */
+.dita-ctx-anchor {
+  position: fixed;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.dita-ctx-popover {
+  margin: 0;
+  padding: 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 10px;
+  background: #ffffff;
+  color: #1e293b;
+  box-shadow: 0 18px 40px -14px rgba(15, 23, 42, 0.34), 0 1px 2px rgba(15, 23, 42, 0.08);
+  min-inline-size: 216px;
+}
+
+.dita-ctx-popover:is(:popover-open, .\:popover-open) {
+  display: block;
+}
+
+@supports (position-area: block-end) {
+  .dita-ctx-popover:has(> [focusgroup~="menu"]) {
+    position-area: block-end span-inline-end;
+    position-try-fallbacks: flip-block, flip-inline, flip-block flip-inline;
+    inset: auto;
+  }
+}
+
+@supports not (position-area: block-end) {
+  .dita-ctx-popover {
+    position: fixed;
+    inset: auto;
+    margin: 0;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-ctx-popover {
+    opacity: 0;
+    translate: 0 -0.25rem;
+    transition: opacity, translate, display, overlay;
+    transition-duration: 0.14s;
+    transition-behavior: allow-discrete;
+  }
+  .dita-ctx-popover:popover-open {
+    opacity: 1;
+    translate: 0 0;
+    transition-duration: 0.1s;
+    @starting-style {
+      opacity: 0;
+      translate: 0 -0.25rem;
+    }
+  }
+}
+
+.dita-ctx-menu {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  font-size: 12px;
+}
+
+.dita-ctx-menu > button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  text-align: left;
+  cursor: pointer;
+}
+
+.dita-ctx-menu > button:disabled {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.dita-ctx-menu > button:not(:disabled):hover,
+.dita-ctx-menu > button:not(:disabled):focus-visible {
+  background: #eef2ff;
+  outline: none;
+}
+
+.dita-ctx-menu > hr {
+  margin: 4px 6px;
+  border: none;
+  border-top: 1px solid #e2e8f0;
+}
+
+.dita-ctx-icon {
+  width: 14px;
+  height: 14px;
+  flex: none;
+}
+
+/* react-arborist tree container tweaks */
+.dita-map-tree-host [role="tree"] {
+  outline: none;
+}
+
+.dita-map-row {
+  height: 28px;
+  margin-block: 1px;
+}

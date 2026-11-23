@@ -1,0 +1,335 @@
+/* Reusable UI primitives: modal <dialog>, toolbar controls, task-model switch, inline bubble toolbar, instant tooltips and resize handles. */
+
+/* --------------------------------------------------------------------------
+ * Native Modal <dialog> (modern-web-guidance: dialog)
+ * -------------------------------------------------------------------------- */
+dialog.dita-dialog[open] {
+  display: block;
+  margin: auto;
+}
+
+dialog.dita-dialog:modal {
+  overscroll-behavior: contain;
+}
+
+dialog.dita-dialog::backdrop {
+  background: rgba(15, 23, 42, 0.45);
+  backdrop-filter: blur(2px);
+  overflow: hidden;
+  overscroll-behavior: contain;
+}
+
+/* --------------------------------------------------------------------------
+ * Accessible Toolbar Controls (modern-web-guidance: toolbar)
+ * -------------------------------------------------------------------------- */
+.dita-tb-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  min-inline-size: 28px;
+  min-block-size: 28px;
+  padding: 0.2rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+@media (pointer: coarse) {
+  .dita-tb-btn {
+    min-inline-size: 36px;
+    min-block-size: 36px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-tb-btn {
+    transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .dita-tb-btn:not([aria-disabled="true"]):hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+}
+
+.dita-tb-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.dita-tb-btn[aria-pressed="true"] {
+  background-color: #e0e7ff;
+  border-color: #6366f1;
+  color: #3730a3;
+}
+
+.dita-tb-btn[aria-disabled="true"] {
+  opacity: 0.38;
+  cursor: not-allowed;
+}
+
+.dita-tb-btn-primary {
+  background-color: #eef2ff;
+  border-color: #c7d2fe;
+  color: #3730a3;
+  padding-inline: 0.55rem;
+}
+
+/* Task content-model switch (strict task.dtd / general generalTask.dtd) */
+.dita-tb-caption {
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.dita-tb-select {
+  min-block-size: 28px;
+  padding-block: 0.1rem;
+  padding-inline: 0.35rem 0.15rem;
+  border-radius: 6px;
+  border: 1px solid #cbd5e1;
+  background-color: #fff;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.dita-tb-select:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 2px;
+}
+
+.dita-tb-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.dita-tb-select--compact {
+  min-block-size: 24px;
+  padding-block: 0;
+  padding-inline: 0.3rem 0.1rem;
+  font-size: 11px;
+}
+
+/* ---- Task content-model switch (strict task.dtd vs general generalTask.dtd) ---- */
+.dita-task-model {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  cursor: pointer;
+}
+
+.dita-task-model-resolved {
+  font-size: 10.5px;
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+/* Source editor toolbar is dark; keep the switch legible there. */
+.dita-task-model--dark .dita-tb-caption {
+  color: #94a3b8;
+}
+
+.dita-task-model--dark .dita-tb-select {
+  border-color: #334155;
+  background-color: #1e293b;
+  color: #e2e8f0;
+}
+
+.dita-task-model--dark .dita-task-model-resolved {
+  color: #64748b;
+}
+
+@media (max-width: 640px) {
+  .dita-task-model > .dita-tb-caption,
+  .dita-task-model-resolved {
+    display: none;
+  }
+}
+
+@media (hover: hover) {
+  .dita-tb-btn-primary:not([aria-disabled="true"]):hover {
+    background-color: #e0e7ff;
+    border-color: #818cf8;
+  }
+}
+
+.dita-tb-sep {
+  display: inline-block;
+  align-self: stretch;
+  margin: 0.25rem 0.25rem;
+  border-inline-start: 1px solid #cbd5e1;
+}
+
+/* ---- Floating inline-element bubble toolbar (text selection quick actions) ---- */
+.dita-bubble {
+  position: fixed;
+  z-index: 45;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.125rem;
+  padding: 0.25rem 0.3rem;
+  border-radius: 10px;
+  border: 1px solid #e2e8f0;
+  background: #ffffff;
+  box-shadow: 0 10px 24px -8px rgba(15, 23, 42, 0.28), 0 1px 2px rgba(15, 23, 42, 0.08);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-bubble {
+    animation: dita-bubble-in 110ms ease-out;
+  }
+}
+
+@keyframes dita-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+.dita-bubble-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-inline-size: 26px;
+  min-block-size: 26px;
+  padding: 0;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #334155;
+  cursor: pointer;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .dita-bubble-btn {
+    transition: background-color 120ms ease, color 120ms ease, border-color 120ms ease;
+  }
+}
+
+@media (hover: hover) {
+  .dita-bubble-btn:hover {
+    background-color: #f1f5f9;
+    color: #0f172a;
+  }
+}
+
+.dita-bubble-btn:focus-visible {
+  outline: 2px solid #4f46e5;
+  outline-offset: 1px;
+}
+
+.dita-bubble-btn[aria-pressed="true"] {
+  background-color: #e0e7ff;
+  border-color: #6366f1;
+  color: #3730a3;
+}
+
+.dita-bubble-sep {
+  display: inline-block;
+  align-self: stretch;
+  margin: 0.15rem 0.2rem;
+  border-inline-start: 1px solid #e2e8f0;
+}
+
+/* Instant tooltip shown right after hovering a [title] trigger (see useInstantTitles) */
+.dita-instant-tip {
+  position: fixed;
+  z-index: 80;
+  max-width: 340px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: #0f172a;
+  color: #f8fafc;
+  font-size: 11px;
+  line-height: 1.4;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  box-shadow: 0 8px 20px -8px rgba(15, 23, 42, 0.55);
+  animation: dita-instant-tip-in 90ms ease-out;
+}
+
+.dita-instant-tip::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  translate: -50% 0;
+  border: 5px solid transparent;
+}
+
+.dita-instant-tip[data-placement="bottom"]::before {
+  bottom: 100%;
+  border-bottom-color: #0f172a;
+}
+
+.dita-instant-tip[data-placement="top"]::before {
+  top: 100%;
+  border-top-color: #0f172a;
+}
+
+@keyframes dita-instant-tip-in {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.dita-mini-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 5px;
+  border: 1px solid #cbd5e1;
+  background: #ffffff;
+  padding: 0.2rem 0.45rem;
+  font-size: 11px;
+  font-weight: 500;
+  color: #334155;
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .dita-mini-btn:not(:disabled):hover {
+    background: #f1f5f9;
+    color: #0f172a;
+  }
+}
+
+/* --------------------------------------------------------------------------
+ * Resize Handle Styling
+ * -------------------------------------------------------------------------- */
+.dita-resize-handle {
+  width: 5px;
+  background: #e2e8f0;
+  position: relative;
+  cursor: col-resize;
+  transition: background-color 120ms ease;
+}
+
+.dita-resize-handle:hover,
+.dita-resize-handle[data-resize-handle-active],
+.dita-resize-handle[data-separator="active"] {
+  background: #6366f1;
+}

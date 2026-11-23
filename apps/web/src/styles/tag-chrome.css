@@ -1,0 +1,165 @@
+/* Oxygen XML Author-style pointed chevron start/end tags (标签 / 含属性模式). */
+
+/* --------------------------------------------------------------------------
+ * Oxygen XML Author-Style Pointed Chevron Start / End Tags (标签 / 含属性模式)
+ * -------------------------------------------------------------------------- */
+.dita-ox-tag {
+  --ox-bg: #eef2f6;
+  --ox-border: #64748b;
+  --ox-text: #1e293b;
+  --ox-attr: #475569;
+
+  display: inline-flex;
+  align-items: stretch;
+  vertical-align: middle;
+  height: 19px;
+  line-height: 17px;
+  margin: 1px 3px 1px 1px;
+  font-family: ui-serif, Georgia, "Times New Roman", "Songti SC", serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--ox-text);
+  user-select: none;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.dita-ox-inline {
+  height: 17px;
+  line-height: 15px;
+  font-size: 10.5px;
+  /* Must stay keyword-based (`middle`), never a length offset: the open pill starts with the
+   * text body while the close pill starts with the SVG cap, and an inline-flex box derives its
+   * baseline from its FIRST flex item. A length offset therefore lands the closing pill ~5px
+   * above the opening one; `middle` centers both on the parent line box instead. */
+  vertical-align: middle;
+}
+
+.dita-ox-close {
+  margin: 1px 1px 1px 3px;
+}
+
+.dita-ox-body {
+  display: inline-flex;
+  align-items: center;
+  padding: 0 4px;
+  background: var(--ox-bg);
+  border-top: 1px solid var(--ox-border);
+  border-bottom: 1px solid var(--ox-border);
+}
+
+.dita-ox-open > .dita-ox-body {
+  border-left: 1px solid var(--ox-border);
+  border-radius: 2px 0 0 2px;
+  padding-left: 5px;
+  padding-right: 3px;
+}
+
+.dita-ox-close > .dita-ox-body {
+  border-right: 1px solid var(--ox-border);
+  border-radius: 0 2px 2px 0;
+  padding-left: 3px;
+  padding-right: 5px;
+}
+
+.dita-ox-name {
+  font-weight: 600;
+  color: var(--ox-text);
+}
+
+.dita-ox-attrs {
+  color: var(--ox-attr);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: -0.01em;
+}
+
+.dita-ox-cap {
+  width: 7px;
+  height: 100%;
+  flex-shrink: 0;
+  display: block;
+  overflow: visible;
+}
+
+.dita-ox-cap-fill {
+  fill: var(--ox-bg);
+}
+
+.dita-ox-cap-stroke {
+  stroke: var(--ox-border);
+}
+
+/* Hover & active-selected tag pill feedback */
+@media (hover: hover) {
+  .dita-ox-tag:hover {
+    --ox-bg: #e0e7ff;
+    --ox-border: #4f46e5;
+    --ox-text: #312e81;
+    --ox-attr: #4338ca;
+  }
+}
+
+.dita-ox-tag[data-ox-selected="true"] {
+  --ox-bg: #dbeafe;
+  --ox-border: #2563eb;
+  --ox-text: #1e3a8a;
+  --ox-attr: #1d4ed8;
+}
+
+.dita-ox-unknown {
+  --ox-bg: #fef3c7;
+  --ox-border: #d97706;
+  --ox-text: #92400e;
+  --ox-attr: #b45309;
+}
+
+/* Profiling Highlight Box & Lime-Yellow Badge (matching Oxygen screenshot) */
+.dita-ox-profiled {
+  border: 1.5px solid #4d9e44 !important;
+  border-radius: 4px;
+  padding: 0.35rem 0.55rem !important;
+  margin: 0.45rem 0 !important;
+  background: rgba(240, 253, 244, 0.35);
+}
+
+.dita-ox-prof-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  margin-left: 4px;
+  vertical-align: middle;
+  user-select: none;
+}
+
+.dita-ox-prof-badge {
+  display: inline-block;
+  border-radius: 2px;
+  background: #bef264;
+  border: 1px solid #84cc16;
+  padding: 0 4px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 16px;
+  color: #1a2e05;
+}
+
+/* When Oxygen tags are visible, suppress redundant CSS ::before labels so tags stay crisp */
+.dita-tag-mode-tags .dita-prosemirror-doc > article[data-dita-tag]::before,
+.dita-tag-mode-full .dita-prosemirror-doc > article[data-dita-tag]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="prereq"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="prereq"]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="context"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="context"]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="result"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="result"]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="postreq"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="postreq"]::before {
+  display: none;
+}
+
+.dita-tag-mode-tags .dita-prosemirror-doc > article > h1[data-dita-tag="title"],
+.dita-tag-mode-full .dita-prosemirror-doc > article > h1[data-dita-tag="title"] {
+  line-height: 1.4;
+}
