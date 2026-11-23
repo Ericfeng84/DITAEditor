@@ -1,5 +1,5 @@
 import type { Node as PMNode } from 'prosemirror-model';
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { validatePmStructure, type TaskContentModel, type UiLocale } from '@dita/core';
 import { getCurrentLocale } from '../../i18n/index.js';
@@ -55,6 +55,75 @@ function buildStructureDecorations(
 }
 
 /**
+ * Narrow structural view of a `prosemirror-transform` step (`prosemirror-transform` is not a direct
+ * dependency of the web app, so the concrete step classes are not imported).
+ */
+interface ReplaceStepLike {
+  jsonID?: string;
+  from?: number;
+  to?: number;
+  slice?: {
+    openStart: number;
+    openEnd: number;
+    content: {
+      size: number;
+      childCount: number;
+      firstChild: PMNode | null;
+    };
+  };
+}
+
+function isTextOnlyContent(node: PMNode | null): boolean {
+  if (node === null) return true;
+  return node.isText;
+}
+
+/**
+ * Does this transaction leave element structure (tags, nesting, order) untouched?
+ *
+ * Pure text insertions, deletions, and in-textblock text replacements cannot create or destroy a
+ * content-model violation, so mapped decorations stay correct and a full re-validation is wasted
+ * work. Anything that inserts or removes non-text nodes, crosses element boundaries, or changes
+ * node markup/attributes forces a rebuild.
+ */
+function keepsStructure(tr: Transaction, oldDoc: PMNode): boolean {
+  if (!tr.docChanged || tr.steps.length !== 1) return false;
+  const step = tr.steps[0] as unknown as ReplaceStepLike;
+  if (
+    step.jsonID !== 'replace' ||
+    !step.slice ||
+    step.from === undefined ||
+    step.to === undefined
+  ) {
+    return false;
+  }
+  if (step.slice.openStart !== 0 || step.slice.openEnd !== 0) return false;
+
+  const inserted = step.slice.content;
+  if (
+    inserted.size > 0 &&
+    !(inserted.childCount === 1 && isTextOnlyContent(inserted.firstChild))
+  ) {
+    return false;
+  }
+
+  // Replacing or deleting across element boundaries or removing any non-text node changes structure.
+  if (step.from < step.to) {
+    const removed = oldDoc.slice(step.from, step.to);
+    if (
+      removed.openStart !== 0 ||
+      removed.openEnd !== 0 ||
+      removed.content.childCount > 1 ||
+      !isTextOnlyContent(removed.content.firstChild)
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+/**
  * Structure-diagnostic plugin: recomputes only when the document, the UI locale or the task
  * content-model variant changes.
  */
@@ -72,7 +141,7 @@ export function createDitaStructurePlugin(
           decorations: buildStructureDecorations(state.doc, initialLocale, initialTaskModel),
         };
       },
-      apply(tr, prev, _oldState, newState) {
+      apply(tr, prev, oldState, newState) {
         const meta = tr.getMeta(DITA_STRUCTURE_KEY) as DitaStructurePluginMeta | undefined;
         const nextLocale = meta?.locale ?? prev.locale;
         const nextTaskModel = meta?.taskModel ?? prev.taskModel;
@@ -82,6 +151,11 @@ export function createDitaStructurePlugin(
           nextTaskModel === prev.taskModel
         ) {
           return prev;
+        }
+        if (nextLocale === prev.locale && nextTaskModel === prev.taskModel) {
+          if (keepsStructure(tr, oldState.doc)) {
+            return { ...prev, decorations: prev.decorations.map(tr.mapping, tr.doc) };
+          }
         }
         return {
           locale: nextLocale,

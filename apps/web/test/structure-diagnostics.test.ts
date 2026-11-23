@@ -426,6 +426,89 @@ describe('DITA 1.3 ordered content-model diagnostics (web wiring)', () => {
     expect(pmDocToXml(state.doc)).toBe(before);
   });
 
+  it('maps structure decorations through text-only edits instead of revalidating the document', () => {
+    const { pmDoc } = xmlToPmDoc(MISORDERED_TASK);
+    const state = EditorState.create({ doc: pmDoc, plugins: [createDitaStructurePlugin('zh-CN')] });
+    const getDecos = (editorState: EditorState) =>
+      DITA_STRUCTURE_KEY.getState(editorState)!.decorations.find();
+    const spans = (editorState: EditorState) =>
+      getDecos(editorState).map((decoration) => [decoration.from, decoration.to] as const);
+    const types = (editorState: EditorState) =>
+      getDecos(editorState).map((decoration) => (decoration as unknown as { type: unknown }).type);
+
+    const before = spans(state);
+    const beforeTypes = types(state);
+    expect(before.length).toBeGreaterThan(0);
+
+    // Typing inside <title> cannot change element structure: decorations are mapped (same type objects), not rebuilt.
+    const inserted = state.apply(state.tr.insertText('XX', 2));
+    expect(spans(inserted)).toEqual(before.map(([from, to]) => [from + 2, to + 2]));
+    expect(types(inserted)).toEqual(beforeTypes);
+
+    // Replacing a text selection within the same textblock also maps without rebuilding.
+    const replaced = inserted.apply(inserted.tr.insertText('Y', 2, 4));
+    expect(spans(replaced)).toEqual(before.map(([from, to]) => [from + 1, to + 1]));
+    expect(types(replaced)).toEqual(beforeTypes);
+
+    const deleted = replaced.apply(replaced.tr.delete(2, 3));
+    expect(spans(deleted)).toEqual(before);
+    expect(types(deleted)).toEqual(beforeTypes);
+  });
+
+  it('rebuilds structure decorations when plain text replaces a cross-node selection', () => {
+    const misorderedSection = `<?xml version="1.0" encoding="UTF-8"?>
+<concept id="c_sec">
+  <title>Concept</title>
+  <conbody>
+    <section>
+      <p>first</p>
+      <title>late title</title>
+    </section>
+  </conbody>
+</concept>`;
+    const { pmDoc } = xmlToPmDoc(misorderedSection);
+    const state = EditorState.create({ doc: pmDoc, plugins: [createDitaStructurePlugin('zh-CN')] });
+
+    expect(DITA_STRUCTURE_KEY.getState(state)!.decorations.find().length).toBe(1);
+
+    // Selecting from inside <p> across the misordered <title> and typing 'X' destroys <title>
+    // in a single ReplaceStep whose inserted slice is pure text; decorations MUST rebuild.
+    let pTextPos = 0;
+    let lateTitleEnd = 0;
+    pmDoc.descendants((node, pos) => {
+      if (node.type.name === 'dita_p') pTextPos = pos + 2;
+      if (node.type.name === 'dita_title' && pos > 10) lateTitleEnd = pos + node.nodeSize - 1;
+    });
+    const nextState = state.apply(state.tr.insertText('X', pTextPos, lateTitleEnd));
+    expect(validatePmStructure(nextState.doc)).toHaveLength(0);
+    expect(DITA_STRUCTURE_KEY.getState(nextState)!.decorations.find()).toHaveLength(0);
+  });
+
+  it('rebuilds structure decorations when plain text merges misordered taskbody blocks', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<task id="t_merge">
+  <title>Task</title>
+  <taskbody>
+    <postreq><p>after</p></postreq>
+    <prereq><p>before</p></prereq>
+    <steps><step><cmd>do</cmd></step></steps>
+  </taskbody>
+</task>`;
+    const { pmDoc } = xmlToPmDoc(xml);
+    const state = EditorState.create({ doc: pmDoc, plugins: [createDitaStructurePlugin('zh-CN')] });
+
+    let postreqInner = 0;
+    let prereqInner = 0;
+    pmDoc.descendants((node, pos) => {
+      if (node.type.name === 'dita_postreq') postreqInner = pos + 3;
+      if (node.type.name === 'dita_prereq') prereqInner = pos + 3;
+    });
+
+    const nextState = state.apply(state.tr.insertText('X', postreqInner, prereqInner));
+    const expectedCount = validatePmStructure(nextState.doc).filter((i) => i.size > 0).length;
+    expect(DITA_STRUCTURE_KEY.getState(nextState)!.decorations.find()).toHaveLength(expectedCount);
+  });
+
   it('reports the same violations through the XML-level checker used by the source linter', () => {
     const result = checkXmlStructure(MISORDERED_TASK);
     expect(result.ok).toBe(true);

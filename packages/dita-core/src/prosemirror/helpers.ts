@@ -56,6 +56,59 @@ export function getPmNodeRawAttrs(node: PMNode): RawAttrs {
   return Array.isArray(attrs) ? (attrs as RawAttrs) : [];
 }
 
+function findDirectPmChildByTag(node: PMNode, tagName: string): PMNode | null {
+  for (let i = 0; i < node.childCount; i += 1) {
+    const child = node.child(i);
+    if (getPmNodeTagName(child) === tagName) return child;
+  }
+  return null;
+}
+
+function normalizeTitleText(node: PMNode | null): string {
+  if (!node) return '';
+  return node
+    .textBetween(0, node.content.size, '', (leaf) =>
+      leaf.type.name === 'xml_cdata_inline' || leaf.type.name === 'xml_cdata_block'
+        ? String(leaf.attrs.data ?? '')
+        : '',
+    )
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Extract the display title of the DITA document held by a ProseMirror doc,
+ * without re-parsing XML. Mirrors `extractDitaDocumentTitle()`: bookmap falls
+ * back to `booktitle/mainbooktitle`, then any root `title` child, then a root
+ * `title` attribute (maps).
+ *
+ * Returns `null` when the document has no title.
+ */
+export function getPmDocTitle(doc: PMNode): string | null {
+  let root: PMNode | null = null;
+  for (let i = 0; i < doc.childCount; i += 1) {
+    const child = doc.child(i);
+    if (getPmNodeTagName(child) !== null) {
+      root = child;
+      break;
+    }
+  }
+  if (!root) return null;
+
+  if (getPmNodeTagName(root) === 'bookmap') {
+    const booktitle = findDirectPmChildByTag(root, 'booktitle');
+    const mainbooktitle = booktitle ? findDirectPmChildByTag(booktitle, 'mainbooktitle') : null;
+    const mainText = normalizeTitleText(mainbooktitle);
+    if (mainText) return mainText;
+  }
+
+  const titleText = normalizeTitleText(findDirectPmChildByTag(root, 'title'));
+  if (titleText) return titleText;
+
+  const attrTitle = getRawAttr(getPmNodeRawAttrs(root), 'title')?.trim();
+  return attrTitle || null;
+}
+
 /**
  * Count direct `cals_tgroup` children inside a `cals_table` ProseMirror node.
  */

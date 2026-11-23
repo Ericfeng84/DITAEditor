@@ -3,6 +3,7 @@ import { Group, Panel, Separator } from 'react-resizable-panels';
 import {
   detectTaskContentModel,
   dirnamePosix,
+  getPmDocTitle,
   type DitaTopicTemplateType,
   type RawAttrs,
   type XmlDeclaration,
@@ -682,7 +683,7 @@ export function App() {
         const pmState = visualRef.current?.getCurrentPmState();
         if (pmState) {
           const synced = syncVisualToSource(pmState.doc, pmState.selection.from);
-          updateXmlFromVisual(synced.xml);
+          updateXmlFromVisual(synced.xml, getPmDocTitle(pmState.doc));
           if (synced.targetOffset !== null) {
             requestSourceJump(synced.targetOffset);
           }

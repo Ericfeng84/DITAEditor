@@ -18,6 +18,7 @@ import {
   getAllowedChildElements,
   getInsertableTagsBySequence,
   getPmChildTags,
+  getPmDocTitle,
   getPmNodeRawAttrs,
   getPmNodeTagName,
   getRawAttr,
@@ -190,7 +191,7 @@ export interface VisualEditorProps {
   onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
   pendingJumpPos: number | null;
   onJumpHandled: () => void;
-  onXmlChange: (nextXml: string) => void;
+  onXmlChange: (nextXml: string, nextTitle: string | null) => void;
   onSnapshotChange: (
     snapshot: EditorSelectionSnapshot,
     historyFlags: { canUndo: boolean; canRedo: boolean },
@@ -820,7 +821,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
           if (tr.docChanged) {
             const serialized = pmDocToXml(nextState.doc);
-            onXmlChangeRef.current(serialized);
+            onXmlChangeRef.current(serialized, getPmDocTitle(nextState.doc));
           }
 
           emitSnapshot(nextState);

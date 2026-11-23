@@ -10,6 +10,7 @@ import {
   DITA_MAP_CONTAINER_NODE_TAGS,
   DitaSemanticIndex,
   extractDitaDocumentTitle,
+  extractDitaDocumentTitleFromDocument,
   findPmPosByDitaId,
   insertMapNode,
   parseDitaMap,
@@ -200,7 +201,7 @@ export interface EditorWorkbenchState {
 
   // Editor mode & content sync
   setMode: (nextMode: EditorViewMode) => boolean;
-  updateXmlFromVisual: (xml: string) => void;
+  updateXmlFromVisual: (xml: string, title?: string | null) => void;
   updateXmlFromSource: (xml: string) => void;
   /** `skipVisualReload` keeps the live ProseMirror history when the editor already applied the doc. */
   applyAiPatchedXml: (
@@ -330,6 +331,15 @@ function extractTitleSafe(xml: string, fallback: string): string {
   return extractDitaDocumentTitle(xml) ?? fallback;
 }
 
+function extractTitleFromCheck(
+  check: ReturnType<typeof checkXmlWellFormed>,
+  fallback: string,
+): string {
+  return check.ok
+    ? (extractDitaDocumentTitleFromDocument(check.parsed.document) ?? fallback)
+    : fallback;
+}
+
 function lineNumberToOffset(text: string, line: number): number {
   if (line <= 1) return 0;
   let current = 1;
@@ -355,14 +365,89 @@ const EMPTY_PROFILING_CATALOG: Record<DitaProfilingAttrName, string[]> = {
 const memorySemanticIndex = new DitaSemanticIndex();
 memorySemanticIndex.setUiLocale(getCurrentLocale());
 onLocaleChange((locale) => memorySemanticIndex.setUiLocale(locale));
-let overlayDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+const overlayDebounceTimers = new Map<string, ReturnType<typeof setTimeout>>();
+let semanticsDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let workspaceGeneration = 0;
+
+/** Content last pushed into `memorySemanticIndex`, so incremental sync can diff. */
+const memoryIndexContents = new Map<string, string>();
+
+function cancelOverlayRefresh(filePath: string): void {
+  const timer = overlayDebounceTimers.get(filePath);
+  if (timer) {
+    clearTimeout(timer);
+    overlayDebounceTimers.delete(filePath);
+  }
+}
+
+function cancelAllPendingRefreshes(): void {
+  workspaceGeneration += 1;
+  for (const timer of overlayDebounceTimers.values()) {
+    clearTimeout(timer);
+  }
+  overlayDebounceTimers.clear();
+  if (semanticsDebounceTimer) {
+    clearTimeout(semanticsDebounceTimer);
+    semanticsDebounceTimer = null;
+  }
+}
+
+/**
+ * Reset the demo-mode semantic index and mirror cache together on workspace reload/import.
+ */
+function resetMemorySemanticIndex(files: Record<string, string>): void {
+  memoryIndexContents.clear();
+  memorySemanticIndex.loadFiles(files);
+  for (const [filePath, content] of Object.entries(files)) {
+    memoryIndexContents.set(filePath, content);
+  }
+}
+
+/**
+ * Overlay live unsaved map buffers and open tab buffers onto `memoryFiles` so semantic refreshes
+ * in demo mode reflect in-progress edits rather than reverting them to the last saved snapshot.
+ */
+function collectMemoryIndexFiles(
+  state: Pick<EditorWorkbenchState, 'memoryFiles' | 'mapBuffers' | 'openTabs'>,
+): Record<string, string> {
+  const merged: Record<string, string> = { ...state.memoryFiles };
+  for (const [filePath, buf] of Object.entries(state.mapBuffers)) {
+    merged[filePath] = buf.xml;
+  }
+  for (const tab of state.openTabs) {
+    merged[tab.path] = tab.xml;
+  }
+  return merged;
+}
+
+/**
+ * Incrementally reconcile the demo-mode semantic index with the workspace file
+ * map. Editing a large project used to re-parse every file on each keystroke.
+ */
+function syncMemorySemanticIndex(files: Record<string, string>): void {
+  for (const [filePath, content] of Object.entries(files)) {
+    if (memoryIndexContents.get(filePath) === content) continue;
+    memoryIndexContents.set(filePath, content);
+    memorySemanticIndex.updateFile(filePath, content);
+  }
+  for (const filePath of Array.from(memoryIndexContents.keys())) {
+    if (filePath in files) continue;
+    memoryIndexContents.delete(filePath);
+    memorySemanticIndex.removeFile(filePath);
+  }
+}
+
+function updateMemoryIndexFile(filePath: string, content: string): void {
+  memoryIndexContents.set(filePath, content);
+  memorySemanticIndex.updateFile(filePath, content);
+}
 
 function computeMemoryDiagnostics(
   files: Record<string, string>,
   assets: Record<string, string>,
   rootMapPath: string | null,
 ): WorkspaceDiagnostic[] {
-  memorySemanticIndex.loadFiles(files);
+  syncMemorySemanticIndex(files);
   return memorySemanticIndex.collectSemanticDiagnostics(rootMapPath, {
     assetPaths: new Set(Object.keys(assets)),
   });
@@ -370,9 +455,40 @@ function computeMemoryDiagnostics(
 
 const initialMemoryDemo = createInMemoryDemoWorkspace();
 const initialFileSet = collectFileSetFromTree(initialMemoryDemo.snapshot.files);
-memorySemanticIndex.loadFiles(initialMemoryDemo.files);
+resetMemorySemanticIndex(initialMemoryDemo.files);
 
 export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
+  /**
+   * Per-file debounced document-overlay refresh. In demo (memory) mode this also
+   * pushes the newest XML into the semantic index, so neither the index nor the
+   * overlay re-parses the whole document on every keystroke.
+   */
+  const scheduleOverlayRefresh = (filePath: string, xml: string) => {
+    cancelOverlayRefresh(filePath);
+    const generation = workspaceGeneration;
+    const timer = setTimeout(() => {
+      overlayDebounceTimers.delete(filePath);
+      if (generation !== workspaceGeneration) return;
+      const current = get();
+      const openTab = current.openTabs.find((t) => t.path === filePath);
+      if (openTab && openTab.xml !== xml) return;
+      if (current.workspaceMode === 'memory') updateMemoryIndexFile(filePath, xml);
+      void current.refreshDocumentOverlay(filePath, xml);
+    }, 180);
+    overlayDebounceTimers.set(filePath, timer);
+  };
+
+  /** Debounced keyspace/overlay rebuild for edits that change project semantics (map/ditaval files). */
+  const scheduleSemanticsRefresh = () => {
+    if (semanticsDebounceTimer) clearTimeout(semanticsDebounceTimer);
+    const generation = workspaceGeneration;
+    semanticsDebounceTimer = setTimeout(() => {
+      semanticsDebounceTimer = null;
+      if (generation !== workspaceGeneration) return;
+      void get().refreshSemantics();
+    }, 400);
+  };
+
   const applySnapshotToState = (snapshot: WorkspaceSnapshot) => {
     const nextFileSet = collectFileSetFromTree(snapshot.files);
     set({
@@ -497,6 +613,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     snapshot: WorkspaceSnapshot,
     statusMessage: string,
   ): Promise<void> => {
+    cancelAllPendingRefreshes();
     const fSet = applySnapshotToState(snapshot);
     const firstMap = snapshot.maps[0]?.path ?? null;
     set({
@@ -532,10 +649,11 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
   };
 
   const activateMemoryFallback = (reason?: string) => {
+    cancelAllPendingRefreshes();
     const demo = createInMemoryDemoWorkspace();
     const fSet = collectFileSetFromTree(demo.snapshot.files);
     const defaultRootMap = demo.snapshot.maps[0]?.path ?? null;
-    memorySemanticIndex.loadFiles(demo.files);
+    resetMemorySemanticIndex(demo.files);
 
     set({
       workspaceMode: 'memory',
@@ -689,6 +807,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     },
 
     async reloadWorkspaceFromSnapshot(snapshot, statusMessage) {
+      cancelAllPendingRefreshes();
       const previousActive = get().activeTabPath;
       const fSet = applySnapshotToState(snapshot);
       const firstMap = snapshot.maps[0]?.path ?? null;
@@ -757,7 +876,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             xmlError,
             switchBlockedReason: null,
             visualReloadToken: tab.visualReloadToken + 1,
-            title: extractTitleSafe(content, tab.fileName),
+            title: extractTitleFromCheck(check, tab.fileName),
           };
         }
         if (nextBuffers[filePath]) {
@@ -864,10 +983,11 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           nextFiles[f.path] = f.content;
         }
       }
+      cancelAllPendingRefreshes();
       const snap = buildSnapshotFromMemoryFiles(projectName, nextFiles, nextAssets);
       const fSet = applySnapshotToState(snap);
       const firstMap = snap.maps[0]?.path ?? null;
-      memorySemanticIndex.loadFiles(nextFiles);
+      resetMemorySemanticIndex(nextFiles);
       set({
         workspaceMode: 'memory',
         memoryFiles: nextFiles,
@@ -967,7 +1087,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     async refreshSemantics() {
       const state = get();
       if (state.workspaceMode === 'memory') {
-        memorySemanticIndex.loadFiles(state.memoryFiles);
+        syncMemorySemanticIndex(collectMemoryIndexFiles(state));
         const keyspace = state.activeRootMapPath
           ? memorySemanticIndex.getKeyspace(state.activeRootMapPath)
           : null;
@@ -1161,7 +1281,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const newTab: OpenEditorTab = {
         path: filePath,
         fileName,
-        title: extractTitleSafe(xml, fileName),
+        title: extractTitleFromCheck(check, fileName),
         kind,
         docType,
         baselineXml,
@@ -1204,6 +1324,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     },
 
     closeTab(filePath) {
+      cancelOverlayRefresh(filePath);
       set((state) => {
         const idx = state.openTabs.findIndex((t) => t.path === filePath);
         if (idx === -1) return state;
@@ -1221,6 +1342,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     },
 
     closeOtherTabs(filePath) {
+      for (const tab of get().openTabs) {
+        if (tab.path !== filePath) cancelOverlayRefresh(tab.path);
+      }
       set((state) => ({
         openTabs: state.openTabs.filter((t) => t.path === filePath),
         activeTabPath: filePath,
@@ -1228,6 +1352,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
     },
 
     closeSavedTabs() {
+      for (const tab of get().openTabs) {
+        if (tab.xml === tab.baselineXml) cancelOverlayRefresh(tab.path);
+      }
       set((state) => {
         const kept = state.openTabs.filter((t) => t.xml !== t.baselineXml);
         const activeStillOpen = kept.some((t) => t.path === state.activeTabPath);
@@ -1256,7 +1383,11 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           }));
         }
 
-        const nextTitle = extractTitleSafe(content, filePath.split('/').pop() ?? filePath);
+        const currentTab = get().openTabs.find((t) => t.path === filePath);
+        const nextTitle =
+          currentTab && currentTab.xml === content
+            ? currentTab.title
+            : extractTitleSafe(content, filePath.split('/').pop() ?? filePath);
         set((s) => ({
           openTabs: s.openTabs.map((t) =>
             t.path === filePath
@@ -1326,19 +1457,26 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const active = state.openTabs.find((t) => t.path === state.activeTabPath);
       if (!active) return;
 
+      cancelOverlayRefresh(active.path);
       const check = checkXmlWellFormed(active.baselineXml, { position: false });
+      const revertedTitle = extractTitleFromCheck(check, active.fileName);
       set((s) => ({
         openTabs: s.openTabs.map((t) =>
           t.path === active.path
             ? {
                 ...t,
                 xml: t.baselineXml,
+                title: revertedTitle,
                 xmlError: check.ok ? null : check.error,
                 switchBlockedReason: null,
                 visualReloadToken: t.visualReloadToken + 1,
               }
             : t,
         ),
+        topicTitles:
+          active.kind === 'topic'
+            ? { ...s.topicTitles, [active.path]: revertedTitle }
+            : s.topicTitles,
         mapBuffers: s.mapBuffers[active.path]
           ? {
               ...s.mapBuffers,
@@ -1351,6 +1489,17 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
           : s.mapBuffers,
         statusMessage: t('status.reverted', { name: active.fileName }),
       }));
+
+      if (state.workspaceMode === 'memory') {
+        updateMemoryIndexFile(active.path, active.baselineXml);
+        if (active.kind === 'ditamap' || active.kind === 'bookmap' || active.kind === 'ditaval') {
+          void get().refreshSemantics();
+        } else if (active.kind === 'topic') {
+          void get().refreshDocumentOverlay(active.path, active.baselineXml);
+        }
+      } else if (active.kind === 'topic') {
+        void get().refreshDocumentOverlay(active.path, active.baselineXml);
+      }
     },
 
     setMode(nextMode) {
@@ -1414,13 +1563,16 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       return true;
     },
 
-    updateXmlFromVisual(xml) {
+    updateXmlFromVisual(xml, title) {
       const state = get();
       const activePath = state.activeTabPath;
       if (!activePath) return;
 
       const titleFallback = activePath.split('/').pop() ?? activePath;
-      const nextTitle = extractTitleSafe(xml, titleFallback);
+      // The visual editor derives the title from its ProseMirror doc (passing `null` when the
+      // document has no title); only callers omitting `title` (`undefined`) fall back to XML parse.
+      const nextTitle =
+        title === undefined ? extractTitleSafe(xml, titleFallback) : (title ?? titleFallback);
 
       set((s) => ({
         openTabs: s.openTabs.map((t) =>
@@ -1440,15 +1592,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             : s.topicTitles,
       }));
 
-      if (state.workspaceMode === 'memory') {
-        memorySemanticIndex.updateFile(activePath, xml);
-        void get().refreshDocumentOverlay(activePath, xml);
-      } else {
-        if (overlayDebounceTimer) clearTimeout(overlayDebounceTimer);
-        overlayDebounceTimer = setTimeout(() => {
-          void get().refreshDocumentOverlay(activePath, xml);
-        }, 180);
-      }
+      scheduleOverlayRefresh(activePath, xml);
     },
 
     updateXmlFromSource(xml) {
@@ -1459,7 +1603,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const check = checkXmlWellFormed(xml, { position: false });
       const active = state.openTabs.find((t) => t.path === activePath);
       const fallback = active?.fileName ?? activePath;
-      const nextTitle = check.ok ? extractTitleSafe(xml, fallback) : (active?.title ?? fallback);
+      const nextTitle = check.ok
+        ? (extractDitaDocumentTitleFromDocument(check.parsed.document) ?? fallback)
+        : (active?.title ?? fallback);
       const isMap = active?.kind === 'ditamap' || active?.kind === 'bookmap';
 
       set((s) => ({
@@ -1500,17 +1646,13 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       }
 
       if (state.workspaceMode === 'memory') {
-        memorySemanticIndex.updateFile(activePath, xml);
-        if (isMap && check.ok) {
-          void get().refreshSemantics();
+        if ((isMap || active?.kind === 'ditaval') && check.ok) {
+          scheduleSemanticsRefresh();
         } else if (active?.kind === 'topic') {
-          void get().refreshDocumentOverlay(activePath, xml);
+          scheduleOverlayRefresh(activePath, xml);
         }
       } else if (active?.kind === 'topic') {
-        if (overlayDebounceTimer) clearTimeout(overlayDebounceTimer);
-        overlayDebounceTimer = setTimeout(() => {
-          void get().refreshDocumentOverlay(activePath, xml);
-        }, 180);
+        scheduleOverlayRefresh(activePath, xml);
       }
     },
 
@@ -1520,7 +1662,9 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       if (!tab) return false;
 
       const check = checkXmlWellFormed(xml, { position: false });
-      const nextTitle = check.ok ? extractTitleSafe(xml, tab.fileName) : tab.title;
+      const nextTitle = check.ok
+        ? (extractDitaDocumentTitleFromDocument(check.parsed.document) ?? tab.fileName)
+        : tab.title;
       set((s) => ({
         openTabs: s.openTabs.map((t) =>
           t.path === filePath
@@ -1557,19 +1701,15 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
             : s.mapBuffers,
       }));
 
+      cancelOverlayRefresh(filePath);
       if (state.workspaceMode === 'memory') {
-        memorySemanticIndex.updateFile(filePath, xml);
+        updateMemoryIndexFile(filePath, xml);
       }
       if (tab.kind === 'topic') {
-        if (state.workspaceMode === 'api' && state.activeTabPath !== filePath) {
+        if (state.workspaceMode === 'memory' || state.activeTabPath !== filePath) {
           void get().refreshDocumentOverlay(filePath, xml);
-        } else if (state.workspaceMode === 'api') {
-          if (overlayDebounceTimer) clearTimeout(overlayDebounceTimer);
-          overlayDebounceTimer = setTimeout(() => {
-            void get().refreshDocumentOverlay(filePath, xml);
-          }, 180);
         } else {
-          void get().refreshDocumentOverlay(filePath, xml);
+          scheduleOverlayRefresh(filePath, xml);
         }
       }
       return true;
@@ -1602,7 +1742,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       if (!prevBuf || prevBuf.xml === nextXml) return;
 
       const check = checkXmlWellFormed(nextXml, { position: false });
-      const nextTitle = extractTitleSafe(nextXml, mapPath.split('/').pop() ?? mapPath);
+      const nextTitle = extractTitleFromCheck(check, mapPath.split('/').pop() ?? mapPath);
 
       set((s) => ({
         mapBuffers: {
@@ -1653,7 +1793,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const nextUndo = buf.undoStack.slice(0, -1);
       const nextRedo = [...buf.redoStack, buf.xml];
       const check = checkXmlWellFormed(previousXml, { position: false });
-      const nextTitle = extractTitleSafe(previousXml, mapPath);
+      const nextTitle = extractTitleFromCheck(check, mapPath);
 
       set((s) => ({
         mapBuffers: {
@@ -1689,7 +1829,7 @@ export const useEditorStore = create<EditorWorkbenchState>((set, get) => {
       const nextRedo = buf.redoStack.slice(0, -1);
       const nextUndo = [...buf.undoStack, buf.xml];
       const check = checkXmlWellFormed(nextXml, { position: false });
-      const nextTitle = extractTitleSafe(nextXml, mapPath);
+      const nextTitle = extractTitleFromCheck(check, mapPath);
 
       set((s) => ({
         mapBuffers: {

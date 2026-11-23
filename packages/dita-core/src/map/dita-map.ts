@@ -104,29 +104,38 @@ function extractElementPlainText(el: slimdom.Element | null): string {
 }
 
 /**
+ * Extract the display title of a DITA topic, map, or bookmap from an
+ * already-parsed XML document. Callers that already parsed the XML should use
+ * this to avoid a second full parse.
+ */
+export function extractDitaDocumentTitleFromDocument(document: slimdom.Document): string | null {
+  const root = document.documentElement;
+  if (!root) return null;
+
+  if (root.tagName === 'bookmap') {
+    const booktitle = findDirectChildElement(root, 'booktitle');
+    const mainbooktitle = booktitle
+      ? findDirectChildElement(booktitle, 'mainbooktitle')
+      : null;
+    const mainText = extractElementPlainText(mainbooktitle);
+    if (mainText) return mainText;
+  }
+
+  const titleEl = findDirectChildElement(root, 'title');
+  const titleText = extractElementPlainText(titleEl);
+  if (titleText) return titleText;
+
+  const attrTitle = root.getAttribute('title')?.trim();
+  return attrTitle || null;
+}
+
+/**
  * Extract the display title of any DITA topic, map, or bookmap document.
  */
 export function extractDitaDocumentTitle(xml: string): string | null {
   try {
     const parsed = parseXml(xml, { position: false });
-    const root = parsed.document.documentElement;
-    if (!root) return null;
-
-    if (root.tagName === 'bookmap') {
-      const booktitle = findDirectChildElement(root, 'booktitle');
-      const mainbooktitle = booktitle
-        ? findDirectChildElement(booktitle, 'mainbooktitle')
-        : null;
-      const mainText = extractElementPlainText(mainbooktitle);
-      if (mainText) return mainText;
-    }
-
-    const titleEl = findDirectChildElement(root, 'title');
-    const titleText = extractElementPlainText(titleEl);
-    if (titleText) return titleText;
-
-    const attrTitle = root.getAttribute('title')?.trim();
-    return attrTitle || null;
+    return extractDitaDocumentTitleFromDocument(parsed.document);
   } catch {
     return null;
   }
@@ -283,7 +292,9 @@ export function parseDitaMap(xml: string): ParsedDitaMap {
 
   const kind: DitaMapKind = root.tagName === 'bookmap' ? 'bookmap' : 'map';
   const rootAttrs = extractElementAttrs(root);
-  const title = extractDitaDocumentTitle(xml) ?? (kind === 'bookmap' ? 'Untitled Bookmap' : 'Untitled Map');
+  const title =
+    extractDitaDocumentTitleFromDocument(parsed.document) ??
+    (kind === 'bookmap' ? 'Untitled Bookmap' : 'Untitled Map');
 
   const references: DitaMapReferenceInfo[] = [];
   let hasReltable = false;
