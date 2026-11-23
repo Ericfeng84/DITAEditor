@@ -11,6 +11,8 @@ import { parseDitaMap } from '../map/dita-map.js';
 import { classifyDitaFileKind, normalizePosixPath, resolveDitaHref } from '../map/path-utils.js';
 import { DITA_TOPIC_ROOT_TAGS } from '../model/dita-elements.js';
 import { checkXmlWellFormed, getNodeSourceRange, parseXml } from '../xml/parser.js';
+import { collectXmlStructureIssues } from '../xml/structure-check.js';
+import { formatStructureIssue } from '../model/dita-structure.js';
 import type { ParsedXmlDocument, XmlParseError } from '../xml/types.js';
 import { findConrefUsages, findKeyrefUsages } from '../xml/xpath.js';
 import { indexTopicElements, resolveConrefReference } from './conref.js';
@@ -575,6 +577,19 @@ export class DitaSemanticIndex {
 
       const parsed = this.getParsedDoc(filePath);
       if (parsed) {
+        // 1a. DITA 1.3 ordered content model (sequence + cardinality) violations
+        for (const issue of collectXmlStructureIssues(parsed.document)) {
+          diagnostics.push({
+            id: `structure:${filePath}:${issue.offset}:${issue.code}:${issue.childTag}`,
+            filePath,
+            line: issue.line,
+            column: issue.column,
+            severity: issue.severity,
+            source: 'structure',
+            message: formatStructureIssue(issue, this.uiLocale),
+          });
+        }
+
         const images = parsed.document.getElementsByTagName('image');
         for (const imgEl of Array.from(images)) {
           const href = imgEl.getAttribute('href')?.trim();

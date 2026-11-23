@@ -87,7 +87,7 @@ const ZH_PROMPTS: PromptStrings = {
   fixPrinciple:
     '修复原则：只做能消除诊断的最小改动，保留原有结构、id、profiling 属性与注释。',
   fixBySource:
-    '按诊断来源处理：xml（标签闭合/嵌套/转义）、map-ref（topicref href 与 map 路径）、asset-ref（图片/资源路径）、keyref（键定义）、conref/conref-cycle（复用目标与环）、ditaval（条件属性）、dita-ot（DITA-OT 报错对应的结构问题）。',
+    '按诊断来源处理：xml（标签闭合/嵌套/转义）、structure（DITA 1.3 子元素顺序/基数/互斥约束，优先调整元素顺序而非删改正文）、map-ref（topicref href 与 map 路径）、asset-ref（图片/资源路径）、keyref（键定义）、conref/conref-cycle（复用目标与环）、ditaval（条件属性）、dita-ot（DITA-OT 报错对应的结构问题）。',
   fixNoDelete:
     '不要为了通过校验而删除有意义的正文；无法安全修复时在 <explanation> 中说明原因且不要输出 patch。',
   mode: {
@@ -154,7 +154,7 @@ const EN_PROMPTS: PromptStrings = {
   fixPrinciple:
     'Fixing rule: make the smallest change that removes the diagnostic and keep the existing structure, ids, profiling attributes, and comments.',
   fixBySource:
-    'Handle each diagnostic source: xml (tag closing/nesting/escaping), map-ref (topicref href vs. map path), asset-ref (image/resource path), keyref (key definition), conref/conref-cycle (reuse target and cycles), ditaval (conditional attributes), dita-ot (the structural problem behind the DITA-OT error).',
+    'Handle each diagnostic source: xml (tag closing/nesting/escaping), structure (DITA 1.3 child sequence/cardinality/choice constraints — prefer reordering elements over rewriting or deleting body text), map-ref (topicref href vs. map path), asset-ref (image/resource path), keyref (key definition), conref/conref-cycle (reuse target and cycles), ditaval (conditional attributes), dita-ot (the structural problem behind the DITA-OT error).',
   fixNoDelete:
     'Never delete meaningful body text just to pass validation; if a safe fix is impossible, explain why in <explanation> and do not output a patch.',
   mode: {

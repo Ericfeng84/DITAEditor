@@ -5,6 +5,9 @@ import { NodeSelection } from 'prosemirror-state';
 import {
   getAllowedChildElements,
   getElementSpec,
+  getInsertableTagsBySequence,
+  getInsertionSlot,
+  getPmChildTags,
   getPmNodeRawAttrs,
   getPmNodeTagName,
   getRawAttr,
@@ -212,7 +215,19 @@ function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextG
     });
 
     if (blockCandidates.length > 0) {
-      for (const item of blockCandidates) {
+      // DITA 1.3 cardinality / choice filter: do not offer a slot that is already filled
+      // (single-occurrence tags) or blocked by an exclusive alternative (steps | steps-unordered).
+      const insertable = new Set(
+        getInsertableTagsBySequence(
+          crumb.tagName,
+          getPmChildTags(crumb.node),
+          blockCandidates.map((spec) => spec.tag),
+        ),
+      );
+      const availableCandidates = blockCandidates.filter((spec) => insertable.has(spec.tag));
+      if (availableCandidates.length === 0) continue;
+
+      for (const item of availableCandidates) {
         seenTags.add(`block:${item.tag}`);
       }
       groups.push({
@@ -220,7 +235,7 @@ function buildInsertContextGroups(breadcrumbs: BreadcrumbItem[]): InsertContextG
         containerDepth: crumb.depth,
         containerLabel: translate(getCurrentLocale(), 'insertMenu.groupBlock', { tag: crumb.tagName }),
         insertKind: 'block',
-        items: blockCandidates,
+        items: availableCandidates,
       });
     }
 
@@ -323,7 +338,10 @@ export function findLegalAncestorDepthForBlock(
       continue;
     }
     const allowed = getAllowedChildElements(parentTag, 'block');
-    if (allowed.some((s) => s.tag === tagName)) {
+    if (
+      allowed.some((s) => s.tag === tagName) &&
+      getInsertionSlot(parentTag, getPmChildTags(node), tagName).ok
+    ) {
       return d;
     }
   }

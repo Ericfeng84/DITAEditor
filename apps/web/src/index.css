@@ -333,6 +333,51 @@ dialog.dita-dialog::backdrop {
   border-radius: 4px;
 }
 
+/* DITA 1.3 ordered content-model diagnostics (sequence / cardinality) */
+.dita-prosemirror-doc .dita-structure-invalid {
+  position: relative;
+  text-decoration: underline wavy #dc2626;
+  text-decoration-skip-ink: none;
+  text-underline-offset: 3px;
+  background-color: rgba(220, 38, 38, 0.045);
+  border-radius: 3px;
+  cursor: help;
+}
+
+.dita-prosemirror-doc blockquote.dita-structure-invalid,
+.dita-prosemirror-doc div.dita-structure-invalid,
+.dita-prosemirror-doc section.dita-structure-invalid,
+.dita-prosemirror-doc li.dita-structure-invalid,
+.dita-prosemirror-doc ol.dita-structure-invalid,
+.dita-prosemirror-doc ul.dita-structure-invalid,
+.dita-prosemirror-doc dl.dita-structure-invalid,
+.dita-prosemirror-doc figure.dita-structure-invalid,
+.dita-prosemirror-doc table.dita-structure-invalid,
+.dita-prosemirror-doc tr.dita-structure-invalid {
+  text-decoration: none;
+  background-color: rgba(220, 38, 38, 0.03);
+  box-shadow: inset 3px 0 0 #dc2626;
+  padding-left: 8px;
+}
+
+.dita-prosemirror-doc .dita-structure-invalid[data-structure-code="slot-exclusive"] {
+  text-decoration-color: #d97706;
+  background-color: rgba(217, 119, 6, 0.06);
+}
+
+.dita-prosemirror-doc blockquote.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc div.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc section.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc li.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc ol.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc ul.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc dl.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc figure.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc table.dita-structure-invalid[data-structure-code="slot-exclusive"],
+.dita-prosemirror-doc tr.dita-structure-invalid[data-structure-code="slot-exclusive"] {
+  box-shadow: inset 3px 0 0 #d97706;
+}
+
 /* Topic Root Framing */
 .dita-prosemirror-doc > article[data-dita-tag] {
   position: relative;

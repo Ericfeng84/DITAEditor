@@ -10,7 +10,7 @@ import {
   indentOnInput,
   syntaxHighlighting,
 } from '@codemirror/language';
-import { lintGutter } from '@codemirror/lint';
+import { forceLinting, lintGutter } from '@codemirror/lint';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
 import { Compartment, EditorState } from '@codemirror/state';
 import {
@@ -134,7 +134,7 @@ export function SourceEditor({
   onReplacementApplied,
   onAiFixXmlError,
 }: SourceEditorProps) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
   const isApplyingExternalRef = useRef(false);
@@ -223,6 +223,13 @@ export function SourceEditor({
       effects: editableCompartmentRef.current.reconfigure(EditorView.editable.of(!readOnly)),
     });
   }, [readOnly]);
+
+  // Re-run lint diagnostics immediately on UI locale switch so messages re-translate without edits.
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    forceLinting(view);
+  }, [locale]);
 
   // Sync external XML updates (from Visual edits or document switch) without losing scroll/focus unnecessarily
   useEffect(() => {

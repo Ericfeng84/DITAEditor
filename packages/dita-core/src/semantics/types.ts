@@ -119,7 +119,8 @@ export type SemanticDiagnosticSource =
   | 'keyref'
   | 'conref'
   | 'conref-cycle'
-  | 'ditaval';
+  | 'ditaval'
+  | 'structure';
 
 export interface SemanticDiagnostic {
   id: string;

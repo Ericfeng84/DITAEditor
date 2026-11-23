@@ -10,10 +10,12 @@ export * from './xml/parser.js';
 export * from './xml/serializer.js';
 export * from './xml/xpath.js';
 export * from './xml/compare.js';
+export * from './xml/structure-check.js';
 
 // DITA 1.3 element metadata & content/attribute rules
 export * from './model/dita-elements.js';
 export * from './model/dita-rules.js';
+export * from './model/dita-structure.js';
 
 // Topic & Map templates + built-in samples
 export * from './templates/topic-templates.js';
@@ -30,6 +32,7 @@ export * from './cals/cals-table.js';
 export * from './prosemirror/schema.js';
 export * from './prosemirror/helpers.js';
 export * from './prosemirror/converter.js';
+export * from './prosemirror/structure.js';
 
 // DITAVAL conditional profiling parser & evaluator
 export * from './ditaval/ditaval.js';

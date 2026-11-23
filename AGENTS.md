@@ -138,6 +138,26 @@ Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code chang
 - **SSE disconnect detection**: never abort on `req.raw` `'close'` (fires after body consumption); use `'aborted'`
   plus response `'close'` guarded by `writableEnded`. `apps/api/test/phase6-ai-sse-socket.test.ts` guards this.
 
+### 4.8 DITA 1.3 Ordered Content Models (Phase 9)
+- **`isChildAllowed()` answers membership only.** Sequence (`(title), (shortdesc)?, (body)?`) and cardinality
+  (`(dt)+, (dd)+`) live in `packages/dita-core/src/model/dita-structure.ts` (`DITA_SEQUENCE_MODEL`,
+  `validateChildSequence`, `getInsertionSlot`, `getInsertableTagsBySequence`, `isSequenceTag`). Do not add new
+  ordering special cases inside `apps/web/src/editor/visual/commands.ts` — extend the model instead.
+- **Only ordered containers are modelled.** `body` / `conbody` / `refbody` / `section` prose / `li` / `entry` are
+  unordered `choice` lists; adding a sequence model for them would fabricate false errors.
+- **Guide, never block.** No `filterTransaction`, no throwing from insert commands for structure reasons: unknown /
+  specialized elements must stay lossless and skeletons are legitimately invalid mid-authoring. Violations surface as
+  inline decorations (`apps/web/src/editor/visual/structure-decorations.ts`), CodeMirror lint diagnostics
+  (`apps/web/src/editor/source/xml-linter.ts`) and ProblemsPanel entries (`source: 'structure'`).
+- **One message source.** Localized texts live in `@dita/core` i18n (`structure.outOfOrder`,
+  `structure.missingRequiredChild`, `structure.childCardinality`, `structure.slotExclusive`) and are formatted via
+  `formatStructureIssue()` in `packages/dita-core/src/model/dita-structure.ts` (web wraps it with current locale in
+  `apps/web/src/editor/structure-messages.ts`). Never hardcode these strings in components.
+- **Reused content is exempt.** Elements carrying `conref` / `conkeyref` skip `missing-required-child`, because their
+  local children come from another file.
+- Regressions to keep green: `packages/dita-core/test/dita-structure.test.ts` (incl. a zero-false-positive sweep over
+  all fixtures + demo project + templates) and `apps/web/test/structure-diagnostics.test.ts`.
+
 ## 5. TypeScript & Code Style
 
 - Strict ESM across all packages (`"type": "module"`). Use explicit `.js` extensions on relative TypeScript imports in `packages/dita-core/src/` and `apps/api/src/`.
@@ -163,3 +183,4 @@ This repository maintains a persistent knowledge graph at `graphify-out/`:
 - [x] **Phase 6**: LangChain.js AI assistance — `@dita/core` lossless fragment locator/splice (`src/ai/`), LangChain `ChatOpenAI` factory + SSE `/api/ai/stream` with verification-retry loop, SQLite `ai_settings`/`ai_usage_logs` with admin-only config & usage, web AI panel/settings/diff with Check-out-aware apply, and real-endpoint acceptance via `apps/api/scripts/e2e-ai-live.mts` (201 Vitest tests total: core 81, api 28, web 92).
 - [x] **Phase 7**: Standalone `@dita/site` static site (Astro 5 + React 19 islands + Tailwind 4 CSS-first tokens, zh `/` + en `/en/`), bilingual home (workbench showcase, CCMS/Markdown comparison, live `client:visible` mini round-trip sandbox), six mirrored docs with Pagefind search (`Cmd/Ctrl+K`) and in-page TOC, backend-free `/playground` running the real `@dita/core` (4 presets, visual/split/source, DITAVAL tri-state projection, line diff), SEO (sitemap + hreflang + per-locale OG images, 404, robots), GitHub Pages workflow, and `Dockerfile` kept site-free (231 Vitest tests: core 81, api 28, web 92, site 30).
 - [x] **Phase 8**: Fully bilingual zh-CN/en stack — `@dita/core` i18n kernel (`UiLocale`/`normalizeLocale`/`formatMessage`/`coreT`) with bilingual element vocabulary (110+ elements/attributes), English topic/map templates and localized semantic/AI diagnostics; `@dita/web` strongly typed catalogue (1028 mirrored keys, `MessageKey` derived from `zh-CN.ts`) with a lossless hot switch (ProseMirror decoration locale meta transaction, `:root[lang="en"]` CSS labels, no view recreation); `@dita/api` request-locale resolution (`x-dita-locale` → `Accept-Language` → `zh-CN`) with localized `HttpError`s, publish logs, DITA-OT failures and AI prompts; guarded by i18n parity, hardcoded-CJK scan and API locale tests (246 Vitest tests: core 81, api 36, web 99, site 30).
+- [x] **Phase 9**: DITA 1.3 ordered content-model enforcement — `@dita/core` `model/dita-structure.ts` (`DITA_SEQUENCE_MODEL` with `required`/`optional`/`zeroOrMore`/`oneOrMore` slots, single-occurrence exclusive choices vs repeating mixed choices, `validateChildSequence`, range-aware `getInsertionSlot`, `getInsertableTagsBySequence`, `formatStructureIssue`), `xml/structure-check.ts` (localized line/column issues, `checkXmlStructure`) and `prosemirror/structure.ts` (`validatePmStructure`); `@dita/web` auto-slots out-of-order inserts while preserving in-place insertion inside repeating lists/steps, prunes filled/exclusive slots from the `/` menu, between-block `+` inserters and CodeMirror XML completion, paints invalid children with hover explanations, lints the source editor in a single parse (re-running on locale switch) and merges everything into ProblemsPanel (`source: 'structure'`) in both locales — never blocking transactions so unknown/specialized elements stay lossless (280 Vitest tests: core 103, api 36, web 111, site 30).

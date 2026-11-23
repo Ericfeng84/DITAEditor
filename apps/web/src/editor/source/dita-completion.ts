@@ -10,6 +10,8 @@ import {
   getAttributesForElement,
   getElementDescription,
   getElementLabel,
+  getInsertableTagsBySequence,
+  hasSequenceModel,
   type DitaProfilingAttrName,
   type KeyspaceResult,
   type TopicIdIndexEntry,
@@ -23,42 +25,85 @@ export interface SourceSemanticCompletionContext {
 
 const PROFILING_ATTR_SET = new Set<string>(DITA_PROFILING_ATTRS);
 
-/**
- * Lightweight backward XML tag stack scanner to identify the innermost open parent element
- * at `pos` inside an XML document (handles comments, PIs, CDATA, self-closing tags).
- */
-export function findEnclosingXmlTag(xmlPrefix: string): string | null {
-  // Strip comments, PIs, DOCTYPE, and CDATA so they don't confuse tag matching
-  const cleaned = xmlPrefix
+function stripNonTagXml(xml: string): string {
+  return xml
     .replace(/<!--[\s\S]*?-->/g, '')
     .replace(/<!\[CDATA\[[\s\S]*?\]\]>/g, '')
     .replace(/<\?[\s\S]*?\?>/g, '')
     .replace(/<!DOCTYPE[\s\S]*?>/g, '');
+}
 
-  const stack: string[] = [];
+/**
+ * Lightweight backward XML tag stack scanner to identify the innermost open parent element
+ * and its already-present direct child tags before/after the cursor.
+ */
+function findEnclosingXmlContext(
+  xmlPrefix: string,
+  xmlSuffix = '',
+): { parentTag: string | null; directChildren: string[] } {
+  const cleanedPrefix = stripNonTagXml(xmlPrefix);
+  const stack: { tag: string; children: string[] }[] = [];
   const tagRegex = /<(\/?)([A-Za-z_][\w:.-]*)(?:\s[^<>]*?)?(\/?)>/g;
   let match: RegExpExecArray | null;
 
-  while ((match = tagRegex.exec(cleaned)) !== null) {
+  while ((match = tagRegex.exec(cleanedPrefix)) !== null) {
     const isClose = match[1] === '/';
     const tagName = match[2]!;
     const isSelfClosing = match[3] === '/';
 
-    if (isSelfClosing) continue;
+    if (isSelfClosing) {
+      if (stack.length > 0) stack[stack.length - 1]!.children.push(tagName);
+      continue;
+    }
     if (isClose) {
-      // Pop until matching open tag
       for (let i = stack.length - 1; i >= 0; i--) {
-        if (stack[i] === tagName) {
+        if (stack[i]!.tag === tagName) {
           stack.splice(i);
           break;
         }
       }
     } else {
-      stack.push(tagName);
+      if (stack.length > 0) stack[stack.length - 1]!.children.push(tagName);
+      stack.push({ tag: tagName, children: [] });
     }
   }
 
-  return stack.length > 0 ? stack[stack.length - 1]! : null;
+  if (stack.length === 0) return { parentTag: null, directChildren: [] };
+  const top = stack[stack.length - 1]!;
+  const directChildren = [...top.children];
+
+  if (xmlSuffix) {
+    const cleanedSuffix = stripNonTagXml(xmlSuffix);
+    let depth = 0;
+    const suffixRegex = /<(\/?)([A-Za-z_][\w:.-]*)(?:\s[^<>]*?)?(\/?)>/g;
+    while ((match = suffixRegex.exec(cleanedSuffix)) !== null) {
+      const isClose = match[1] === '/';
+      const tagName = match[2]!;
+      const isSelfClosing = match[3] === '/';
+
+      if (isSelfClosing) {
+        if (depth === 0) directChildren.push(tagName);
+        continue;
+      }
+      if (isClose) {
+        if (depth === 0) break;
+        depth--;
+      } else {
+        if (depth === 0) directChildren.push(tagName);
+        depth++;
+      }
+    }
+  }
+
+  return { parentTag: top.tag, directChildren };
+}
+
+/**
+ * Lightweight backward XML tag stack scanner to identify the innermost open parent element
+ * at `pos` inside an XML document (handles comments, PIs, CDATA, self-closing tags).
+ */
+export function findEnclosingXmlTag(xmlPrefix: string): string | null {
+  return findEnclosingXmlContext(xmlPrefix).parentTag;
 }
 
 /**
@@ -103,14 +148,25 @@ export function createDitaXmlCompletionSource(
     if (openTagMatch) {
       const prefix = openTagMatch[1] ?? '';
       const beforeLt = docBefore.slice(0, docBefore.length - openTagMatch[0].length);
-      const parentTag = findEnclosingXmlTag(beforeLt);
+      const afterCursor = context.state.doc.sliceString(context.pos);
+      const { parentTag, directChildren } = findEnclosingXmlContext(beforeLt, afterCursor);
 
-      const allowedTags = parentTag
+      const rawAllowedTags = parentTag
         ? getAllowedChildElementTags(parentTag)
         : ['concept', 'task', 'reference', 'topic', 'map', 'bookmap'];
 
+      // Filter out already-filled single-occurrence slots & exclusive alternatives (e.g. steps | steps-unordered)
+      const allowedTags =
+        parentTag && rawAllowedTags.length > 0 && hasSequenceModel(parentTag)
+          ? getInsertableTagsBySequence(parentTag, directChildren, rawAllowedTags)
+          : rawAllowedTags;
+
       const candidateTags =
-        allowedTags.length > 0 ? allowedTags : Array.from(DITA_ELEMENT_SPECS.keys());
+        allowedTags.length > 0
+          ? allowedTags
+          : rawAllowedTags.length > 0
+            ? []
+            : Array.from(DITA_ELEMENT_SPECS.keys());
 
       const options: Completion[] = candidateTags.map((tag) => {
         const spec = DITA_ELEMENT_SPECS.get(tag);

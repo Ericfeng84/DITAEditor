@@ -184,7 +184,8 @@ flowchart LR
 ### 5. 双层校验与 DITA-OT 异步发布（含中文 PDF 关键处理）
 
 - **双层校验闭环**：
-  - **第一层（日常实时，0 延迟）**：ProseMirror Schema 限制合法子节点与属性；CodeMirror 6 基于 `@dita/core` 规则表做标签与属性自动补全及 XML 良构检查；TS 语义索引器实时报出断链 `href`、未定义 `keyref`、无效/循环 `conref`。
+  - **第一层（日常实时，0 延迟）**：ProseMirror Schema 限制合法子节点与属性；`@dita/core` 新增的**顺序/基数内容模型引擎**（`model/dita-structure.ts`）按 OASIS DITA 1.3 DTD 的 `,` / `|` / `?` / `+` 语义校验「有序容器」（topic/`taskbody`/`step`/`dlentry`/`prolog`/`table`/`section` 的 `title` 首位置等），并以 **引导 + 实时诊断**（不阻断事务）落地：插入命令与 `/` 菜单、块间 `+` 插入器与源码自动补全只提供当期合法且未超基数的元素并自动落到正确槽位（重复列表/步骤项保留原地插入），违规子元素在可视化编辑器内以红色波浪线/左边框 + 悬浮说明标出，源码模式由 CodeMirror linter 输出同一套诊断，全部汇总进底部“问题面板”（`source: 'structure'`）；同时 CodeMirror 6 基于 `@dita/core` 规则表做标签与属性自动补全及 XML 良构检查；TS 语义索引器实时报出断链 `href`、未定义 `keyref`、无效/循环 `conref`。
+  - **为什么不硬拦截**：未建模/客户特殊化元素必须无损透传，全新骨架的中间态也常常“暂时不合法”，因此顺序违规只诊断不抛错；真正的硬性闸口仍是源码↔可视化切换时的 XML 良构检查与第二层 DITA-OT strict 校验。
   - **第二层（官方权威，手动触发 / 检入前 / 发布前）**：TS 后端通过子进程调用 `dita` CLI（启用 `--validate=yes --processing-mode=strict`，使用 DITA-OT 内置 OASIS DITA 1.3 DTD/RNG 与 XML Catalog），解析 DOTJ/DOTX 诊断日志并合并 TS 语义诊断，统一归一为 `{ filePath, line, column, severity, source, message }` 结构，在底部“问题面板”、源码红线和可视化节点旁同步高亮。
 - **DITA-OT CLI 异步发布流水线**：
   - 用户选择 `Root Map` + `Output Format (HTML5 / PDF)` + 可选 `DITAVAL` → TS 后端写入 SQLite `publish_jobs` 记录并将当前分支工作区文件快照到独立构建目录 → 进程内并发限流调度器（默认并发 1–2）调用 `dita` CLI 执行构建，将 stdout/stderr 一边落盘到 `build.log`、一边通过 `EventEmitter` + SSE 实时回传前端构建日志抽屉（支持断线续看与手动取消）。
@@ -389,6 +390,15 @@ DITAEditor/
   - 前端全部 API 客户端统一发送 `x-dita-locale` 请求头，后端 `resolveRequestLocale(req)` 驱动角色信息、工作区/语义诊断、锁/Git/发布/校验 `HttpError` 报错以及 Phase 6 AI 助手的英文 Prompt、`<explanation>` 回复语言与 `contextBadges`（同时明确约束 AI 修改 XML 正文时尊重原文档语言，不擅自翻译正文）。
 - **自动化防退化门禁与验收标准**：
   - 新增双语键/占位符 100% 对称单测、前端硬编码中文扫描门禁单测与后端 `x-dita-locale: en` 接口/AI 单测；在 `1280×800` 笔记本视口走查英文较长按钮与三栏排版无溢出；英文模式下完整主链路 100% 无中文残留，切语言时未保存编辑与 `Cmd/Ctrl+Z` 撤销历史完好无损。
+
+### Phase 9：DITA 1.3 顺序/基数内容模型校验（第一层校验补齐）
+> **状态**：✅ 已实现（`packages/dita-core/src/model/dita-structure.ts`、`xml/structure-check.ts`、`prosemirror/structure.ts`；web 侧 `editor/visual/structure-decorations.ts`、`editor/structure-messages.ts`、`editor/source/xml-linter.ts`）。
+>
+> **目标**：`isChildAllowed()` 只回答了「能不能放」，「放在第几个、能放几次」长期没人管——“缺省（relaxed）的 DITA-OT 不会报错，只有 strict 模式或换工具才爆”，所以必须在编辑期就以引导 + 诊断的方式拦住顺序与基数违规，同时绝不牺牲未知元素无损透传。
+- **纯规则内核（同构、无 ProseMirror 依赖）**：`DITA_SEQUENCE_MODEL` 只收录真正有 sequence 的容器（topic/concept/task/reference、`taskbody`、`section`/`example`/`refsyn`、`fig`、`table`/`tgroup`/`simpletable`、`steps`/`step`/`substeps`/`choices`、`dl`/`dlentry`、`ul`/`ol`、`prolog`/`critdates`、`related-links`/`link`），每槽位声明 `required / optional / zeroOrMore / oneOrMore`，并区分单次互斥 choice `(a | b)?` 与可混合重复 choice `(a | b)*`；`body`/`conbody`/`refbody`/`li`/`entry` 等无序容器不建模型（`isChildAllowed` 已足够）。
+- **四种违规码**：`child-out-of-order`（元素踩到了更大序号的槽位）、`child-cardinality`（单次槽位重复）、`slot-exclusive`（如 `steps | steps-unordered | steps-informal` 同时出现）、`missing-required-child`（`cmd`、`title`、`tbody`、`dt`/`dd` 等必填缺失，`oneOrMore` 降为 warning）。含 `conref`/`conkeyref` 的元素（内容被复用，本地子元素不可信）跳过 missing 检查，严格顺序容器内的未知特化元素透明跳过，避免误报。
+- **引导而非拦截**：`getInsertionSlot()` 以 `[minIndex, maxIndex]` 合法区间 + clamp 让插入命令、`/` 插入菜单与块间 `+` 插入器在乱序位置自动落位、在重复列表中段原地插入，`getInsertableTagsBySequence()` 把已满槽位与互斥备选从菜单和源码补全中滤掉；`filterTransaction` 一律不用，保证未建模/客户特殊化元素与骨架中间态不被阻断。
+- **诊断三处同源**：视觉编辑器用 ProseMirror `Decoration.node` 标出违规节点 + `title` 悬浮说明（按 locale 热切换、不重建 View）；源码模式单次解析输出良构或结构诊断并随语言切换即时刷新；语义索引器统一调用 `@dita/core` 的 `formatStructureIssue` 汇总进问题面板（`source: 'structure'`）。
 
 ---
 

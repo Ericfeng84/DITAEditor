@@ -30,6 +30,7 @@ const SOURCE_KEYS: Record<WorkspaceDiagnostic['source'], MessageKey> = {
   conref: 'problems.source.conref',
   'conref-cycle': 'problems.source.conrefCycle',
   ditaval: 'problems.source.ditaval',
+  structure: 'problems.source.structure',
 };
 
 export function ProblemsPanel({

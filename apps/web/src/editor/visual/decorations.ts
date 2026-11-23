@@ -5,6 +5,8 @@ import {
   evaluateElementConditions,
   getAllowedChildElements,
   getElementSpec,
+  getInsertableTagsBySequence,
+  getPmChildTags,
   getPmNodeRawAttrs,
   getPmNodeTagName,
   getRawAttr,
@@ -798,11 +800,22 @@ export function collectDitaDecorations(
       const configuredQuick = CONTAINER_QUICK_BLOCK_TAGS[tagName];
       if (configuredQuick && configuredQuick.length > 0) {
         const allLegalBlocks = getAllowedChildElements(tagName, 'block');
-        const legalTagSet = new Set(allLegalBlocks.map((s) => s.tag));
+        // DITA 1.3 cardinality / choice: a filled single-occurrence slot and a resolved `a | b` choice
+        // must not be offered again by the between-block `+` inserters.
+        const insertableTags = new Set(
+          getInsertableTagsBySequence(
+            tagName,
+            getPmChildTags(node),
+            allLegalBlocks.map((spec) => spec.tag),
+          ),
+        );
+        const insertableBlocks = allLegalBlocks.filter((spec) => insertableTags.has(spec.tag));
+        const legalTagSet = new Set(insertableBlocks.map((s) => s.tag));
         const quickTags = configuredQuick.filter((t) => legalTagSet.has(t)).slice(0, 4);
-        const hasMore = allLegalBlocks.length > quickTags.length;
+        const hasMore = insertableBlocks.length > quickTags.length;
 
-        if (quickTags.length > 0) {
+        if (quickTags.length > 0 || hasMore) {
+          const widgetSig = `${quickTags.join(',')}-${hasMore ? 1 : 0}-${locale}`;
           let childOffset = pos + 1;
           for (let i = 0; i < node.childCount; i++) {
             const child = node.child(i);
@@ -831,7 +844,7 @@ export function collectDitaDecorations(
                     ),
                   {
                     side: -5,
-                    key: `gap-before-${pos}-${i}-${tagName}`,
+                    key: `gap-before-${pos}-${i}-${tagName}-${widgetSig}`,
                     ignoreSelection: true,
                   },
                 ),
@@ -857,7 +870,7 @@ export function collectDitaDecorations(
                     ),
                   {
                     side: isLastChild ? 2 : -5,
-                    key: `gap-after-${pos}-${i}-${tagName}`,
+                    key: `gap-after-${pos}-${i}-${tagName}-${widgetSig}`,
                     ignoreSelection: true,
                   },
                 ),

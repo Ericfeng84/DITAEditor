@@ -22,6 +22,7 @@ import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopic
 import { ProblemsPanel } from './components/ProblemsPanel';
 import { PublishDialog } from './components/publish/PublishDialog';
 import { StrictValidationDialog } from './components/publish/StrictValidationDialog';
+import { TopicAuthoringGuide } from './components/TopicAuthoringGuide';
 import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
@@ -1098,6 +1099,18 @@ export function App() {
                       onCloseOtherTabs={closeOtherTabs}
                       onCloseSavedTabs={closeSavedTabs}
                     />
+
+                    {activeTab?.kind === 'topic' ? (
+                      <TopicAuthoringGuide
+                        docType={activeTab.docType}
+                        structureIssueCount={
+                          diagnostics.filter(
+                            (d) => d.filePath === activeTab.path && d.source === 'structure',
+                          ).length
+                        }
+                        onOpenProblems={() => setProblemsOpen(true)}
+                      />
+                    ) : null}
 
                     <div className="min-h-0 flex-1 overflow-hidden">
                       <Group

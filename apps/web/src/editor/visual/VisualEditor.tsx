@@ -15,6 +15,8 @@ import { Filter, Tags } from 'lucide-react';
 import {
   evaluateElementConditions,
   getAllowedChildElements,
+  getInsertableTagsBySequence,
+  getPmChildTags,
   getPmNodeRawAttrs,
   getPmNodeTagName,
   getRawAttr,
@@ -48,6 +50,7 @@ import {
   type BlockGapOpenMenuPayload,
 } from './decorations';
 import { buildDitaKeymapPlugins } from './keymap';
+import { createDitaStructurePlugin, DITA_STRUCTURE_KEY } from './structure-decorations';
 import { createDitaNodeViews, SemanticViewRegistry } from './node-views';
 import { InsertElementMenu, type InsertElementChoice } from './InsertElementMenu';
 import { InlineBubbleToolbar } from './InlineBubbleToolbar';
@@ -89,7 +92,36 @@ const NON_INSERTABLE_BLOCK_TAGS: ReadonlySet<string> = new Set([
   'entry',
 ]);
 
-function buildBlockInsertGroups(containerTag: string, containerDepth: number): InsertContextGroup[] {
+/** Read the current element children of the ancestor container that owns a gap position. */
+function readGapContainerChildTags(
+  view: EditorView | null,
+  insertPos: number,
+  containerTag: string,
+): string[] {
+  if (!view) return [];
+  const clamped = Math.max(0, Math.min(insertPos, view.state.doc.content.size));
+  const $pos = view.state.doc.resolve(clamped);
+  for (let depth = $pos.depth; depth >= 0; depth--) {
+    const node = $pos.node(depth);
+    if (getPmNodeTagName(node) === containerTag) return getPmChildTags(node);
+  }
+  return [];
+}
+
+function buildBlockInsertGroups(
+  containerTag: string,
+  containerDepth: number,
+  childTags: readonly string[],
+): InsertContextGroup[] {
+  // DITA 1.3 cardinality / choice: never offer a filled single-occurrence slot or the losing side of
+  // an exclusive alternative (steps | steps-unordered) in the gap inserter menu.
+  const insertable = new Set(
+    getInsertableTagsBySequence(
+      containerTag,
+      childTags,
+      getAllowedChildElements(containerTag, 'block').map((spec) => spec.tag),
+    ),
+  );
   return [
     {
       containerTag,
@@ -97,7 +129,7 @@ function buildBlockInsertGroups(containerTag: string, containerDepth: number): I
       containerLabel: translate(getCurrentLocale(), 'visual.insertHere', { tag: containerTag }),
       insertKind: 'block',
       items: getAllowedChildElements(containerTag, 'block').filter(
-        (spec) => !NON_INSERTABLE_BLOCK_TAGS.has(spec.tag),
+        (spec) => insertable.has(spec.tag) && !NON_INSERTABLE_BLOCK_TAGS.has(spec.tag),
       ),
     },
   ];
@@ -322,7 +354,11 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       const rect = payload.anchorEl.getBoundingClientRect();
       setGapInsertContext({
         insertPos: payload.insertPos,
-        groups: buildBlockInsertGroups(payload.containerTag, payload.containerDepth),
+        groups: buildBlockInsertGroups(
+          payload.containerTag,
+          payload.containerDepth,
+          readGapContainerChildTags(viewRef.current, payload.insertPos, payload.containerTag),
+        ),
       });
       setInsertMenuAnchor({ top: rect.bottom + 6, left: rect.left });
       setInsertIsSlash(false);
@@ -535,7 +571,15 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       slashPosRef.current = null;
       setGapInsertContext({
         insertPos: target.blockPos + target.blockNode.nodeSize,
-        groups: buildBlockInsertGroups(target.containerTag, target.containerDepth),
+        groups: buildBlockInsertGroups(
+          target.containerTag,
+          target.containerDepth,
+          readGapContainerChildTags(
+            viewRef.current,
+            target.blockPos + target.blockNode.nodeSize,
+            target.containerTag,
+          ),
+        ),
       });
       setInsertMenuAnchor({ top: (blockHandle?.top ?? 0) + 28, left: (blockHandle?.left ?? 0) + 34 });
       setInsertIsSlash(false);
@@ -651,6 +695,9 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             },
             localeRef.current,
           ),
+          // Guide + (non-blocking) diagnose: ordered DITA content models never reject transactions,
+          // they only mark out-of-order / over-cardinality children inline.
+          createDitaStructurePlugin(localeRef.current),
           dropCursor({ color: '#4f46e5', width: 2 }),
           gapCursor(),
         ],
@@ -786,6 +833,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       const view = viewRef.current;
       if (!view) return;
       const tr = view.state.tr.setMeta(DITA_DECORATIONS_KEY, { locale });
+      tr.setMeta(DITA_STRUCTURE_KEY, { locale });
       view.dispatch(tr);
     }, [locale]);
 

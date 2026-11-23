@@ -42,6 +42,12 @@ export const coreMessagesZh = {
   'semantic.missingTargetFile': '目标文件不存在：{href}（解析路径：{resolved}）',
   'semantic.mapCycle': '检测到循环子地图引用 (<mapref>)：{from} -> {to}',
 
+  // DITA 1.3 ordered content model (sequence + cardinality) diagnostics
+  'structure.outOfOrder': '元素 <{child}> 的顺序不合法：在 <{parent}> 中它必须排在 {expected} 之前',
+  'structure.missingRequiredChild': '<{parent}> 缺少必需的子元素 <{child}>',
+  'structure.childCardinality': '<{parent}> 中 <{child}> 最多只能出现一次',
+  'structure.slotExclusive': '<{parent}> 中 {expected} 只能选择其一，不能与 <{child}> 同时出现',
+
   // AI target extraction
   'ai.unsupportedMode': '不支持的 AI 定位模式：{mode}',
   'ai.elementPathRequired': '元素靶向定位缺少 elementPath（[] 表示根元素，[0] 表示第一个元素子节点）。',
@@ -129,6 +135,11 @@ export const coreMessagesEn: Record<CoreMessageKey, string> = {
   'semantic.pathEscapesRoot': 'Reference path escapes the workspace root: {href}',
   'semantic.missingTargetFile': 'Target file does not exist: {href} (resolved path: {resolved})',
   'semantic.mapCycle': 'Circular sub-map reference (<mapref>) detected: {from} -> {to}',
+
+  'structure.outOfOrder': '<{child}> is out of order: inside <{parent}> it must appear before {expected}',
+  'structure.missingRequiredChild': '<{parent}> is missing the required child <{child}>',
+  'structure.childCardinality': '<{child}> may appear at most once inside <{parent}>',
+  'structure.slotExclusive': 'Inside <{parent}>, {expected} is a choice — <{child}> cannot appear together with it',
 
   'ai.unsupportedMode': 'Unsupported AI targeting mode: {mode}',
   'ai.elementPathRequired': 'Element targeting requires elementPath ([] = root element, [0] = first element child).',

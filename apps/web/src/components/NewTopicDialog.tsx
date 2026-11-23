@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import type { DitaTopicTemplateType } from '@dita/core';
 import { BookOpen, FileCode, ListChecks, Network, TableProperties, X } from 'lucide-react';
 import { useI18n, type MessageKey } from '../i18n/index.js';
+import { TopicStructurePreview } from './TopicAuthoringGuide';
 
 export interface NewTopicMountContext {
   mapPath: string;
@@ -237,6 +238,8 @@ export function NewTopicDialog({
             );
           })}
         </div>
+
+        <TopicStructurePreview type={topicType} />
 
         <div className="space-y-3">
           <div>

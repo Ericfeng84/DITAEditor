@@ -10,8 +10,10 @@ import {
 import {
   ditaSchema,
   getElementSpec,
+  getInsertionSlot,
   getPmNodeRawAttrs,
   getPmNodeTagName,
+  hasSequenceModel,
   isChildAllowed,
   MODELED_INLINE_TAGS,
   removeRawAttr,
@@ -525,6 +527,55 @@ export function insertInlineImage(initialAttrs: RawAttrs = EMPTY_ATTRS): Command
 }
 
 /**
+ * Resolve the sequence-correct insertion offset for `tagName` inside `containerNode`.
+ *
+ * When `preferredPos` (from the cursor or a clicked between-block `+` gap) already falls inside
+ * the legal `[minIndex, maxIndex]` range — e.g. inserting a `<li>` or `<step>` in the middle of
+ * a list — `preferredPos` is preserved verbatim. When it falls outside the legal range, the
+ * insertion is re-anchored to the DTD-correct slot.
+ */
+function resolveSequenceAnchor(
+  containerNode: PMNode,
+  containerStart: number,
+  containerTag: string,
+  tagName: string,
+  preferredPos: number,
+): { ok: boolean; pos: number } {
+  if (!hasSequenceModel(containerTag)) return { ok: true, pos: preferredPos };
+
+  // Element children only: comments / PIs / xml_text wrappers are invisible to DITA content models.
+  const elementChildren: { tag: string; pos: number; size: number }[] = [];
+  let offset = containerStart;
+  containerNode.forEach((child) => {
+    const childTag = getPmNodeTagName(child);
+    if (childTag) elementChildren.push({ tag: childTag, pos: offset, size: child.nodeSize });
+    offset += child.nodeSize;
+  });
+
+  let preferredIndex = 0;
+  for (const child of elementChildren) {
+    if (child.pos + child.size <= preferredPos) {
+      preferredIndex++;
+    } else {
+      break;
+    }
+  }
+
+  const slot = getInsertionSlot(
+    containerTag,
+    elementChildren.map((child) => child.tag),
+    tagName,
+    preferredIndex,
+  );
+  if (!slot.ok) return { ok: false, pos: -1 };
+  if (slot.index === preferredIndex) {
+    return { ok: true, pos: preferredPos };
+  }
+  const anchor = slot.index > 0 ? elementChildren[slot.index - 1] : undefined;
+  return { ok: true, pos: anchor ? anchor.pos + anchor.size : containerStart };
+}
+
+/**
  * Insert a DITA block element into a legal ancestor container according to DITA 1.3 content rules.
  */
 export function insertBlockDitaElement(
@@ -545,30 +596,24 @@ export function insertBlockDitaElement(
 
     const containerNode = $from.node(containerDepth);
     const containerStart = $from.start(containerDepth);
+    const containerTag = getPmNodeTagName(containerNode) ?? '';
 
-    // Determine exact insertion position inside the target container
-    let insertPos: number;
+    const preferredPos =
+      $from.depth > containerDepth
+        ? $from.after(containerDepth + 1)
+        : $from.end(containerDepth);
 
-    if (tagName === 'title') {
-      // `<title>` always belongs at the very start of its container (section/fig/table/topic)
-      insertPos = containerStart;
-    } else if (tagName === 'shortdesc') {
-      // `<shortdesc>` goes right after `<title>` if present
-      const firstChild = containerNode.firstChild;
-      insertPos =
-        firstChild && firstChild.type.name === 'dita_title'
-          ? containerStart + firstChild.nodeSize
-          : containerStart;
-    } else if (tagName === 'prereq') {
-      insertPos = containerStart;
-    } else if (tagName === 'postreq' || tagName === 'related-links') {
-      insertPos = $from.end(containerDepth);
-    } else if ($from.depth > containerDepth) {
-      // Insert directly after the current child of `containerDepth`
-      insertPos = $from.after(containerDepth + 1);
-    } else {
-      insertPos = $from.end(containerDepth);
-    }
+    // Keep cursor-relative placement when valid (e.g. repeating lists/steps), or re-anchor to the
+    // DTD-correct slot when out of order (title-first, prereq -> context -> steps -> result -> postreq, ...).
+    const sequence = resolveSequenceAnchor(
+      containerNode,
+      containerStart,
+      containerTag,
+      tagName,
+      preferredPos,
+    );
+    if (!sequence.ok) return false;
+    const insertPos = sequence.pos;
 
     if (!dispatch) return true;
     const tr = state.tr.insert(insertPos, newNode);
@@ -590,10 +635,25 @@ export function insertBlockDitaElementAtPos(
     if (insertPos < 0 || insertPos > state.doc.content.size) return false;
     const newNode = createDitaElementSkeleton(tagName, initialAttrs);
     if (!newNode) return false;
-    if (!dispatch) return true;
 
-    const tr = state.tr.insert(insertPos, newNode);
-    selectFirstEditablePos(tr, insertPos, newNode);
+    // Even for an explicit gap, keep ordered content models correct: a `+` divider sitting after
+    // `<steps>` re-anchors `<prereq>` to its legal slot, while a gap between two `<step>` / `<li>`
+    // items stays right where the user clicked.
+    const $pos = state.doc.resolve(insertPos);
+    const parentTag = getPmNodeTagName($pos.parent) ?? '';
+    const sequence = resolveSequenceAnchor(
+      $pos.parent,
+      $pos.start($pos.depth),
+      parentTag,
+      tagName,
+      insertPos,
+    );
+    if (!sequence.ok) return false;
+    const targetPos = sequence.pos;
+
+    if (!dispatch) return true;
+    const tr = state.tr.insert(targetPos, newNode);
+    selectFirstEditablePos(tr, targetPos, newNode);
     dispatch(tr.scrollIntoView());
     return true;
   };
