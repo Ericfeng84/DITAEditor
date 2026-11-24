@@ -1,14 +1,14 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.2.0-blue.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.3.0-blue.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
 
 A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It combines **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, **local Git versioning with check-out locks and visual diffs**, and **authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
 
 > For the full architecture, technology rationale, and phased implementation baseline, see [docs/architecture-and-plan.md](docs/architecture-and-plan.md) and [AGENTS.md](AGENTS.md).
 
-> Current release **v1.2.0** (Phase 0–8: the workbench plus the marketing site, browser-only offline workbench, bilingual docs, and a fully bilingual zh-CN/en UI). Changelog in [CHANGELOG.md](CHANGELOG.md), license in [LICENSE](LICENSE) (MIT).
+> Current release **v1.3.0** (Phase 0–11: the workbench, marketing site & browser offline workbench, bilingual zh-CN/en UI, DITA 1.3 ordered content-model validation, multi-manual Workbench Hub & topic assignments, and the macOS/Windows lightweight desktop app). Changelog in [CHANGELOG.md](CHANGELOG.md), license in [LICENSE](LICENSE) (MIT).
 
 - **Website & Bilingual Docs (GitHub Pages)**: https://ericfeng84.github.io/DITAEditor/ (English: `/en/`)
 - **Online Workbench (Browser Offline Demo)**: https://ericfeng84.github.io/DITAEditor/workbench/ (runs the in-memory `demo-dita-project` with the 3-pane workbench, Map tree, dual-mode editing, and Keys/Conref/DITAVAL)
@@ -216,7 +216,8 @@ flowchart LR
 | **Persistence & collaboration** | SQLite + Drizzle ORM + `better-sqlite3` | Password-less identities, check-out locks, admin unlock patch backups — no external database |
 | **Version control** | `simple-git` + `git worktree` | Local repository init, branch-isolated worktrees, commit history, working-tree and revision diffs |
 | **Validation & publishing** | DITA-OT 4.2.x CLI + JRE 21 | Authoritative DITA 1.3 DTD/RNG validation, HTML5 / PDF2 publishing, pure-XML Noto CJK plugin |
-| **Testing** | Vitest 3 | Golden round-trip fixtures, editor commands, workspace and Git/lock API flows |
+| **Desktop app** | Electron 35 + `electron-builder` + `esbuild` | Lightweight macOS Apple Silicon (`arm64`) & Windows (`x64`) desktop app embedding `@dita/api` with `userData` isolation |
+| **Testing** | Vitest 3 | Golden round-trip fixtures, editor commands, workspace/Git/lock APIs, and desktop path/Windows runtime tests |
 
 ---
 
@@ -255,13 +256,19 @@ DITAEditor/
 │           ├── publish/        # SQLite publish jobs, snapshot builds, SSE logs, artifact downloads
 │           ├── ai/             # AI settings/usage, prompt builder, LangChain model factory, SSE orchestration
 │           └── dita-ot/        # dita CLI runtime detection, child-process runner, DOTJ/DOTX log parser
-│   └── site/                   # @dita/site — Astro 5 bilingual site, sandbox, and docs
-│       └── src/
-│           ├── pages/          # bilingual home, /playground, /docs/*, 404, robots and sitemap
-│           ├── content/docs/   # six mirrored zh/en docs (Content Collections)
-│           ├── components/     # home sections, playground and mini-demo islands, search modal
-│           ├── lib/            # line diff, sandbox diagnostics, CodeMirror theme, path helpers
-│           └── styles/         # Tailwind 4 CSS-first tokens and component styles
+│   ├── site/                   # @dita/site — Astro 5 bilingual site, offline workbench, and docs
+│   │   └── src/
+│   │       ├── pages/          # bilingual home, /docs/*, 404, robots and sitemap
+│   │       ├── content/docs/   # six mirrored zh/en docs (Content Collections)
+│   │       ├── components/     # home sections, mini-demo island, search modal
+│   │       ├── lib/            # line diff, site config, and path helpers
+│   │       └── styles/         # Tailwind 4 CSS-first tokens and component styles
+│   └── desktop/                # @dita/desktop — Electron lightweight desktop app (macOS arm64 & Windows x64)
+│       ├── src/                # main.ts (embedded Fastify), preload.ts, paths.ts (userData isolation & demo seeding)
+│       ├── scripts/            # build.mjs (esbuild) and stage.mjs (flat staging for native better-sqlite3 rebuild)
+│       ├── build/              # macOS .icns / Windows .ico icons and entitlements.mac.plist
+│       └── electron-builder.yml# macOS Apple Silicon (.dmg/.zip) and Windows x64 (NSIS .exe/.zip) packaging config
+├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / release-desktop.yml (dual-platform desktop release)
 ├── samples/
 │   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/bookmaps/reuse library/DITAVAL/SVG)
 ├── docs/
@@ -340,7 +347,34 @@ pnpm --filter @dita/web dev
 
 Without Docker, install DITA-OT 4.x and make sure `dita` is on `PATH` (or set `DITA_OT_HOME`; the runtime also probes `~/dita-ot`, `~/.local/share/dita-ot`, `/opt/dita-ot`, and `/usr/local/dita-ot`). Chinese PDF also needs Noto CJK fonts: set `DITAEDITOR_NOTO_CJK_DIR`, or place them in `~/.local/share/fonts/noto` / `~/Library/Fonts/Noto` for automatic discovery. After `pnpm --filter @dita/api dev`, the publish dialog reports runtime detection. You do not need to install the plugin into DITA-OT: `@dita/api` always loads the repository plugin through `--customization.dir` to avoid DITA-OT 4 catalog ordering overrides. To reuse it with other DITA-OT commands: `cd dita-ot-plugins && zip -qr /tmp/plugin.zip com.ditaeditor.pdf-cjk && dita install /tmp/plugin.zip`.
 
-### Option 3: Editing and semantic authoring only (no DITA-OT)
+### Option 3: Desktop app (macOS Apple Silicon & Windows x64, lightweight)
+
+No Docker or Node.js required — download the installer for your platform from GitHub **Releases**:
+
+- **macOS (Apple Silicon `arm64`)**: `DITAEditor-<version>-mac-arm64.dmg` / `.zip`
+- **Windows (`x64`)**: `DITAEditor-<version>-win-x64.exe` (NSIS installer) / `.zip` (portable)
+
+The desktop app embeds `@dita/api` inside the Electron main process (listening only on `127.0.0.1` with an ephemeral port), bundles the built web workbench, the Noto CJK PDF plugin, and the sample project, and keeps all writable state (`dita-editor.sqlite`, workspaces, branch worktrees, and publish output) under the OS `userData` directory (overridable via `DITA_DESKTOP_DATA_DIR`). This lightweight build auto-detects host Git and DITA-OT 4.x installations; authoring, Map editing, Keys/Conref/DITAVAL, and AI assistance work even without DITA-OT installed.
+
+> For unsigned open-source builds without signing certificates: on macOS, if Gatekeeper blocks the first launch, run `xattr -cr /Applications/DITAEditor.app`; on Windows SmartScreen, choose **More info → Run anyway**.
+
+Run or package the desktop app locally:
+
+```bash
+# 1. Build the core, web, and api packages
+pnpm --filter @dita/core --filter @dita/web --filter @dita/api build
+
+# 2. Launch the Electron app locally
+pnpm --filter @dita/desktop dev
+
+# 3. Build installers for the current OS (output in apps/desktop/release/)
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:mac   # macOS Apple Silicon
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # Windows x64
+```
+
+**Automated releases**: publishing a GitHub Release triggers [`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml), which builds macOS `arm64` (on `macos-14`) and Windows `x64` (on `windows-latest`) in parallel, syncs the installer version from the release tag, and attaches all artifacts directly to the GitHub Release (also runnable manually via `workflow_dispatch`).
+
+### Option 4: Editing and semantic authoring only (no DITA-OT)
 
 For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, Java and DITA-OT are optional. Publishing and "DITA-OT strict validation" report that the runtime is not ready without affecting any other feature.
 
@@ -437,11 +471,13 @@ pnpm typecheck
 pnpm test
 ```
 
-Current coverage (**246/246 Vitest tests passing**):
+Current coverage (**411/411 Vitest tests passing**):
 
-- `@dita/core` (81): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, lossless Map/Bookmap operations, DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, and 26 AI fragment tests (element/line-window/full-document targeting, candidate normalization, lossless splice, verification failure reasons).
-- `@dita/web` (99): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, decorations and insert menu, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection (admin, writer, viewer, cross-author exclusion), and Phase 8 bilingual catalogue key/placeholder parity, a hardcoded-CJK source scan, and locale-aware AI target labels.
-- `@dita/api` (36): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, and a Phase 4 end-to-end flow covering identities, Git init, same-file exclusion, independent files, check-in commits, history diff, cross-branch isolation, cancel-checkout rollback, and admin force-unlock backups. Phase 5 adds runtime detection, DOTJ/DOTX/file-URL log normalization, successful/failed/read-only strict validation, HTML5 ZIP plus preview, PDF download, cancellation, history ordering, the workspace boundary for DITAVAL filters, and Phase 6 AI config/masking, usage aggregation, SSE event ordering, retry and non-admin 403 paths, a real-socket SSE regression test, and Phase 8 request-locale resolution (`x-dita-locale` / `Accept-Language`), localized role wording, lock conflicts, validation messages, AI prompt language, and the AI not-configured guard.
+- `@dita/core` (158): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content-model rules, lossless Map/Bookmap operations, DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, and AI fragment targeting/normalization/lossless splice verification.
+- `@dita/web` (174): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue key/placeholder parity and hardcoded-CJK scan, and Phase 10 workbench hub router & unsaved-changes guards.
+- `@dita/api` (45): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, and Phase 10 per-manual isolation & topic assignment workflows.
+- `@dita/site` (30): bilingual dictionary key parity, doc-slug symmetry, `SITE_BASE` / offline workbench route helpers, and `@dita/core` preset round-trip tests.
+- `@dita/desktop` (4): packaged vs dev resource/`userData` path resolution, idempotent first-launch demo workspace seeding (stripping `.git`, preserving user edits), and release-tag semver normalization.
 
 ---
 
@@ -456,6 +492,9 @@ Current coverage (**246/246 Vitest tests passing**):
 - [x] **Phase 6**: LangChain.js AI assistance (DeepSeek / OpenAI-compatible endpoints), lossless fragment splice with automatic verification retries in `@dita/core`, streaming authoring / tag optimization / error repair, mandatory diff confirmation with check-out lock guards, SQLite config and token-usage auditing, AI settings/usage panels, and the real-endpoint acceptance script `apps/api/scripts/e2e-ai-live.mts`.
 - [x] **Phase 7**: Standalone static marketing site `@dita/site` (Astro 5 + React 19 + Tailwind CSS 4, bilingual landing page + 6 mirrored doc pages + Pagefind search + an interactive browser-only DITA sandbox), with the offline three-pane workbench hosted on GitHub Pages at `/workbench/`.
 - [x] **Phase 8**: Fully bilingual zh-CN/en stack — bilingual element vocabulary and semantic/AI diagnostics in `@dita/core`, a strongly typed i18n layer with lossless hot switching in `@dita/web`, request-locale resolution and bilingual messages in `@dita/api`, plus three i18n regression gates (see `docs/phase8-i18n-plan.md`).
+- [x] **Phase 9**: DITA 1.3 ordered/cardinality content-model validation — pure sequence rules in `@dita/core`, guided slot insertion via `getInsertionSlot()`, and unified structure diagnostics across ProseMirror, CodeMirror, and the Problems panel.
+- [x] **Phase 10**: Multi-manual Workbench Hub and lightweight topic editing task (`Assignment`) delegation with per-manual/per-branch request isolation and soft check-out/check-in/rename hooks (see `docs/phase10-workbench-assignments-plan.md`).
+- [x] **Phase 11**: Lightweight desktop app `@dita/desktop` (Electron 35 + `electron-builder`, embedded `@dita/api` with `userData` isolation, Windows `dita.bat` runtime fixes) and automated GitHub Release builds for macOS Apple Silicon (`arm64` `.dmg`/`.zip`) and Windows (`x64` NSIS `.exe`/`.zip`).
 
 ---
 

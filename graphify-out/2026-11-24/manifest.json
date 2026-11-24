@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/App.tsx": {
-    "mtime": 1795513254.2855728,
-    "seen": 1795513805.641417,
-    "ast_hash": "f93773ce40f144d32fd3524c7d33066c",
+    "mtime": 1795513898.2940521,
+    "seen": 1795513998.969258,
+    "ast_hash": "b0796c614e81bdef1c648f66ed482325",
     "semantic_hash": ""
   },
   "apps/web/src/main.tsx": {
@@ -768,9 +768,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/LockStatusBar.tsx": {
-    "mtime": 1795513531.2743165,
-    "seen": 1795513805.6414368,
-    "ast_hash": "7ffb9f8f6f96d17d6ea02ce85b7d6574",
+    "mtime": 1795513889.6220176,
+    "seen": 1795513998.9692779,
+    "ast_hash": "d22871bee7ddbc6b469d0a78b1d1d491",
     "semantic_hash": ""
   },
   "apps/web/src/services/git-api.ts": {
@@ -1818,9 +1818,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/TaskModelSwitch.tsx": {
-    "mtime": 1795443675.808962,
-    "seen": 1795443878.2665799,
-    "ast_hash": "8da576f749768c2d6ca0fb0580e64eed",
+    "mtime": 1795513989.1105337,
+    "seen": 1795513998.969284,
+    "ast_hash": "18d3cac886e7fe48bfc89cd1291ed1f8",
     "semantic_hash": ""
   },
   "packages/dita-core/test/concept-elements.test.ts": {
@@ -1872,9 +1872,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/VisualEditorSubHeader.tsx": {
-    "mtime": 1795513499.251863,
-    "seen": 1795513805.6414678,
-    "ast_hash": "b7b42df9960610ab245c4e058e5eec8d",
+    "mtime": 1795513889.622251,
+    "seen": 1795513998.969307,
+    "ast_hash": "11aa861e2006eac45db09ac30060c25f",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/commands/block-commands.ts": {

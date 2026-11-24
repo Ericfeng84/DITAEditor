@@ -1,0 +1,71 @@
+appId: com.ditaeditor.desktop
+productName: DITAEditor
+copyright: Copyright © DITAEditor Contributors
+npmRebuild: true
+asar: true
+asarUnpack:
+  - node_modules/better-sqlite3/**
+
+directories:
+  app: stage
+  output: release
+  buildResources: build
+
+files:
+  - dist/**
+  - node_modules/**
+  - package.json
+
+extraResources:
+  - from: ../web/dist
+    to: web-dist
+  - from: ../../samples/demo-dita-project
+    to: samples/demo-dita-project
+    filter:
+      - "**/*"
+      - "!**/.git/**"
+      - "!**/.DS_Store"
+  - from: ../../dita-ot-plugins
+    to: dita-ot-plugins
+    filter:
+      - "**/*"
+      - "!**/.DS_Store"
+
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.icns
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlements: build/entitlements.mac.plist
+  entitlementsInherit: build/entitlements.mac.plist
+  target:
+    - target: dmg
+      arch:
+        - arm64
+    - target: zip
+      arch:
+        - arm64
+  artifactName: DITAEditor-${version}-mac-${arch}.${ext}
+
+dmg:
+  title: DITAEditor ${version}
+
+win:
+  icon: build/icon.ico
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
+  artifactName: DITAEditor-${version}-win-${arch}.${ext}
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  deleteAppDataOnUninstall: false
+  installerIcon: build/icon.ico
+  uninstallerIcon: build/icon.ico

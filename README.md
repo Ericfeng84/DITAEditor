@@ -1,7 +1,7 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.2.0-blue.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.3.0-blue.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
 
 **简体中文** · [English](README.en.md)
@@ -10,7 +10,7 @@
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
-> 当前版本 **v1.2.0**（覆盖 Phase 0–8：工作台 + 官网 / 离线三栏工作台 / 双语文档站 / 全栈中英双语界面），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
+> 当前版本 **v1.3.0**（覆盖 Phase 0–11：工作台 + 官网/离线三栏工作台/双语文档站 + 全栈中英双语 + DITA 1.3 顺序/基数校验 + 手册编辑工作台与 Topic 委派 + macOS/Windows 轻量桌面端），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
 
 - **项目官网与双语文档（GitHub Pages）**：https://ericfeng84.github.io/DITAEditor/ （英文版：`/en/`）
 - **在线工作台（纯前端离线版）**：https://ericfeng84.github.io/DITAEditor/workbench/ （内置 `demo-dita-project` 内存工作区，免部署体验三栏工作台、Map 树、双模编辑与 Keys/Conref/DITAVAL）
@@ -214,7 +214,8 @@ flowchart LR
 | **持久化与协作** | SQLite + Drizzle ORM + `better-sqlite3` | 轻量身份/角色、检出锁与管理员解锁补丁备份，零外部数据库依赖 |
 | **版本管理** | `simple-git` + `git worktree` | 本地仓库初始化、分支隔离工作区、提交历史与工作区/历史 Diff |
 | **校验与发布** | DITA-OT 4.2.x CLI + JRE 21 | 官方 DITA 1.3 DTD/RNG 严格校验、HTML5 / PDF2 发布、纯 XML Noto CJK 字体插件 |
-| **测试框架** | Vitest 3 | 覆盖核心 round-trip 黄金样本、编辑器交互命令、工作区 API 与 Git/锁全链路 |
+| **桌面客户端** | Electron 35 + `electron-builder` + `esbuild` | 轻量桌面版（macOS Apple Silicon `arm64` & Windows `x64`），主进程内嵌 `@dita/api`，数据隔离至 `userData` |
+| **测试框架** | Vitest 3 | 覆盖核心 round-trip 黄金样本、编辑器交互命令、工作区 API、Git/锁全链路与桌面路径/Windows 启动单测 |
 
 ---
 
@@ -253,13 +254,19 @@ DITAEditor/
 │           ├── publish/        # SQLite 发布任务、快照构建、SSE 日志与产物下载
 │           ├── ai/             # AI 配置/用量、Prompt 构建、LangChain 模型工厂、SSE 编排与重试
 │           └── dita-ot/        # dita CLI 运行时探测、子进程调度与 DOTJ/DOTX 日志解析
-│   └── site/                   # @dita/site — Astro 5 双语官网与文档站（GitHub Pages 同步打包 /workbench/ 离线工作台）
-│       └── src/
-│           ├── pages/          # 双语首页、/docs/*、404 与 robots/sitemap
-│           ├── content/docs/   # 中英对称的 6 篇文档（Content Collections）
-│           ├── components/     # 首屏/首页区块、mini-demo 岛屿与 Pagefind 搜索弹窗
-│           ├── lib/            # 行级 Diff、站点配置与页面路径辅助
-│           └── styles/         # Tailwind 4 CSS-first 设计令牌与组件样式
+│   ├── site/                   # @dita/site — Astro 5 双语官网与文档站（GitHub Pages 同步打包 /workbench/ 离线工作台）
+│   │   └── src/
+│   │       ├── pages/          # 双语首页、/docs/*、404 与 robots/sitemap
+│   │       ├── content/docs/   # 中英对称的 6 篇文档（Content Collections）
+│   │       ├── components/     # 首屏/首页区块、mini-demo 岛屿与 Pagefind 搜索弹窗
+│   │       ├── lib/            # 行级 Diff、站点配置与页面路径辅助
+│   │       └── styles/         # Tailwind 4 CSS-first 设计令牌与组件样式
+│   └── desktop/                # @dita/desktop — Electron 轻量桌面端（macOS arm64 & Windows x64）
+│       ├── src/                # main.ts（内嵌 Fastify）、preload.ts、paths.ts（userData 隔离与首次样本拷贝）
+│       ├── scripts/            # build.mjs（esbuild）与 stage.mjs（扁平依赖打包）
+│       ├── build/              # macOS .icns / Windows .ico 图标与 entitlements.mac.plist
+│       └── electron-builder.yml# macOS Apple Silicon (.dmg/.zip) 与 Windows x64 (NSIS .exe/.zip) 打包配置
+├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / release-desktop.yml（Release 自动打双端桌面包）
 ├── samples/
 │   └── demo-dita-project/      # 开箱即用的多变体 DITA 1.3 演示项目（Map/Bookmap/复用库/DITAVAL/SVG）
 ├── docs/
@@ -337,7 +344,34 @@ pnpm --filter @dita/web dev
 
 不使用 Docker 时，安装 DITA-OT 4.x 并确保 `dita` 在 `PATH` 中（或设置 `DITA_OT_HOME`；也会自动探测 `~/dita-ot`、`~/.local/share/dita-ot`、`/opt/dita-ot`、`/usr/local/dita-ot`）；中文 PDF 需额外准备 Noto CJK 字体，可设置 `DITAEDITOR_NOTO_CJK_DIR`，或放入 `~/.local/share/fonts/noto`、`~/Library/Fonts/Noto` 由运行时自动探测。`pnpm --filter @dita/api dev` 启动后，发布对话框会显示运行时检测结果。无需把插件安装进 DITA-OT：`@dita/api` 始终通过 `--customization.dir` 加载仓库内插件，避免 DITA-OT 4 的 Catalog 顺序覆盖；如需让其他 DITA-OT 命令复用，可 `cd dita-ot-plugins && zip -qr /tmp/plugin.zip com.ditaeditor.pdf-cjk && dita install /tmp/plugin.zip`。
 
-### 方式三：仅编辑 / 语义写作（不安装 DITA-OT）
+### 方式三：桌面客户端（macOS Apple Silicon & Windows x64，轻量版）
+
+无需安装 Docker 或 Node.js，直接从 GitHub **Releases** 下载对应平台安装包运行：
+
+- **macOS (Apple Silicon `arm64`)**：`DITAEditor-<version>-mac-arm64.dmg` / `.zip`
+- **Windows (`x64`)**：`DITAEditor-<version>-win-x64.exe`（NSIS 安装程序）/ `.zip`（便携版）
+
+桌面端在主进程内嵌 `@dita/api`（仅监听 `127.0.0.1` 随机端口），内置中文 PDF 字体插件与示例项目；所有工作区、SQLite 数据库（`dita-editor.sqlite`）、分支 `git worktree` 与发布产物均保存在系统用户数据目录（`app.getPath('userData')`，可通过环境变量 `DITA_DESKTOP_DATA_DIR` 覆盖）。轻量版会自动探测本机已安装的 Git 与 DITA-OT 4.x（若未安装，编辑、Map 编排、Keys/Conref/DITAVAL 与 AI 辅助仍可正常使用）。
+
+> 未配置商业代码签名证书的开源构建首次启动时：macOS 如遇 Gatekeeper 提示可执行 `xattr -cr /Applications/DITAEditor.app`；Windows SmartScreen 点击「更多信息 → 仍要运行」。
+
+本地开发与手动打包桌面端：
+
+```bash
+# 1. 先构建工作台三包
+pnpm --filter @dita/core --filter @dita/web --filter @dita/api build
+
+# 2. 本地启动 Electron 桌面端开发预览
+pnpm --filter @dita/desktop dev
+
+# 3. 本机打包（按当前操作系统执行对应命令，产物输出在 apps/desktop/release/）
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:mac   # macOS Apple Silicon
+CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # Windows x64
+```
+
+**自动发布**：在 GitHub 发布正式 Release 时，[`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml) 会自动在 `macos-14`（`arm64`）与 `windows-latest`（`x64`）并行打包，将 Tag 同步为应用版本号并把双端安装包自动挂载到该 Release 下（也支持在 GitHub Actions 中通过 `workflow_dispatch` 手动试跑验证）。
+
+### 方式四：仅编辑 / 语义写作（不安装 DITA-OT）
 
 只运行编辑、Map 编排、Keys / Conref / DITAVAL、Git 与检出锁时，可跳过 Java 与 DITA-OT；发布与「DITA-OT 严格校验」会显示运行时未就绪，不影响其它功能。
 
@@ -434,11 +468,12 @@ pnpm typecheck
 pnpm test
 ```
 
-当前测试覆盖（**246/246 Vitest 测试通过**）：
-- `@dita/core`（81 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因（26 项）。
-- `@dita/web`（99 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、装饰与插入菜单、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装，Phase 4 身份/锁只读投影（管理员、编辑者、只读与跨作者互斥），以及 Phase 8 双语目录键集合/占位符对称、源码硬编码中文扫描与 AI 靶向标签多语言解析。
-- `@dita/api`（36 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 的规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断，Phase 4 身份角色、Git 初始化、同文件互斥/异文件并行、签入提交、历史 Diff、跨分支隔离、撤销检出与管理员强制解锁备份，Phase 5 运行时探测、DOTJ/DOTX/file URL 日志归一化、严格校验成功/失败/只读放行、HTML5 ZIP 与预览、PDF 下载、取消与历史排序，以及 Phase 6 AI 配置与 Key 掩码、用量账本聚合、SSE 事件序列、重试与非管理员 403、真实 socket 上的 SSE 回归，以及 DITAVAL 路径必须位于工作区内的安全约束，Phase 8 `x-dita-locale` / `Accept-Language` 语言解析、角色文案、锁冲突、校验提示与 AI 未配置守卫的双语断言。
+当前测试覆盖（**411/411 Vitest 测试通过**）：
+- `@dita/core`（158 项）：10 份复杂 DITA 1.3 黄金往返测试、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、DITA 1.3 顺序/基数内容模型校验（Phase 9）、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因。
+- `@dita/web`（174 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、顺序引导与结构装饰、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装、Phase 4 身份/锁只读投影、Phase 8 双语目录键集合/占位符对称与源码硬编码中文扫描，以及 Phase 10 手册工作台路由与防丢逻辑。
+- `@dita/api`（45 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断、Phase 4 身份/Git/锁/跨分支隔离/强解备份、Phase 5 运行时探测（含 Windows `dita.bat` 调度封装 `resolveDitaSpawn`）、DOTJ/DOTX 日志归一化、严格校验与 HTML5/PDF 发布流水线、Phase 6 AI 配置/掩码/用量/SSE 回归、Phase 8 `x-dita-locale` 双语响应，以及 Phase 10 多手册隔离与 Topic 编辑任务委派全链路。
 - `@dita/site`（30 项）：中英双语字典键对称校验、双语文档 slug 对称校验、子路径（`SITE_BASE`）与离线工作台路由辅助单测，以及核心 `@dita/core` 预设无损往返验证。
+- `@dita/desktop`（4 项）：打包态/开发态资源与 `userData` 路径隔离、首次样本拷贝幂等性（跳过 `.git`、不覆盖用户修改）以及 Release Tag 版本号规范化。
 
 ---
 
@@ -453,6 +488,9 @@ pnpm test
 - [x] **Phase 6**：LangChain.js AI 辅助（DeepSeek / OpenAI 兼容端点）、`@dita/core` 片段级无损替换与自动校验重试、SSE 流式写作/标签优化/错误修复、强制 Diff 确认与 Check-out 锁守卫、SQLite 配置与 token 用量审计、AI 配置/用量面板；含真实端点端到端脚本 `apps/api/scripts/e2e-ai-live.mts`。
 - [x] **Phase 7**：独立静态官网 `@dita/site`（Astro 5 + React 19 + Tailwind CSS 4，中英双语 + 6 篇对称文档 + Pagefind 搜索 + 首页微演示），并通过 GitHub Pages 同步托管纯前端离线版三栏工作台（`/workbench/`）。
 - [x] **Phase 8**：全栈中英双语界面（`@dita/core` 双语元素词典与语义/AI 诊断、`@dita/web` 强类型 i18n 与无损热切换、`@dita/api` 请求语言解析与双语提示、三套 i18n 防回归测试；规划见 [docs/phase8-i18n-plan.md](docs/phase8-i18n-plan.md)）。
+- [x] **Phase 9**：DITA 1.3 顺序/基数内容模型校验（`@dita/core` 纯规则内核、`getInsertionSlot()` 引导式插入，以及可视化装饰 / 源码 Lint / 问题面板三处同源结构诊断）。
+- [x] **Phase 10**：手册编辑工作台（Workbench Hub）与轻量 Topic 编辑任务（`Assignment`）委派闭环，支持多手册/多分支并发隔离与 Check-out/Check-in/Rename 联动（规划见 [docs/phase10-workbench-assignments-plan.md](docs/phase10-workbench-assignments-plan.md)）。
+- [x] **Phase 11**：轻量桌面端 `@dita/desktop`（Electron 35 + `electron-builder`，主进程内嵌 `@dita/api` 与 `userData` 隔离、Windows `dita.bat` 兼容修复）与 GitHub Release 自动构建流水线（macOS Apple Silicon `arm64` `.dmg`/`.zip` + Windows `x64` NSIS `.exe`/`.zip`）。
 
 ---
 

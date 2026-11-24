@@ -16,3 +16,5 @@ dita-editor.sqlite
 .claude
 .idea
 .vscode
+apps/desktop/stage
+apps/desktop/release

@@ -7,6 +7,7 @@ FROM node:22-bookworm-slim AS build
 
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+ENV ELECTRON_SKIP_BINARY_DOWNLOAD=1
 RUN corepack enable && corepack prepare pnpm@11.5.2 --activate
 
 # better-sqlite3 may need to compile when no prebuilt binary matches the image.
@@ -20,7 +21,8 @@ COPY packages/dita-core/package.json packages/dita-core/
 COPY apps/api/package.json apps/api/
 COPY apps/web/package.json apps/web/
 COPY apps/site/package.json apps/site/
-RUN pnpm install --frozen-lockfile
+COPY apps/desktop/package.json apps/desktop/
+RUN pnpm install --frozen-lockfile --filter @dita/core --filter @dita/web --filter @dita/api
 
 COPY . .
 # The marketing site is deployed separately (CDN): keep the workbench image lean.

@@ -13,3 +13,5 @@ graphify-out/.graphify_root
 graphify-out/cache/
 .dita-workspaces/
 .astro/
+apps/desktop/stage/
+apps/desktop/release/

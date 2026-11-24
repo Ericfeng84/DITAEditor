@@ -85,6 +85,16 @@ const DITA_EXECUTABLE = process.platform === 'win32' ? 'dita.bat' : 'dita';
 /** Common per-user/system locations checked when DITA_OT_HOME is not configured. */
 function defaultDitaHomes(): string[] {
   const home = homedir();
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA ?? join(home, 'AppData', 'Local');
+    const programFiles = process.env.ProgramFiles ?? 'C:\\Program Files';
+    return [
+      join(home, 'dita-ot'),
+      join(localAppData, 'dita-ot'),
+      'C:\\dita-ot',
+      join(programFiles, 'dita-ot'),
+    ];
+  }
   return [
     join(home, 'dita-ot'),
     join(home, '.local', 'share', 'dita-ot'),
@@ -108,6 +118,15 @@ function findInstalledDitaHome(): string | null {
 export function defaultNotoFontDir(): string {
   const configured = process.env.DITAEDITOR_NOTO_CJK_DIR;
   if (configured) return configured;
+  if (process.platform === 'win32') {
+    const localAppData = process.env.LOCALAPPDATA ?? join(homedir(), 'AppData', 'Local');
+    const winDir = process.env.SystemRoot ?? 'C:\\Windows';
+    const candidates = [
+      join(localAppData, 'Microsoft', 'Windows', 'Fonts'),
+      join(winDir, 'Fonts'),
+    ];
+    return candidates.find((candidate) => existsSync(candidate)) ?? candidates[0]!;
+  }
   const candidates = [
     '/usr/share/fonts/opentype/noto',
     join(homedir(), '.local', 'share', 'fonts', 'noto'),
@@ -303,6 +322,44 @@ function makeAppender(): { push: (chunk: Buffer) => void; text: () => string } {
   };
 }
 
+export interface DitaSpawnSpec {
+  file: string;
+  args: string[];
+  windowsVerbatimArguments?: boolean;
+}
+
+function quoteWinCmdArg(value: string): string {
+  if (value.length === 0) return '""';
+  const escaped = value.replace(/"/g, '\\"');
+  if (/[\s"&|<>()^%]/.test(escaped)) {
+    return `"${escaped}"`;
+  }
+  return escaped;
+}
+
+/**
+ * Node 20.12+ / 22+ rejects spawning `.bat`/`.cmd` files directly without a shell (CVE-2024-27980).
+ * Wrap batch scripts and bare `dita` invocations on Windows through `cmd.exe /d /s /c` with
+ * explicit argument quoting so paths containing spaces remain intact.
+ */
+export function resolveDitaSpawn(
+  command: string,
+  args: string[],
+  platform: NodeJS.Platform = process.platform,
+): DitaSpawnSpec {
+  const needsWinShell =
+    platform === 'win32' && (/\.(bat|cmd)$/i.test(command) || command.toLowerCase() === 'dita');
+  if (!needsWinShell) {
+    return { file: command, args };
+  }
+  const commandLine = [quoteWinCmdArg(command), ...args.map(quoteWinCmdArg)].join(' ');
+  return {
+    file: process.env.ComSpec || 'cmd.exe',
+    args: ['/d', '/s', '/c', `"${commandLine}"`],
+    windowsVerbatimArguments: true,
+  };
+}
+
 /**
  * Spawn the DITA-OT CLI with timeout and cancellation support. Output is streamed as it arrives;
  * a bounded copy is retained for diagnostics parsing.
@@ -327,12 +384,14 @@ export function runDita(options: DitaRunOptions): Promise<DitaRunResult> {
     let cancelled = false;
     let settled = false;
 
-    const child = spawn(command, args, {
+    const spec = resolveDitaSpawn(command, args);
+    const child = spawn(spec.file, spec.args, {
       cwd,
       env: env ?? process.env,
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
+      ...(spec.windowsVerbatimArguments ? { windowsVerbatimArguments: true } : {}),
     });
 
     const timer = setTimeout(() => {

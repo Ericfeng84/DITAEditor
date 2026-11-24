@@ -2,7 +2,7 @@
 <!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
 <topic id="common_reuse" xml:lang="zh-CN">
   <title>跨文档单一信息源复用片段库</title>
-  <shortdesc>集中维护标准告警提示、SLA 服务声明与共用操作步骤，供各手册通过 conref / conkeyref 引用。e</shortdesc>
+  <shortdesc>集中维护标准告警提示、SLA 服务声明与共用操作步骤，供各手册通过 conref / conkeyref 引用。</shortdesc>
   <body>
     <note id="backup_warning" type="caution">在执行生产环境升级前，请务必对 <keyword keyref="prod_name"/> 工作区执行快照备份，并确认无未检入的 Check-out 文件锁。</note>
     <p id="sla_notice">本章节遵循 <keyword keyref="prod_name"/>（版本 <keyword keyref="api_version"/>）单源复用规范：所有部署参数与合规条款均从统一片段库自动同步。</p>

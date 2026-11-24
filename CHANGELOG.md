@@ -3,6 +3,24 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.3.0] — 2026-11-24
+
+Phase 9–11 交付：DITA 1.3 顺序/基数内容模型校验、手册编辑工作台（Workbench Hub）与 Topic 编辑任务委派，以及 macOS Apple Silicon (`arm64`) & Windows (`x64`) 轻量桌面端与 GitHub Release 自动构建流水线。全仓测试 411 项全绿（`@dita/core` 158 / `@dita/web` 174 / `@dita/api` 45 / `@dita/site` 30 / `@dita/desktop` 4）。
+
+### Added
+
+- **轻量桌面端 `@dita/desktop`（Phase 11）**：
+  - 基于 Electron 35 + `electron-builder` + `esbuild`，主进程直接内嵌 `@dita/api`（仅监听 `127.0.0.1` 随机回环端口），内置打包后的 `@dita/web`、`com.ditaeditor.pdf-cjk` 中文 PDF 字体插件与 `demo-dita-project`。
+  - 所有可写状态（`dita-editor.sqlite`、`workspaces/`、`git-worktrees/`、`publishes/`、可写示例副本）均隔离至系统 `userData` 目录（支持 `DITA_DESKTOP_DATA_DIR` 覆盖）。
+  - 新增 `.github/workflows/release-desktop.yml`，在发布 GitHub Release 时自动于原生 `macos-14`（`arm64` `.dmg`/`.zip`）与 `windows-latest`（`x64` NSIS `.exe`/`.zip`）并行打包并挂载到 Release Assets。
+- **手册编辑工作台与 Topic 委派（Phase 10）**：独立工作台首页（`/`）+ 多手册/多分支请求级隔离（`ManualContextResolver`）+ SQLite 轻量 `Assignment` 委派与 Check-out/Check-in/Rename 软联动；支持复用候选拖拽插入、Keys 原位编辑与可折叠 `prolog`。
+- **DITA 1.3 顺序/基数内容模型校验（Phase 9）**：`@dita/core` 新增 `DITA_SEQUENCE_MODEL` 与 `getInsertionSlot()` 引导式插入，可视化装饰、源码 Lint 与问题面板三处同源诊断。
+
+### Fixed
+
+- **Windows 兼容修复**：`apps/api/src/modules/dita-ot/dita-runtime.ts` 新增 `resolveDitaSpawn()` 以 `cmd.exe /d /s /c` 封装 Windows `.bat` 调用（修复 Node 22 直接 spawn `.bat` 报 `EINVAL`），补充 Windows DITA-OT 与字体目录探测；`apps/api/src/index.ts` 使用 `pathToFileURL()` 修复 Windows 入口路径判断。
+- **Docker / HF Space / 官网隔离**：在 `Dockerfile`、`scripts/sync-hf-space.sh` 与 `.github/workflows/deploy-site.yml` 中跳过 Electron 二进制下载并按包过滤安装，容器镜像与静态站零膨胀。
+
 ## [1.2.0] — 2026-11-22
 
 Phase 8 交付：全栈中英双语界面（`zh-CN` / `en`）。顶栏一键切换语言，页面不刷新、不重建编辑器实例，未保存缓冲区、

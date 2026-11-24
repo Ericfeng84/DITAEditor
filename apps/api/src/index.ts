@@ -1,4 +1,5 @@
 import path from 'node:path';
+import { pathToFileURL } from 'node:url';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import Fastify from 'fastify';
@@ -235,7 +236,9 @@ export function createServer(options: CreateServerOptions = {}) {
   return app;
 }
 
-const isEntrypoint = import.meta.url === `file://${process.argv[1]}`;
+const entryArg = process.argv[1];
+const isEntrypoint =
+  typeof entryArg === 'string' && import.meta.url === pathToFileURL(entryArg).href;
 if (isEntrypoint) {
   const app = createServer();
   const port = Number(process.env.PORT ?? 3001);

@@ -5,5 +5,10 @@ packages:
 allowBuilds:
   esbuild: true
   better-sqlite3: true
+  electron: true
+  electron-winstaller: false
   # Astro ships sharp as an optional dependency for image optimisation; we ship pre-built assets.
   sharp: true
+
+overrides:
+  "@electron/get@^3.0.0": "^3.1.0"

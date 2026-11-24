@@ -6,15 +6,15 @@
     "semantic_hash": "3b541b9935fcf0831355da956f897645"
   },
   "apps/api/package.json": {
-    "mtime": 1795330560.2564037,
-    "seen": 1795331234.5358238,
-    "ast_hash": "d95f96805b153d595732ebb390f5f6f6",
+    "mtime": 1795521895.66548,
+    "seen": 1795522847.827978,
+    "ast_hash": "70a4ac7778b5905ba1a66c1af951042b",
     "semantic_hash": ""
   },
   "apps/api/src/index.ts": {
-    "mtime": 1795506416.6411812,
-    "seen": 1795507573.623678,
-    "ast_hash": "71e299edd8cbebb56279d106face7159",
+    "mtime": 1795521892.9141147,
+    "seen": 1795522847.8279831,
+    "ast_hash": "db9b993634e5c3460944d03463dd0646",
     "semantic_hash": ""
   },
   "apps/api/tsconfig.json": {
@@ -162,9 +162,9 @@
     "semantic_hash": "b8170888f2d086174c26774b13938f86"
   },
   "pnpm-workspace.yaml": {
-    "mtime": 1795311012.8257918,
-    "seen": 1795325914.698328,
-    "ast_hash": "acb748ab8e69cbbeeb39837e8d5733ae",
+    "mtime": 1795522171.555041,
+    "seen": 1795522847.828266,
+    "ast_hash": "cda33bcbc1d4d0190ba6c6bf446481bb",
     "semantic_hash": ""
   },
   "tsconfig.base.json": {
@@ -810,9 +810,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/dita-ot/dita-runtime.ts": {
-    "mtime": 1795330154.625414,
-    "seen": 1795331234.53584,
-    "ast_hash": "32bca5fb22c044be5519005167e11156",
+    "mtime": 1795521614.9805913,
+    "seen": 1795522847.827996,
+    "ast_hash": "313a319077bc69d2cfbf4b851ae69e0f",
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/publish-queue.ts": {
@@ -1116,9 +1116,9 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy-site.yml": {
-    "mtime": 1795325827.1681416,
-    "seen": 1795325914.6981509,
-    "ast_hash": "22f1827f2f358c06081035cac8bc2155",
+    "mtime": 1795521655.855753,
+    "seen": 1795522847.8279748,
+    "ast_hash": "652a024c1c6eaca7935079f3e80daa1e",
     "semantic_hash": ""
   },
   "apps/site/astro.config.ts": {
@@ -1542,9 +1542,9 @@
     "semantic_hash": ""
   },
   "scripts/sync-hf-space.sh": {
-    "mtime": 1795325095.6980603,
-    "seen": 1795325914.698329,
-    "ast_hash": "a5b734be1906402e28e4496bb2ea85c5",
+    "mtime": 1795521648.8916745,
+    "seen": 1795522847.828267,
+    "ast_hash": "fc7796433ca3a9c58faaee3dfd975cc9",
     "semantic_hash": ""
   },
   "deploy/huggingface/README.md": {
@@ -2441,10 +2441,76 @@
     "ast_hash": "527306cd4c420b41a903458b17e3c18d",
     "semantic_hash": ""
   },
+  ".github/workflows/release-desktop.yml": {
+    "mtime": 1795521786.0081353,
+    "seen": 1795522847.827976,
+    "ast_hash": "92f638b9d19b631aae73ee2916b968cb",
+    "semantic_hash": ""
+  },
+  "apps/api/test/dita-runtime.test.ts": {
+    "mtime": 1795521641.7671192,
+    "seen": 1795522847.828017,
+    "ast_hash": "dff387021c14425b2de2cd808d05a932",
+    "semantic_hash": ""
+  },
+  "apps/desktop/electron-builder.yml": {
+    "mtime": 1795521752.6254168,
+    "seen": 1795522847.828026,
+    "ast_hash": "afc33f274f63c3c9526b180907f65184",
+    "semantic_hash": ""
+  },
+  "apps/desktop/package.json": {
+    "mtime": 1795522169.4627101,
+    "seen": 1795522847.8280268,
+    "ast_hash": "2f305a00829cb39f3d3f7e210bde53c0",
+    "semantic_hash": ""
+  },
+  "apps/desktop/scripts/build.mjs": {
+    "mtime": 1795521747.7209513,
+    "seen": 1795522847.828028,
+    "ast_hash": "fbe78f3343a370288111d5efdfcbe734",
+    "semantic_hash": ""
+  },
+  "apps/desktop/scripts/stage.mjs": {
+    "mtime": 1795521749.9613893,
+    "seen": 1795522847.828029,
+    "ast_hash": "97757cbe46322b856799d59a5ebab1f3",
+    "semantic_hash": ""
+  },
+  "apps/desktop/src/main.ts": {
+    "mtime": 1795522582.9329755,
+    "seen": 1795522847.8280299,
+    "ast_hash": "9b7cbe8453a3b025449e6fcaea13520e",
+    "semantic_hash": ""
+  },
+  "apps/desktop/src/paths.ts": {
+    "mtime": 1795521740.7692504,
+    "seen": 1795522847.8280299,
+    "ast_hash": "c5267659a0bb1c59df31fc80e823e553",
+    "semantic_hash": ""
+  },
+  "apps/desktop/src/preload.ts": {
+    "mtime": 1795521742.8679798,
+    "seen": 1795522847.828031,
+    "ast_hash": "4c3a9e85744871a76f7df7379f1b1c32",
+    "semantic_hash": ""
+  },
+  "apps/desktop/test/paths.test.ts": {
+    "mtime": 1795521757.7857213,
+    "seen": 1795522847.828032,
+    "ast_hash": "c4e54430f2101280c95f7b3c57464f49",
+    "semantic_hash": ""
+  },
+  "apps/desktop/tsconfig.json": {
+    "mtime": 1795521738.297241,
+    "seen": 1795522847.828032,
+    "ast_hash": "65bd903c401519a2e993c2e96eb73d0e",
+    "semantic_hash": ""
+  },
   "pnpm-lock.yaml": {
-    "mtime": 1795309256.421762,
-    "seen": 1795310776.400534,
-    "ast_hash": "def5446e48d5ce657008e0fa46c16a26",
+    "mtime": 1795522176.4794648,
+    "seen": 1795522847.828332,
+    "ast_hash": "de0be511ba7ccdb1e5d01d147238fa7b",
     "semantic_hash": ""
   }
 }

@@ -22,7 +22,7 @@
 | **英文版界面与国际化（Phase 8）** | 零外部依赖的强类型全栈 i18n（`zh-CN` / `en`），浏览器语言自动探测 + 顶栏实时无刷新切换（`localStorage` 持久化） | 覆盖前端工作台 UI / CSS 伪元素 / ProseMirror 热刷新、`@dita/core` 规则与模板/语义诊断、`@dita/api` 报错与 AI 回复语言（`x-dita-locale` 请求头）；严格对齐 OASIS DITA 1.3 官方英文术语且不改动已有文档正文 |
 | **手册编辑工作台与 Topic 委派（Phase 10）** | 独立「手册编辑工作台（Workbench Hub）」首页（`/`）+ 三栏编辑器路由（`/manuals/:id`）；1 手册 = 1 独立工作区与 Git 仓库；轻量 Topic 编辑任务（`Assignment`）委派与软引导协作 | 后端按 `x-dita-manual-id` + `x-dita-branch` 请求级隔离多手册与多分支 worktree；任务仅落库 SQLite（零 XML/Git 污染），与 Check-out 锁解耦（不自动加锁、不做审批流），并支持 Check-out 自动推进与 Check-in 可选同步结单 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
-| **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖 |
+| **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑）+ 轻量桌面端（`apps/desktop`，macOS Apple Silicon & Windows x64） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖；桌面端主进程内嵌 `@dita/api`（`127.0.0.1:0`），数据目录隔离至 `app.getPath('userData')`，与 `Dockerfile` 完全解耦 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
 
 ---
@@ -236,7 +236,7 @@ flowchart LR
 | **AI 辅助与模型接入 (Phase 6)** | **LangChain.js（`@langchain/core` + `@langchain/openai`，默认 DeepSeek `deepseek-flash`）+ SSE 流式 + SQLite 配置与轻量审计** | 仅引入轻量核心包即可统一 `ChatOpenAI`（兼容 DeepSeek 与内网代理）、Prompt 模板与消息历史，并天然预留 `BaseRetriever`/`Embeddings`/LangGraph 扩展位，平滑承接后续「基于手册发布后的 RAG AI 问答」 | 原生 `fetch` / `openai` SDK（若明确永远不做 RAG 知识库问答时可降级简化） |
 | **项目官网与文档站 (Phase 7)** | **Astro 5（Static）+ React 19 Islands + Tailwind CSS 4 + Content Collections / Shiki + Pagefind** | 首页与文档零 JS 静态生成、SEO/性能极佳；React Islands 按需水合首页 `@dita/core` 微演示，GitHub Pages CI 同步合包构建离线版 `@dita/web` 至 `/workbench/`；支持中英双语与纯静态托管 | VitePress（若不需要高度定制的出版风官网首页时可选） |
 | **全栈国际化 (Phase 8)** | **自研零依赖强类型 TS i18n 模块（`@dita/core/i18n` + `apps/web/src/i18n` + `apps/api/src/i18n`）+ `x-dita-locale` 请求头** | 零第三方运行包体积开销，TS 编译期校验键名与 `{param}` 占位符，配合 Vitest 双语对称与硬编码中文扫描门禁防止回退，支持 ProseMirror 元数据无损热切换 | `i18next` + `react-i18next`（若未来需扩展 3+ 语种与复杂复数/ICU 规则时可平滑迁移） |
-| **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管打包后的 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK） | 零外部数据库/队列中间件，一条 `docker run` 一键启动，SQLite 与本地 Git 仓库持久化在挂载卷 | 单机裸部署（本机安装 `dita` CLI 与 Noto CJK 字体亦可直接运行） |
+| **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管打包后的 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK）+ **轻量桌面端（Electron 35 + `electron-builder` + `esbuild`）** | 零外部数据库/队列中间件，一条 `docker run` 一键启动；桌面端复用同一 `@dita/api` + `@dita/web`，通过扁平 staging 目录按 Electron ABI 重编 `better-sqlite3`，GitHub Release 自动构建 macOS `arm64`（`.dmg`/`.zip`）与 Windows `x64`（NSIS `.exe`/`.zip`） | 全量离线桌面版（若需内网断网零配置出 PDF，可在 CI 中额外内置 `jlink` JRE 21 + DITA-OT + Noto CJK + Windows MinGit） |
 
 ---
 
@@ -273,13 +273,20 @@ DITAEditor/
 │   │   │   │   ├── publish/    # SQLite 发布任务、进程内并发队列、工作区快照、spawn dita CLI、SSE 日志与静态预览路由
 │   │   │   │   └── ai/         # LangChain.js (@langchain/core + @langchain/openai) 模型工厂、DITA 上下文裁剪、片段校验重试、SSE 流式与轻量审计（预留手册 RAG Retriever 扩展口）
 │   │   │   └── db/             # Drizzle Schema & Migrations（含 ai_settings / ai_usage_logs）
-│   └── site/                   # @dita/site — Astro 5 + React 19 项目官网与中英双语文档站（GitHub Pages 同步合包发布 /workbench/ 离线工作台）
-│       ├── src/
-│       │   ├── pages/          # 中文 (/) 与英文 (/en/) 官网首页、/docs 文档路由与 404
-│       │   ├── content/docs/   # 中英双语快速上手、Docker 部署、DITA-OT 与 AI 配置指南 (Markdown/MDX)
-│       │   ├── components/     # 现代技术出版编辑风静态组件 + MiniRoundTripDemo 懒加载 Island
-│       │   └── i18n/           # 中英双语词典与对称路由切换工具
-│       └── test/               # 双语对称性校验与内置预设 @dita/core 往返无损回归测试
+│   ├── site/                   # @dita/site — Astro 5 + React 19 项目官网与中英双语文档站（GitHub Pages 同步合包发布 /workbench/ 离线工作台）
+│   │   ├── src/
+│   │   │   ├── pages/          # 中文 (/) 与英文 (/en/) 官网首页、/docs 文档路由与 404
+│   │   │   ├── content/docs/   # 中英双语快速上手、Docker 部署、DITA-OT 与 AI 配置指南 (Markdown/MDX)
+│   │   │   ├── components/     # 现代技术出版编辑风静态组件 + MiniRoundTripDemo 懒加载 Island
+│   │   │   └── i18n/           # 中英双语词典与对称路由切换工具
+│   │   └── test/               # 双语对称性校验与内置预设 @dita/core 往返无损回归测试
+│   └── desktop/                # @dita/desktop — Electron 轻量桌面端（macOS arm64 & Windows x64，独立于 Dockerfile）
+│       ├── src/                # main.ts（内嵌 Fastify 127.0.0.1:0、菜单、优雅退出）、preload.ts、paths.ts（userData 隔离）
+│       ├── scripts/            # build.mjs（esbuild 打包）、stage.mjs（扁平依赖供 better-sqlite3 按 Electron ABI 重编）
+│       ├── build/              # icon.icns / icon.ico / icon.png 与 entitlements.mac.plist
+│       ├── electron-builder.yml# macOS arm64 (.dmg/.zip) 与 Windows x64 (NSIS .exe/.zip) 打包配置
+│       └── test/               # 路径解析、首次样本拷贝幂等性与 Release 版本号规范化单测
+├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / release-desktop.yml（双端桌面自动打包上传）
 ├── packages/
 │   └── dita-core/              # @dita/core 前后端共享核心库
 │       ├── xml/                # slimdom 解析、位置追踪、确定性无损序列化
@@ -422,6 +429,22 @@ DITAEditor/
   - 编辑器内在 **Map 树**与**文件树**节点显示受托人头像徽章与右键委派菜单，在 **Topic 顶部**增加委派提示与快捷操作条，在**左侧栏**新增「任务」Tab 展示本手册当前分支分工；采用动作即时拉取 + 窗口聚焦（`focus`/`visibilitychange`）节流自动刷新，并完整纳入 Phase 8 强类型中英双语词典与防退化门禁。
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含多手册/多分支并发隔离、委派唯一性与角色权限、Check-out/Check-in/Rename 联动单测及双语门禁）；进入 `/` 展示工作台与我的任务，完成「新增/编辑手册 → Map 树委派 Topic → 切换受托人从我的任务一键跳转 → 检出自动进入编辑中 → 检入同步标记完成」端到端闭环。
 
+### Phase 11：轻量桌面端（macOS Apple Silicon & Windows x64）与 Release 自动构建
+> **状态**：✅ 已实现（`apps/desktop/`、`.github/workflows/release-desktop.yml`、Windows DITA-OT 兼容修复 `apps/api/src/modules/dita-ot/dita-runtime.ts`）。采用 **Electron 35 + `electron-builder` + `esbuild`** 轻量版形态（自动探测本机 Git / DITA-OT，内置 `com.ditaeditor.pdf-cjk` 插件与示例项目），与单容器 `Dockerfile`、Hugging Face Space 及静态官网彻底解耦。
+>
+> **目标**：让用户无需部署 Docker 或 Node 环境即可在 macOS（Apple Silicon）与 Windows（x64）双击运行完整 DITAEditor 工作台，并在 GitHub Release 发布时自动产出并挂载双端安装包。
+- **内嵌后端与数据目录隔离（`apps/desktop/src/{main,paths,preload}.ts`）**：
+  - 主进程直接调用 `@dita/api` 的 `createServer()` 并仅监听 `127.0.0.1:0`（随机可用回环端口），`BrowserWindow` 以 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true` 加载同源工作台，内置单实例锁、标准应用菜单（保障 macOS 剪贴板/撤销快捷键）、同源 HTML5 预览弹窗与外部链接系统浏览器跳转，并通过 `preload.ts` 预留原生目录选择器 IPC（`dita:pick-directory`）。
+  - 将 SQLite 数据库、工作区目录、分支 `git worktree` 与发布产物全部写入 `app.getPath('userData')`（支持 `DITA_DESKTOP_DATA_DIR` 覆盖）；首次启动将只读资源 `samples/demo-dita-project` 无 `.git` 拷贝到用户可写目录，避免改写只读 `.app` / `Program Files`。
+  - 优雅退出时先销毁所有 `BrowserWindow` 释放 Chromium HTTP/1.1 keep-alive 连接，再在 3 秒兜底超时内完成 `fastify.close()`，确保 SQLite WAL 正常刷盘且退出绝不挂死。
+- **pnpm Monorepo 原生模块打包与 Windows 兼容**：
+  - 通过 `scripts/build.mjs`（`esbuild`）将主进程与 `@dita/api` / `@dita/core` 打包为单文件 ESM（仅 `electron`、`better-sqlite3` 外置），再由 `scripts/stage.mjs` 生成扁平无 symlink 的 `stage/` 目录并交由 `electron-builder`（`asarUnpack` + `npmRebuild: true`）按目标平台 Electron Node ABI 重编 `better-sqlite3`。
+  - 修复 `apps/api/src/modules/dita-ot/dita-runtime.ts` 在 Windows + Node 22 下直接 `spawn('dita.bat')` 触发 `EINVAL` 的问题（改为 `cmd.exe /d /s /c` + 参数转义 `resolveDitaSpawn()`），补充 Windows 常见 DITA-OT 与字体目录探测，并将 `apps/api/src/index.ts` 入口判断改为 `pathToFileURL()` 兼容 Windows 盘符路径。
+  - 在 `Dockerfile`、`scripts/sync-hf-space.sh` 与 `.github/workflows/deploy-site.yml` 中跳过 Electron 二进制下载并按包过滤安装，确保容器镜像与官网 CI 零膨胀。
+- **GitHub Release 双平台自动化流水线（`.github/workflows/release-desktop.yml`）**：
+  - 监听 `release: [published]`（与 HF Space 同步工作流一致）及 `workflow_dispatch` 手动试跑，在原生 `macos-14`（`arm64` `.dmg` / `.zip`）与 `windows-latest`（`x64` NSIS `.exe` / 便携 `.zip`）并行构建，自动将 Release Tag 同步为安装包版本号并挂载到对应 GitHub Release；无证书时自动跳过签名发现，配置 `CSC_LINK` / `WIN_CSC_LINK` 等 Secrets 后即自动启用签名。
+- **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含 `apps/api/test/dita-runtime.test.ts` 与 `apps/desktop/test/paths.test.ts`）；本机 `pnpm --filter @dita/desktop run dist:mac` 产出可运行的 Apple Silicon `.dmg`/`.zip`，实包启动能正常初始化 `better-sqlite3` 数据库、拷贝示例项目并快速优雅退出；`./scripts/sync-hf-space.sh --dry-run` 保持精简无桌面产物混入。
+
 ---
 
 ## 七、主要工程风险与应对策略
@@ -437,3 +460,4 @@ DITAEditor/
 | **官网/离线工作台拖累首屏或破坏容器构建** | 在官网引入 ProseMirror/CodeMirror/`@dita/core` 导致首页 JS 体积暴涨，或新增 `apps/site` 触发 `Dockerfile` 编译失败与双语文档漂移 | 采用 Astro 静态输出 + `client:visible` 隔离首页微演示，将完整离线工作台合包部署至 `/workbench/`（`VITE_STATIC_DEMO=true`）；在 `Dockerfile` 限定仅构建工作台三包；以 Vitest 强制校验中英字典键与文档 slug 100% 对称 |
 | **英文界面文案漏翻、布局溢出或切语言丢撤销栈** | 散落在 ProseMirror 装饰、CSS 伪元素、后端报错与 AI Prompt 的中文残留；英文词长导致窄屏顶栏/工具栏换行挤压；切换语言重挂载编辑器丢失光标与 Undo | 以 `DITA_DECORATIONS_KEY` 元数据事务实现编辑器无损热刷新；用 `:root[lang="en"]` 覆盖 CSS 伪元素；通过 `x-dita-locale` 打通后端报错与 AI 解释语言；以 Vitest 双语对称与硬编码中文扫描门禁持续防退化 |
 | **多手册/分支并发串台与任务目标漂移** | 多人或双标签页同时打开不同手册/分支时覆盖全局工作区，或已委派 Topic 被重命名/删除导致死链、未保存返回工作台丢失草稿 | 后端全部路由与图片端点通过 `ManualContextResolver` 按 `x-dita-manual-id` + `x-dita-branch` 隔离并用 LRU 缓存语义索引；文件重命名同步更新 `topic_assignments.topic_path`、删除标出缺失告警；路由切出前检测 `dirtyCount` 触发防丢确认 |
+| **桌面端原生模块 ABI、Windows 批处理与退出挂死** | pnpm symlink 导致 `electron-builder` 漏包、`better-sqlite3` ABI 不匹配、Windows Node 22 直接 `spawn('dita.bat')` 报 `EINVAL`，或 Chromium keep-alive 阻塞 Fastify 退出 | 用 `esbuild` 打包后端并经扁平 `stage/` 目录 + `asarUnpack` 由 `electron-builder` 在原生 macOS/Windows Runner 上重编 `better-sqlite3`；Windows `.bat` 通过 `cmd.exe /d /s /c` + 显式引号转义执行；退出前先关闭窗口再设 3 秒 drain 兜底；`Dockerfile`/官网 CI 设 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 严格隔离 |

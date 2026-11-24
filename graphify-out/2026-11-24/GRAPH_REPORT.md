@@ -1,7 +1,7 @@
 # Graph Report - DITAEditor  (2026-11-24)
 
 ## Corpus Check
-- 370 files · ~287,373 words
+- 370 files · ~287,442 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 69 file(s) not represented in the graph (top: .dita 31, .css 20, (none) 5)
 

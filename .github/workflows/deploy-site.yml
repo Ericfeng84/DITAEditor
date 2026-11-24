@@ -43,7 +43,10 @@ jobs:
           node-version: 22
           cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        env:
+          ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+        run: pnpm install --frozen-lockfile --filter @dita/core --filter @dita/web --filter @dita/site
 
       - name: Build @dita/core
         run: pnpm --filter @dita/core build

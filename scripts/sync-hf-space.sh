@@ -94,6 +94,7 @@ ROOT_FILES=(
   "tsconfig.base.json"
   "turbo.json"
   "apps/site/package.json"
+  "apps/desktop/package.json"
 )
 for file in "${ROOT_FILES[@]}"; do
   copy_tree "${file}"
