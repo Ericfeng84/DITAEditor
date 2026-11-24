@@ -5,14 +5,46 @@
 const base = import.meta.env.BASE_URL || '/';
 const site = (import.meta.env.SITE || 'https://ditaeditor.dev').replace(/\/$/, '');
 
+const repo = 'https://github.com/Ericfeng84/DITAEditor';
+
+/**
+ * Desktop installers live on GitHub Releases. Bump `desktopTag` together with
+ * `apps/desktop/package.json` when publishing a release; asset names are derived
+ * from the tag so only the tag and byte sizes below need editing.
+ */
+const desktopTag = 'v1.3.0';
+const desktopVersion = desktopTag.replace(/^v/, '');
+
+function releaseAsset(name: string, bytes: number) {
+  return {
+    name,
+    size: `${Math.round(bytes / 1024 / 1024)} MB`,
+    url: `${repo}/releases/download/${desktopTag}/${name}`,
+  };
+}
+
+export const DESKTOP = {
+  version: desktopVersion,
+  tag: desktopTag,
+  macArch: 'Apple Silicon (arm64)',
+  winArch: 'x64',
+  dmg: releaseAsset(`DITAEditor-${desktopVersion}-mac-arm64.dmg`, 119_830_169),
+  macZip: releaseAsset(`DITAEditor-${desktopVersion}-mac-arm64.zip`, 115_706_313),
+  exe: releaseAsset(`DITAEditor-${desktopVersion}-win-x64.exe`, 101_527_625),
+  winZip: releaseAsset(`DITAEditor-${desktopVersion}-win-x64.zip`, 129_220_956),
+  releaseUrl: `${repo}/releases/tag/${desktopTag}`,
+  latestUrl: `${repo}/releases/latest`,
+  allReleasesUrl: `${repo}/releases`,
+} as const;
+
 export const SITE = {
   name: 'DITAEditor',
   tagline: {
     zh: '开源 Web DITA 1.3 结构化写作工作台',
     en: 'Open-source web workbench for DITA 1.3 structured authoring',
   },
-  repo: 'https://github.com/Ericfeng84/DITAEditor',
-  licenseUrl: 'https://github.com/Ericfeng84/DITAEditor/blob/main/LICENSE',
+  repo,
+  licenseUrl: `${repo}/blob/main/LICENSE`,
   base,
   url: site,
   /** Bumped by hand when the site copy changes; printed in the footer for traceability. */

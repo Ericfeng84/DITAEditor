@@ -1,7 +1,7 @@
 ---
 title: Getting started with Docker
 description: "Run DITAEditor as a single container: ports, data volume, environment variables, first login, project import, and publish verification."
-updated: '2026-11-22'
+updated: '2026-11-24'
 ---
 
 The same container serves the Fastify API, the built web app, SQLite, the local Git repository, and DITA-OT 4.2.1. No external database, cache, or queue is required.
@@ -11,6 +11,8 @@ The same container serves the Fastify API, the built web app, SQLite, the local 
 - Docker 24+ (Compose optional)
 - At least 2 GB of free disk (the DITA-OT distribution and Noto CJK fonts are large)
 - Network access to GitHub Releases during the first build; see troubleshooting for restricted networks
+
+<a id="docker"></a>
 
 ## Start with two commands
 
@@ -26,6 +28,22 @@ docker run --rm -p 3001:3001 \
 Open <http://localhost:3001>. The health endpoint is `GET /health`.
 
 On first boot the entrypoint copies `samples/demo-dita-project` into `/data/workspace` unless that directory is already non-empty. You get a complete DITA map, topics, `.ditaval` files, and image assets out of the box.
+
+<a id="desktop"></a>
+
+## Desktop app (macOS / Windows, no Docker)
+
+If you would rather not keep Docker on every writer's machine, download an installer from [GitHub Releases](https://github.com/Ericfeng84/DITAEditor/releases/latest). The Electron main process embeds `@dita/api` on a random `127.0.0.1` port, so no Node.js, database or reverse proxy is required.
+
+| Platform | Installer | Portable |
+| --- | --- | --- |
+| macOS (Apple Silicon `arm64`) | `DITAEditor-<version>-mac-arm64.dmg` | `DITAEditor-<version>-mac-arm64.zip` |
+| Windows (`x64`) | `DITAEditor-<version>-win-x64.exe` (NSIS) | `DITAEditor-<version>-win-x64.zip` |
+
+- Workspaces, SQLite, `git worktree` and publish output live in the per-user data directory; override it with `DITA_DESKTOP_DATA_DIR`.
+- Ships the demo manual and the Noto CJK PDF font plugin, so Chinese PDF works out of the box. Local Git and DITA-OT 4.x are auto-detected; editing, maps, keys, conref, DITAVAL and AI keep working without them.
+- Open-source builds are not code-signed: if Gatekeeper blocks the first launch on macOS, run `xattr -cr /Applications/DITAEditor.app`; on Windows choose More info → Run anyway in SmartScreen.
+- The desktop app shares the same `@dita/core` kernel and SQLite schema as the web version, so workspaces move between them unchanged.
 
 ## Ports and volumes
 

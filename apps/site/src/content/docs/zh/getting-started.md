@@ -1,7 +1,7 @@
 ---
 title: 快速开始与 Docker 部署
 description: 用单个容器启动 DITAEditor：端口、数据卷、环境变量、首次登录、项目导入与发布验证。
-updated: '2026-11-22'
+updated: '2026-11-24'
 ---
 
 完整工作台由同一容器提供：Fastify API、构建后的 Web 前端、SQLite 数据库、本地 Git 仓库与 DITA-OT 4.2.1。你不需要额外的数据库、缓存或消息队列。
@@ -11,6 +11,8 @@ updated: '2026-11-22'
 - Docker 24+（含 Compose 可选）
 - 至少 2 GB 可用磁盘（DITA-OT 发行版与 Noto CJK 字体体积较大）
 - 首次构建需要访问 GitHub Releases 下载 DITA-OT；受限网络见文末
+
+<a id="docker"></a>
 
 ## 一条命令启动
 
@@ -26,6 +28,22 @@ docker run --rm -p 3001:3001 \
 打开 <http://localhost:3001>。健康检查端点为 `GET /health`。
 
 首次启动时，入口脚本会把 `samples/demo-dita-project` 复制到 `/data/workspace`，除非该目录已经非空。因此你开箱就能看到一个完整的 DITA Map、主题、`.ditaval` 与图片资源。
+
+<a id="desktop"></a>
+
+## 桌面版（macOS / Windows，免 Docker）
+
+若不想在每台机器上维护 Docker，可到 [GitHub Releases](https://github.com/Ericfeng84/DITAEditor/releases/latest) 下载桌面安装包：Electron 主进程内嵌 `@dita/api`（只监听 `127.0.0.1` 的随机端口），无需安装 Node.js、数据库或反向代理。
+
+| 平台 | 安装包 | 便携版 |
+| --- | --- | --- |
+| macOS（Apple Silicon `arm64`） | `DITAEditor-<version>-mac-arm64.dmg` | `DITAEditor-<version>-mac-arm64.zip` |
+| Windows（`x64`） | `DITAEditor-<version>-win-x64.exe`（NSIS 安装程序） | `DITAEditor-<version>-win-x64.zip` |
+
+- 工作区、SQLite、`git worktree` 与发布产物保存在系统用户数据目录，可用 `DITA_DESKTOP_DATA_DIR` 覆盖。
+- 内置示例手册与 Noto CJK PDF 字体插件，中文 PDF 开箱可发；启动时自动探测本机 Git 与 DITA-OT 4.x（缺失时编辑、Map、Keys、Conref、DITAVAL 与 AI 仍可用）。
+- 开源构建未购买代码签名：macOS 首次启动若被 Gatekeeper 拦截，执行 `xattr -cr /Applications/DITAEditor.app`；Windows SmartScreen 选择「更多信息 → 仍要运行」。
+- 桌面端与 Web 版共用同一个 `@dita/core` 内核与 SQLite 结构，工作区可以在两者之间整体迁移。
 
 ## 端口与数据卷
 

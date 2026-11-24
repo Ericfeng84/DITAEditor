@@ -35,8 +35,11 @@ export const en: typeof zh = {
     titleAccent: 'in a lightweight web workbench built for teams.',
     subtitle:
       'Hand out topics and track due dates in the manual workbench, then write in ProseMirror with a CodeMirror 6 source view: single-sourced keys, conrefs and DITAVAL, exclusive locks on local Git worktrees, DITA-OT 4.x PDF output with Noto CJK, and fragment-scoped AI review all share one XML source — switch the whole interface between Chinese and English, with no Java business code and one container.',
-    primaryCta: 'Open offline workbench (browser)',
+    primaryCta: 'Try it in the browser',
+    desktopCta: 'Download desktop app',
     secondaryCta: 'Deploy with Docker',
+    browserNote:
+      'The browser build is a static demo: editing, map orchestration and keys/conref/DITAVAL work; publishing, Git and AI need the desktop app or a container deployment.',
     stats: [
       { value: '100%', label: 'Lossless XML round-trip' },
       { value: '10', label: 'Golden DITA 1.3 fixtures' },
@@ -177,8 +180,33 @@ export const en: typeof zh = {
       { label: 'AI boundary', value: 'Candidates must pass lossless splicing and diff review' },
     ],
   },
+  desktop: {
+    eyebrow: '05 — Desktop',
+    title: 'A desktop client that skips Docker',
+    description:
+      'The Electron main process embeds @dita/api on 127.0.0.1 only: the same React 19 frontend and the same lossless XML, installed and ready without Docker or Node.js.',
+    versionLabel: 'Latest release',
+    releaseNotes: 'Release notes',
+    macName: 'macOS',
+    macArch: 'Apple Silicon · arm64',
+    macPrimary: 'Download .dmg',
+    macAlt: 'Portable .zip',
+    winName: 'Windows',
+    winArch: 'Installer · x64',
+    winPrimary: 'Download .exe',
+    winAlt: 'Portable .zip',
+    highlights: [
+      'Ships the demo manual and the Noto CJK PDF font plugin, so Chinese PDF works out of the box',
+      'Workspaces, SQLite, git worktrees and publish output stay in the per-user data directory',
+      'Auto-detects local Git and DITA-OT 4.x; editing, maps, keys and AI keep working without them',
+    ],
+    unsignedNote:
+      'Open-source builds are not code-signed: if Gatekeeper blocks the first launch on macOS, run xattr -cr /Applications/DITAEditor.app; on Windows pick More info → Run anyway in SmartScreen.',
+    installGuide: 'Desktop install guide',
+    allReleases: 'All releases',
+  },
   quickStart: {
-    eyebrow: '05 — Quick start',
+    eyebrow: '06 — Quick start',
     title: 'Running in five minutes',
     description: 'Three paths: a container for the team, local pnpm development, and DeepSeek or a private compatible proxy.',
     tabs: { docker: 'Docker container', pnpm: 'Local development', ai: 'AI setup' },
@@ -200,6 +228,7 @@ export const en: typeof zh = {
     learnHeading: 'Learn',
     projectHeading: 'Project',
     builtWith: 'Driven by Astro, React, and @dita/core. Static hosting, zero backend.',
+    desktop: 'Desktop downloads',
     changelog: 'Changelog',
     roadmap: 'Roadmap',
     samples: 'Demo project',

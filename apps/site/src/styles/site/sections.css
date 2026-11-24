@@ -143,6 +143,15 @@
   gap: 10px;
 }
 
+.hero__note {
+  margin: 12px 0 0;
+  max-width: 52ch;
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  line-height: 1.55;
+  color: var(--color-muted);
+}
+
 .hero__stats {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -613,4 +622,203 @@
 
 .feature-card__index {
   order: -1;
+}
+
+/* ------------------------------------------------------------- desktop */
+
+.download {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 24px;
+  padding: 26px 24px 22px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 3px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-panel);
+}
+
+.download__intro > .lede {
+  margin-top: 10px;
+  max-width: 52ch;
+}
+
+.download__list {
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 7px;
+}
+
+.download__list li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--color-ink-2);
+}
+
+.download__list svg {
+  flex: none;
+  margin-top: 3px;
+  color: var(--color-blue);
+}
+
+.download__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  margin-top: 18px;
+}
+
+.download__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-ink-2);
+  border-bottom: 1px solid #d6d2c6;
+  padding-bottom: 2px;
+}
+
+.download__link:hover {
+  color: var(--color-blue);
+  border-bottom-color: var(--color-blue);
+}
+
+.download__platforms {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+
+.download__version {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 0;
+  padding-bottom: 9px;
+  border-bottom: 1px solid var(--color-hairline);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.download__version strong {
+  font-size: 11.5px;
+  letter-spacing: 0.04em;
+  text-transform: none;
+  color: var(--color-ink);
+}
+
+.platform {
+  display: grid;
+  gap: 9px;
+  padding: 13px 14px 12px;
+  border: 1px solid var(--color-hairline);
+  border-radius: 3px;
+  background: #fbfaf7;
+}
+
+.platform__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.platform__name {
+  font-family: var(--font-display);
+  font-size: 0.98rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  color: var(--color-ink);
+}
+
+.platform__arch {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-muted);
+}
+
+.platform__cta {
+  justify-content: space-between;
+  font-size: 12.5px;
+}
+
+.platform__size {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  opacity: 0.66;
+}
+
+.platform__alt {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  color: var(--color-muted);
+  border-bottom: 1px solid transparent;
+  justify-self: start;
+}
+
+.platform__alt:hover {
+  color: var(--color-blue);
+  border-bottom-color: var(--color-blue);
+}
+
+.download__note {
+  margin: 0;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-hairline);
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--color-muted);
+}
+
+.download__all {
+  margin: 12px 0 0;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.download__all a {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--color-muted);
+}
+
+.download__all a:hover {
+  color: var(--color-blue);
+}
+
+@media (min-width: 900px) {
+  .download {
+    grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+    gap: 26px 44px;
+    padding: 32px 34px 26px;
+  }
+
+  .download__note {
+    grid-column: 1 / -1;
+  }
+
+  .download__platforms {
+    padding-top: 2px;
+  }
 }

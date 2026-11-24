@@ -1,0 +1,101 @@
+---
+import Icon from './Icon.astro';
+import { DESKTOP } from '../lib/site.js';
+import type { SiteDictionary } from '../i18n/index.js';
+
+export interface Props {
+  dict: SiteDictionary['desktop'];
+  /** Link to the desktop install section of the getting-started docs. */
+  docsHref: string;
+}
+
+const { dict, docsHref } = Astro.props;
+
+const platforms = [
+  {
+    key: 'mac',
+    name: dict.macName,
+    arch: dict.macArch,
+    primary: { label: dict.macPrimary, href: DESKTOP.dmg.url, size: DESKTOP.dmg.size },
+    alt: { label: dict.macAlt, href: DESKTOP.macZip.url, size: DESKTOP.macZip.size },
+  },
+  {
+    key: 'win',
+    name: dict.winName,
+    arch: dict.winArch,
+    primary: { label: dict.winPrimary, href: DESKTOP.exe.url, size: DESKTOP.exe.size },
+    alt: { label: dict.winAlt, href: DESKTOP.winZip.url, size: DESKTOP.winZip.size },
+  },
+];
+---
+
+<section id="desktop" class="section shell" aria-label={dict.title}>
+  <div class="download reveal">
+    <div class="download__intro">
+      <div class="eyebrow">{dict.eyebrow}</div>
+      <h2 class="display-md">{dict.title}</h2>
+      <p class="lede">{dict.description}</p>
+
+      <ul class="download__list">
+        {
+          dict.highlights.map((item) => (
+            <li>
+              <Icon name="check" size={13} />
+              <span>{item}</span>
+            </li>
+          ))
+        }
+      </ul>
+
+      <div class="download__links">
+        <a
+          class="download__link"
+          href={DESKTOP.releaseUrl}
+          target="_blank"
+          rel="noreferrer noopener"
+        >
+          {dict.releaseNotes} · v{DESKTOP.version}
+          <Icon name="external" size={12} />
+        </a>
+        <a class="download__link" href={docsHref}>
+          {dict.installGuide}
+          <Icon name="arrow-right" size={12} />
+        </a>
+      </div>
+    </div>
+
+    <div class="download__platforms">
+      <p class="download__version">
+        <span>{dict.versionLabel}</span>
+        <strong>v{DESKTOP.version}</strong>
+      </p>
+      {
+        platforms.map((platform) => (
+          <article class="platform">
+            <header class="platform__head">
+              <span class="platform__name">{platform.name}</span>
+              <span class="platform__arch">{platform.arch}</span>
+            </header>
+            <a class="btn btn-dark platform__cta" href={platform.primary.href}>
+              <Icon name="download" size={14} />
+              <span>{platform.primary.label}</span>
+              <span class="platform__size">{platform.primary.size}</span>
+            </a>
+            <a class="platform__alt" href={platform.alt.href}>
+              {platform.alt.label} · {platform.alt.size}
+            </a>
+          </article>
+        ))
+      }
+    </div>
+
+    <p class="download__note">{dict.unsignedNote}</p>
+  </div>
+
+  <p class="download__all">
+    <a href={DESKTOP.allReleasesUrl} target="_blank" rel="noreferrer noopener">
+      {dict.allReleases}
+      <Icon name="external" size={12} />
+    </a>
+  </p>
+</section>

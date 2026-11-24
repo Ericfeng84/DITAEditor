@@ -1,5 +1,6 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
+import DesktopDownload from '../components/DesktopDownload.astro';
 import HeroShowcase from '../components/HeroShowcase.js';
 import MiniRoundTripDemo from '../components/MiniRoundTripDemo.js';
 import QuickStartTabs from '../components/QuickStartTabs.js';
@@ -12,7 +13,8 @@ import {
   workbenchPath,
 } from '../i18n/locales.js';
 import { CAPABILITIES } from '../data/features.js';
-import { SITE, assetUrl } from '../lib/site.js';
+import { versionedAsset } from '../lib/assets.js';
+import { SITE } from '../lib/site.js';
 
 interface Props {
   locale: Locale;
@@ -24,7 +26,7 @@ const base = SITE.base;
 
 /** Screenshots are locale-matched: /images for Chinese UI, /images/en for English UI. */
 const screenshotUrl = (name: string) =>
-  assetUrl(`/images/${locale === 'zh' ? '' : 'en/'}${name}.webp`);
+  versionedAsset(`/images/${locale === 'zh' ? '' : 'en/'}${name}.webp`);
 
 const showcaseImages: Record<string, string> = {
   hub: screenshotUrl('manual-hub'),
@@ -80,12 +82,20 @@ const jsonLd = {
             <Icon name="arrow-right" size={14} />
           </a>
           <a
+            class="btn btn-dark btn-lg"
+            href="#desktop"
+          >
+            {dict.hero.desktopCta}
+            <Icon name="download" size={14} />
+          </a>
+          <a
             class="btn btn-ghost btn-lg"
             href={`${docsPath(locale, 'getting-started', base)}#docker`}
           >
             {dict.hero.secondaryCta}
           </a>
         </div>
+        <p class="hero__note">{dict.hero.browserNote}</p>
       </div>
     </div>
 
@@ -198,7 +208,7 @@ const jsonLd = {
             <div class="feature-card__media">
               {capability.screenshot ? (
                 <img
-                  src={assetUrl(pickText(capability.screenshot.src, locale))}
+                  src={versionedAsset(pickText(capability.screenshot.src, locale))}
                   alt={pickText(capability.screenshot.alt, locale)}
                   width={1400}
                   height={875}
@@ -302,6 +312,11 @@ const jsonLd = {
       </div>
     </div>
   </section>
+
+  <DesktopDownload
+    dict={dict.desktop}
+    docsHref={`${docsPath(locale, 'getting-started', base)}#desktop`}
+  />
 
   <section
     id="quick-start"

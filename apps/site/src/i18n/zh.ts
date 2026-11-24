@@ -32,8 +32,11 @@ export const zh = {
     titleAccent: '团队级轻量 Web 结构化写作工作台。',
     subtitle:
       '先用「手册工作台」分发 Topic、跟踪截止日期，再进入 ProseMirror 可视化结构化编辑与 CodeMirror 6 源码控制；Keys / Conref / DITAVAL 单一信息源、本地 Git 独占锁、DITA-OT 4.x 中文 PDF 与 AI 片段级校验共用同一份 XML，整套界面中英双语一键切换 —— 零 Java 业务代码，单容器开箱即用。',
-    primaryCta: '打开在线工作台（离线版）',
+    primaryCta: '在浏览器中试用',
+    desktopCta: '下载桌面版',
     secondaryCta: 'Docker 快速部署',
+    browserNote:
+      '浏览器版是静态演示：编辑、Map 编排、Keys/Conref/DITAVAL 可用；发布、Git 与 AI 需桌面版或容器部署。',
     stats: [
       { value: '100%', label: '无损 XML 往返' },
       { value: '10', label: '复杂 DITA 1.3 黄金样本' },
@@ -174,8 +177,33 @@ export const zh = {
       { label: 'AI 边界', value: '候选片段必须通过无损拼接与 Diff 审阅' },
     ],
   },
+  desktop: {
+    eyebrow: '05 — 桌面版',
+    title: '桌面客户端，免 Docker 直接开工',
+    description:
+      'Electron 主进程内嵌 @dita/api，只监听 127.0.0.1：同一套 React 19 前端、同一份无损 XML，装完即用，不必准备 Docker 或 Node.js。',
+    versionLabel: '最新版本',
+    releaseNotes: '发布说明',
+    macName: 'macOS',
+    macArch: 'Apple Silicon · arm64',
+    macPrimary: '下载 .dmg',
+    macAlt: '便携 .zip',
+    winName: 'Windows',
+    winArch: '安装程序 · x64',
+    winPrimary: '下载 .exe',
+    winAlt: '便携 .zip',
+    highlights: [
+      '内嵌示例手册与 Noto CJK PDF 字体插件，中文 PDF 开箱可发',
+      '工作区、SQLite、git worktree 与发布产物写入系统用户数据目录',
+      '自动探测本机 Git 与 DITA-OT 4.x；缺失时编辑、Map、Keys 与 AI 仍可用',
+    ],
+    unsignedNote:
+      '开源构建未购买代码签名：macOS 首次打开若被 Gatekeeper 拦截，执行 xattr -cr /Applications/DITAEditor.app；Windows SmartScreen 选择「更多信息 → 仍要运行」。',
+    installGuide: '桌面版安装说明',
+    allReleases: '查看全部发布版本',
+  },
   quickStart: {
-    eyebrow: '05 — 快速启动',
+    eyebrow: '06 — 快速启动',
     title: '5 分钟把它跑起来',
     description: '三条路径：容器化团队部署、本地 pnpm 开发、接入 DeepSeek 或私有化兼容代理。',
     tabs: { docker: 'Docker 单容器', pnpm: '本地开发', ai: 'AI 配置' },
@@ -197,6 +225,7 @@ export const zh = {
     learnHeading: '学习',
     projectHeading: '项目',
     builtWith: '由 Astro、React 与 @dita/core 驱动，静态托管零后端。',
+    desktop: '桌面版下载',
     changelog: '更新日志',
     roadmap: '路线图',
     samples: '演示项目',
