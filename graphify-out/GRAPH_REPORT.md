@@ -1,26 +1,26 @@
 # Graph Report - DITAEditor  (2026-11-24)
 
 ## Corpus Check
-- 381 files · ~290,174 words
+- 381 files · ~292,700 words
 - Verdict: corpus is large enough that graph structure adds value.
 - Unclassified: 69 file(s) not represented in the graph (top: .dita 31, .css 20, (none) 5)
 
 ## Summary
-- 3504 nodes · 9808 edges · 181 communities (143 shown, 38 thin omitted)
-- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 430 edges (avg confidence: 0.92)
+- 3517 nodes · 9833 edges · 182 communities (145 shown, 37 thin omitted)
+- Extraction: 96% EXTRACTED · 4% INFERRED · 0% AMBIGUOUS · INFERRED: 440 edges (avg confidence: 0.93)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `428c680d`
+- Built from commit: `0a643ae9`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
 ## Community Hubs (Navigation)
 - PublishDialog.tsx
 - git-store.ts
-- serializer.ts
-- ai-prompt.ts
-- messages/en.ts
+- ai-service.ts
+- buildDitaConstraintSummary
+- zh-CN.ts
 - Core Package Manifest
 - API Package Manifest
 - Root Monorepo Manifest
@@ -33,7 +33,7 @@
 - pnpm Workspace Config
 - Graphify Agent Instructions
 - Web HTML Entrypoint
-- editor-store/index.ts
+- editor-store/types.ts
 - env
 - dita-map.ts
 - BaseLayout.astro
@@ -42,13 +42,13 @@
 - scripts
 - commands.ts
 - Phase 6 实施文档：DeepSeek AI 辅助文档编写、标签优化与错误处理
-- translate
+- lock-helpers.ts
 - converter.ts
 - deploy-site.yml
 - electron-builder.yml
-- editor-store/types.ts
+- MapTreePanel.tsx
 - ManualContextResolver
-- AiAssistantPanel.tsx
+- task-model-switch.test.ts
 - ref_vitest
 - locales.ts
 - ref_node_path
@@ -58,7 +58,7 @@
 - 4. 核心元素写作细则
 - 快速开始
 - DocsLayout.astro
-- AttributesPanel.tsx
+- MapNodeInspector.tsx
 - devDependencies
 - DITA Concept（概念）主题编写规范
 - WorkspaceManager
@@ -71,13 +71,13 @@
 - AppShell.tsx
 - App.tsx
 - dependencies
-- ai-store.ts
+- ai-types.ts
 - lock-service.ts
 - editor-handle.ts
 - DITA 通用 Topic（基本主题）编写规范
 - GitManager
-- 4. Non-Negotiable Engineering Invariants
-- TopicAuthoringGuide.tsx
+- useI18n
+- Assignment
 - workbench-store.ts
 - checkXmlWellFormed
 - web/src/i18n/locale.ts
@@ -87,19 +87,19 @@
 - dita-rules.ts
 - semantic-indexer.ts
 - zh/architecture.md
-- @codemirror/lang-xml@^6.1.0
-- dita-structure.ts
+- IdentityUser
+- 前端 DITA 1.3 结构化写作合规实施说明
 - SearchModal.astro
 - docker-entrypoint.sh
-- zh-CN.ts
+- 5.5 核心提示词工程设计（LangChain `ChatPromptTemplate`）
 - Phase 8 规划与实施蓝图：全栈英文版界面与双语国际化（i18n）
-- modules/ai/types.ts
+- phase6-ai-api.test.ts
 - devDependencies
 - lucide-react
 - en/features.md
-- ai-settings-service.ts
+- ai-fragment.test.ts
 - zh/features.md
-- HomePage.astro
+- Header.astro
 - astro.config.ts
 - en/ai-setup.md
 - phase10-workbench-assignments-plan.md
@@ -113,7 +113,7 @@
 - workspace-api.ts
 - fragment-locator.ts
 - MiniRoundTripDemo.tsx
-- AttributesPanel.tsx
+- InlineBubbleToolbar.tsx
 - en/getting-started.md
 - web/package.json
 - vite.config.ts
@@ -125,48 +125,48 @@
 - zh/introduction.md
 - zh/local-development.md
 - DITAEditor
-- conref.ts
+- dita-core/src/i18n/locale.ts
 - normalizePosixPath
 - scripts
 - playground-presets.ts
 - ConrefReusePanel.tsx
 - @dita/core@workspace:*
 - parser.ts
-- map-tree-utils.ts
+- Core features (Phase 0–11 implemented)
 - README.md
-- @codemirror/autocomplete@^6.20.4
+- NewTopicDialog.tsx
 - ditaval.ts
 - Hugging Face Spaces 部署指南（Docker 单容器方案）
-- SourceEditor.tsx
-- @codemirror/commands@^6.11.1
+- translate
+- no-hardcoded-cjk.test.ts
 - ai-output-parser.ts
 - fragment-splice.ts
 - sync-hf-space.sh
-- @codemirror/search@^6.7.2
-- Core features (Phase 0–8 implemented)
-- prosemirror-history@^1.5.2
+- @codemirror/language@^6.13.1
+- 核心特性（已实现：Phase 0–11）
+- prosemirror-commands@^1.7.2
 - prosemirror-model@^1.25.13
-- @tailwindcss/vite@^4.3.5
+- @codemirror/lint@^6.9.8
 - PublishService
 - @codemirror/view@^6.43.15
 - @lezer/highlight@^1.2.5
-- ai-workbench.test.ts
-- prosemirror-state@^1.4.4
+- @codemirror/merge@^6.12.3
+- @codemirror/state@^6.7.6
 - @codemirror/language@^6.13.1
 - prosemirror-inputrules@^1.7.0
 - dita-log-parser.ts
 - @lezer/highlight@^1.2.1
-- tailwindcss@^4.3.5
+- prosemirror-gapcursor@^1.4.1
 - prosemirror-state@^1.4.4
 - react-dom@^19.0.0
 - react-resizable-panels
 - strict-validator.ts
-- DiffViewer
+- ref_react
 - react@^19.0.0
-- ai-types.ts
+- prosemirror-keymap@^1.2.3
 - createTopicTemplate
-- @codemirror/search@^6.7.2
-- react-arborist
+- tailwindcss@^4.3.5
+- @codemirror/lint@^6.9.8
 - @codemirror/lang-xml@^6.1.0
 - publish-service.ts
 - phase5-publish.test.ts
@@ -183,19 +183,20 @@
 - tag
 - .runJob
 - desktop/tsconfig.json
-- DitaPrologNodeView
+- @dita/core@workspace:*
 - release-desktop.yml
 - zip-store.ts
 - build.mjs
 - steps
-- i18n-parity.test.ts
+- prosemirror-commands@^1.7.2
 - attach-to-release
 - electron
 - @codemirror/state@^6.7.6
-- prosemirror-dropcursor@^1.8.4
+- prosemirror-keymap@^1.2.3
 - prosemirror-gapcursor@^1.4.1
 - react-dnd-html5-backend@^16.0.1
-- zustand
+- assignments-api.ts
+- prosemirror-view@^1.43.0
 
 ## God Nodes (most connected - your core abstractions)
 1. `useI18n()` - 127 edges
@@ -214,12 +215,12 @@
   CHANGELOG.md → apps/api/scripts/e2e-ai-live.mts
 - `二、一键启用步骤（约 2 分钟）` --references--> `main()`  [INFERRED]
   docs/deploy-github-pages.md → apps/api/scripts/e2e-ai-live.mts
+- `Fixed` --references--> `resolveDitaSpawn()`  [INFERRED]
+  CHANGELOG.md → apps/api/src/modules/dita-ot/dita-runtime.ts
 - `5.1 手册管理接口（`apps/api/src/modules/manuals/routes.ts`）` --references--> `ManualRegistryService`  [INFERRED]
   docs/phase10-workbench-assignments-plan.md → apps/api/src/modules/manuals/manual-registry-service.ts
 - `7. DITA-OT 4.x 权威校验与异步发布（Phase 5）` --references--> `PublishQueue`  [INFERRED]
   README.md → apps/api/src/modules/publish/publish-queue.ts
-- `7. Authoritative DITA-OT 4.x validation and asynchronous publishing (Phase 5)` --references--> `PublishQueue`  [INFERRED]
-  README.en.md → apps/api/src/modules/publish/publish-queue.ts
 
 ## Import Cycles
 - None detected.
@@ -227,27 +228,27 @@
 ## Hyperedges (group relationships)
 - **Phase 0 Lossless XML Core** — docs_architecture_and_plan_dita_core_shared_kernel, docs_architecture_and_plan_lossless_xml_roundtrip, docs_architecture_and_plan_passthrough_nodes, docs_architecture_and_plan_cals_table_adapter, docs_architecture_and_plan_dual_mode_state_machine [EXTRACTED 1.00]
 
-## Communities (181 total, 38 thin omitted)
+## Communities (182 total, 37 thin omitted)
 
 ### Community 0 - "PublishDialog.tsx"
-Cohesion: 0.14
-Nodes (29): JobLogViewer(), JobLogViewerProps, formatBytes(), formatDuration(), formatTime(), PublishDialog(), STATUS_META, stemOf() (+21 more)
+Cohesion: 0.13
+Nodes (31): JobLogViewer(), JobLogViewerProps, formatBytes(), formatDuration(), formatTime(), PublishDialog(), STATUS_META, stemOf() (+23 more)
 
 ### Community 1 - "git-store.ts"
-Cohesion: 0.10
-Nodes (43): CheckinCandidate, CheckinDialogProps, changeLabelKey(), GitPanel(), GitPanelProps, shortDate(), LockStatusBarProps, stateStyles (+35 more)
-
-### Community 2 - "serializer.ts"
-Cohesion: 0.14
-Nodes (25): DITA_BLOCK_TAGS, DITA_INLINE_TAGS, DITA_MAP_CONTAINER_NODE_TAGS, DITA_MAP_ROOT_TAGS, DITA_MAP_TREE_NODE_TAGS, DITA_STRUCTURAL_ELEMENT_CONTAINERS, DITA_TOPIC_ROOT_TAGS, DITA_WHITESPACE_PRESERVE_TAGS (+17 more)
-
-### Community 3 - "ai-prompt.ts"
 Cohesion: 0.12
-Nodes (25): AiProjectContext, AiPromptInput, buildAiMessages(), buildDiagnosticsBlock(), buildHistoryMessages(), buildHumanPrompt(), buildSystemPrompt(), buildTaskGuide() (+17 more)
+Nodes (34): DiffDialogProps, cancelCheckout(), checkinFiles(), CheckinOptions, CheckinResponse, checkoutFile(), createGitBranch(), fetchBranches() (+26 more)
 
-### Community 4 - "messages/en.ts"
-Cohesion: 0.18
-Nodes (8): enAi, enAssignments, enCollab, enCommon, enEditor, enGuide, enStructure, enWorkbench
+### Community 2 - "ai-service.ts"
+Cohesion: 0.08
+Nodes (42): ApiLocale, apiT(), AiContextInput, buildAiContext(), EMPTY_AI_CONTEXT, keyDefinitionLine(), topicIndexLine(), truncateWithNotice() (+34 more)
+
+### Community 3 - "buildDitaConstraintSummary"
+Cohesion: 0.15
+Nodes (12): close(), element(), [1.0.0] — 2026-11-22, Added, Changed, Fixed, Phase 6 概要, buildDitaConstraintSummary() (+4 more)
+
+### Community 4 - "zh-CN.ts"
+Cohesion: 0.07
+Nodes (22): TOPIC_AUTHORING_GUIDES, TopicGuideType, enAi, enAssignments, enCollab, enCommon, enEditor, en (+14 more)
 
 ### Community 5 - "Core Package Manifest"
 Cohesion: 0.09
@@ -289,29 +290,29 @@ Nodes (6): compilerOptions, jsx, noEmit, extends, include, ../../tsconfig.base.j
 Cohesion: 0.20
 Nodes (9): allowBuilds, better-sqlite3, electron, electron-winstaller, esbuild, sharp, overrides, @electron/get@^3.0.0 (+1 more)
 
-### Community 17 - "editor-store/index.ts"
-Cohesion: 0.16
-Nodes (20): setTaskContentModelSetting(), createWorkspaceDir(), createWorkspaceFile(), deleteWorkspaceEntry(), renameWorkspaceEntry(), saveFileContent(), useEditorStore, createInitialEditorState() (+12 more)
+### Community 17 - "editor-store/types.ts"
+Cohesion: 0.11
+Nodes (38): EditorTabBarProps, setTaskContentModelSetting(), MapBufferState, createInMemoryDemoWorkspace(), useEditorStore, createInitialEditorState(), cancelAllPendingRefreshes(), cancelOverlayRefresh() (+30 more)
 
 ### Community 18 - "env"
 Cohesion: 0.06
 Nodes (33): concurrency, cancel-in-progress, group, GIT_AUTHOR_EMAIL, GIT_AUTHOR_NAME, HAS_HF_TOKEN, HF_SPACE_REPO, HF_TOKEN (+25 more)
 
 ### Community 19 - "dita-map.ts"
-Cohesion: 0.19
-Nodes (35): createMapTreeSlice(), extractElementAttrs(), applyElementAttrsPreservingOrder(), computeElementPath(), countCommentsAndPis(), deleteMapNode(), DitaMapKind, DitaMapReferenceInfo (+27 more)
+Cohesion: 0.13
+Nodes (46): buildCompositeMapTree(), CompositeMapTreeResult, isSameOrDescendantPath(), planMapNodeMove(), PlannedMapMoveResult, subtreeReferencesMap(), createMapTreeSlice(), extractElementAttrs() (+38 more)
 
 ### Community 20 - "BaseLayout.astro"
-Cohesion: 0.12
-Nodes (16): dict, Props, LOCALE_HTML_LANG, LOCALE_OG_LOCALE, alternateEn, alternateZh, canonical, dict (+8 more)
+Cohesion: 0.09
+Nodes (21): dict, jsonLd, layerRows, Props, screenshotUrl(), showcaseImages, dict, Props (+13 more)
 
 ### Community 21 - "dependencies"
-Cohesion: 0.09
-Nodes (23): dependencies, @codemirror/language@^6.13.1, @codemirror/lint@^6.9.8, @codemirror/merge@^6.12.3, @codemirror/state@^6.7.6, @codemirror/view@^6.43.15, prosemirror-commands@^1.7.2, prosemirror-dropcursor@^1.8.4 (+15 more)
+Cohesion: 0.11
+Nodes (19): dependencies, @codemirror/autocomplete@^6.20.4, @codemirror/commands@^6.11.1, @codemirror/lang-xml@^6.1.0, @codemirror/search@^6.7.2, @codemirror/view@^6.43.15, prosemirror-dropcursor@^1.8.4, prosemirror-view@^1.43.0 (+11 more)
 
 ### Community 22 - "httpError"
-Cohesion: 0.11
-Nodes (13): FileLockRow, ManualRow, TopicAssignmentRow, AssignmentService, normalizeTopicPath(), parseStatus(), todayIso(), httpError() (+5 more)
+Cohesion: 0.06
+Nodes (39): ManualRow, TopicAssignmentRow, topicAssignments, requireAdmin(), ACTIVE_STATUSES, ALL_STATUSES, AssignmentListQuery, AssignmentScope (+31 more)
 
 ### Community 23 - "scripts"
 Cohesion: 0.40
@@ -319,19 +320,19 @@ Nodes (5): scripts, build, dev, test, typecheck
 
 ### Community 24 - "commands.ts"
 Cohesion: 0.10
-Nodes (38): resolveTaskModelForDocument(), insertBlockDitaElement(), insertBlockDitaElementAtPos(), insertMissingTopicBody(), resolveSequenceAnchor(), TOPIC_BODY_WRAPPER, insertReuseElementAtPos(), createDitaElementSkeleton() (+30 more)
+Nodes (35): insertBlockDitaElement(), insertBlockDitaElementAtPos(), insertMissingTopicBody(), resolveSequenceAnchor(), TOPIC_BODY_WRAPPER, insertReuseElementAtPos(), createDitaElementSkeleton(), exitCodeblockToParagraph() (+27 more)
 
 ### Community 25 - "Phase 6 实施文档：DeepSeek AI 辅助文档编写、标签优化与错误处理"
-Cohesion: 0.06
-Nodes (30): 1.1 已确认设计边界（Non-Negotiables & Non-Goals）, 1) 全局共享系统底稿（`BASE_DITA_SYSTEM_PROMPT`）, 1. 目标与边界, 1) 配置与审计 REST API, 2) 核心流式端点：`POST /api/ai/stream`, 2. 端到端架构与数据流, 2) 能力 1：`authoring`（辅助文档编写）任务提示词, 3.1 Drizzle 表结构（`apps/api/src/db/schema.ts`） (+22 more)
-
-### Community 26 - "translate"
 Cohesion: 0.11
-Nodes (24): defaultInstruction(), targetLabel(), BLOCK_TAG_ELEMENT_MAP, INLINE_TAG_ELEMENT_MAP, renderConrefPreviewDom(), renderDomNode(), XmlLikeElement, XmlLikeNode (+16 more)
+Nodes (17): errorMessage(), 2. DB (`apps/api/src/db`), 3. REST contract, Phase 6 AI Assistance — Implementation Contract, 1.1 已确认设计边界（Non-Negotiables & Non-Goals）, 1. 目标与边界, 2. 端到端架构与数据流, 3.1 Drizzle 表结构（`apps/api/src/db/schema.ts`） (+9 more)
+
+### Community 26 - "lock-helpers.ts"
+Cohesion: 0.22
+Nodes (10): LockStatusBarProps, stateStyles, IdentityRole, describeLock(), FileEditability, ResolveEditabilityInput, resolveFileEditability(), parseEventFrame() (+2 more)
 
 ### Community 27 - "converter.ts"
-Cohesion: 0.13
-Nodes (26): CalsCursor, CalsCellSpan, CalsColSpec, CalsRowModel, CalsTgroupModel, parseCalsColSpecs(), parseCalsTgroup(), parseSectionRows() (+18 more)
+Cohesion: 0.06
+Nodes (61): CalsCursor, CalsCellSpan, CalsColSpec, CalsRowModel, CalsTgroupModel, parseCalsColSpecs(), parseCalsTgroup(), parseSectionRows() (+53 more)
 
 ### Community 28 - "deploy-site.yml"
 Cohesion: 0.05
@@ -341,57 +342,57 @@ Nodes (40): runs-on, steps, concurrency, cancel-in-progress, group, environment,
 Cohesion: 0.05
 Nodes (40): appId, asar, asarUnpack, copyright, directories, app, buildResources, output (+32 more)
 
-### Community 30 - "editor-store/types.ts"
-Cohesion: 0.10
-Nodes (32): FileContentResult, EditorTabBarProps, FileExplorerPanelProps, NewMapDialogProps, NewTopicDialogProps, PublishDialogProps, WorkspaceDialogProps, CompositeMapTreeNode (+24 more)
+### Community 30 - "MapTreePanel.tsx"
+Cohesion: 0.24
+Nodes (13): profilingBadgeClasses(), CompositeMapTreeNode, MapNodeContextMenu(), MapNodeContextMenuProps, MapNodeMenuTarget, createMapTreeNodeRenderer(), MapNodeRowActions, NodeKindIcon() (+5 more)
 
 ### Community 31 - "ManualContextResolver"
 Cohesion: 0.06
-Nodes (29): ApiLocale, AiContextInput, AiStreamContext, DetectRuntimeOptions, WorkspaceScaffold, repositoryIdFor(), firstHeader(), firstQuery() (+21 more)
+Nodes (25): manuals, WorkspaceScaffold, repositoryIdFor(), firstHeader(), firstQuery(), ManualContextResolver, ManualContextResolverOptions, manualIdForRoot() (+17 more)
 
-### Community 32 - "AiAssistantPanel.tsx"
-Cohesion: 0.14
-Nodes (23): PromptStrings, AiPanelIntent, AiTargetScope, AiDiagnosticContext, AiFixContext, AiHistoryTurn, AiSubAction, AiTaskType (+15 more)
+### Community 32 - "task-model-switch.test.ts"
+Cohesion: 0.11
+Nodes (29): TaskModelSwitchProps, getTaskContentModel(), resolveTaskModelForXml(), setDetectedTaskContentModel(), shouldShowTaskModelSwitch(), DITA_STRUCTURE_KEY, DitaStructurePluginMeta, DitaStructurePluginState (+21 more)
 
 ### Community 33 - "ref_vitest"
 Cohesion: 0.06
-Nodes (58): TaskModelSwitchProps, getTaskContentModel(), resolveTaskModelForXml(), buildStructureDecorations(), DITA_STRUCTURE_KEY, DitaStructurePluginMeta, DitaStructurePluginState, isTextOnlyContent() (+50 more)
+Nodes (53): 4.8 DITA 1.3 Ordered Content Models (`Phase 9`), buildStructureDecorations(), buildState(), buildTaskState(), cursorIntoTag(), makeState(), noopCallbacks, 5.1 可视化模式：Decoration 标注 (+45 more)
 
 ### Community 34 - "locales.ts"
-Cohesion: 0.14
-Nodes (26): anchor(), columns, dict, home, Props, year, dict, isDocs (+18 more)
+Cohesion: 0.16
+Nodes (22): bySlug, dict, groups, Props, anchor(), columns, dict, home (+14 more)
 
 ### Community 35 - "ref_node_path"
-Cohesion: 0.06
-Nodes (28): isInside(), MIME_TYPES, registerWebStaticRoutes(), ADMIN, bootstrap(), CHEN, createFixture(), LIN (+20 more)
+Cohesion: 0.04
+Nodes (43): createServer(), AiChatModel, createLangChainModelFactory(), AiConfigTestResult, defaultWebDistDir(), isInside(), MIME_TYPES, registerWebStaticRoutes() (+35 more)
 
 ### Community 36 - "UiLocale"
-Cohesion: 0.15
-Nodes (28): collectDitaDecorations(), createBlockGapInserterDom(), createDitaDecorationsPlugin(), createChevronCapSvg(), createDitavalFlagPillDom(), createOxygenTagDom(), createProfilingBadgeDom(), formatAttrsForTag() (+20 more)
+Cohesion: 0.10
+Nodes (40): AttributesPanelProps, GROUP_SUBTITLES, GROUP_TITLE_KEYS, sanitizeCssColor(), collectDitaDecorations(), createBlockGapInserterDom(), createDitaDecorationsPlugin(), createChevronCapSvg() (+32 more)
 
 ### Community 37 - "dita-runtime.ts"
-Cohesion: 0.16
-Nodes (21): buildRuntimeEnv(), defaultDitaHomes(), defaultNotoFontDir(), defaultPluginDir(), detectDitaRuntime(), DetectionCacheEntry, DitaRunOptions, DitaRunResult (+13 more)
+Cohesion: 0.14
+Nodes (22): buildRuntimeEnv(), defaultDitaHomes(), defaultNotoFontDir(), defaultPluginDir(), detectDitaRuntime(), DetectionCacheEntry, DitaRunOptions, DitaRunResult (+14 more)
 
 ### Community 38 - "index.tsx"
-Cohesion: 0.08
-Nodes (27): LeftSidebarProps, DEFAULT_DIR_FOR_TYPE, NewTopicMountContext, TOPIC_OPTIONS, SOURCE_KEYS, TABS, RELEVANT_EXTENSIONS, SCAFFOLD_OPTIONS (+19 more)
+Cohesion: 0.10
+Nodes (23): TAB_TYPE_BADGE, LeftSidebarProps, SOURCE_KEYS, arrayBufferToBase64(), RELEVANT_EXTENSIONS, SCAFFOLD_OPTIONS, WorkspaceDialog(), WorkspaceRowBody() (+15 more)
 
 ### Community 39 - "4. 核心元素写作细则"
 Cohesion: 0.08
 Nodes (23): 1.1 适用范围, 1.2 核心编写原则, 1. 概述与基本原则, 2. 文件命名与 ID 规范, 3. 标准标签层级结构, 4.1 标题（`<title>`）— 必填, 4.2 简述（`<shortdesc>`）— 强烈推荐, 4.3 前置条件（`<prereq>`）— 可选 (+15 more)
 
 ### Community 40 - "快速开始"
-Cohesion: 0.15
-Nodes (13): DITAEditor, 仓库目录结构, 后端环境变量（`@dita/api`）, 实施路线图（Roadmap）, 开发、构建与测试, 快速开始, 方式一：Docker 单容器（推荐，开箱即用）, 方式三：仅编辑 / 语义写作（不安装 DITA-OT） (+5 more)
+Cohesion: 0.14
+Nodes (14): DITAEditor, Workspace、Semantics & Asset REST API 速览, 仓库目录结构, 后端环境变量（`@dita/api`）, 实施路线图（Roadmap）, 快速开始, 方式一：Docker 单容器（推荐，开箱即用）, 方式三：桌面客户端（macOS Apple Silicon & Windows x64，轻量版） (+6 more)
 
 ### Community 41 - "DocsLayout.astro"
-Cohesion: 0.09
-Nodes (18): bySlug, dict, groups, Props, paths, Props, Locale, dict (+10 more)
+Cohesion: 0.10
+Nodes (16): astro@^5.18.2, collections, docs, Locale, dict, groups, index, jsonLd (+8 more)
 
-### Community 42 - "AttributesPanel.tsx"
-Cohesion: 0.14
-Nodes (22): PROFILING_BADGE_CLASSES, profilingBadgeClasses(), ProfilingAttrEditor(), getTagLabel(), AttributesPanel(), sanitizeCssColor(), onLocaleChange(), findTreeNodeByPath() (+14 more)
+### Community 42 - "MapNodeInspector.tsx"
+Cohesion: 0.13
+Nodes (24): ConrefReusePanel(), PROFILING_BADGE_CLASSES, ProfilingAttrEditor(), TABS, TopicInspector(), XrefImageDialog(), XrefImageDialogProps, AttributesPanel() (+16 more)
 
 ### Community 43 - "devDependencies"
 Cohesion: 0.18
@@ -403,11 +404,15 @@ Nodes (17): 1.1 适用范围, 1.2 核心编写原则, 1. 概述与基本原则, 
 
 ### Community 45 - "WorkspaceManager"
 Cohesion: 0.06
-Nodes (37): ALLOWED_IMAGE_EXTENSIONS, MIME_TYPES, registerAssetRoutes(), sanitizeAssetFilename(), createFileSchema, createWorkspaceSchema, forgetWorkspaceSchema, importWorkspaceSchema (+29 more)
+Nodes (32): createFileSchema, createWorkspaceSchema, forgetWorkspaceSchema, importWorkspaceSchema, mkdirSchema, openWorkspaceSchema, registerWorkspaceFileRoutes(), renameSchema (+24 more)
+
+### Community 46 - "createServer"
+Cohesion: 0.25
+Nodes (4): collectAllFilePaths(), WorkspaceSemanticIndexer, 4.1 `ManualContextResolver`（请求级上下文解析器）, SemanticDiagnostic
 
 ### Community 47 - "Changelog"
 Cohesion: 0.09
-Nodes (22): [0.5.0] — 2026-11-21, [0.6.0] — 2026-11-21, [0.7.0] — 2026-11-22, [1.0.0] — 2026-11-22, [1.1.0] — 2026-11-22, [1.2.0] — 2026-11-22, Added, Added (+14 more)
+Nodes (22): [0.5.0] — 2026-11-21, [0.6.0] — 2026-11-21, [0.7.0] — 2026-11-22, [1.1.0] — 2026-11-22, [1.2.0] — 2026-11-22, [1.3.0] — 2026-11-24, Added, Added (+14 more)
 
 ### Community 48 - "HomePage.astro"
 Cohesion: 0.14
@@ -422,32 +427,32 @@ Cohesion: 0.11
 Nodes (17): 1.1 适用范围, 1.2 核心编写原则, 1. 概述与基本原则, 2. 文件命名与 ID 规范, 3. 标准标签层级结构, 4.1 标题（`<title>`）— 必填, 4.2 简述（`<shortdesc>`）— 强烈推荐, 4.3 语法定义块（`<refsyn>`） (+9 more)
 
 ### Community 51 - "api/src/index.ts"
-Cohesion: 0.06
-Nodes (65): firstHeaderValue(), RequestLike, resolveRequestLocale(), apiCatalogue(), ApiMessageKey, ApiMessageParams, apiMessagesEn, apiMessagesZh (+57 more)
+Cohesion: 0.07
+Nodes (59): firstHeaderValue(), RequestLike, resolveRequestLocale(), apiCatalogue(), ApiMessageKey, ApiMessageParams, apiMessagesEn, apiMessagesZh (+51 more)
 
 ### Community 52 - "AppShell.tsx"
-Cohesion: 0.10
-Nodes (27): AppShell(), EditorState, rootEl, AppRoute, BASE, currentRoute, editorPath(), EditorRoute (+19 more)
+Cohesion: 0.11
+Nodes (26): AppShell(), EditorState, rootEl, AppRoute, BASE, currentRoute, editorPath(), EditorRoute (+18 more)
 
 ### Community 53 - "App.tsx"
-Cohesion: 0.07
-Nodes (86): 4.7 AI Assistance (`Phase 6`), useAiStore, AiAssistantPanel(), AiDiffDialog(), AiSettingsDialog(), AiSettingsDialogProps, formatNumber(), useAiPanelActions() (+78 more)
+Cohesion: 0.11
+Nodes (45): AiAssistantPanel(), useAiPanelActions(), App(), AppProps, CheckinDialog(), DelegateTopicButton(), EditorTabBar(), AssignmentBadge (+37 more)
 
 ### Community 54 - "dependencies"
 Cohesion: 0.11
-Nodes (18): dependencies, @codemirror/autocomplete@^6.20.4, @codemirror/merge@^6.12.3, @dita/core@workspace:*, lucide-react@^1.76.0, prosemirror-keymap@^1.2.3, prosemirror-model@^1.25.13, prosemirror-view@^1.43.0 (+10 more)
+Nodes (18): dependencies, @codemirror/commands@^6.11.1, @codemirror/merge@^6.12.3, @codemirror/search@^6.7.2, lucide-react@^1.76.0, prosemirror-dropcursor@^1.8.4, prosemirror-model@^1.25.13, react@^19.0.0 (+10 more)
 
-### Community 55 - "ai-store.ts"
-Cohesion: 0.13
-Nodes (29): abortError(), AiStreamHandlers, dispatchFrame(), fetchAiConfig(), fetchAiUsage(), parseAiSseFrame(), ParsedSseFrame, saveAiConfig() (+21 more)
+### Community 55 - "ai-types.ts"
+Cohesion: 0.06
+Nodes (75): PromptStrings, abortError(), AiStreamHandlers, dispatchFrame(), fetchAiConfig(), fetchAiUsage(), parseAiSseFrame(), ParsedSseFrame (+67 more)
 
 ### Community 56 - "lock-service.ts"
-Cohesion: 0.05
-Nodes (52): DitaDatabase, DitaDatabaseHandle, migratePublishJobs(), openDatabase(), AiUsageLogRow, aiUsageLogs, fileLocks, LockBackupRow (+44 more)
+Cohesion: 0.07
+Nodes (40): DitaDatabase, DitaDatabaseHandle, migratePublishJobs(), openDatabase(), aiSettings, AiSettingsRow, FileLockRow, fileLocks (+32 more)
 
 ### Community 57 - "editor-handle.ts"
-Cohesion: 0.19
-Nodes (26): updateNodeRawAttr(), MessageKey, TABLE_ACTIONS, TableAction, VisualEditorHandleDeps, mergeCalsCellDown(), mergeCalsCellRight(), mergeCellContents() (+18 more)
+Cohesion: 0.17
+Nodes (29): updateNodeRawAttr(), MessageKey, TABLE_ACTIONS, TableAction, VisualEditorHandleDeps, mergeCalsCellDown(), mergeCalsCellRight(), mergeCellContents() (+21 more)
 
 ### Community 58 - "DITA 通用 Topic（基本主题）编写规范"
 Cohesion: 0.11
@@ -457,29 +462,29 @@ Nodes (17): 1.1 适用范围, 1.2 核心编写原则, 1. 概述与基本原则, 
 Cohesion: 0.14
 Nodes (14): changeLabel(), GitBranchInfo, GitCommitEntry, GitFileChange, GitFileDiff, GitManager, GitManagerOptions, GitStatusSummary (+6 more)
 
-### Community 60 - "4. Non-Negotiable Engineering Invariants"
-Cohesion: 0.13
-Nodes (14): 1. Project Overview, 2. Repository Layout, 3. Build, Typecheck & Test Commands, 4.1 Lossless XML Round-Trip & Minimal Git Diff, 4.2 ProseMirror Schema Rules (`@dita/core`), 4.3 Source ↔ Visual Transition Safety, 4.4 OASIS CALS Table Fidelity, 4.5 Isomorphic `@dita/core` & Runtime Gotchas (+6 more)
+### Community 60 - "useI18n"
+Cohesion: 0.21
+Nodes (17): TaskModelSwitch(), VisualEditorSubHeader(), useI18n(), AssignmentCard(), statusTone(), HubHeader(), ManualCard(), ManualFormDialog() (+9 more)
 
-### Community 61 - "TopicAuthoringGuide.tsx"
-Cohesion: 0.15
-Nodes (16): GROUP_LABEL_KEYS, GuideTreeNodeProps, isTopicGuideType(), readInitialExpanded(), TagFactsProps, TOPIC_AUTHORING_GUIDES, TopicAuthoringGuideProps, TopicAuthoringGuideSpec (+8 more)
+### Community 61 - "Assignment"
+Cohesion: 0.12
+Nodes (20): ManualAssignmentsPanelProps, Assignment, AssignmentCardProps, MyAssignmentsPanelProps, 10. 风险与防呆清单, 1.1 已确认设计决策（Design Tree 共识清单）, 1. 目标、范围与设计树共识, 2. 领域模型与系统交互流 (+12 more)
 
 ### Community 62 - "workbench-store.ts"
-Cohesion: 0.05
-Nodes (68): ManualAssignmentsPanelProps, STATUS_TONE, dateTimeFormatter(), formatDateTime(), Assignment, AssignmentCreateInput, AssignmentListQuery, AssignmentPerson (+60 more)
+Cohesion: 0.15
+Nodes (21): AssignmentCreateInput, AssignmentSummary, createManual(), fetchManuals(), Manual, ManualCreateInput, ManualCreateMode, ManualListSnapshot (+13 more)
 
 ### Community 63 - "checkXmlWellFormed"
-Cohesion: 0.19
-Nodes (16): computeXmlLineDiffStats(), formatDitaXml(), SourceToVisualResult, syncSourceToVisual(), syncVisualToSource(), VisualToSourceResult, slimdomToPmDoc(), findDirectElementIndexInPmParent() (+8 more)
+Cohesion: 0.12
+Nodes (22): computeXmlLineDiffStats(), formatDitaXml(), SourceToVisualResult, syncSourceToVisual(), syncVisualToSource(), VisualToSourceResult, LockLike, getTabDiffStats() (+14 more)
 
 ### Community 64 - "web/src/i18n/locale.ts"
-Cohesion: 0.08
-Nodes (28): interpolate(), DEFAULT_UI_LOCALE, detectBrowserLocale(), LOCALE_STORAGE_KEY, LocaleListener, localeListeners, LocaleState, notifyLocaleChange() (+20 more)
+Cohesion: 0.14
+Nodes (19): interpolate(), DEFAULT_UI_LOCALE, detectBrowserLocale(), LOCALE_STORAGE_KEY, LocaleListener, localeListeners, LocaleState, notifyLocaleChange() (+11 more)
 
 ### Community 65 - "VisualEditor.tsx"
 Cohesion: 0.08
-Nodes (60): acceptsBlockContent(), BLOCK_CONTAINER_TAGS, BlockConvertMode, BlockConvertOption, BlockHandleTarget, blockIndexInContainer(), blockIndexInParent(), BlockMovePlan (+52 more)
+Nodes (64): resolveTaskModelForDocument(), acceptsBlockContent(), BLOCK_CONTAINER_TAGS, BlockConvertMode, BlockConvertOption, BlockHandleTarget, blockIndexInContainer(), blockIndexInParent() (+56 more)
 
 ### Community 66 - "en/architecture.md"
 Cohesion: 0.14
@@ -487,39 +492,39 @@ Nodes (13): Concurrency model, `@dita/api`, `@dita/core`, `@dita/site`, `@dita/w
 
 ### Community 67 - "semantic-engine.ts"
 Cohesion: 0.12
-Nodes (19): DITA_PROFILING_ATTRS, basenamePosix(), IMAGE_EXTENSIONS, ResolvedDitaHref, BfsFrame, buildKeyspace(), expandScopePrefixes(), extractInlineKeyText() (+11 more)
+Nodes (31): extractProfilingValuesFromDocument(), coreT(), basenamePosix(), IMAGE_EXTENSIONS, ResolvedDitaHref, resolveDitaHref(), DITA_TOPIC_ROOT_TAGS, areConrefTagsCompatible() (+23 more)
 
 ### Community 68 - "dita-rules.ts"
-Cohesion: 0.11
-Nodes (17): ATTRIBUTE_DESCRIPTIONS_ZH, ATTRIBUTE_LABELS_ZH, BODY_BLOCKS, CONBODY_BLOCKS, DITA_CATEGORY_LABELS, DitaAttributeGroup, DitaElementCategory, ELEMENT_DESCRIPTIONS_ZH (+9 more)
+Cohesion: 0.12
+Nodes (16): ATTRIBUTE_DESCRIPTIONS_ZH, ATTRIBUTE_LABELS_ZH, BODY_BLOCKS, CONBODY_BLOCKS, DITA_CATEGORY_LABELS, DitaAttributeGroup, ELEMENT_DESCRIPTIONS_ZH, ELEMENT_SPEC_LIST (+8 more)
 
 ### Community 69 - "semantic-indexer.ts"
-Cohesion: 0.21
-Nodes (15): WorkspaceDitavalSummary, BranchIndexState, collectAllFilePaths(), SemanticContextResponse, summarizeDitaval(), InsertKeyrefDialogProps, KeyspacePanelProps, ProfilingAttrEditorProps (+7 more)
+Cohesion: 0.13
+Nodes (17): FileContentResult, WorkspaceDitavalSummary, WorkspaceMapSummary, BranchIndexState, SemanticContextResponse, summarizeDitaval(), InsertKeyrefDialogProps, KeyspacePanelProps (+9 more)
 
 ### Community 70 - "zh/architecture.md"
 Cohesion: 0.14
 Nodes (13): `@dita/api`, `@dita/core`, `@dita/site`, `@dita/web`, 全局视图, 包边界, 发布链路, 存储 (+5 more)
 
-### Community 72 - "dita-structure.ts"
+### Community 72 - "前端 DITA 1.3 结构化写作合规实施说明"
 Cohesion: 0.05
-Nodes (50): 4.8 DITA 1.3 Ordered Content Models (`Phase 9`), StructureIssueLike, 10. 相关测试, 1. 设计目标与三条硬约束, 2. 总体链路, 3.1 成员表：父子能不能放, 3. ① 规则数据层, 3.3 槽位语义 (+42 more)
+Nodes (39): 1. Project Overview, 2. Repository Layout, 3. Build, Typecheck & Test Commands, 4.1 Lossless XML Round-Trip & Minimal Git Diff, 4.2 ProseMirror Schema Rules (`@dita/core`), 4.3 Source ↔ Visual Transition Safety, 4.4 OASIS CALS Table Fidelity, 4.5 Isomorphic `@dita/core` & Runtime Gotchas (+31 more)
 
 ### Community 73 - "SearchModal.astro"
 Cohesion: 0.15
 Nodes (12): dict, hits, input, loadPagefind(), overlay, PagefindHit, PagefindModule, Props (+4 more)
 
-### Community 75 - "zh-CN.ts"
-Cohesion: 0.18
-Nodes (8): zhCNAi, zhCNAssignments, zhCNCollab, zhCNCommon, zhCNEditor, zhCNGuide, zhCNStructure, zhCNWorkbench
+### Community 75 - "5.5 核心提示词工程设计（LangChain `ChatPromptTemplate`）"
+Cohesion: 0.14
+Nodes (14): 1) 全局共享系统底稿（`BASE_DITA_SYSTEM_PROMPT`）, 1) 配置与审计 REST API, 2) 核心流式端点：`POST /api/ai/stream`, 2) 能力 1：`authoring`（辅助文档编写）任务提示词, 3) 能力 2：`optimize_tags`（优化标签：语义精细化 + 结构重构 + Keyref 推荐）, 4) 能力 3：`fix_error`（错误处理：XML 良构 / 项目语义 / DITA-OT 严格校验）, 5.2 API 与 SSE 接口契约, 5.3 模型输出协议与自动纠错重试闭环 (+6 more)
 
 ### Community 76 - "Phase 8 规划与实施蓝图：全栈英文版界面与双语国际化（i18n）"
 Cohesion: 0.22
 Nodes (8): 1.1 已确认设计决策（Non-Negotiables & Non-Goals）, 1. 目标、范围与决策边界, 3.1 端到端语言流转链路, 3. 全栈 i18n 架构设计, 4. OASIS DITA 1.3 官方英文术语规范表, 5. 目录结构规划, 7. 验收标准（Definition of Done）, Phase 8 规划与实施蓝图：全栈英文版界面与双语国际化（i18n）
 
-### Community 77 - "modules/ai/types.ts"
-Cohesion: 0.04
-Nodes (88): apiT(), buildAiContext(), EMPTY_AI_CONTEXT, keyDefinitionLine(), topicIndexLine(), truncateWithNotice(), AiChatModel, AiModelFactory (+80 more)
+### Community 77 - "phase6-ai-api.test.ts"
+Cohesion: 0.05
+Nodes (58): AiUsageLogRow, aiUsageLogs, AiProjectContext, AiPromptInput, buildAiMessages(), buildDiagnosticsBlock(), buildHistoryMessages(), buildHumanPrompt() (+50 more)
 
 ### Community 78 - "devDependencies"
 Cohesion: 0.14
@@ -527,27 +532,27 @@ Nodes (18): devDependencies, @astrojs/check@^0.9.12, pagefind@^1.6.0, @types/rea
 
 ### Community 79 - "lucide-react"
 Cohesion: 0.16
-Nodes (23): DelegateTopicButtonProps, IdentitySwitcher(), IdentitySwitcherProps, LocaleSwitcher(), OPTIONS, TopicAssignmentBannerProps, WorkbenchHeaderProps, CURRENT_USER_STORAGE_KEY (+15 more)
+Nodes (22): DelegateTopicButtonProps, changeLabelKey(), GitPanel(), GitPanelProps, shortDate(), IdentitySwitcher(), IdentitySwitcherProps, LocaleSwitcher() (+14 more)
 
 ### Community 80 - "en/features.md"
-Cohesion: 0.15
-Nodes (12): AI assistance, Collaboration and versioning, Conref, DITAVAL projection, Dual-mode editing, Keyspace, Lossless round-trip and minimal diffs, Maps and bookmaps (+4 more)
+Cohesion: 0.13
+Nodes (14): AI assistance, Bilingual UI, Collaboration and versioning, Conref, DITAVAL projection, Dual-mode editing, Keyspace, Lossless round-trip and minimal diffs (+6 more)
 
-### Community 81 - "ai-settings-service.ts"
-Cohesion: 0.23
-Nodes (10): aiSettings, AiSettingsRow, AI_SETTINGS_ID, AiEnvDefaults, AiSettingsService, maskApiKey(), readAiEnvDefaults(), readEnvInt() (+2 more)
+### Community 81 - "ai-fragment.test.ts"
+Cohesion: 0.20
+Nodes (10): 4.1 文件清单与核心函数, AiExtractOptions, AiFragmentExtraction, AiSpliceErrorCode, AiSpliceFailure, AiSpliceResult, AiSpliceSuccess, AiVerificationReport (+2 more)
 
 ### Community 82 - "zh/features.md"
-Cohesion: 0.15
-Nodes (12): AI 辅助, Conref, DITAVAL 投影, Map 与 Bookmap, OASIS CALS 表格, 协作与版本, 单一信息源, 双模编辑 (+4 more)
+Cohesion: 0.13
+Nodes (14): AI 辅助, Conref, DITAVAL 投影, Map 与 Bookmap, OASIS CALS 表格, 中英双语界面, 协作与版本, 单一信息源 (+6 more)
 
-### Community 83 - "HomePage.astro"
-Cohesion: 0.14
-Nodes (12): dict, jsonLd, layerRows, Props, showcaseImages, CAPABILITIES, Capability, FeatureIcon (+4 more)
+### Community 83 - "Header.astro"
+Cohesion: 0.17
+Nodes (10): dict, isDocs, nav, navItems, Props, toggle, paths, Props (+2 more)
 
 ### Community 84 - "astro.config.ts"
-Cohesion: 0.14
-Nodes (9): site, astro@^5.18.2, @astrojs/react@^4.4.2, @astrojs/sitemap@^3.7.6, collections, docs, astro, @astrojs/react (+1 more)
+Cohesion: 0.22
+Nodes (5): site, @astrojs/react@^4.4.2, @astrojs/sitemap@^3.7.6, @astrojs/react, @astrojs/sitemap
 
 ### Community 85 - "en/ai-setup.md"
 Cohesion: 0.18
@@ -566,36 +571,36 @@ Cohesion: 0.18
 Nodes (10): compilerOptions, allowJs, jsx, noEmit, types, verbatimModuleSyntax, exclude, extends (+2 more)
 
 ### Community 89 - "xpath.ts"
-Cohesion: 0.14
-Nodes (13): ConrefUsage, evaluateXPathToFirstNode(), evaluateXPathToNodes(), evaluateXPathToStrings(), findConrefUsages(), findKeyrefUsages(), FontoXPathApi, KeyrefUsage (+5 more)
+Cohesion: 0.18
+Nodes (13): ConrefUsage, evaluateXPathToFirstNode(), evaluateXPathToNodes(), evaluateXPathToStrings(), findConrefUsages(), findElementByDitaId(), findKeyrefUsages(), FontoXPathApi (+5 more)
 
 ### Community 90 - "e2e-ai-live.mts"
-Cohesion: 0.16
+Cohesion: 0.17
 Nodes (15): apiRoot, check(), failures, here, log(), main(), PORT, readSse() (+7 more)
 
 ### Community 91 - "use-visual-editor-view.ts"
-Cohesion: 0.06
-Nodes (31): hydrateEmptyContainerAtPos(), hasConrefDragPayload(), CalsColspecNodeView, createCommentChevronTag(), createDitaNodeViews(), CreateDitaNodeViewsOptions, DitaCodeblockNodeView, DitaImageNodeView (+23 more)
+Cohesion: 0.05
+Nodes (35): hydrateEmptyContainerAtPos(), buildConrefDragSnippet(), CONREF_DRAG_MIME, escapeXmlAttrValue(), hasConrefDragPayload(), parseConrefDragPayload(), readConrefDragPayload(), CalsColspecNodeView (+27 more)
 
 ### Community 92 - "topicGuideTree.ts"
-Cohesion: 0.17
-Nodes (22): TagFacts(), buildChildChips(), buildNode(), buildTopicGuideTree(), EXPANDED_CONTAINERS, formatSlotLabel(), getAllowedChildren(), getGuideElementRuleKey() (+14 more)
+Cohesion: 0.10
+Nodes (38): GROUP_LABEL_KEYS, GuideTreeNode(), GuideTreeNodeProps, readInitialExpanded(), TagFacts(), TagFactsProps, TopicAuthoringGuideProps, TopicAuthoringGuideSpec (+30 more)
 
 ### Community 94 - "workspace-api.ts"
-Cohesion: 0.12
-Nodes (38): buildSnapshotFromMemoryFiles(), createInMemoryDemoWorkspace(), createWorkspaceProject(), fetchFileContent(), fetchParsedDitaval(), fetchSemanticContext(), fetchWorkspace(), fetchWorkspaceDiagnostics() (+30 more)
+Cohesion: 0.11
+Nodes (39): FileExplorerPanelProps, NewMapDialogProps, NewTopicDialogProps, ProblemsPanelProps, PublishDialogProps, WorkspaceDialogProps, buildSnapshotFromMemoryFiles(), createWorkspaceProject() (+31 more)
 
 ### Community 95 - "fragment-locator.ts"
 Cohesion: 0.22
-Nodes (16): buildContextWindow(), buildLineIndex(), DEFAULT_AI_CONTEXT_LINES, DEFAULT_AI_MAX_CONTEXT_CHARS, DEFAULT_AI_MAX_TARGET_CHARS, deriveRootTagName(), elementChildren(), extractElementTarget() (+8 more)
+Nodes (17): buildContextWindow(), buildLineIndex(), DEFAULT_AI_CONTEXT_LINES, DEFAULT_AI_MAX_CONTEXT_CHARS, DEFAULT_AI_MAX_TARGET_CHARS, deriveRootTagName(), elementChildren(), extractElementTarget() (+9 more)
 
 ### Community 96 - "MiniRoundTripDemo.tsx"
-Cohesion: 0.17
-Nodes (16): MiniRoundTripDemo(), OutputTab, SAMPLE_TARGETS, SampleKey, compactDiff(), computeLineDiff(), DiffLine, DiffLineType (+8 more)
+Cohesion: 0.16
+Nodes (17): MiniRoundTripDemo(), OutputTab, SAMPLE_TARGETS, SampleKey, MINI_DEMO_XML, compactDiff(), computeLineDiff(), DiffLine (+9 more)
 
-### Community 97 - "AttributesPanel.tsx"
-Cohesion: 0.20
-Nodes (13): AttributesPanelProps, GROUP_SUBTITLES, GROUP_TITLE_KEYS, EditorToolbarProps, EditorSelectionSnapshot, VisualEditorProps, baseAttrs(), makeBlockContainerSpec() (+5 more)
+### Community 97 - "InlineBubbleToolbar.tsx"
+Cohesion: 0.24
+Nodes (8): EditorToolbar(), InlineBubbleAnchor, InlineBubbleToolbarProps, TAG_ICONS, useInstantTitles(), UseInstantTitlesOptions, 6. 分阶段实施切片（垂直交付，预计 1.5–2 周）, Slice 8.5：自动化门禁、视觉溢出走查与综合验收（第 11–12 天）
 
 ### Community 98 - "en/getting-started.md"
 Cohesion: 0.20
@@ -603,11 +608,11 @@ Nodes (9): First run, Import your own project, Key environment variables, Next s
 
 ### Community 99 - "web/package.json"
 Cohesion: 0.14
-Nodes (13): @codemirror/commands@^6.11.1, @codemirror/lint@^6.9.8, prosemirror-commands@^1.7.2, prosemirror-history@^1.5.2, @codemirror/commands, @codemirror/lint, prosemirror-commands, prosemirror-history (+5 more)
+Nodes (13): @codemirror/autocomplete@^6.20.4, prosemirror-history@^1.5.2, prosemirror-state@^1.4.4, react-arborist@^4.0.1, @codemirror/autocomplete, prosemirror-history, prosemirror-state, license (+5 more)
 
 ### Community 101 - "en/introduction.md"
-Cohesion: 0.20
-Nodes (9): Design principles, Explicit boundaries, Locks, not CRDT, Next steps, Single sourcing, Standard XML first, Structured, not heavy, What is in the box (+1 more)
+Cohesion: 0.18
+Nodes (10): Bilingual by default, Design principles, Explicit boundaries, Locks, not CRDT, Next steps, Single sourcing, Standard XML first, Structured, not heavy (+2 more)
 
 ### Community 102 - "en/local-development.md"
 Cohesion: 0.20
@@ -619,103 +624,107 @@ Nodes (9): 一条命令启动, 下一步, 关键环境变量, 前置条件, 导�
 
 ### Community 104 - "界面预览"
 Cohesion: 0.25
-Nodes (8): Phase 5：DITA-OT 严格校验与异步 HTML5 / 中文 PDF 发布, Phase 6：AI 辅助写作、语义标签优化与错误修复, 三栏工作台与 Keys 键空间, 三栏工作台与 Phase 4 版本协作面板, 单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）, 可视化与 XML 源码双栏对比模式, 本地 Git 版本、Check-out 独占锁与可视化 Diff, 界面预览
+Nodes (8): AI 辅助写作与安全 Diff, DITA-OT 4.x 严格校验与异步 HTML5 / 中文 PDF 发布, 三栏工作台与双模编辑, 中英双语全栈界面（Phase 8）, 单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）, 手册工作台：先分发，再写作（Phase 10）, 本地 Git 版本、Check-out 独占锁与可视化 Diff, 界面预览
 
 ### Community 105 - "Screenshots"
 Cohesion: 0.25
-Nodes (8): Local Git versioning, check-out locks, and visual diffs, Phase 5: DITA-OT strict validation and asynchronous HTML5 / Chinese PDF publishing, Phase 6: AI-assisted authoring, semantic tag optimization, and error repair, Screenshots, Single-sourcing semantic engine (Keyref / Conref / DITAVAL), Three-pane workbench and the Keys panel, Three-pane workbench with the Phase 4 version panel, Visual and XML source side-by-side mode
+Nodes (8): AI-assisted authoring with safe diffs, DITA-OT 4.x strict validation and async HTML5 / CJK PDF publishing, Fully bilingual stack (Phase 8), Local Git versioning, check-out locks, and visual diffs, Manual workbench: distribute first, write second (Phase 10), Screenshots, Single-sourcing semantic engine (Keyref / Conref / DITAVAL), Three-pane workbench and dual-mode editing
 
 ### Community 106 - "zh/introduction.md"
-Cohesion: 0.20
-Nodes (9): 下一步, 为谁而写, 单一信息源, 并发靠锁，不靠 CRDT, 明确的边界, 标准 XML 优先, 盒子里有什么, 结构化，但不笨重 (+1 more)
+Cohesion: 0.18
+Nodes (10): 下一步, 为谁而写, 单一信息源, 双语是一等公民, 并发靠锁，不靠 CRDT, 明确的边界, 标准 XML 优先, 盒子里有什么 (+2 more)
 
 ### Community 107 - "zh/local-development.md"
 Cohesion: 0.20
 Nodes (9): 下一步, 前置条件, 安装与启动, 提交前检查, 数据库与身份, 环境变量, 目录速览, 调试建议 (+1 more)
 
 ### Community 108 - "DITAEditor"
-Cohesion: 0.15
-Nodes (13): Architecture and technology stack, Backend environment variables (`@dita/api`), Develop, build, and test, DITAEditor, Getting started, Host DITA-OT setup, License, Option 1: Single-container Docker (recommended, zero setup) (+5 more)
+Cohesion: 0.14
+Nodes (14): Architecture and technology stack, Backend environment variables (`@dita/api`), DITAEditor, Getting started, Host DITA-OT setup, License, Option 1: Single-container Docker (recommended, zero setup), Option 2: Local source with host DITA-OT (+6 more)
 
-### Community 109 - "conref.ts"
-Cohesion: 0.23
-Nodes (14): areConrefTagsCompatible(), cloneNodeIntoSlimdom(), CONREF_SPECIALIZATION_PARENT, escapeXmlText(), findDirectChild(), findTopicIdForElement(), getNormalizedText(), indexTopicElements() (+6 more)
+### Community 109 - "dita-core/src/i18n/locale.ts"
+Cohesion: 0.24
+Nodes (7): DEFAULT_UI_LOCALE, FormatMessageParams, SUPPORTED_UI_LOCALES, CATALOGUES, CoreMessageKey, coreMessagesEn, coreMessagesZh
+
+### Community 110 - "normalizePosixPath"
+Cohesion: 0.26
+Nodes (3): normalizePosixPath(), DitaSemanticIndex, findEnclosingTopicInfo()
 
 ### Community 111 - "scripts"
 Cohesion: 0.33
 Nodes (6): scripts, build, dev, preview, test, typecheck
 
 ### Community 112 - "playground-presets.ts"
-Cohesion: 0.15
-Nodes (7): MINI_DEMO_XML, PLAYGROUND_PRESETS, PlaygroundDitavalProfile, PlaygroundKeyspaceFixture, PlaygroundPreset, PlaygroundPresetId, LocalizedString
+Cohesion: 0.11
+Nodes (12): CAPABILITIES, Capability, FeatureIcon, QUICK_START_TABS, QuickStartTab, PLAYGROUND_PRESETS, PlaygroundDitavalProfile, PlaygroundKeyspaceFixture (+4 more)
 
 ### Community 113 - "ConrefReusePanel.tsx"
-Cohesion: 0.15
-Nodes (19): buildReuseAttrValue(), ConrefAttrName, filterReusableElements(), KeyBoundTopic, listKeyBoundTopics(), ConrefReusePanelProps, MODES, TopicInspectorProps (+11 more)
+Cohesion: 0.17
+Nodes (17): buildReuseAttrValue(), ConrefAttrName, filterReusableElements(), KeyBoundTopic, listKeyBoundTopics(), ConrefReusePanelProps, MODES, TopicInspectorProps (+9 more)
 
 ### Community 115 - "parser.ts"
-Cohesion: 0.18
-Nodes (15): compareElements(), compareParsedXmlDocuments(), normalizeChildren(), NormalizedChild, XmlDiffEntry, lineColumnToOffset(), parseSaxesError(), ParseXmlOptions (+7 more)
+Cohesion: 0.29
+Nodes (9): ResolveConrefOptions, lineColumnToOffset(), parseSaxesError(), PositionTrackedSlimdomNode, XmlWellFormedResult, ParsedXmlDocument, XmlDoctypeInfo, XmlNodeSourceRange (+1 more)
 
-### Community 116 - "map-tree-utils.ts"
-Cohesion: 0.24
-Nodes (12): buildCompositeMapTree(), CompositeMapTreeResult, isSameOrDescendantPath(), planMapNodeMove(), PlannedMapMoveResult, subtreeReferencesMap(), ElementConditionEvaluation, DitaMapTreeNode (+4 more)
+### Community 116 - "Core features (Phase 0–11 implemented)"
+Cohesion: 0.22
+Nodes (9): 10. Manual workbench and topic assignment (Phase 10), 1. 100% lossless XML round-trip kernel (`@dita/core`), 2. Dual-mode topic editor (visual / split / XML source), 3. Visual Map / Bookmap tree and multi-file workbench, 4. Single-sourcing semantic engine (Keys / Conref / DITAVAL), 5. Local workspace, incremental semantic index, and asset backend (`@dita/api`), 6. Local Git version control and check-out exclusive locks (Phase 4), 7. Authoritative DITA-OT 4.x validation and asynchronous publishing (Phase 5) (+1 more)
 
 ### Community 117 - "README.md"
 Cohesion: 0.31
 Nodes (4): GitHub Pages 免费部署指南（官网 + 离线三栏工作台）, 一、部署后的访问路径与能力边界, 三、技术细节（自动适配）, 二、一键启用步骤（约 2 分钟）
 
-### Community 118 - "@codemirror/autocomplete@^6.20.4"
-Cohesion: 0.33
-Nodes (4): @codemirror/autocomplete@^6.20.4, prosemirror-view@^1.43.0, @codemirror/autocomplete, prosemirror-view
+### Community 118 - "NewTopicDialog.tsx"
+Cohesion: 0.40
+Nodes (5): DEFAULT_DIR_FOR_TYPE, NewTopicDialog(), NewTopicMountContext, TOPIC_OPTIONS, TopicStructurePreview()
 
 ### Community 119 - "ditaval.ts"
 Cohesion: 0.18
-Nodes (15): ConditionGroup, createDitavalTemplate(), DitavalAction, DitavalFlagEndpoint, DitavalFlagStyle, DitavalPropRule, evaluateElementConditions(), extractConditionGroups() (+7 more)
+Nodes (14): ConditionGroup, createDitavalTemplate(), DitavalAction, DitavalFlagEndpoint, DitavalFlagStyle, DitavalPropRule, evaluateElementConditions(), extractConditionGroups() (+6 more)
 
 ### Community 120 - "Hugging Face Spaces 部署指南（Docker 单容器方案）"
 Cohesion: 0.14
 Nodes (12): DITAEditor — Web DITA 1.3 Workbench (Live Demo), Public Demo Notes / 公共演示说明, What You Can Try Here / 可体验的核心能力, Hugging Face Spaces 部署指南（Docker 单容器方案）, 已内置的 Hugging Face 兼容适配, 常见问题排查, 持久化存储与休眠行为说明, 方式 A：通过 GitHub Actions 一键自动同步（推荐） (+4 more)
 
-### Community 121 - "SourceEditor.tsx"
-Cohesion: 0.09
-Nodes (23): createDitaXmlCompletionSource(), ditaXmlCompletionSource, findEnclosingXmlContext(), findEnclosingXmlTag(), PROFILING_ATTR_SET, stripNonTagXml(), sourceEditorTheme, createDitaXmlLinter() (+15 more)
+### Community 121 - "translate"
+Cohesion: 0.07
+Nodes (35): defaultInstruction(), targetLabel(), buildChildChips(), getTagDescription(), createDitaXmlCompletionSource(), ditaXmlCompletionSource, findEnclosingXmlContext(), findEnclosingXmlTag() (+27 more)
+
+### Community 122 - "no-hardcoded-cjk.test.ts"
+Cohesion: 0.40
+Nodes (3): collectFiles(), SKIPPED_FILES, SRC_DIR
 
 ### Community 123 - "ai-output-parser.ts"
 Cohesion: 0.33
 Nodes (4): ExplanationStreamFilter, parseAiOutput(), ParsedAiOutput, stripExplanationTags()
 
 ### Community 124 - "fragment-splice.ts"
-Cohesion: 0.10
-Nodes (34): errorMessage(), 1. `@dita/core` — `src/ai/`, 2. DB (`apps/api/src/db`), 3. REST contract, Phase 6 AI Assistance — Implementation Contract, 4.1 文件清单与核心函数, 4.2 三种靶向定位与无损回拼策略, extractTargetFragment() (+26 more)
+Cohesion: 0.24
+Nodes (17): 1. `@dita/core` — `src/ai/`, 4.2 三种靶向定位与无损回拼策略, DITA_TOPIC_ROOTS, doctypeSignature(), failedVerification(), failure(), firstElementTagName(), hasModelDecorations() (+9 more)
 
-### Community 127 - "Core features (Phase 0–8 implemented)"
-Cohesion: 0.12
-Nodes (16): 1. 100% 无损 XML 往返内核（`@dita/core`）, 2. 双模式 Topic 编辑器（可视化 / 双栏对比 / XML 源码）, 3. 可视化 Map / Bookmap 树与多文件工作台, 4. 单一信息源语义引擎（Keys / Conref / DITAVAL）, 5. 本地工作区、增量语义索引与资产后端（`@dita/api`）, 6. 本地 Git 版本管理与 Check-out 独占锁（Phase 4）, 7. DITA-OT 4.x 权威校验与异步发布（Phase 5）, 1. 100% lossless XML round-trip kernel (`@dita/core`) (+8 more)
-
-### Community 134 - "ai-workbench.test.ts"
+### Community 127 - "核心特性（已实现：Phase 0–11）"
 Cohesion: 0.22
-Nodes (12): resetAiStore(), AI_SELECTED_TEXT_LIMIT, AI_TARGET_SCOPE_LABELS, buildLineWindowAiTarget(), buildSourceAiTarget(), buildVisualAiTarget(), normalizeSelectedText(), offsetToLineColumn() (+4 more)
+Nodes (9): 10. 手册工作台与 Topic 委派（Phase 10）, 1. 100% 无损 XML 往返内核（`@dita/core`）, 2. 双模式 Topic 编辑器（可视化 / 双栏对比 / XML 源码）, 3. 可视化 Map / Bookmap 树与多文件工作台, 4. 单一信息源语义引擎（Keys / Conref / DITAVAL）, 5. 本地工作区、增量语义索引与资产后端（`@dita/api`）, 6. 本地 Git 版本管理与 Check-out 独占锁（Phase 4）, 7. DITA-OT 4.x 权威校验与异步发布（Phase 5） (+1 more)
+
+### Community 128 - "prosemirror-commands@^1.7.2"
+Cohesion: 0.33
+Nodes (4): prosemirror-commands@^1.7.2, prosemirror-history@^1.5.2, prosemirror-commands, prosemirror-history
 
 ### Community 138 - "dita-log-parser.ts"
 Cohesion: 0.22
 Nodes (13): DITA_FILE, DitaPathRoot, extractMessage(), LOCATION_PATTERNS, LocationMatch, matchLocation(), normalizeDitaPath(), normalizeRoots() (+5 more)
 
 ### Community 144 - "strict-validator.ts"
-Cohesion: 0.23
-Nodes (12): fallbackDitaDiagnostic(), DitaRuntimeInfo, ensureInside(), resolveDitavalTarget(), resolveValidationTarget(), SingleTargetResult, StrictDiagnostic, StrictValidationResult (+4 more)
-
-### Community 145 - "DiffViewer"
 Cohesion: 0.22
-Nodes (9): close(), DiffDialog(), DiffDialogProps, revisionLabel(), diffTheme, DiffViewer(), DiffViewerProps, displayRevisionLabel() (+1 more)
+Nodes (13): fallbackDitaDiagnostic(), DitaRuntimeInfo, resolveDitaCommand(), ensureInside(), resolveDitavalTarget(), resolveValidationTarget(), SingleTargetResult, StrictDiagnostic (+5 more)
 
-### Community 147 - "ai-types.ts"
-Cohesion: 0.24
-Nodes (11): AiApiKeySource, AiDeltaEvent, AiSseEvent, AiUsageDayBucket, AiUsageModelBucket, AiUsageRecentEntry, AiUsageTaskBucket, AiUsageTokens (+3 more)
+### Community 145 - "ref_react"
+Cohesion: 0.09
+Nodes (25): 4.7 AI Assistance (`Phase 6`), useAiStore, AiDiffDialog(), AiSettingsDialog(), AiSettingsDialogProps, formatNumber(), CheckinCandidate, CheckinDialogProps (+17 more)
 
 ### Community 148 - "createTopicTemplate"
-Cohesion: 0.19
-Nodes (11): buildScaleDitaProject(), tempDirs, createMapTemplate(), CreateMapTemplateOptions, escapeText(), sanitizeId(), createTopicTemplate(), CreateTopicTemplateOptions (+3 more)
+Cohesion: 0.14
+Nodes (18): buildScaleDitaProject(), tempDirs, createWorkspaceDir(), createWorkspaceFile(), deleteWorkspaceEntry(), renameWorkspaceEntry(), saveFileContent(), createFilesSlice() (+10 more)
 
 ### Community 152 - "publish-service.ts"
 Cohesion: 0.20
@@ -730,12 +739,12 @@ Cohesion: 0.20
 Nodes (10): dependencies, @dita/api@workspace:*, description, license, main, name, private, type (+2 more)
 
 ### Community 156 - "stage.mjs"
-Cohesion: 0.18
+Cohesion: 0.17
 Nodes (9): apiPkg, DESKTOP_ROOT, desktopPkg, __dirname, REPO_ROOT, requiredPaths, STAGE_DIR, stagePkg (+1 more)
 
 ### Community 158 - "env"
-Cohesion: 0.18
-Nodes (11): APPLE_APP_SPECIFIC_PASSWORD, APPLE_ID, APPLE_TEAM_ID, CSC_IDENTITY_AUTO_DISCOVERY, CSC_KEY_PASSWORD, CSC_LINK, DESKTOP_VERSION, RELEASE_TAG (+3 more)
+Cohesion: 0.20
+Nodes (10): DESKTOP_VERSION, RAW_APPLE_APP_SPECIFIC_PASSWORD, RAW_APPLE_ID, RAW_APPLE_TEAM_ID, RAW_CSC_KEY_PASSWORD, RAW_CSC_LINK, RAW_WIN_CSC_KEY_PASSWORD, RAW_WIN_CSC_LINK (+2 more)
 
 ### Community 159 - "devDependencies"
 Cohesion: 0.20
@@ -789,10 +798,6 @@ Nodes (6): esbuild@^0.25.0, DESKTOP_ROOT, __dirname, DIST_DIR, esmCreateRequireB
 Cohesion: 0.38
 Nodes (7): steps, steps, id, name, run, shell, uses
 
-### Community 173 - "i18n-parity.test.ts"
-Cohesion: 0.33
-Nodes (4): en, zhCN, enKeys, zhKeys
-
 ### Community 174 - "attach-to-release"
 Cohesion: 0.40
 Nodes (5): if, name, needs, runs-on, attach-to-release
@@ -801,25 +806,29 @@ Nodes (5): if, name, needs, runs-on, attach-to-release
 Cohesion: 0.50
 Nodes (3): bridge, DitaDesktopBridge, electron
 
+### Community 180 - "assignments-api.ts"
+Cohesion: 0.13
+Nodes (17): zustand@^5.1.0, AssignmentListQuery, AssignmentPerson, AssignmentScope, AssignmentStatus, AssignmentStatusFilter, AssignmentUpdateInput, cancelAssignment() (+9 more)
+
 ## Knowledge Gaps
 - **14 isolated node(s):** `ADR-0003`, `ADR-0002`, `../../tsconfig.base.json`, `../../tsconfig.base.json`, `../../tsconfig.base.json` (+9 more)
-  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1166 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
-- **38 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+  These have ≤1 connection - possible missing edges or undocumented components. (Counts symbols only; 1171 node(s) total have ≤1 connection when file, concept and rationale nodes are included.)
+- **37 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `checkXmlWellFormed()` connect `checkXmlWellFormed` to `ai-workbench.test.ts`, `editor-store/index.ts`, `dita-map.ts`, `ref_vitest`, `.runJob`, `WorkspaceManager`, `Changelog`, `4. Non-Negotiable Engineering Invariants`, `en/architecture.md`, `semantic-engine.ts`, `zh/architecture.md`, `dita-structure.ts`, `en/features.md`, `zh/features.md`, `xpath.ts`, `e2e-ai-live.mts`, `workspace-api.ts`, `normalizePosixPath`, `playground-presets.ts`, `parser.ts`, `map-tree-utils.ts`, `fragment-splice.ts`, `Core features (Phase 0–8 implemented)`?**
-  _High betweenness centrality (0.040) - this node is a cross-community bridge._
+- **Why does `checkXmlWellFormed()` connect `checkXmlWellFormed` to `editor-store/types.ts`, `dita-map.ts`, `task-model-switch.test.ts`, `ref_vitest`, `.runJob`, `WorkspaceManager`, `Changelog`, `ai-types.ts`, `en/architecture.md`, `semantic-engine.ts`, `zh/architecture.md`, `前端 DITA 1.3 结构化写作合规实施说明`, `en/features.md`, `ai-fragment.test.ts`, `zh/features.md`, `xpath.ts`, `e2e-ai-live.mts`, `workspace-api.ts`, `normalizePosixPath`, `parser.ts`, `Core features (Phase 0–11 implemented)`, `fragment-splice.ts`, `核心特性（已实现：Phase 0–11）`?**
+  _High betweenness centrality (0.046) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `t()` (e.g. with `Added` and `Slice 8.2：前端 i18n 引擎、顶栏切换与布局骨架（第 3–4 天）`) actually correct?**
   _`t()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `ADR-0003`, `ADR-0002`, `../../tsconfig.base.json` to the rest of the system?**
   _14 weakly-connected nodes found - possible documentation gaps or missing edges._
 - **Should `PublishDialog.tsx` be split into smaller, more focused modules?**
-  _Cohesion score 0.1354723707664884 - nodes in this community are weakly interconnected._
-- **Why does `electron` connect `electron` to `desktop/package.json`, `main.ts`, `devDependencies`?**
-  _High betweenness centrality (0.029) - this node is a cross-community bridge._
+  _Cohesion score 0.12857142857142856 - nodes in this community are weakly interconnected._
+- **Why does `slimdom` connect `xpath.ts` to `task-model-switch.test.ts`, `ref_vitest`, `semantic-engine.ts`, `Core Package Manifest`, `dita-map.ts`, `parser.ts`, `ditaval.ts`, `converter.ts`, `checkXmlWellFormed`, `fragment-locator.ts`?**
+  _High betweenness centrality (0.022) - this node is a cross-community bridge._
 - **Are the 2 inferred relationships involving `App()` (e.g. with `Added` and `2. 现有代码库中文文案全量盘点（基线扫描）`) actually correct?**
   _`App()` has 2 INFERRED edges - model-reasoned connections that need verification._
 - **Should `git-store.ts` be split into smaller, more focused modules?**
-  _Cohesion score 0.09523809523809523 - nodes in this community are weakly interconnected._
+  _Cohesion score 0.12462462462462462 - nodes in this community are weakly interconnected._
