@@ -636,9 +636,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795526595.4447718,
-    "seen": 1795526956.388198,
-    "ast_hash": "ee14b2cba8adef30bf447564b4d6552e",
+    "mtime": 1795529649.6111765,
+    "seen": 1795530050.069067,
+    "ast_hash": "2176c8984722eec9083261728cfb324a",
     "semantic_hash": ""
   },
   "apps/web/src/components/ConrefReusePanel.tsx": {
@@ -672,9 +672,9 @@
     "semantic_hash": ""
   },
   "README.en.md": {
-    "mtime": 1795526601.0589406,
-    "seen": 1795526956.388198,
-    "ast_hash": "de5eb06a114d1f48ebaf4580bc73f696",
+    "mtime": 1795529649.611617,
+    "seen": 1795530050.069067,
+    "ast_hash": "0a0bdb7b46cb53b0ba66fc35933202b6",
     "semantic_hash": ""
   },
   "apps/api/src/db/client.ts": {
@@ -1110,14 +1110,14 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/Footer.astro": {
-    "mtime": 1795326437.5489001,
-    "seen": 1795331234.535867,
-    "ast_hash": "7d3e548d2d8350d9dda06c6692bd51d4",
+    "mtime": 1795529943.099105,
+    "seen": 1795530050.068845,
+    "ast_hash": "523f2f5c0805b89c0329e2dd26d2ada8",
     "semantic_hash": ""
   },
   "apps/site/src/components/Header.astro": {
-    "mtime": 1795326432.7325141,
-    "seen": 1795331234.535868,
+    "mtime": 1795529740.35793,
+    "seen": 1795530050.068846,
     "ast_hash": "819bf5f422286a23135887bbef8dc68f",
     "semantic_hash": ""
   },
@@ -1128,15 +1128,15 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/HomePage.astro": {
-    "mtime": 1795526404.492366,
-    "seen": 1795526956.38798,
-    "ast_hash": "2d7231f5dc8edb0ac284dd8a1a32fdd8",
+    "mtime": 1795530006.8593905,
+    "seen": 1795530050.0688472,
+    "ast_hash": "c43c80352e4154dc8f70f0926d1b8d83",
     "semantic_hash": ""
   },
   "apps/site/src/components/Icon.astro": {
-    "mtime": 1795308634.8099785,
-    "seen": 1795310776.400363,
-    "ast_hash": "e38395711b7403efcc8325789c4ee906",
+    "mtime": 1795529443.405362,
+    "seen": 1795530050.0688481,
+    "ast_hash": "e6549ece0645145f4097d1c1463167af",
     "semantic_hash": ""
   },
   "apps/site/src/components/MiniRoundTripDemo.tsx": {
@@ -1176,9 +1176,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/i18n/en.ts": {
-    "mtime": 1795526452.8281915,
-    "seen": 1795526956.387987,
-    "ast_hash": "6ce555fb3b65222dc81f77b20840524c",
+    "mtime": 1795529998.963087,
+    "seen": 1795530050.068854,
+    "ast_hash": "da19f2f28436754585eb3cd7fb359116",
     "semantic_hash": ""
   },
   "apps/site/src/i18n/index.ts": {
@@ -1194,9 +1194,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/i18n/zh.ts": {
-    "mtime": 1795526434.519961,
-    "seen": 1795526956.387989,
-    "ast_hash": "edda2f7e82eaf077ed1a67940ca93ed3",
+    "mtime": 1795529998.96283,
+    "seen": 1795530050.068856,
+    "ast_hash": "15ba69e3530fc50f18230216ca50dc7c",
     "semantic_hash": ""
   },
   "apps/site/src/layouts/BaseLayout.astro": {
@@ -1218,9 +1218,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/lib/site.ts": {
-    "mtime": 1795311279.1918085,
-    "seen": 1795325914.698215,
-    "ast_hash": "4e14812e608de8194ea2e1ae5edd187e",
+    "mtime": 1795529437.7391627,
+    "seen": 1795530050.0688598,
+    "ast_hash": "25b2f32b589d621d702a13dda021b05a",
     "semantic_hash": ""
   },
   "apps/site/src/pages/404.astro": {
@@ -1320,9 +1320,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/getting-started.md": {
-    "mtime": 1795526529.739114,
-    "seen": 1795526956.388201,
-    "ast_hash": "e2e9e8d8fad634e40ee72b1282ba9053",
+    "mtime": 1795529842.572597,
+    "seen": 1795530050.06907,
+    "ast_hash": "a68d237ac82cbd9cee62eb861d41e84d",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/introduction.md": {
@@ -1356,9 +1356,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/getting-started.md": {
-    "mtime": 1795526529.7389448,
-    "seen": 1795526956.388205,
-    "ast_hash": "783cfeb91d08ba061996173147dddae0",
+    "mtime": 1795529842.572394,
+    "seen": 1795530050.0690749,
+    "ast_hash": "2408216cc574e7eaadb83a5f8eb0b540",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/introduction.md": {
@@ -2595,6 +2595,18 @@
     "mtime": 1795526358.3428068,
     "seen": 1795526956.388256,
     "ast_hash": "4f7f92baaf6b7628125733c01f01ac77",
+    "semantic_hash": ""
+  },
+  "apps/site/src/components/DesktopDownload.astro": {
+    "mtime": 1795529501.0606616,
+    "seen": 1795530050.0688431,
+    "ast_hash": "8116ec60476e1314e416c88a01604201",
+    "semantic_hash": ""
+  },
+  "apps/site/src/lib/assets.ts": {
+    "mtime": 1795529562.6259894,
+    "seen": 1795530050.0688589,
+    "ast_hash": "ec08715f0857238a0fe54c026e4b46a8",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
