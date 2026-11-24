@@ -142,6 +142,9 @@ describe('Phase 2 Fastify Workspace, Map Persistence & Asset API', () => {
     expect(ws.stats.totalMaps).toBe(6);
     expect(ws.topicTitles['topics/section-a/topic-01.dita']).toBe('Scale Topic 1');
     expect(ws.topicTitles['topics/section-b/topic-55.dita']).toBe('Scale Topic 55');
+    expect(ws.topicTypes['topics/section-a/topic-01.dita']).toBe('concept');
+    expect(ws.topicTypes['topics/section-a/topic-03.dita']).toBe('task');
+    expect(ws.topicTypes['topics/section-a/topic-02.dita']).toBe('reference');
 
     // 2. Security guard against path traversal
     const traversal = await app.inject({

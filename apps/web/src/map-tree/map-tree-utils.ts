@@ -68,6 +68,11 @@ export interface CompositeMapTreeResult {
 export interface BuildCompositeMapTreeOptions {
   ditaval?: ParsedDitaval | null;
   ditavalDisplayMode?: DitavalDisplayMode;
+  /**
+   * Root-element topic type of each workspace file. When a `topicref` does not declare its
+   * own `type=` attribute, the real type of the referenced file drives the row icon.
+   */
+  topicTypes?: Record<string, string>;
 }
 
 /**
@@ -84,6 +89,7 @@ export function buildCompositeMapTree(
 ): CompositeMapTreeResult {
   const ditaval = options.ditaval ?? null;
   const ditavalDisplayMode = options.ditavalDisplayMode ?? 'dim-excluded';
+  const topicTypes = options.topicTypes;
 
   if (!rootMapPath) {
     return {
@@ -246,7 +252,9 @@ export function buildCompositeMapTree(
         scope: node.scope,
         processingRole: node.processingRole,
         toc: node.toc,
-        topicType: node.topicType,
+        topicType:
+          node.topicType ??
+          (resolvedTargetPath ? topicTypes?.[resolvedTargetPath] : undefined),
         rawAttrs: node.rawAttrs,
         isSubmapRef: node.isSubmapRef,
         resolvedTargetPath,

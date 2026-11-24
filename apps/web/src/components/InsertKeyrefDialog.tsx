@@ -108,7 +108,7 @@ export function InsertKeyrefDialog({
     >
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
         <h2 id={titleId} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
-          <KeyRound className="h-4 w-4 text-violet-600" aria-hidden="true" />
+          <KeyRound className="h-4 w-4 text-blue-600" aria-hidden="true" />
           {t('keyref.title')}
         </h2>
         <button
@@ -141,7 +141,7 @@ export function InsertKeyrefDialog({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder={t('keyref.filterPlaceholder')}
-              className="w-full rounded-lg border border-slate-200 py-1.5 pr-3 pl-8 text-xs focus:border-violet-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 py-1.5 pr-3 pl-8 text-xs focus:border-blue-500 focus:outline-none"
             />
           </div>
           {keyspace && keyspace.scopes.length > 0 ? (
@@ -149,7 +149,7 @@ export function InsertKeyrefDialog({
               aria-label={t('keyref.scopeAria')}
               value={scopeFilter}
               onChange={(e) => setScopeFilter(e.target.value)}
-              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-violet-500 focus:outline-none"
+              className="rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
             >
               <option value="__all__">{t('keyref.scopeAll')}</option>
               <option value="__root__">{t('keyref.scopeRoot')}</option>
@@ -175,12 +175,12 @@ export function InsertKeyrefDialog({
                   type="button"
                   onClick={() => setSelectedKey(def.qualifiedKey)}
                   className={`flex w-full items-center justify-between gap-2 px-3 py-2 text-left transition-colors ${
-                    active ? 'bg-violet-50 text-violet-950' : 'hover:bg-slate-50'
+                    active ? 'bg-blue-50 text-blue-950' : 'hover:bg-slate-50'
                   }`}
                 >
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
-                      <code className="font-mono font-semibold text-violet-800">
+                      <code className="font-mono font-semibold text-blue-800">
                         {def.qualifiedKey}
                       </code>
                       {def.keyscope ? (
@@ -214,7 +214,7 @@ export function InsertKeyrefDialog({
               value={selectedKey}
               onChange={(e) => setSelectedKey(e.target.value)}
               placeholder={t('keyref.valuePlaceholder')}
-              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-violet-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
             />
           </div>
           <div>
@@ -225,7 +225,7 @@ export function InsertKeyrefDialog({
               id="keyref-tag"
               value={tagName}
               onChange={(e) => setTagName(e.target.value as 'keyword' | 'ph' | 'xref' | 'term')}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-violet-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
             >
               <option value="keyword">&lt;keyword&gt; ({t('keyref.tagKeyword')})</option>
               <option value="ph">&lt;ph&gt; ({t('keyref.tagPh')})</option>
@@ -245,7 +245,7 @@ export function InsertKeyrefDialog({
             value={fallbackText}
             onChange={(e) => setFallbackText(e.target.value)}
             placeholder={t('keyref.fallbackPlaceholder')}
-            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-violet-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
           />
         </div>
 
@@ -281,7 +281,7 @@ export function InsertKeyrefDialog({
           <button
             type="submit"
             disabled={!selectedKey.trim()}
-            className="rounded-lg bg-violet-600 px-4 py-1.5 font-semibold text-white hover:bg-violet-500 disabled:opacity-45"
+            className="rounded-lg bg-blue-600 px-4 py-1.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-45"
           >
             {t('keyref.submit')} &lt;{tagName}&gt;
           </button>

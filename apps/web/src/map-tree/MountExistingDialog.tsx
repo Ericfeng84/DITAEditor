@@ -95,7 +95,7 @@ export function MountExistingDialog({
       <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3.5">
         <div className="min-w-0">
           <h2 id={titleId} className="inline-flex items-center gap-1.5 text-sm font-semibold">
-            <Link2 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+            <Link2 className="h-4 w-4 text-blue-600" aria-hidden="true" />
             <span>{t('mountDialog.title')}</span>
           </h2>
           <p className="mt-0.5 truncate text-xs text-slate-500">
@@ -131,7 +131,7 @@ export function MountExistingDialog({
               }
               setNavtitle(topicTitles[path] ?? '');
             }}
-            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
           >
             {mountableFiles.map((f) => (
               <option key={f} value={f}>
@@ -150,7 +150,7 @@ export function MountExistingDialog({
               id="mount-tag-select"
               value={tagName}
               onChange={(e) => setTagName(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
             >
               <option value="topicref">&lt;topicref&gt;</option>
               <option value="mapref">&lt;mapref&gt;</option>
@@ -173,13 +173,13 @@ export function MountExistingDialog({
               value={navtitle}
               onChange={(e) => setNavtitle(e.target.value)}
               placeholder={t('mountDialog.navtitlePlaceholder')}
-              className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 px-2.5 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
             />
           </div>
         </div>
 
         <div className="rounded-lg bg-slate-50 px-3 py-2 font-mono text-[11px] text-slate-600">
-          {t('mountDialog.hrefPreview')}<span className="text-indigo-700">{previewHref || '—'}</span>
+          {t('mountDialog.hrefPreview')}<span className="text-blue-700">{previewHref || '—'}</span>
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
@@ -193,7 +193,7 @@ export function MountExistingDialog({
           <button
             type="submit"
             disabled={!selectedFile}
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 font-semibold text-white hover:bg-indigo-500 disabled:opacity-40"
+            className="rounded-lg bg-blue-600 px-4 py-1.5 font-semibold text-white hover:bg-blue-700 disabled:opacity-40"
           >
             {t('mountDialog.submit')}
           </button>

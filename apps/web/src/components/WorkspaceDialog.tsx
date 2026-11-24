@@ -58,19 +58,19 @@ const RELEVANT_EXTENSIONS = new Set([
 
 const FIELD_CLASS =
   'w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs text-slate-800 ' +
-  'placeholder:text-slate-400 transition-colors focus:border-indigo-500 focus:outline-none ' +
-  'focus:ring-2 focus:ring-indigo-500/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400';
+  'placeholder:text-slate-400 transition-colors focus:border-blue-500 focus:outline-none ' +
+  'focus:ring-2 focus:ring-blue-500/15 disabled:cursor-not-allowed disabled:bg-slate-50 disabled:text-slate-400';
 
 const PRIMARY_BTN =
-  'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3 text-xs ' +
-  'font-semibold text-white shadow-sm shadow-indigo-600/20 transition-colors hover:bg-indigo-500 ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 ' +
+  'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-3 text-xs ' +
+  'font-semibold text-white shadow-sm shadow-blue-600/20 transition-colors hover:bg-blue-700 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 ' +
   'focus-visible:ring-offset-1 disabled:cursor-not-allowed disabled:opacity-45';
 
 const SECONDARY_BTN =
   'inline-flex h-8 items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white ' +
   'px-3 text-xs font-medium text-slate-700 transition-colors hover:border-slate-300 hover:bg-slate-50 ' +
-  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/30 ' +
+  'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/30 ' +
   'disabled:cursor-not-allowed disabled:opacity-45';
 
 function arrayBufferToBase64(buf: ArrayBuffer): string {
@@ -302,7 +302,7 @@ export function WorkspaceDialog({
       <div className="flex max-h-[calc(100vh-3rem)] flex-col">
         {/* Header */}
         <header className="flex shrink-0 items-center gap-3 border-b border-slate-100 px-4 py-3">
-          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-indigo-50 text-indigo-600">
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-blue-50 text-blue-600">
             <FolderOpen className="h-4 w-4" aria-hidden="true" />
           </span>
           <div className="min-w-0 flex-1">
@@ -317,7 +317,7 @@ export function WorkspaceDialog({
             type="button"
             onClick={() => dialogRef.current?.close()}
             aria-label={t('common.closeDialog')}
-            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+            className="rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
           >
             <X className="h-4 w-4" aria-hidden="true" />
           </button>
@@ -344,7 +344,7 @@ export function WorkspaceDialog({
                 onClick={() => void onRefreshWorkspaces()}
                 aria-label={t('workspaceDialog.refresh')}
                 title={t('workspaceDialog.refresh')}
-                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-white hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-40"
+                className="rounded-md p-1 text-slate-400 transition-colors hover:bg-white hover:text-slate-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40"
               >
                 <RefreshCw
                   className={`h-3.5 w-3.5 ${loadingWorkspaces ? 'animate-spin' : ''}`}
@@ -404,7 +404,7 @@ export function WorkspaceDialog({
                               disabled={busy || !ws.exists}
                               onClick={() => handleOpenRecent(ws.path)}
                               aria-label={t('workspaceDialog.openWsAria', { name: ws.name })}
-                              className="flex min-w-0 flex-1 items-start gap-2 rounded-md px-1 py-0.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:cursor-not-allowed"
+                              className="flex min-w-0 flex-1 items-start gap-2 rounded-md px-1 py-0.5 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:cursor-not-allowed"
                             >
                               <WorkspaceRowBody ws={ws} />
                             </button>
@@ -437,7 +437,7 @@ export function WorkspaceDialog({
                 type="button"
                 disabled={busy}
                 onClick={handleOpenDefault}
-                className="inline-flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-white hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-40"
+                className="inline-flex w-full items-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-medium text-slate-600 transition-colors hover:bg-white hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-40"
               >
                 <RotateCcw className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
                 {t('workspaceDialog.restoreDemo')}
@@ -454,7 +454,7 @@ export function WorkspaceDialog({
                     id="ws-create-heading"
                     className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-slate-900"
                   >
-                    <FolderPlus className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
+                    <FolderPlus className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
                     {t('workspaceDialog.newBlank')}
                   </h3>
                   <span className="text-[10.5px] text-slate-500">{t('workspaceDialog.newBlankBadge')}</span>
@@ -498,7 +498,7 @@ export function WorkspaceDialog({
                       }}
                       aria-expanded={advancedParent}
                       aria-controls={advancedParent ? 'ws-advanced-parent' : undefined}
-                      className="rounded text-[10.5px] font-medium text-indigo-600 transition-colors hover:text-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40 disabled:opacity-45"
+                      className="rounded text-[10.5px] font-medium text-blue-600 transition-colors hover:text-blue-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40 disabled:opacity-45"
                     >
                       {advancedParent ? t('workspaceDialog.useDefaultLocation') : t('workspaceDialog.changeLocation')}
                     </button>
@@ -545,9 +545,9 @@ export function WorkspaceDialog({
                       return (
                         <label
                           key={option.value}
-                          className={`flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 transition-colors focus-within:ring-2 focus-within:ring-indigo-500/30 ${
+                          className={`flex cursor-pointer items-start gap-2 rounded-lg border px-2.5 py-2 transition-colors focus-within:ring-2 focus-within:ring-blue-500/30 ${
                             selected
-                              ? 'border-indigo-400 bg-indigo-50/50'
+                              ? 'border-blue-400 bg-blue-50/50'
                               : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50/60'
                           } ${!canWrite ? 'cursor-not-allowed opacity-60' : ''}`}
                         >
@@ -562,7 +562,7 @@ export function WorkspaceDialog({
                           />
                           <span
                             className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-md ${
-                              selected ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-500'
+                              selected ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-500'
                             }`}
                           >
                             {option.value === 'starter' ? (
@@ -616,7 +616,7 @@ export function WorkspaceDialog({
               </p>
 
               <div className="mt-2.5 flex items-center gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50/50 px-3 py-2.5">
-                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-indigo-600 shadow-xs ring-1 ring-slate-200/70">
+                <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-white text-blue-600 shadow-xs ring-1 ring-slate-200/70">
                   <FolderUp className="h-3.5 w-3.5" aria-hidden="true" />
                 </span>
                 <div className="min-w-0 flex-1">
@@ -655,7 +655,7 @@ export function WorkspaceDialog({
                   onClick={() => setAdvancedPath((v) => !v)}
                   aria-expanded={advancedPath}
                   aria-controls={advancedPath ? 'ws-open-advanced' : undefined}
-                  className="inline-flex items-center gap-1 rounded text-[10.5px] font-medium text-slate-500 transition-colors hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+                  className="inline-flex items-center gap-1 rounded text-[10.5px] font-medium text-slate-500 transition-colors hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
                 >
                   <ChevronDown
                     className={`h-3 w-3 transition-transform ${advancedPath ? 'rotate-180' : ''}`}

@@ -199,7 +199,7 @@ export function InsertElementMenu({
                 <span
                   className={
                     section.kind === 'inline'
-                      ? 'rounded bg-indigo-50 px-1.5 py-0.5 text-indigo-600'
+                      ? 'rounded bg-blue-50 px-1.5 py-0.5 text-blue-600'
                       : 'rounded bg-emerald-50 px-1.5 py-0.5 text-emerald-700'
                   }
                 >
@@ -219,7 +219,7 @@ export function InsertElementMenu({
                       onClick={() => onSelect(choice)}
                       className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors ${
                         isActive
-                          ? 'bg-indigo-600 text-white'
+                          ? 'bg-blue-600 text-white'
                           : 'text-slate-700 hover:bg-slate-100'
                       }`}
                     >
@@ -228,8 +228,8 @@ export function InsertElementMenu({
                           <code
                             className={`rounded px-1.5 py-0.5 font-mono text-[11px] font-semibold ${
                               isActive
-                                ? 'bg-indigo-500/80 text-white'
-                                : 'bg-slate-100 text-indigo-700'
+                                ? 'bg-blue-600 text-white'
+                                : 'bg-slate-100 text-blue-700'
                             }`}
                           >
                             &lt;{choice.spec.tag}&gt;
@@ -240,14 +240,14 @@ export function InsertElementMenu({
                         </div>
                         <p
                           className={`mt-0.5 truncate text-[11px] ${
-                            isActive ? 'text-indigo-100' : 'text-slate-500'
+                            isActive ? 'text-blue-100' : 'text-slate-500'
                           }`}
                         >
                           {getElementDescription(choice.spec, locale)}
                         </p>
                       </div>
                       {isActive ? (
-                        <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-indigo-200" aria-hidden="true" />
+                        <CornerDownLeft className="h-3.5 w-3.5 shrink-0 text-blue-200" aria-hidden="true" />
                       ) : choice.spec.shortcut ? (
                         <span className="shrink-0 font-mono text-[10px] text-slate-400">
                           {choice.spec.shortcut}

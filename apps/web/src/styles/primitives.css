@@ -60,14 +60,14 @@ dialog.dita-dialog::backdrop {
 }
 
 .dita-tb-btn:focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
 
 .dita-tb-btn[aria-pressed="true"] {
-  background-color: #e0e7ff;
-  border-color: #6366f1;
-  color: #3730a3;
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
 }
 
 .dita-tb-btn[aria-disabled="true"] {
@@ -76,9 +76,9 @@ dialog.dita-dialog::backdrop {
 }
 
 .dita-tb-btn-primary {
-  background-color: #eef2ff;
-  border-color: #c7d2fe;
-  color: #3730a3;
+  background-color: #eff6ff;
+  border-color: #bfdbfe;
+  color: #1e40af;
   padding-inline: 0.55rem;
 }
 
@@ -104,7 +104,7 @@ dialog.dita-dialog::backdrop {
 }
 
 .dita-tb-select:focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid #2563eb;
   outline-offset: 2px;
 }
 
@@ -158,8 +158,8 @@ dialog.dita-dialog::backdrop {
 
 @media (hover: hover) {
   .dita-tb-btn-primary:not([aria-disabled="true"]):hover {
-    background-color: #e0e7ff;
-    border-color: #818cf8;
+    background-color: #dbeafe;
+    border-color: #60a5fa;
   }
 }
 
@@ -230,14 +230,14 @@ dialog.dita-dialog::backdrop {
 }
 
 .dita-bubble-btn:focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid #2563eb;
   outline-offset: 1px;
 }
 
 .dita-bubble-btn[aria-pressed="true"] {
-  background-color: #e0e7ff;
-  border-color: #6366f1;
-  color: #3730a3;
+  background-color: #dbeafe;
+  border-color: #3b82f6;
+  color: #1e40af;
 }
 
 .dita-bubble-sep {
@@ -331,5 +331,5 @@ dialog.dita-dialog::backdrop {
 .dita-resize-handle:hover,
 .dita-resize-handle[data-resize-handle-active],
 .dita-resize-handle[data-separator="active"] {
-  background: #6366f1;
+  background: #3b82f6;
 }

@@ -80,7 +80,7 @@ export function ProblemsPanel({
                 onClick={() => setFilter(item.id)}
                 className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
                   filter === item.id
-                    ? 'bg-indigo-100 text-indigo-800'
+                    ? 'bg-blue-100 text-blue-800'
                     : 'text-slate-500 hover:bg-slate-200/70 hover:text-slate-800'
                 }`}
               >
@@ -95,7 +95,7 @@ export function ProblemsPanel({
             <button
               type="button"
               onClick={onStrictValidate}
-              className="dita-mini-btn border-indigo-200 px-2 py-0.5 text-indigo-700 hover:bg-indigo-50"
+              className="dita-mini-btn border-blue-200 px-2 py-0.5 text-blue-700 hover:bg-blue-50"
               title={t('problems.strictTitle')}
             >
               <ShieldCheck className="h-3 w-3" aria-hidden="true" />
@@ -163,7 +163,7 @@ export function ProblemsPanel({
                     onClick={() => onAiFixDiagnostic(diag)}
                     title={t('problems.aiFixTitle')}
                     aria-label={t('problems.aiFixTitle')}
-                    className="shrink-0 rounded p-1 text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                    className="shrink-0 rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                   >
                     <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                   </button>

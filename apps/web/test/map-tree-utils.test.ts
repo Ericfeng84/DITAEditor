@@ -83,6 +83,36 @@ describe('Phase 2 Composite Map Tree & Cross-Map Move Utilities', () => {
     expect(expandedSubChildren[2]!.isCyclicRef).toBe(true);
   });
 
+  it('prefers the scanned topic type of the referenced file when the topicref has no type attribute', () => {
+    const untypedMap = ROOT_MAP.replace(' type="concept"', '');
+    const mapBuffers = {
+      'root.ditamap': { xml: untypedMap },
+      'maps/tasks.ditamap': { xml: SUB_MAP },
+    };
+
+    const withoutTypes = buildCompositeMapTree('root.ditamap', mapBuffers, fileSet, topicTitles);
+    expect(withoutTypes.nodes[0]!.children?.[0]?.topicType).toBeUndefined();
+
+    const withTypes = buildCompositeMapTree('root.ditamap', mapBuffers, fileSet, topicTitles, {
+      topicTypes: {
+        'concepts/overview.dita': 'concept',
+        'tasks/install.dita': 'task',
+      },
+    });
+    expect(withTypes.nodes[0]!.children?.[0]?.topicType).toBe('concept');
+    expect(withTypes.nodes[1]!.children?.[0]?.topicType).toBe('task');
+
+    // An explicit topicref type attribute always wins over the scanned root element.
+    const typed = buildCompositeMapTree(
+      'root.ditamap',
+      { ...mapBuffers, 'root.ditamap': { xml: ROOT_MAP } },
+      fileSet,
+      topicTitles,
+      { topicTypes: { 'concepts/overview.dita': 'reference' } },
+    );
+    expect(typed.nodes[0]!.children?.[0]?.topicType).toBe('concept');
+  });
+
   it('plans same-map moves and cross-map subtree moves with automatic POSIX href rewriting', () => {
     const mapBuffers = {
       'root.ditamap': { xml: ROOT_MAP },

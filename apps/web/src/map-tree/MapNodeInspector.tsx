@@ -211,7 +211,7 @@ export function MapNodeInspector({
             <button
               type="button"
               onClick={() => onOpenTargetFile(resolvedTarget!.targetPath)}
-              className="dita-mini-btn text-indigo-700"
+              className="dita-mini-btn text-blue-700"
             >
               <BookOpen className="h-3 w-3" aria-hidden="true" />
               {t('mapNodeInspector.openTarget')}
@@ -254,7 +254,7 @@ export function MapNodeInspector({
                 type="text"
                 value={parsedMap.title}
                 onChange={(e) => onUpdateRootTitle(selected.mapPath, e.target.value)}
-                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
               />
             </div>
           ) : (
@@ -273,7 +273,7 @@ export function MapNodeInspector({
                 onChange={(e) =>
                   onUpdateNavtitle(selected.mapPath, selected.elementPath!, e.target.value)
                 }
-                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
               />
             </div>
           )}
@@ -311,7 +311,7 @@ export function MapNodeInspector({
                   >
                     <span
                       className={`shrink-0 font-mono text-[11px] font-medium ${
-                        knownNames.has(entry.name) ? 'text-indigo-700' : 'text-amber-700'
+                        knownNames.has(entry.name) ? 'text-blue-700' : 'text-amber-700'
                       }`}
                     >
                       {entry.name}
@@ -324,7 +324,7 @@ export function MapNodeInspector({
                       onChange={(e) =>
                         onUpdateAttr(selected.mapPath, selected.elementPath, entry.name, e.target.value)
                       }
-                      className="min-w-0 flex-1 rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-800 ring-1 ring-slate-200 focus:ring-indigo-500 focus:outline-none"
+                      className="min-w-0 flex-1 rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-800 ring-1 ring-slate-200 focus:ring-blue-500 focus:outline-none"
                     />
                     <button
                       type="button"
@@ -347,7 +347,7 @@ export function MapNodeInspector({
                   onChange={(e) => setCustomAttrName(e.target.value)}
                   placeholder={t('attributes.namePlaceholder')}
                   aria-label={t('attributes.nameAria')}
-                  className="w-24 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+                  className="w-24 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
                 />
                 <input
                   type="text"
@@ -355,7 +355,7 @@ export function MapNodeInspector({
                   onChange={(e) => setCustomAttrValue(e.target.value)}
                   placeholder={t('attributes.valuePlaceholder')}
                   aria-label={t('attributes.valueAria')}
-                  className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+                  className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
                 />
                 <button
                   type="submit"
@@ -397,7 +397,7 @@ export function MapNodeInspector({
                       conditionEval.status === 'exclude'
                         ? 'bg-rose-100 text-rose-800'
                         : conditionEval.status === 'flag'
-                          ? 'bg-indigo-100 text-indigo-800'
+                          ? 'bg-blue-100 text-blue-800'
                           : 'bg-emerald-100 text-emerald-800'
                     }`}
                   >
@@ -408,7 +408,7 @@ export function MapNodeInspector({
                         : t('attributes.condition.included')}
                   </span>
                 ) : filledCount > 0 ? (
-                  <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700">
+                  <span className="rounded-full bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-700">
                     {filledCount}
                   </span>
                 ) : (
@@ -469,7 +469,7 @@ export function MapNodeInspector({
                                 e.target.value === '' ? null : e.target.value,
                               )
                             }
-                            className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+                            className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
                           >
                             <option value="">{t('attributes.unset')}</option>
                             {currentVal && !attr.values.includes(currentVal) ? (
@@ -496,7 +496,7 @@ export function MapNodeInspector({
                                   e.target.value === '' ? null : e.target.value,
                                 )
                               }
-                              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+                              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
                             />
                             {attr.name === 'href' && availableFiles.length > 0 ? (
                               <select
@@ -515,7 +515,7 @@ export function MapNodeInspector({
                                     rel,
                                   );
                                 }}
-                                className="w-full rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10.5px] text-slate-600 focus:border-indigo-500 focus:outline-none"
+                                className="w-full rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10.5px] text-slate-600 focus:border-blue-500 focus:outline-none"
                               >
                                 <option value="">{t('mapNodeInspector.quickPick')}</option>
                                 {availableFiles

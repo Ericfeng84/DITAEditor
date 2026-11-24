@@ -93,10 +93,10 @@
 /* Hover & active-selected tag pill feedback */
 @media (hover: hover) {
   .dita-ox-tag:hover {
-    --ox-bg: #e0e7ff;
-    --ox-border: #4f46e5;
-    --ox-text: #312e81;
-    --ox-attr: #4338ca;
+    --ox-bg: #dbeafe;
+    --ox-border: #2563eb;
+    --ox-text: #1e3a8a;
+    --ox-attr: #1d4ed8;
   }
 }
 

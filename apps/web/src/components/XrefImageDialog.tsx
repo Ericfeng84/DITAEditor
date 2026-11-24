@@ -170,12 +170,12 @@ export function XrefImageDialog({
         <h2 id={titleId} className="inline-flex items-center gap-2 text-sm font-semibold text-slate-900">
           {mode === 'image' ? (
             <>
-              <ImageIcon className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+              <ImageIcon className="h-4 w-4 text-blue-600" aria-hidden="true" />
               {t('xref.dialogTitleImage')}
             </>
           ) : (
             <>
-              <Link2 className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+              <Link2 className="h-4 w-4 text-blue-600" aria-hidden="true" />
               {t('xref.dialogTitleXref')}
             </>
           )}
@@ -200,7 +200,7 @@ export function XrefImageDialog({
                 type="button"
                 disabled={uploading}
                 onClick={() => uploadInputRef.current?.click()}
-                className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+                className="inline-flex items-center gap-1 rounded bg-blue-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:opacity-50"
               >
                 <Upload className="h-3 w-3" aria-hidden="true" />
                 {uploading ? t('xref.uploading') : t('xref.upload')}
@@ -226,7 +226,7 @@ export function XrefImageDialog({
                     : e.target.value;
                   setHref(rel);
                 }}
-                className="w-full rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
               >
                 <option value="">{t('xref.pickExistingImage')}</option>
                 {workspaceImages.map((img) => (
@@ -257,7 +257,7 @@ export function XrefImageDialog({
                   setText(topicTitles[e.target.value]!);
                 }
               }}
-              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
             >
               <option value="">{t('xref.pickTopic')}</option>
               {workspaceTopics.map((t) => (
@@ -284,7 +284,7 @@ export function XrefImageDialog({
                 ? t('xref.targetPathPlaceholder')
                 : '../images/diagram.svg'
             }
-            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
           />
         </div>
 
@@ -309,7 +309,7 @@ export function XrefImageDialog({
               value={keyref}
               onChange={(e) => setKeyref(e.target.value)}
               placeholder={t('xref.keyrefPlaceholder')}
-              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
             />
             {keyspace && Object.keys(keyspace.keys).length > 0 ? (
               <select
@@ -324,7 +324,7 @@ export function XrefImageDialog({
                     setText(def.inlineText ?? def.targetTitle ?? '');
                   }
                 }}
-                className="w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] text-slate-700 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-dashed border-slate-200 bg-slate-50 px-2.5 py-1 font-mono text-[11px] text-slate-700 focus:border-blue-500 focus:outline-none"
               >
                 <option value="">{t('xref.pickKeyref')}</option>
                 {Object.values(keyspace.keys)
@@ -352,7 +352,7 @@ export function XrefImageDialog({
                 value={text}
                 onChange={(e) => setText(e.target.value)}
                 placeholder={t('xref.linkTextPlaceholder')}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
               />
             </div>
 
@@ -365,7 +365,7 @@ export function XrefImageDialog({
                   id="ref-scope"
                   value={scope}
                   onChange={(e) => setScope(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
                 >
                   <option value="local">local</option>
                   <option value="peer">peer</option>
@@ -380,7 +380,7 @@ export function XrefImageDialog({
                   id="ref-format"
                   value={format}
                   onChange={(e) => setFormat(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
                 >
                   <option value="dita">dita</option>
                   <option value="html">html</option>
@@ -402,7 +402,7 @@ export function XrefImageDialog({
                 value={alt}
                 onChange={(e) => setAlt(e.target.value)}
                 placeholder={t('xref.altPlaceholder')}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs focus:border-blue-500 focus:outline-none"
               />
             </div>
             <div>
@@ -413,7 +413,7 @@ export function XrefImageDialog({
                 id="img-placement"
                 value={placement}
                 onChange={(e) => setPlacement(e.target.value as 'break' | 'inline')}
-                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
               >
                 <option value="break">{t('xref.placementBreak')}</option>
                 <option value="inline">{t('xref.placementInline')}</option>
@@ -432,7 +432,7 @@ export function XrefImageDialog({
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 font-semibold text-white hover:bg-indigo-500"
+            className="rounded-lg bg-blue-600 px-4 py-1.5 font-semibold text-white hover:bg-blue-700"
           >
             {t('xref.confirm')}
           </button>

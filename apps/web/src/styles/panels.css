@@ -110,14 +110,14 @@
 
 .dita-tab-btn:focus-visible,
 .dita-sidebar-tab:focus-visible {
-  outline: 2px solid #4f46e5;
+  outline: 2px solid #2563eb;
   outline-offset: -2px;
 }
 
 /* Active tab indicator via border on ::after pseudo-element (WCAG 1.4.1 & forced-colors safe) */
 .dita-tab-btn[aria-selected="true"],
 .dita-sidebar-tab[aria-selected="true"] {
-  color: #312e81;
+  color: #1e3a8a;
 }
 
 .dita-tab-btn[aria-selected="true"]::after,
@@ -125,7 +125,7 @@
   content: "";
   position: absolute;
   inset: auto 0 0;
-  border-block-end: 2px solid #4f46e5;
+  border-block-end: 2px solid #2563eb;
 }
 
 /* --------------------------------------------------------------------------
@@ -142,7 +142,7 @@
 .dita-resize-handle-y:hover,
 .dita-resize-handle-y[data-resize-handle-active],
 .dita-resize-handle-y[data-separator="active"] {
-  background: #6366f1;
+  background: #3b82f6;
 }
 
 .dita-nv-image-inline-img {
@@ -240,7 +240,7 @@
 
 .dita-ctx-menu > button:not(:disabled):hover,
 .dita-ctx-menu > button:not(:disabled):focus-visible {
-  background: #eef2ff;
+  background: #eff6ff;
   outline: none;
 }
 

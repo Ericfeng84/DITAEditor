@@ -284,8 +284,8 @@ export function AiAssistantPanel({
 
   return (
     <div className="flex h-full min-h-0 flex-col bg-white text-xs" data-testid="ai-assistant-panel">
-      <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-slate-200 bg-gradient-to-r from-indigo-50 to-white px-2.5">
-        <Sparkles className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
+      <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-white px-2.5">
+        <Sparkles className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
         <span className="shrink-0 whitespace-nowrap font-semibold text-slate-800">{t('ai.title')}</span>
         {meta?.model ?? config?.model ? (
           <span className="min-w-0 flex-1 truncate rounded bg-white/80 px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500">
@@ -297,7 +297,7 @@ export function AiAssistantPanel({
             <button
               type="button"
               onClick={onOpenSettings}
-              className="rounded p-1 text-slate-500 hover:bg-white hover:text-indigo-700"
+              className="rounded p-1 text-slate-500 hover:bg-white hover:text-blue-700"
               title={t('ai.settings')}
               aria-label={t('ai.settings')}
             >
@@ -338,7 +338,7 @@ export function AiAssistantPanel({
 
       <div className="flex shrink-0 flex-wrap items-center gap-1.5 border-b border-slate-100 bg-slate-50/60 px-2.5 py-1.5 text-[10px]">
         <div
-          className="inline-flex overflow-hidden rounded-full border border-indigo-200 bg-white font-medium"
+          className="inline-flex overflow-hidden rounded-full border border-blue-200 bg-white font-medium"
           role="group"
           aria-label={t('ai.scopeAria')}
         >
@@ -350,15 +350,15 @@ export function AiAssistantPanel({
               aria-pressed={scope === option}
               className={`px-1.5 py-0.5 text-[9.5px] transition-colors ${
                 scope === option
-                  ? 'bg-indigo-600 text-white'
-                  : 'text-slate-600 hover:bg-indigo-50 hover:text-indigo-700'
+                  ? 'bg-blue-600 text-white'
+                  : 'text-slate-600 hover:bg-blue-50 hover:text-blue-700'
               }`}
             >
               {t(AI_TARGET_SCOPE_LABELS[option])}
             </button>
           ))}
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-indigo-100 px-1.5 py-0.5 font-medium text-indigo-800">
+        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 font-medium text-blue-800">
           <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
           {scope === 'document'
             ? t('ai.scopeBanner.document')
@@ -397,8 +397,8 @@ export function AiAssistantPanel({
 
       <div ref={scrollRef} className="dita-scroller min-h-0 flex-1 space-y-2 overflow-y-auto px-2.5 py-2">
         {messages.length === 0 && !proposal ? (
-          <div className="rounded-lg border border-dashed border-indigo-200 bg-indigo-50/40 p-2.5 text-[10.5px] leading-relaxed text-slate-600">
-            <p className="flex items-center gap-1 font-semibold text-indigo-800">
+          <div className="rounded-lg border border-dashed border-blue-200 bg-blue-50/40 p-2.5 text-[10.5px] leading-relaxed text-slate-600">
+            <p className="flex items-center gap-1 font-semibold text-blue-800">
               <Wand2 className="h-3 w-3" aria-hidden="true" />
               {t('ai.empty.title')}
             </p>
@@ -424,13 +424,13 @@ export function AiAssistantPanel({
               <div
                 className={`max-w-[95%] whitespace-pre-wrap break-words rounded-lg px-2.5 py-1.5 text-[11px] leading-relaxed ${
                   message.role === 'user'
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'border border-slate-200 bg-slate-50 text-slate-800'
                 }`}
               >
                 {message.content || (isLastStreaming ? '' : '…')}
                 {isLastStreaming ? (
-                  <span className="ml-1 inline-flex items-center gap-1 text-indigo-600">
+                  <span className="ml-1 inline-flex items-center gap-1 text-blue-600">
                     <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />
                     {t('ai.generating')}
                   </span>
@@ -543,7 +543,7 @@ export function AiAssistantPanel({
                     if (onRequestApply) onRequestApply(proposal.targetMode);
                     else onApplyProposal(proposal.patchedXml);
                   }}
-                  className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+                  className="inline-flex items-center gap-1 rounded bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
                   <CheckCircle2 className="h-2.5 w-2.5" aria-hidden="true" />
                   {t('ai.proposal.apply')}
@@ -590,7 +590,7 @@ export function AiAssistantPanel({
               onClick={() => setTaskType(option.id)}
               className={`rounded px-1.5 py-0.5 text-[9.5px] font-medium transition-colors ${
                 taskType === option.id
-                  ? 'bg-indigo-100 text-indigo-800'
+                  ? 'bg-blue-100 text-blue-800'
                   : 'text-slate-500 hover:bg-slate-200/80 hover:text-slate-800'
               }`}
             >
@@ -620,7 +620,7 @@ export function AiAssistantPanel({
                 ? t('ai.placeholder.documentAuthor')
                 : t('ai.placeholder.fragmentAuthor')
           }
-          className="w-full resize-none rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200"
+          className="w-full resize-none rounded-md border border-slate-300 bg-white px-2 py-1.5 text-[11px] leading-relaxed text-slate-800 outline-none placeholder:text-slate-400 focus:border-blue-400 focus:ring-1 focus:ring-blue-200"
         />
         <div className="mt-1 flex items-center gap-1.5">
           {streaming ? (
@@ -637,7 +637,7 @@ export function AiAssistantPanel({
               type="button"
               onClick={handleSubmit}
               disabled={readOnly && taskType !== 'ask'}
-              className="inline-flex items-center gap-1 rounded bg-indigo-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+              className="inline-flex items-center gap-1 rounded bg-blue-600 px-2 py-1 text-[10px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Send className="h-2.5 w-2.5" aria-hidden="true" />
               {t('ai.send')}
@@ -647,7 +647,7 @@ export function AiAssistantPanel({
             {readOnly ? t('ai.footer.readOnly') : t('ai.footer.confirm')}
           </span>
           {deltaText && streaming ? (
-            <span className="ml-auto font-mono text-[9px] text-indigo-500">
+            <span className="ml-auto font-mono text-[9px] text-blue-600">
               +{t('ai.chars', { count: deltaText.length })}
             </span>
           ) : null}

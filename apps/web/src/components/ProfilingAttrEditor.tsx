@@ -6,6 +6,7 @@ import {
 } from '@dita/core';
 import { Plus, X } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
+import { PROFILING_BADGE_CLASSES } from './profiling-badge-palette.js';
 
 export interface ProfilingAttrEditorProps {
   attrName: DitaProfilingAttrName;
@@ -16,14 +17,6 @@ export interface ProfilingAttrEditorProps {
   onChange: (nextValue: string | null) => void;
 }
 
-const ATTR_BADGE_COLORS: Record<DitaProfilingAttrName, string> = {
-  audience: 'bg-sky-50 text-sky-800 border-sky-200',
-  platform: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-  product: 'bg-violet-50 text-violet-800 border-violet-200',
-  otherprops: 'bg-amber-50 text-amber-800 border-amber-200',
-  props: 'bg-slate-100 text-slate-700 border-slate-300',
-  rev: 'bg-indigo-50 text-indigo-800 border-indigo-200',
-};
 
 export function ProfilingAttrEditor({
   attrName,
@@ -36,7 +29,7 @@ export function ProfilingAttrEditor({
   const { t } = useI18n();
   const [draft, setDraft] = useState('');
   const tokens = parseProfilingAttrValue(value);
-  const badgeStyle = ATTR_BADGE_COLORS[attrName] ?? ATTR_BADGE_COLORS.props;
+  const badgeStyle = PROFILING_BADGE_CLASSES[attrName] ?? PROFILING_BADGE_CLASSES.props;
 
   const commitToken = (rawToken: string) => {
     const trimmed = rawToken.trim();
@@ -97,7 +90,7 @@ export function ProfilingAttrEditor({
             }
           }}
           placeholder={placeholder ?? t('profiling.placeholder', { name: attrName })}
-          className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
+          className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
         />
         <button
           type="button"
@@ -122,7 +115,7 @@ export function ProfilingAttrEditor({
                 onClick={() => toggleSuggestion(sug)}
                 className={`rounded px-1.5 py-0.2 font-mono text-[10px] transition-colors ${
                   active
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-blue-600 text-white'
                     : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
                 }`}
               >

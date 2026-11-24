@@ -51,7 +51,7 @@ export function AiDiffDialog({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
           <div className="min-w-0">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-              <FileDiff className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+              <FileDiff className="h-4 w-4 text-blue-600" aria-hidden="true" />
               {t('aiDiff.title')}
             </h2>
             <p className="mt-0.5 truncate text-[11px] text-slate-500">
@@ -111,7 +111,7 @@ export function AiDiffDialog({
             </span>
           ) : null}
           {proposal.canRevalidateStrict ? (
-            <span className="inline-flex items-center gap-1 rounded-full bg-indigo-50 px-1.5 py-0.5 font-medium text-indigo-700">
+            <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 font-medium text-blue-700">
               <ShieldCheck className="h-3 w-3" aria-hidden="true" />
               {t('aiDiff.revalidate')}
             </span>
@@ -162,7 +162,7 @@ export function AiDiffDialog({
               type="button"
               disabled={blocked}
               onClick={() => onApply(proposal.patchedXml)}
-              className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
               {t('aiDiff.apply')}

@@ -204,6 +204,7 @@ export function registerWorkspaceFileRoutes(
         files: snapshot.files,
         maps: snapshot.maps,
         topicTitles: snapshot.topicTitles,
+        topicTypes: snapshot.topicTypes,
       };
     } catch (err) {
       return handleWorkspaceError(err, _req, reply);

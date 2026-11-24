@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { Filter, Tags } from 'lucide-react';
 import type {
   ParsedDitaval,
@@ -19,6 +20,8 @@ export interface VisualEditorSubHeaderProps {
   taskModelSetting: TaskContentModelSetting;
   resolvedTaskModel: TaskContentModel;
   onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
+  /** Authoring-guide toggle (topic type badge + expand/collapse) at the end of the toolbar. */
+  guideSlot?: ReactNode;
 }
 
 const TAG_MODE_HINT = '+';
@@ -37,6 +40,7 @@ export function VisualEditorSubHeader({
   taskModelSetting,
   resolvedTaskModel,
   onChangeTaskModelSetting,
+  guideSlot,
 }: VisualEditorSubHeaderProps) {
   const { t } = useI18n();
   return (
@@ -69,7 +73,7 @@ export function VisualEditorSubHeader({
                 title={item.title}
                 className={`whitespace-nowrap rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
                   active
-                    ? 'bg-white text-indigo-700 shadow-xs'
+                    ? 'bg-white text-blue-700 shadow-xs'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
@@ -89,6 +93,7 @@ export function VisualEditorSubHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-2">
+        {guideSlot}
         {showTaskModelSwitch && onChangeTaskModelSetting ? (
           <TaskModelSwitch
             setting={taskModelSetting}

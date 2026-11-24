@@ -20,12 +20,12 @@ export interface EditorTabBarProps {
 }
 
 const TAB_TYPE_BADGE: Record<string, string> = {
-  concept: 'text-indigo-600',
+  concept: 'text-blue-600',
   task: 'text-emerald-600',
   reference: 'text-amber-600',
   topic: 'text-slate-600',
   map: 'text-sky-600',
-  bookmap: 'text-violet-600',
+  bookmap: 'text-blue-600',
   ditaval: 'text-teal-600',
 };
 

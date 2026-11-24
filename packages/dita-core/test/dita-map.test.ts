@@ -5,6 +5,7 @@ import {
   createMapTemplate,
   deleteMapNode,
   extractDitaDocumentTitle,
+  extractDitaTopicType,
   insertMapNode,
   isDitaMapXml,
   moveMapNodes,
@@ -159,6 +160,16 @@ describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
     expect(parsedBook.nodes.map((n) => n.tagName)).toEqual(['frontmatter', 'part', 'appendix']);
     expect(parsedBook.preservedMetaSummary.hasBookmeta).toBe(true);
     expect(extractDitaDocumentTitle(SAMPLE_BOOKMAP)).toBe('企业管理手册');
+  });
+
+  it('detects the topic type from the root element and reports null for non-topic roots', () => {
+    expect(extractDitaTopicType('<concept id="a"><title>A</title></concept>')).toBe('concept');
+    expect(extractDitaTopicType('<task id="b"><title>B</title></task>')).toBe('task');
+    expect(extractDitaTopicType('<reference id="c"><title>C</title></reference>')).toBe('reference');
+    expect(extractDitaTopicType('<topic id="d"><title>D</title></topic>')).toBe('topic');
+    expect(extractDitaTopicType(SAMPLE_DITAMAP)).toBeNull();
+    expect(extractDitaTopicType('<mySpecialization id="e"/>')).toBeNull();
+    expect(extractDitaTopicType('not xml')).toBeNull();
   });
 
   it('reorders, nests, and un-nests map nodes losslessly without disturbing metadata or reltable', () => {

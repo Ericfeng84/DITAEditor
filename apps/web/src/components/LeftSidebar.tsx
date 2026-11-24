@@ -142,7 +142,7 @@ export function LeftSidebar({
               mode: t(workspaceMode === 'api' ? 'sidebar.mode.api' : 'sidebar.mode.memory'),
             })}
             aria-label={t('sidebar.workspace.aria', { name: workspaceName })}
-            className="inline-flex h-6 min-w-0 max-w-[160px] flex-1 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500/40"
+            className="inline-flex h-6 min-w-0 max-w-[160px] flex-1 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
           >
             <FolderOpen className="h-3 w-3 shrink-0 text-amber-600" aria-hidden="true" />
             <span className="min-w-0 truncate">{workspaceName}</span>

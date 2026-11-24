@@ -105,7 +105,7 @@ export function CheckinDialog({
                     key={item.path}
                     className={`mb-1 flex items-center gap-2 rounded-md border px-2 py-1.5 text-[11px] ${
                       previewPath === item.path
-                        ? 'border-indigo-200 bg-indigo-50/60'
+                        ? 'border-blue-200 bg-blue-50/60'
                         : 'border-transparent hover:bg-slate-50'
                     }`}
                   >
@@ -114,7 +114,7 @@ export function CheckinDialog({
                       checked={selectedSet.has(item.path)}
                       onChange={() => toggle(item.path)}
                       aria-label={t('checkin.selectAria', { path: item.path })}
-                      className="h-3 w-3 accent-indigo-600"
+                      className="h-3 w-3 accent-blue-600"
                     />
                     <button
                       type="button"
@@ -160,7 +160,7 @@ export function CheckinDialog({
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
                 placeholder={t('checkin.messagePlaceholder')}
-                className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-500/20"
+                className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
               />
             </label>
           </div>
@@ -176,7 +176,7 @@ export function CheckinDialog({
                 type="button"
                 disabled={selected.length === 0 || submitting}
                 onClick={() => onStrictValidate(selected)}
-                className="inline-flex items-center gap-1 rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-40"
+                className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-50 disabled:opacity-40"
                 title={t('checkin.strictTooltip')}
               >
                 <ShieldCheck className="h-3 w-3" aria-hidden="true" />

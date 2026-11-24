@@ -141,7 +141,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
           <div>
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-              <Sparkles className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+              <Sparkles className="h-4 w-4 text-blue-600" aria-hidden="true" />
               {t('ai.settings')}
             </h2>
             <p className="mt-0.5 text-[11px] text-slate-500">
@@ -180,7 +180,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   onChange={(event) => setBaseUrl(event.target.value)}
                   placeholder="https://api.openai.com/v1"
                   spellCheck={false}
-                  className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-800 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-500"
+                  className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 disabled:bg-slate-50 disabled:text-slate-500"
                 />
               </label>
 
@@ -192,7 +192,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   onChange={(event) => setModel(event.target.value)}
                   placeholder="gpt-4o-mini / deepseek-chat / qwen-plus"
                   spellCheck={false}
-                  className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-800 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50 disabled:text-slate-500"
+                  className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 disabled:bg-slate-50 disabled:text-slate-500"
                 />
               </label>
 
@@ -223,7 +223,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   }}
                   placeholder={t('aiSettings.keyPlaceholder')}
                   autoComplete="new-password"
-                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 outline-none focus:border-indigo-400 focus:ring-1 focus:ring-indigo-200 disabled:bg-slate-50"
+                  className="mt-1 w-full rounded-md border border-slate-300 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 outline-none focus:border-blue-400 focus:ring-1 focus:ring-blue-200 disabled:bg-slate-50"
                 />
                 <div className="mt-1 flex items-center gap-2 text-[10px]">
                   <button
@@ -256,7 +256,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                     value={temperature}
                     disabled={!canEdit}
                     onChange={(event) => setTemperature(event.target.value)}
-                    className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-indigo-400 disabled:bg-slate-50"
+                    className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-blue-400 disabled:bg-slate-50"
                   />
                 </label>
                 <label className="block">
@@ -268,7 +268,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                     value={maxRetries}
                     disabled={!canEdit}
                     onChange={(event) => setMaxRetries(event.target.value)}
-                    className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-indigo-400 disabled:bg-slate-50"
+                    className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-blue-400 disabled:bg-slate-50"
                   />
                 </label>
                 <label className="block">
@@ -280,7 +280,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                     value={timeoutMs}
                     disabled={!canEdit}
                     onChange={(event) => setTimeoutMs(event.target.value)}
-                    className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-indigo-400 disabled:bg-slate-50"
+                    className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-blue-400 disabled:bg-slate-50"
                   />
                 </label>
               </div>
@@ -333,7 +333,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                   type="button"
                   disabled={!canEdit || configLoading || !dirty}
                   onClick={() => void handleSave()}
-                  className="inline-flex items-center gap-1 rounded-md bg-indigo-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {configLoading ? (
                     <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
@@ -397,9 +397,9 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                         </p>
                       </div>
                     ))}
-                    <div className="col-span-2 rounded border border-indigo-200 bg-indigo-50 px-2 py-1">
-                      <p className="text-[9px] text-indigo-600">{t('aiSettings.usage.totalTokens')}</p>
-                      <p className="font-mono text-[12px] font-semibold text-indigo-900">
+                    <div className="col-span-2 rounded border border-blue-200 bg-blue-50 px-2 py-1">
+                      <p className="text-[9px] text-blue-600">{t('aiSettings.usage.totalTokens')}</p>
+                      <p className="font-mono text-[12px] font-semibold text-blue-900">
                         {formatNumber(usageTotals.totalTokens)}
                       </p>
                     </div>

@@ -4,12 +4,15 @@ import type { DitavalDisplayMode, ParsedDitaval } from '@dita/core';
 import { useI18n } from '../i18n/index.js';
 import {
   AlertTriangle,
+  ChevronDown,
   ChevronsDownUp,
   ChevronsUpDown,
   Code2,
   FilePlus2,
   Filter,
   FolderPlus,
+  Heading,
+  Layers,
   Link2,
   Network,
   Redo2,
@@ -31,6 +34,7 @@ export interface MapTreePanelProps {
   mapBuffers: Record<string, MapBufferState>;
   fileSet: ReadonlySet<string>;
   topicTitles: Record<string, string>;
+  topicTypes?: Record<string, string>;
   ditavals: WorkspaceDitavalSummary[];
   activeDitavalPath?: string | null;
   activeDitaval?: ParsedDitaval | null;
@@ -87,6 +91,7 @@ export function MapTreePanel({
   mapBuffers,
   fileSet,
   topicTitles,
+  topicTypes,
   ditavals,
   activeDitavalPath = null,
   activeDitaval = null,
@@ -113,14 +118,35 @@ export function MapTreePanel({
 
   const [search, setSearch] = useState('');
   const [menuTarget, setMenuTarget] = useState<MapNodeMenuTarget | null>(null);
+  const [groupMenuOpen, setGroupMenuOpen] = useState(false);
+  const groupMenuRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!groupMenuOpen) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (groupMenuRef.current && !groupMenuRef.current.contains(event.target as Node)) {
+        setGroupMenuOpen(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setGroupMenuOpen(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [groupMenuOpen]);
 
   const treeResult = useMemo(
     () =>
       buildCompositeMapTree(rootMapPath, mapBuffers, fileSet, topicTitles, {
         ditaval: activeDitaval,
         ditavalDisplayMode,
+        topicTypes,
       }),
-    [rootMapPath, mapBuffers, fileSet, topicTitles, activeDitaval, ditavalDisplayMode],
+    [rootMapPath, mapBuffers, fileSet, topicTitles, activeDitaval, ditavalDisplayMode, topicTypes],
   );
 
   const dragDisabled = Boolean(
@@ -193,7 +219,7 @@ export function MapTreePanel({
             onClick={() => onSelectMapNode({ mapPath: rootMapPath, elementPath: null })}
             className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors ${
               isRootSelected
-                ? 'bg-indigo-50 text-indigo-900 ring-1 ring-indigo-300'
+                ? 'bg-blue-50 text-blue-900 ring-1 ring-blue-300'
                 : 'hover:bg-slate-100'
             }`}
             title={t('mapTree.rootTooltip', { path: rootMapPath })}
@@ -201,7 +227,7 @@ export function MapTreePanel({
             <span
               className={`shrink-0 rounded px-1 py-0.5 font-mono text-[9.5px] font-bold uppercase ${
                 isBookmap
-                  ? 'bg-violet-100 text-violet-800'
+                  ? 'bg-blue-100 text-blue-800'
                   : 'bg-sky-100 text-sky-800'
               }`}
             >
@@ -241,7 +267,7 @@ export function MapTreePanel({
               })
             }
             title={t('mapTree.createMountedTooltip')}
-            className="dita-mini-btn px-1.5 py-0.5 text-indigo-700"
+            className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
           >
             <FilePlus2 className="h-3 w-3" aria-hidden="true" />
             <span>{t('mapTree.createMounted')}</span>
@@ -261,21 +287,72 @@ export function MapTreePanel({
             <Link2 className="h-3 w-3 text-slate-600" aria-hidden="true" />
             <span>{t('mapTree.mountExisting')}</span>
           </button>
-          <button
-            type="button"
-            onClick={() =>
-              onInsertStructure(
-                rootMapPath,
-                null,
-                isBookmap ? 'chapter' : 'topichead',
-              )
-            }
-            title={isBookmap ? t('mapTree.insertChapterTooltip') : t('mapTree.insertGroupTooltip')}
-            className="dita-mini-btn px-1.5 py-0.5"
-          >
-            <FolderPlus className="h-3 w-3 text-amber-600" aria-hidden="true" />
-            <span>{isBookmap ? t('mapTree.chapter') : t('mapTree.group')}</span>
-          </button>
+          {isBookmap ? (
+            <button
+              type="button"
+              onClick={() => onInsertStructure(rootMapPath, null, 'chapter')}
+              title={t('mapTree.insertChapterTooltip')}
+              className="dita-mini-btn px-1.5 py-0.5"
+            >
+              <FolderPlus className="h-3 w-3 text-slate-500" aria-hidden="true" />
+              <span>{t('mapTree.chapter')}</span>
+            </button>
+          ) : (
+            <div ref={groupMenuRef} className="relative">
+              <button
+                type="button"
+                onClick={() => setGroupMenuOpen((prev) => !prev)}
+                title={t('mapTree.groupMenuTooltip')}
+                aria-haspopup="menu"
+                aria-expanded={groupMenuOpen}
+                className="dita-mini-btn px-1.5 py-0.5"
+              >
+                <FolderPlus className="h-3 w-3 text-slate-500" aria-hidden="true" />
+                <span>{t('mapTree.group')}</span>
+                <ChevronDown className="h-3 w-3 text-slate-400" aria-hidden="true" />
+              </button>
+              {groupMenuOpen ? (
+                <div
+                  role="menu"
+                  aria-label={t('mapTree.groupMenuAria')}
+                  className="dita-ctx-menu absolute top-full right-0 z-40 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+                >
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setGroupMenuOpen(false);
+                      onInsertStructure(rootMapPath, null, 'topichead');
+                    }}
+                  >
+                    <Heading className="dita-ctx-icon text-slate-600" aria-hidden="true" />
+                    <span className="flex flex-col">
+                      <span>{t('mapTree.groupMenuHeading')}</span>
+                      <span className="text-[10px] leading-tight text-slate-500">
+                        {t('mapTree.groupMenuHeadingHint')}
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setGroupMenuOpen(false);
+                      onInsertStructure(rootMapPath, null, 'topicgroup');
+                    }}
+                  >
+                    <Layers className="dita-ctx-icon text-slate-600" aria-hidden="true" />
+                    <span className="flex flex-col">
+                      <span>{t('mapTree.groupMenuContainer')}</span>
+                      <span className="text-[10px] leading-tight text-slate-500">
+                        {t('mapTree.groupMenuContainerHint')}
+                      </span>
+                    </span>
+                  </button>
+                </div>
+              ) : null}
+            </div>
+          )}
           <button
             type="button"
             onClick={onOpenPublish}
@@ -425,7 +502,7 @@ export function MapTreePanel({
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('mapTree.searchPlaceholder')}
             aria-label={t('mapTree.searchAria')}
-            className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none"
+            className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none"
           />
         </div>
       </div>

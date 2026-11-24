@@ -145,7 +145,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                 value={branch ?? ''}
                 disabled={!canWrite || loading}
                 onChange={(event) => void switchBranch(event.target.value)}
-                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] text-slate-800 outline-none focus:border-indigo-400 disabled:bg-slate-50 disabled:text-slate-500"
+                className="mt-1.5 w-full rounded-md border border-slate-300 bg-white px-1.5 py-1 text-[11px] text-slate-800 outline-none focus:border-blue-400 disabled:bg-slate-50 disabled:text-slate-500"
                 aria-label={t('git.switchBranchAria')}
               >
                 {branches.map((item) => (
@@ -161,7 +161,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
                     value={newBranch}
                     onChange={(event) => setNewBranch(event.target.value)}
                     placeholder={t('git.newBranchPlaceholder')}
-                    className="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-1 text-[10px] outline-none focus:border-indigo-400"
+                    className="min-w-0 flex-1 rounded border border-slate-300 px-1.5 py-1 text-[10px] outline-none focus:border-blue-400"
                     aria-label={t('git.newBranchAria')}
                   />
                   <button

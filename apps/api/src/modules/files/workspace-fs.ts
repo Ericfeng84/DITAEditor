@@ -7,6 +7,8 @@ import {
   createMapTemplate,
   createTopicTemplate,
   extractDitaDocumentTitle,
+  extractDitaTopicType,
+  findDomElementByPath,
   getNodeSourceRange,
   insertMapNode,
   normalizePosixPath,
@@ -56,6 +58,8 @@ export interface WorkspaceSnapshot {
   ditavals: WorkspaceDitavalSummary[];
   files: WorkspaceFileNode[];
   topicTitles: Record<string, string>;
+  /** Root-element topic type of each scanned topic, so the map tree can show real file types. */
+  topicTypes: Record<string, DitaTopicTemplateType>;
   stats: {
     totalFiles: number;
     totalTopics: number;
@@ -661,6 +665,7 @@ export class WorkspaceManager {
     const maps: WorkspaceMapSummary[] = [];
     const ditavals: WorkspaceDitavalSummary[] = [];
     const topicTitles: Record<string, string> = {};
+    const topicTypes: Record<string, DitaTopicTemplateType> = {};
     const stats = {
       totalFiles: 0,
       totalTopics: 0,
@@ -768,6 +773,10 @@ export class WorkspaceManager {
           if (title) {
             topicTitles[entryPosix] = title;
           }
+          const topicType = extractDitaTopicType(xml);
+          if (topicType) {
+            topicTypes[entryPosix] = topicType;
+          }
         } else if (kind === 'image') {
           stats.totalImages++;
         }
@@ -803,6 +812,7 @@ export class WorkspaceManager {
       ditavals,
       files,
       topicTitles,
+      topicTypes,
       stats,
     };
   }

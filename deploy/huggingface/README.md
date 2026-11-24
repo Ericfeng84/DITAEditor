@@ -1,7 +1,7 @@
 ---
 title: DITAEditor
 emoji: 📝
-colorFrom: indigo
+colorFrom: blue
 colorTo: slate
 sdk: docker
 app_port: 3001

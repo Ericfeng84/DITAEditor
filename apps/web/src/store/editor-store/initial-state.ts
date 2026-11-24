@@ -16,6 +16,7 @@ export function createInitialEditorState(): EditorStateValues {
     workspaceMaps: initialMemoryDemo.snapshot.maps,
     workspaceDitavals: initialMemoryDemo.snapshot.ditavals,
     topicTitles: initialMemoryDemo.snapshot.topicTitles,
+    topicTypes: initialMemoryDemo.snapshot.topicTypes ?? {},
     activeRootMapPath: initialMemoryDemo.snapshot.maps[0]?.path ?? null,
     activeDitavalPath: null,
     activeDitaval: null,

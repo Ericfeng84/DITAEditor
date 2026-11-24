@@ -54,7 +54,7 @@ export function BreadcrumbBar({
                   onClick={() => onSelectCrumb(crumb)}
                   className={`inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-mono text-[11px] transition-colors ${
                     isSelected
-                      ? 'bg-indigo-600 font-semibold text-white'
+                      ? 'bg-blue-600 font-semibold text-white'
                       : crumb.isUnknown
                         ? 'text-amber-700 hover:bg-amber-100/70'
                         : 'text-slate-700 hover:bg-slate-200/80'
@@ -65,7 +65,7 @@ export function BreadcrumbBar({
                   {crumb.id ? (
                     <span
                       className={
-                        isSelected ? 'text-indigo-200' : 'text-slate-400'
+                        isSelected ? 'text-blue-200' : 'text-slate-400'
                       }
                     >
                       #{crumb.id}

@@ -3,9 +3,11 @@ import {
   createMapTemplate,
   DITA_SAMPLE_DOCUMENTS,
   extractDitaDocumentTitle,
+  extractDitaTopicType,
   parseDitaMap,
   parseDitaval,
   type DitaFileKind,
+  type DitaTopicTemplateType,
 } from '@dita/core';
 import type { InMemoryDemoWorkspace } from './workspace-api.js';
 
@@ -24,7 +26,7 @@ import type {
  * intentionally written in Chinese regardless of the UI locale. UI chrome must never be added
  * to this module: `apps/web/test/no-hardcoded-cjk.test.ts` allow-lists it for exactly that reason.
  */
-const DEMO_ARCH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200"><rect width="640" height="200" rx="12" fill="#f8fafc" stroke="#c7d2fe"/><text x="24" y="34" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#1e293b">DITAEditor Phase 2 Offline Demo Workspace</text><rect x="24" y="56" width="180" height="110" rx="8" fill="#eef2ff" stroke="#818cf8"/><text x="38" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#312e81">Map / Bookmap Tree</text><text x="38" y="114" font-family="monospace" font-size="11" fill="#4338ca">react-arborist</text><rect x="230" y="56" width="180" height="110" rx="8" fill="#0f172a"/><text x="246" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#38bdf8">@dita/core</text><text x="246" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#cbd5e1">Lossless XML DOM</text><rect x="436" y="56" width="180" height="110" rx="8" fill="#ecfdf5" stroke="#34d399"/><text x="452" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#065f46">Multi-Tab Editor</text><text x="452" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#047857">Visual &lt;-&gt; Source</text></svg>`;
+const DEMO_ARCH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200"><rect width="640" height="200" rx="12" fill="#f8fafc" stroke="#bfdbfe"/><text x="24" y="34" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#1e293b">DITAEditor Phase 2 Offline Demo Workspace</text><rect x="24" y="56" width="180" height="110" rx="8" fill="#eff6ff" stroke="#60a5fa"/><text x="38" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">Map / Bookmap Tree</text><text x="38" y="114" font-family="monospace" font-size="11" fill="#1d4ed8">react-arborist</text><rect x="230" y="56" width="180" height="110" rx="8" fill="#0f172a"/><text x="246" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#38bdf8">@dita/core</text><text x="246" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#cbd5e1">Lossless XML DOM</text><rect x="436" y="56" width="180" height="110" rx="8" fill="#ecfdf5" stroke="#34d399"/><text x="452" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#065f46">Multi-Tab Editor</text><text x="452" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#047857">Visual &lt;-&gt; Source</text></svg>`;
 
 /**
  * Fallback in-memory multi-file project used when `@dita/api` is not running.
@@ -189,7 +191,7 @@ export function createInMemoryDemoWorkspace(): InMemoryDemoWorkspace {
     '  <prop att="product" val="cloud" action="include"/>',
     '  <prop att="product" val="onprem" action="exclude"/>',
     '  <prop att="otherprops" val="internal" action="exclude"/>',
-    '  <revprop val="2.4" action="flag" color="#6d28d9" backcolor="#ede9fe" style="bold">',
+    '  <revprop val="2.4" action="flag" color="#1d4ed8" backcolor="#dbeafe" style="bold">',
     '    <startflag><alt-text>v2.4 Cloud</alt-text></startflag>',
     '  </revprop>',
     '</val>',
@@ -245,6 +247,7 @@ export function buildSnapshotFromMemoryFiles(
   const maps: WorkspaceMapSummary[] = [];
   const ditavals: WorkspaceDitavalSummary[] = [];
   const topicTitles: Record<string, string> = {};
+  const topicTypes: Record<string, DitaTopicTemplateType> = {};
   const stats = {
     totalFiles: 0,
     totalTopics: 0,
@@ -332,6 +335,8 @@ export function buildSnapshotFromMemoryFiles(
       stats.totalTopics++;
       const title = extractDitaDocumentTitle(content);
       if (title) topicTitles[filePath] = title;
+      const topicType = extractDitaTopicType(content);
+      if (topicType) topicTypes[filePath] = topicType;
     } else if (kind === 'image') {
       stats.totalImages++;
     }
@@ -373,6 +378,7 @@ export function buildSnapshotFromMemoryFiles(
     ditavals,
     files: rootChildren,
     topicTitles,
+    topicTypes,
     stats,
   };
 }

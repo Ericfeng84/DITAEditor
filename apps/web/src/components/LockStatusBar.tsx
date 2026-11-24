@@ -14,10 +14,15 @@ export interface LockStatusBarProps {
   onCancelCheckout: () => void;
   onOpenCheckin: () => void;
   onForceUnlock: () => void;
+  /**
+   * `bar` — full-width status strip with its own chrome border (standalone use).
+   * `inline` — compact cluster that lives inside the editor action row.
+   */
+  variant?: 'bar' | 'inline';
 }
 
 const stateStyles: Record<FileEditability['state'], string> = {
-  admin: 'border-indigo-200 bg-indigo-50/70 text-indigo-800',
+  admin: 'border-blue-200 bg-blue-50/70 text-blue-800',
   viewer: 'border-slate-200 bg-slate-50 text-slate-600',
   unlocked: 'border-amber-200 bg-amber-50/70 text-amber-800',
   owned: 'border-emerald-200 bg-emerald-50/70 text-emerald-800',
@@ -35,6 +40,7 @@ export function LockStatusBar({
   onCancelCheckout,
   onOpenCheckin,
   onForceUnlock,
+  variant = 'bar',
 }: LockStatusBarProps) {
   const { t, locale } = useI18n();
   if (!filePath) return null;
@@ -44,9 +50,14 @@ export function LockStatusBar({
 
   return (
     <div
-      className={`flex h-8 shrink-0 items-center justify-between gap-2 border-b px-3 text-[11px] ${stateStyles[editability.state]}`}
+      className={
+        variant === 'inline'
+          ? `flex min-w-0 max-w-full items-center gap-1.5 rounded border px-1.5 py-[2px] text-[10.5px] ${stateStyles[editability.state]}`
+          : `flex h-8 shrink-0 items-center justify-between gap-2 border-b px-3 text-[11px] ${stateStyles[editability.state]}`
+      }
       role="status"
       aria-live="polite"
+      title={editability.reason}
     >
       <div className="flex min-w-0 items-center gap-1.5">
         {editability.state === 'owned' ? (
@@ -67,8 +78,10 @@ export function LockStatusBar({
                   ? t('lock.state.viewer')
                   : t('lock.state.unlocked')}
         </span>
-        <span className="truncate text-current/80">{editability.reason}</span>
-        {lock ? (
+        <span className={variant === 'inline' ? 'sr-only' : 'truncate text-current/80'}>
+          {editability.reason}
+        </span>
+        {lock && variant === 'bar' ? (
           <span className="hidden shrink-0 text-current/60 md:inline">
             {formatDateTime(lock.updatedAt, locale)}
           </span>

@@ -221,7 +221,7 @@ export function AttributesPanel({
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <code className="rounded bg-indigo-600 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-white">
+              <code className="rounded bg-blue-600 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-white">
                 &lt;{tagName}&gt;
               </code>
               {activeItem.isUnknown ? (
@@ -320,7 +320,7 @@ export function AttributesPanel({
                   >
                     <span
                       className={`shrink-0 font-mono text-[11px] font-medium ${
-                        knownNames.has(entry.name) ? 'text-indigo-700' : 'text-amber-700'
+                        knownNames.has(entry.name) ? 'text-blue-700' : 'text-amber-700'
                       }`}
                     >
                       {entry.name}
@@ -331,7 +331,7 @@ export function AttributesPanel({
                       aria-label={t('attributes.attrAria', { name: entry.name })}
                       value={entry.value}
                       onChange={(e) => onUpdateAttr(activeItem.pos, entry.name, e.target.value)}
-                      className="min-w-0 flex-1 rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-800 ring-1 ring-slate-200 focus:ring-indigo-500 focus:outline-none"
+                      className="min-w-0 flex-1 rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-800 ring-1 ring-slate-200 focus:ring-blue-500 focus:outline-none"
                     />
                     <button
                       type="button"
@@ -354,7 +354,7 @@ export function AttributesPanel({
                   onChange={(e) => setCustomAttrName(e.target.value)}
                   placeholder={t('attributes.namePlaceholder')}
                   aria-label={t('attributes.nameAria')}
-                  className="w-24 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
+                  className="w-24 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
                 />
                 <input
                   type="text"
@@ -362,7 +362,7 @@ export function AttributesPanel({
                   onChange={(e) => setCustomAttrValue(e.target.value)}
                   placeholder={t('attributes.valuePlaceholder')}
                   aria-label={t('attributes.valueAria')}
-                  className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
+                  className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
                 />
                 <button
                   type="submit"
@@ -406,7 +406,7 @@ export function AttributesPanel({
                         conditionEval.status === 'exclude'
                           ? 'bg-rose-100 text-rose-800'
                           : conditionEval.status === 'flag'
-                            ? 'bg-indigo-100 text-indigo-800'
+                            ? 'bg-blue-100 text-blue-800'
                             : 'bg-emerald-100 text-emerald-800'
                       }`}
                     >
@@ -417,7 +417,7 @@ export function AttributesPanel({
                           : t('attributes.condition.included')}
                     </span>
                   ) : filledCount > 0 ? (
-                    <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-indigo-700">
+                    <span className="rounded-full bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-700">
                       {filledCount}
                     </span>
                   ) : (
@@ -431,7 +431,7 @@ export function AttributesPanel({
                       <div
                         className={`rounded-md border p-2 text-[11px] ${
                           resolvedKeyref.status === 'resolved'
-                            ? 'border-violet-200 bg-violet-50/70 text-violet-950'
+                            ? 'border-blue-200 bg-blue-50/70 text-blue-950'
                             : 'border-rose-200 bg-rose-50 text-rose-800'
                         }`}
                       >
@@ -450,7 +450,7 @@ export function AttributesPanel({
                                   resolvedKeyref.definition!.line,
                                 )
                               }
-                              className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-violet-700 ring-1 ring-violet-200 hover:bg-violet-100"
+                              className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
                             >
                               <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
                               {t('attributes.define')}
@@ -559,7 +559,7 @@ export function AttributesPanel({
                                   e.target.value === '' ? null : e.target.value,
                                 )
                               }
-                              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 focus:border-indigo-500 focus:outline-none"
+                              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 focus:border-blue-500 focus:outline-none"
                             >
                               <option value="">{t('attributes.unset')}</option>
                               {currentVal && !attr.values.includes(currentVal) ? (
@@ -584,7 +584,7 @@ export function AttributesPanel({
                                   e.target.value === '' ? null : e.target.value,
                                 )
                               }
-                              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none"
+                              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
                             />
                           )}
                         </div>

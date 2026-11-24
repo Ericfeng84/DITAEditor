@@ -1,30 +1,22 @@
 import { useEffect, useRef } from 'react';
 import { useI18n } from '../../i18n/index.js';
 import {
-  AlertCircle,
   Bold,
   Code,
   Columns,
   CopyPlus,
-  FileCode2,
   FolderTree,
-  Grid2x2,
   Image as ImageIcon,
   Italic,
   KeyRound,
   LayoutList,
   Link2,
-  List,
-  ListChecks,
-  ListOrdered,
   Merge,
   Minus,
-  Pilcrow,
   Plus,
   Redo2,
   Rows,
   SplitSquareHorizontal,
-  Table2,
   Trash2,
   Underline,
   Undo2,
@@ -43,7 +35,6 @@ export interface EditorToolbarProps {
   onRedo: () => void;
   onOpenInsertMenu: (anchorEl: HTMLElement) => void;
   onToggleInline: (tag: string) => void;
-  onInsertBlock: (tag: string) => void;
   onOpenXrefDialog: () => void;
   onOpenImageDialog: () => void;
   onOpenKeyrefDialog?: () => void;
@@ -79,7 +70,6 @@ export function EditorToolbar({
   onRedo,
   onOpenInsertMenu,
   onToggleInline,
-  onInsertBlock,
   onOpenXrefDialog,
   onOpenImageDialog,
   onOpenKeyrefDialog,
@@ -166,26 +156,14 @@ export function EditorToolbar({
     { tag: 'keyword', label: t('toolbar.inline.keyword'), icon: KeyRound },
   ];
 
-  const blockInsertItems = [
-    { tag: 'p', label: t('toolbar.block.p'), short: 'p', icon: Pilcrow },
-    { tag: 'section', label: t('toolbar.block.section'), short: 'section', icon: LayoutList },
-    { tag: 'step', label: t('toolbar.block.step'), short: 'step', icon: ListChecks },
-    { tag: 'note', label: t('toolbar.block.note'), short: 'note', icon: AlertCircle },
-    { tag: 'ul', label: t('toolbar.block.ul'), short: 'ul', icon: List },
-    { tag: 'ol', label: t('toolbar.block.ol'), short: 'ol', icon: ListOrdered },
-    { tag: 'codeblock', label: t('toolbar.block.codeblock'), short: 'code', icon: FileCode2 },
-    { tag: 'simpletable', label: t('toolbar.block.simpletable'), short: 'simpletable', icon: Grid2x2 },
-    { tag: 'table', label: t('toolbar.block.table'), short: 'CALS', icon: Table2 },
-  ];
-
   return (
-    <div className="border-b border-slate-200 bg-white">
+    <div className="min-w-0 flex-1">
       <div
         ref={toolbarRef}
         role="toolbar"
         aria-label={t('toolbar.aria')}
         {...({ focusgroup: 'toolbar wrap' } as Record<string, string>)}
-        className="dita-toolbar flex flex-wrap items-center gap-1 px-3 py-1.5"
+        className="dita-toolbar flex min-w-0 flex-wrap items-center gap-1"
       >
         {/* History group */}
         <div role="group" aria-label={t('toolbar.undoGroup')} className="flex items-center gap-0.5">
@@ -228,7 +206,7 @@ export function EditorToolbar({
           >
             <Plus className="h-3.5 w-3.5" aria-hidden="true" />
             <span>{t('toolbar.insertElement')}</span>
-            <kbd className="ml-0.5 rounded bg-indigo-500/20 px-1 font-mono text-[10px] text-indigo-700">
+            <kbd className="ml-0.5 rounded bg-blue-500/20 px-1 font-mono text-[10px] text-blue-700">
               /
             </kbd>
           </button>
@@ -285,14 +263,14 @@ export function EditorToolbar({
           {onOpenKeyrefDialog ? (
             <button
               type="button"
-              className="dita-tb-btn px-2 text-[11px] text-violet-700"
+              className="dita-tb-btn px-2 text-[11px] text-blue-700"
               aria-label={t('toolbar.keyref')}
               title={t('toolbar.keyrefTitle')}
               aria-disabled={disabled || !canInsertInline('keyword')}
               onClick={() => invokeIfEnabled(!canInsertInline('keyword'), onOpenKeyrefDialog)}
             >
               <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden lg:inline">Keyref</span>
+              <span className="hidden 2xl:inline">Keyref</span>
             </button>
           ) : null}
           {onOpenConrefDialog ? (
@@ -305,36 +283,11 @@ export function EditorToolbar({
               onClick={() => invokeIfEnabled(false, onOpenConrefDialog)}
             >
               <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden lg:inline">{t('toolbar.reuse')}</span>
+              <span className="hidden 2xl:inline">{t('toolbar.reuse')}</span>
             </button>
           ) : null}
         </div>
 
-        <span role="separator" aria-orientation="vertical" className="dita-tb-sep" />
-
-        {/* Contextual Block Quick Inserts */}
-        <div role="group" aria-label={t('toolbar.blockGroup')} className="flex items-center gap-0.5">
-          {blockInsertItems.map((item) => {
-            const Icon = item.icon;
-            const allowed = canInsertBlock(item.tag);
-            // Hide task-specific `<step>` when not inside a task/steps context to keep toolbar focused
-            if (item.tag === 'step' && !allowed) return null;
-            return (
-              <button
-                key={item.tag}
-                type="button"
-                className="dita-tb-btn px-2 text-[11px]"
-                aria-label={item.label}
-                title={allowed ? item.label : t('toolbar.notAllowed', { tag: item.tag })}
-                aria-disabled={disabled || !allowed}
-                onClick={() => invokeIfEnabled(!allowed, () => onInsertBlock(item.tag))}
-              >
-                <Icon className="h-3.5 w-3.5" aria-hidden="true" />
-                <span className="hidden font-mono xl:inline">{item.short}</span>
-              </button>
-            );
-          })}
-        </div>
       </div>
 
       {/* Contextual Table Operations Strip (Visible only when cursor is inside simpletable or CALS table) */}
@@ -342,7 +295,7 @@ export function EditorToolbar({
         <div
           role="group"
           aria-label={t('toolbar.tableGroup')}
-          className="flex flex-wrap items-center gap-1.5 border-t border-slate-100 bg-slate-50/90 px-3 py-1 text-[11px]"
+          className="mt-1 flex flex-wrap items-center gap-1.5 rounded border border-slate-200 bg-slate-50/90 px-1.5 py-0.5 text-[11px]"
         >
           <span className="inline-flex items-center gap-1 rounded bg-slate-200/80 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-slate-700">
             {tableInfo.kind === 'cals' ? t('toolbar.tableSummaryCals', { cols: tableInfo.cols }) : t('toolbar.tableSummarySimple', { cols: tableInfo.cols })}
@@ -451,8 +404,6 @@ export function EditorToolbar({
           )}
         </div>
       ) : null}
-
-      <span className="ml-auto" />
     </div>
   );
 }

@@ -24,7 +24,11 @@ import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopic
 import { ProblemsPanel } from './components/ProblemsPanel';
 import { PublishDialog } from './components/publish/PublishDialog';
 import { StrictValidationDialog } from './components/publish/StrictValidationDialog';
-import { TopicAuthoringGuide } from './components/TopicAuthoringGuide';
+import {
+  TopicAuthoringGuide,
+  TopicGuideChip,
+  useAuthoringGuideExpanded,
+} from './components/TopicAuthoringGuide';
 import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
@@ -85,6 +89,7 @@ export function App() {
   const workspaceMaps = useEditorStore((s) => s.workspaceMaps);
   const workspaceDitavals = useEditorStore((s) => s.workspaceDitavals);
   const topicTitles = useEditorStore((s) => s.topicTitles);
+  const topicTypes = useEditorStore((s) => s.topicTypes);
   const activeRootMapPath = useEditorStore((s) => s.activeRootMapPath);
   const activeDitavalPath = useEditorStore((s) => s.activeDitavalPath);
   const activeDitaval = useEditorStore((s) => s.activeDitaval);
@@ -735,6 +740,47 @@ export function App() {
   /** The floating launcher must stay available whenever the panel is not actually on screen. */
   const aiPanelVisible = aiPanelOpen && showRightInspector && inspectorTab === 'ai';
 
+  /** Persisted expand/collapse state of the DITA 1.3 authoring-guide panel. */
+  const [guideExpanded, toggleGuideExpanded] = useAuthoringGuideExpanded();
+  const activeStructureIssueCount = activeTab
+    ? diagnostics.filter((d) => d.filePath === activeTab.path && d.source === 'structure').length
+    : 0;
+  const showGuideChip = activeTab?.kind === 'topic';
+  const showLockStatus = workspaceMode === 'api' && Boolean(activeTab);
+  /** Locks + guide toggle still need a home when the visual toolbar is hidden (source mode, read-only). */
+  const showActionRow = (showTopicVisual && canEdit) || showGuideChip || showLockStatus;
+  const lockStatusNode =
+    showLockStatus && activeTab ? (
+      <LockStatusBar
+        variant="inline"
+        filePath={activeTabPath}
+        editability={editability}
+        lock={activeLock}
+        busy={gitLoading}
+        canCheckin={activeLockDirty}
+        onCheckout={() => {
+          if (activeTabPath) void checkoutFile(activeTabPath);
+        }}
+        onRelease={() => {
+          if (activeTabPath) void releaseFileLock(activeTabPath);
+        }}
+        onCancelCheckout={() => {
+          if (activeTabPath) void cancelFileCheckout(activeTabPath);
+        }}
+        onOpenCheckin={() => {
+          if (activeTabPath) openCheckin([activeTabPath]);
+        }}
+        onForceUnlock={() => {
+          if (!activeTabPath) return;
+          const reason = window.prompt(
+            t('app.forceUnlockPrompt', { path: activeTabPath }),
+            t('app.forceUnlockReason'),
+          );
+          if (reason !== null) void forceUnlockFile(activeTabPath, reason);
+        }}
+      />
+    ) : null;
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900">
       {/* Accessible live status region */}
@@ -765,6 +811,7 @@ export function App() {
                     mapBuffers={mapBuffers}
                     fileSet={fileSet}
                     topicTitles={topicTitles}
+                    topicTypes={topicTypes}
                     selectedMapNode={selectedMapNode}
                     ditavals={workspaceDitavals}
                     activeDitavalPath={activeDitavalPath}
@@ -870,37 +917,9 @@ export function App() {
               onExpandInspector={() => setInspectorOpen(true)}
             />
 
-            {workspaceMode === 'api' && activeTab ? (
-              <LockStatusBar
-                filePath={activeTabPath}
-                editability={editability}
-                lock={activeLock}
-                busy={gitLoading}
-                canCheckin={activeLockDirty}
-                onCheckout={() => {
-                  if (activeTabPath) void checkoutFile(activeTabPath);
-                }}
-                onRelease={() => {
-                  if (activeTabPath) void releaseFileLock(activeTabPath);
-                }}
-                onCancelCheckout={() => {
-                  if (activeTabPath) void cancelFileCheckout(activeTabPath);
-                }}
-                onOpenCheckin={() => {
-                  if (activeTabPath) openCheckin([activeTabPath]);
-                }}
-                onForceUnlock={() => {
-                  if (!activeTabPath) return;
-                  const reason = window.prompt(
-                    t('app.forceUnlockPrompt', { path: activeTabPath }),
-                    t('app.forceUnlockReason'),
-                  );
-                  if (reason !== null) void forceUnlockFile(activeTabPath, reason);
-                }}
-              />
-            ) : null}
-
-            {/* Contextual Topic Formatting Toolbar */}
+        {/* Single editor action row: formatting toolbar + authoring guide toggle + lock state */}
+        {showActionRow ? (
+          <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-1">
             {showTopicVisual && canEdit ? (
               <EditorToolbar
                 snapshot={snapshot}
@@ -912,14 +931,31 @@ export function App() {
                 onRedo={() => visualRef.current?.redo()}
                 onOpenInsertMenu={(el) => visualRef.current?.openInsertMenuAtElement(el)}
                 onToggleInline={(tag) => visualRef.current?.toggleInline(tag)}
-                onInsertBlock={(tag) => visualRef.current?.insertBlock(tag)}
                 onOpenXrefDialog={() => setRefDialogMode('xref')}
                 onOpenImageDialog={() => setRefDialogMode('image')}
                 onOpenKeyrefDialog={() => setKeyrefDialogOpen(true)}
                 onOpenConrefDialog={openReuseTab}
                 onTableAction={(action) => visualRef.current?.runTableAction(action)}
               />
-            ) : null}
+            ) : (
+              <div className="min-w-0 flex-1" />
+            )}
+            <div className="ml-auto flex shrink-0 items-center gap-2">
+              {/* In visual mode the guide toggle lives in the editor sub-header toolbar; the
+                  action row only hosts it when there is no visual pane to attach it to. */}
+              {showGuideChip && activeTab && !showVisualPane ? (
+                <TopicGuideChip
+                  docType={activeTab.docType}
+                  expanded={guideExpanded}
+                  onToggle={toggleGuideExpanded}
+                  structureIssueCount={activeStructureIssueCount}
+                  onOpenProblems={() => setProblemsOpen(true)}
+                />
+              ) : null}
+              {lockStatusNode}
+            </div>
+          </div>
+        ) : null}
 
             <main className="min-h-0 flex-1 overflow-hidden">
               <Group
@@ -939,16 +975,9 @@ export function App() {
                       onCloseSavedTabs={closeSavedTabs}
                     />
 
-                    {activeTab?.kind === 'topic' ? (
-                      <TopicAuthoringGuide
-                        docType={activeTab.docType}
-                        structureIssueCount={
-                          diagnostics.filter(
-                            (d) => d.filePath === activeTab.path && d.source === 'structure',
-                          ).length
-                        }
-                        onOpenProblems={() => setProblemsOpen(true)}
-                      />
+                    {/* Source-only layouts have no visual sub-header to host the expanded guide card. */}
+                    {showGuideChip && guideExpanded && !showVisualPane ? (
+                      <TopicAuthoringGuide docType={activeTab?.docType ?? 'topic'} />
                     ) : null}
 
                     <div className="min-h-0 flex-1 overflow-hidden">
@@ -975,7 +1004,7 @@ export function App() {
                                       setTopicMountContext(null);
                                       setNewTopicOpen(true);
                                     }}
-                                    className="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+                                    className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
                                   >
                                     <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
                                     {t('app.newTopic')}
@@ -1046,6 +1075,22 @@ export function App() {
                                           void jumpToSemanticLocation(filePath, { line, elementId })
                                         }
                                         readOnly={!canEdit}
+                                        guideSlot={
+                                          showGuideChip && activeTab ? (
+                                            <TopicGuideChip
+                                              docType={activeTab.docType}
+                                              expanded={guideExpanded}
+                                              onToggle={toggleGuideExpanded}
+                                              structureIssueCount={activeStructureIssueCount}
+                                              onOpenProblems={() => setProblemsOpen(true)}
+                                            />
+                                          ) : null
+                                        }
+                                        guidePanel={
+                                          activeTab?.kind === 'topic' && guideExpanded ? (
+                                            <TopicAuthoringGuide docType={activeTab.docType} />
+                                          ) : null
+                                        }
                                       />
                                     )}
                                   </Panel>
@@ -1097,7 +1142,7 @@ export function App() {
                                 onClick={() => openAiPanel()}
                                 aria-label={t('app.openAiFab')}
                                 title={t('app.openAiFabTitle')}
-                                className="absolute bottom-4 right-4 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border border-indigo-200 bg-white/95 text-indigo-600 shadow-lg shadow-indigo-900/10 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-indigo-600 hover:text-white"
+                                className="absolute bottom-4 right-4 z-30 inline-flex h-9 w-9 items-center justify-center rounded-full border border-blue-200 bg-white/95 text-blue-600 shadow-lg shadow-blue-900/10 backdrop-blur transition-all hover:-translate-y-0.5 hover:bg-blue-600 hover:text-white"
                               >
                                 <Sparkles className="h-4 w-4" aria-hidden="true" />
                                 {!aiConfigured ? (

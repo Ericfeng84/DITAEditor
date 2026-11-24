@@ -5,6 +5,7 @@ import {
   useImperativeHandle,
   useRef,
   useState,
+  type ReactNode,
 } from 'react';
 import { history, redo, undo } from 'prosemirror-history';
 import { EditorState, Selection, TextSelection } from 'prosemirror-state';
@@ -98,6 +99,10 @@ export interface VisualEditorProps {
   onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
   /** Only `<task>` topics expose the strict / general switch. */
   showTaskModelSwitch?: boolean;
+  /** Authoring-guide toggle, placed at the end of the sub-header toolbar. */
+  guideSlot?: ReactNode;
+  /** Expanded authoring-guide panel, rendered directly under the sub-header. */
+  guidePanel?: ReactNode;
 }
 
 export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
@@ -125,6 +130,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       resolvedTaskModel = 'strict',
       onChangeTaskModelSetting,
       showTaskModelSwitch = false,
+      guideSlot,
+      guidePanel,
     },
     ref,
   ) {
@@ -843,7 +850,10 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           taskModelSetting={taskModelSetting}
           resolvedTaskModel={resolvedTaskModel}
           onChangeTaskModelSetting={onChangeTaskModelSetting}
+          guideSlot={guideSlot}
         />
+
+        {guidePanel}
 
         <div
           className="dita-scroller relative min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"

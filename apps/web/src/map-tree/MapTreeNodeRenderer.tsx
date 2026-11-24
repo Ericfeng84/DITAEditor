@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   BookMarked,
   BookOpen,
+  BookText,
   ChevronDown,
   ChevronRight,
   FilePlus2,
@@ -11,9 +12,12 @@ import {
   Folder,
   KeyRound,
   Layers,
+  ListChecks,
   MoreVertical,
   Network,
+  ScrollText,
 } from 'lucide-react';
+import { profilingBadgeClasses } from '../components/profiling-badge-palette.js';
 import { sanitizeCssColor } from '../editor/visual/conref-renderer';
 import type { CompositeMapTreeNode } from './map-tree-utils';
 import { useI18n } from '../i18n/index.js';
@@ -37,31 +41,40 @@ function NodeKindIcon({ data }: { data: CompositeMapTreeNode }) {
     return <Network className="h-3.5 w-3.5 shrink-0 text-sky-600" aria-hidden="true" />;
   }
   if (data.tagName === 'keydef') {
-    return <KeyRound className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />;
+    return <KeyRound className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
   }
   if (data.tagName === 'topichead' || data.tagName === 'part') {
-    return <Folder className="h-3.5 w-3.5 shrink-0 text-amber-600" aria-hidden="true" />;
+    return <Folder className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />;
   }
   if (data.tagName === 'topicgroup' || data.tagName === 'frontmatter' || data.tagName === 'backmatter') {
     return <Layers className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />;
   }
   if (data.tagName === 'chapter' || data.tagName === 'appendix' || data.tagName === 'preface') {
-    return <BookMarked className="h-3.5 w-3.5 shrink-0 text-indigo-600" aria-hidden="true" />;
+    return <BookMarked className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
   }
-  if (data.topicType === 'concept') {
-    return <BookOpen className="h-3.5 w-3.5 shrink-0 text-indigo-600" aria-hidden="true" />;
+  // Topic type of the referenced file (own `type=` attribute wins, else the scanned root element).
+  switch (data.topicType) {
+    case 'concept':
+      return <BookOpen className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
+    case 'task':
+      return <ListChecks className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" />;
+    case 'reference':
+      return <BookText className="h-3.5 w-3.5 shrink-0 text-sky-600" aria-hidden="true" />;
+    case 'topic':
+      return <ScrollText className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />;
+    default:
+      return <FileText className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />;
   }
-  return <FileText className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" />;
 }
 
 const TAG_PILL_STYLES: Record<string, string> = {
   mapref: 'bg-sky-100 text-sky-800',
-  chapter: 'bg-indigo-100 text-indigo-800',
-  part: 'bg-amber-100 text-amber-800',
-  appendix: 'bg-purple-100 text-purple-800',
-  keydef: 'bg-violet-100 text-violet-800',
-  topichead: 'bg-amber-50 text-amber-700',
-  topicgroup: 'bg-slate-100 text-slate-600',
+  chapter: 'bg-blue-100 text-blue-800',
+  part: 'bg-slate-200 text-slate-700',
+  appendix: 'bg-blue-100 text-blue-800',
+  keydef: 'bg-blue-100 text-blue-800',
+  topichead: 'bg-slate-200 text-slate-700',
+  topicgroup: 'bg-slate-100 text-slate-500',
 };
 
 export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
@@ -83,6 +96,12 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
       : undefined;
     const flagColor = sanitizeCssColor(flagStyle?.color);
     const flagBg = sanitizeCssColor(flagStyle?.backcolor);
+    // A freshly inserted <topicgroup> has no navtitle, so surface a readable placeholder
+    // instead of the raw "<topicgroup>" label the map parser falls back to.
+    const rowLabel =
+      data.tagName === 'topicgroup' && data.label === '<topicgroup>'
+        ? t('mapTree.untitledGroup')
+        : data.label;
     const showProfilingChips =
       Boolean(data.profilingSummary?.length) &&
       (actions.ditavalDisplayMode === 'show-all' || Boolean(actions.ditavalActive));
@@ -114,7 +133,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
         }}
         className={`dita-map-row group flex items-center gap-1 rounded-md pr-1.5 text-xs select-none ${
           node.isSelected
-            ? 'bg-indigo-50 text-indigo-950 ring-1 ring-indigo-300/80'
+            ? 'bg-blue-50 text-blue-950 ring-1 ring-blue-300/80'
             : node.willReceiveDrop
               ? 'bg-sky-50 ring-1 ring-sky-400'
               : 'text-slate-700 hover:bg-slate-100/90'
@@ -169,7 +188,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
             .filter(Boolean)
             .join('\n')}
         >
-          {data.label}
+          {rowLabel}
         </span>
 
         {/* DITAVAL Flag / Excluded / Profiling pills */}
@@ -178,7 +197,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
             {t('mapNode.excludedBadge')}
           </span>
         ) : firstFlagBadge ? (
-          <span className="shrink-0 rounded bg-indigo-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-indigo-800">
+          <span className="shrink-0 rounded bg-blue-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-blue-800">
             {firstFlagBadge}
           </span>
         ) : null}
@@ -188,7 +207,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
             {data.profilingSummary.slice(0, 1).map((p) => (
               <span
                 key={p.name}
-                className="rounded bg-lime-100 px-1 py-0.2 font-mono text-[9px] font-medium text-lime-900"
+                className={`rounded border px-1 py-0.2 font-mono text-[9px] font-medium ${profilingBadgeClasses(p.name)}`}
               >
                 {p.name}={p.values.join(' ')}
               </span>
@@ -225,7 +244,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
               }}
               title={t('mapNode.createChildTitle')}
               aria-label={t('mapNode.createChildAria')}
-              className="rounded p-0.5 text-slate-400 hover:bg-indigo-100 hover:text-indigo-700"
+              className="rounded p-0.5 text-slate-400 hover:bg-blue-100 hover:text-blue-700"
             >
               <FilePlus2 className="h-3 w-3" aria-hidden="true" />
             </button>

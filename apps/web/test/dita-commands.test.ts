@@ -152,6 +152,11 @@ describe('Phase 1 DITA ProseMirror Editing Commands', () => {
     const snapBefore = getSelectionSnapshot(state);
     expect(snapBefore.breadcrumbs.map((b) => b.tagName)).toEqual(['concept', 'conbody', 'p']);
     expect(snapBefore.insertGroups.some((g) => g.containerTag === 'conbody')).toBe(true);
+    // Block structures come first; the inline group (if any) is always the last section,
+    // because the insert menu's first section is what arrow keys land on.
+    const kinds = snapBefore.insertGroups.map((g) => g.insertKind);
+    expect(kinds.indexOf('inline')).toBe(kinds.length - 1);
+    expect(kinds[0]).toBe('block');
 
     state = runCmd(state, insertBlockDitaElement('note'));
     const outXml = pmDocToXml(state.doc);

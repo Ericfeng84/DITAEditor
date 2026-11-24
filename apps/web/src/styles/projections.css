@@ -317,7 +317,7 @@
 }
 
 .dita-ditaval-flagged {
-  border-left: 3px solid #6366f1;
+  border-left: 3px solid #3b82f6;
   padding-left: 8px;
   border-radius: 0 4px 4px 0;
 }
@@ -329,9 +329,9 @@
   padding: 0 6px;
   margin: 0 4px 0 0;
   border-radius: 9999px;
-  border: 1px solid rgba(99, 102, 241, 0.35);
-  background: #eef2ff;
-  color: #3730a3;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  background: #eff6ff;
+  color: #1e40af;
   font-size: 10px;
   font-weight: 600;
   line-height: 1.5;
@@ -343,36 +343,43 @@
   margin: 0 0 0 4px;
 }
 
-/* Profiling attribute badge color coding in Show-All / Oxygen tag modes */
+/* Profiling attribute badge color coding in Show-All / Oxygen tag modes.
+ * Hue-per-attribute palette lives in base.css (--dita-prof-*) so the tag-mode
+ * badges and the ProfilingAttrEditor chips never drift apart. */
 .dita-ox-prof-badge[data-prof-attr="audience"] {
-  background: #ede9fe;
-  border-color: #c4b5fd;
-  color: #5b21b6;
+  background: var(--dita-prof-audience-bg);
+  border-color: var(--dita-prof-audience-border);
+  color: var(--dita-prof-audience-fg);
 }
 
 .dita-ox-prof-badge[data-prof-attr="platform"] {
-  background: #e0f2fe;
-  border-color: #7dd3fc;
-  color: #0369a1;
+  background: var(--dita-prof-platform-bg);
+  border-color: var(--dita-prof-platform-border);
+  color: var(--dita-prof-platform-fg);
 }
 
 .dita-ox-prof-badge[data-prof-attr="product"] {
-  background: #dcfce7;
-  border-color: #86efac;
-  color: #166534;
+  background: var(--dita-prof-product-bg);
+  border-color: var(--dita-prof-product-border);
+  color: var(--dita-prof-product-fg);
 }
 
-.dita-ox-prof-badge[data-prof-attr="otherprops"],
+.dita-ox-prof-badge[data-prof-attr="otherprops"] {
+  background: var(--dita-prof-otherprops-bg);
+  border-color: var(--dita-prof-otherprops-border);
+  color: var(--dita-prof-otherprops-fg);
+}
+
 .dita-ox-prof-badge[data-prof-attr="props"] {
-  background: #fef3c7;
-  border-color: #fcd34d;
-  color: #92400e;
+  background: var(--dita-prof-props-bg);
+  border-color: var(--dita-prof-props-border);
+  color: var(--dita-prof-props-fg);
 }
 
 .dita-ox-prof-badge[data-prof-attr="rev"] {
-  background: #fce7f3;
-  border-color: #f9a8d4;
-  color: #9d174d;
+  background: var(--dita-prof-rev-bg);
+  border-color: var(--dita-prof-rev-border);
+  color: var(--dita-prof-rev-fg);
 }
 
 /* ---------------------------------------------------------------------------

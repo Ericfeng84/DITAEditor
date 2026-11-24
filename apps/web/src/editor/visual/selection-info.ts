@@ -183,17 +183,23 @@ function buildInsertContextGroups(
 
   if (breadcrumbs.length === 0) return groups;
 
-  // 1. Inline elements allowed inside the deepest textblock/inline container
+  // 1. Inline elements allowed inside the deepest textblock/inline container.
+  //    Collected up-front but listed AFTER the block groups: authors reach for block
+  //    structures (`<p>`, `<section>`, `<steps>`, `<table>`) far more often, and the
+  //    menu's first section is what the arrow keys land on.
   const deepest = breadcrumbs[breadcrumbs.length - 1]!;
   const inlineCandidates = getAllowedChildElements(deepest.tagName, 'inline', taskModel);
-  if (inlineCandidates.length > 0) {
-    groups.push({
-      containerTag: deepest.tagName,
-      containerDepth: deepest.depth,
-      containerLabel: translate(getCurrentLocale(), 'insertMenu.groupInline', { tag: deepest.tagName }),
-      insertKind: 'inline',
-      items: inlineCandidates,
-    });
+  const inlineGroup: InsertContextGroup | null =
+    inlineCandidates.length > 0
+      ? {
+          containerTag: deepest.tagName,
+          containerDepth: deepest.depth,
+          containerLabel: translate(getCurrentLocale(), 'insertMenu.groupInline', { tag: deepest.tagName }),
+          insertKind: 'inline',
+          items: inlineCandidates,
+        }
+      : null;
+  if (inlineGroup) {
     for (const item of inlineCandidates) {
       seenTags.add(`inline:${item.tag}`);
     }
@@ -265,7 +271,8 @@ function buildInsertContextGroups(
     }
   }
 
-  return groups;
+  // Block groups first, inline group last (see note in step 1).
+  return inlineGroup ? [...groups, inlineGroup] : groups;
 }
 
 function extractActiveTableInfo(

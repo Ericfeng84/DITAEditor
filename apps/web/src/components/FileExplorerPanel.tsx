@@ -61,9 +61,9 @@ function FileIcon({ kind }: { kind: WorkspaceFileNode['kind'] }) {
     case 'ditamap':
       return <Network className="h-3.5 w-3.5 shrink-0 text-sky-600" aria-hidden="true" />;
     case 'bookmap':
-      return <BookMarked className="h-3.5 w-3.5 shrink-0 text-violet-600" aria-hidden="true" />;
+      return <BookMarked className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
     case 'topic':
-      return <FileText className="h-3.5 w-3.5 shrink-0 text-indigo-600" aria-hidden="true" />;
+      return <FileText className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
     case 'ditaval':
       return <Filter className="h-3.5 w-3.5 shrink-0 text-teal-600" aria-hidden="true" />;
     case 'image':
@@ -174,7 +174,7 @@ export function FileExplorerPanel({
             onKeyDown={(e) => {
               if (e.key === 'Escape') setRenamingPath(null);
             }}
-            className="w-full rounded border border-indigo-400 bg-white px-1.5 py-0.5 font-mono text-[11px] focus:outline-none"
+            className="w-full rounded border border-blue-400 bg-white px-1.5 py-0.5 font-mono text-[11px] focus:outline-none"
           />
         </form>
       );
@@ -186,7 +186,7 @@ export function FileExplorerPanel({
         style={{ paddingLeft: `${padLeft + 14}px` }}
         className={`group flex items-center gap-1.5 rounded px-2 py-1 text-xs ${
           isActive
-            ? 'bg-indigo-50 text-indigo-800 font-medium'
+            ? 'bg-blue-50 text-blue-800 font-medium'
             : 'text-slate-700 hover:bg-slate-100'
         }`}
       >
@@ -258,7 +258,7 @@ export function FileExplorerPanel({
               aria-label={t('files.newTopicAria')}
               className="dita-mini-btn shrink-0 p-1"
             >
-              <FilePlus2 className="h-3 w-3 text-indigo-600" aria-hidden="true" />
+              <FilePlus2 className="h-3 w-3 text-blue-600" aria-hidden="true" />
             </button>
             <button
               type="button"
@@ -294,7 +294,7 @@ export function FileExplorerPanel({
               if (e.target.value) onSelectRootMap(e.target.value);
             }}
             disabled={maps.length === 0}
-            className="min-w-0 flex-1 truncate rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium text-slate-800 hover:bg-slate-50 focus:border-indigo-500 focus:outline-none disabled:opacity-50"
+            className="min-w-0 flex-1 truncate rounded-md border border-slate-200 bg-white px-1.5 py-1 text-[11px] font-medium text-slate-800 hover:bg-slate-50 focus:border-blue-500 focus:outline-none disabled:opacity-50"
             title={t('files.selectRootTooltip')}
           >
             {maps.length === 0 ? (
@@ -322,11 +322,11 @@ export function FileExplorerPanel({
             value={newFolderName}
             onChange={(e) => setNewFolderName(e.target.value)}
             placeholder={t('files.folderPlaceholder')}
-            className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-0.5 font-mono text-[11px] focus:border-indigo-500 focus:outline-none"
+            className="min-w-0 flex-1 rounded border border-slate-200 bg-white px-2 py-0.5 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
           />
           <button
             type="submit"
-            className="rounded bg-indigo-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-indigo-500"
+            className="rounded bg-blue-600 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-blue-700"
           >
             {t('common.create')}
           </button>
@@ -343,7 +343,7 @@ export function FileExplorerPanel({
             onChange={(e) => setSearch(e.target.value)}
             placeholder={t('files.filterPlaceholder')}
             aria-label={t('files.filterAria')}
-            className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-indigo-500 focus:bg-white focus:outline-none"
+            className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none"
           />
         </div>
       </div>

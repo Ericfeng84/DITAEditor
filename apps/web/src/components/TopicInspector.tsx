@@ -74,7 +74,7 @@ export function TopicInspector({
                 onClick={() => onTabChange(item.id)}
                 className={`inline-flex items-center gap-1 rounded px-2.5 py-1 text-[11px] font-medium transition-colors ${
                   active
-                    ? 'bg-white text-indigo-700 shadow-xs'
+                    ? 'bg-white text-blue-700 shadow-xs'
                     : 'text-slate-600 hover:bg-white/60 hover:text-slate-900'
                 }`}
               >

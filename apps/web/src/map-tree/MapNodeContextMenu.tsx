@@ -5,6 +5,7 @@ import {
   FilePlus2,
   FolderPlus,
   KeyRound,
+  Layers,
   Link2,
   SlidersHorizontal,
   Trash2,
@@ -267,7 +268,7 @@ export function MapNodeContextMenu({
             onPointerMove={handlePointerMoveItem}
             onClick={(ev) => runAction(ev, onOpenTarget)}
           >
-            <BookOpen className="dita-ctx-icon text-indigo-600" aria-hidden="true" />
+            <BookOpen className="dita-ctx-icon text-blue-600" aria-hidden="true" />
             <span>{node?.isSubmapRef ? t('mapMenu.openSubmap') : t('mapMenu.openTopic')}</span>
           </button>
           <button
@@ -296,7 +297,7 @@ export function MapNodeContextMenu({
             onPointerMove={handlePointerMoveItem}
             onClick={(ev) => runAction(ev, onMountExisting)}
           >
-            <Link2 className="dita-ctx-icon text-indigo-600" aria-hidden="true" />
+            <Link2 className="dita-ctx-icon text-blue-600" aria-hidden="true" />
             <span>{t('mapMenu.mountExisting')}</span>
           </button>
 
@@ -308,8 +309,17 @@ export function MapNodeContextMenu({
             onPointerMove={handlePointerMoveItem}
             onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, isBookmap ? 'chapter' : 'topichead'))}
           >
-            <FolderPlus className="dita-ctx-icon text-amber-600" aria-hidden="true" />
+            <FolderPlus className="dita-ctx-icon text-slate-600" aria-hidden="true" />
             <span>{isBookmap ? t('mapMenu.insertChapter') : t('mapMenu.insertGroup')}</span>
+          </button>
+          <button
+            type="button"
+            disabled={!canNestChildren || isBookmap}
+            onPointerMove={handlePointerMoveItem}
+            onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, 'topicgroup'))}
+          >
+            <Layers className="dita-ctx-icon text-slate-600" aria-hidden="true" />
+            <span>{t('mapMenu.insertTopicgroup')}</span>
           </button>
           <button
             type="button"
@@ -317,7 +327,7 @@ export function MapNodeContextMenu({
             onPointerMove={handlePointerMoveItem}
             onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, 'keydef'))}
           >
-            <KeyRound className="dita-ctx-icon text-violet-600" aria-hidden="true" />
+            <KeyRound className="dita-ctx-icon text-blue-600" aria-hidden="true" />
             <span>{t('mapMenu.insertKeydef')}</span>
           </button>
 

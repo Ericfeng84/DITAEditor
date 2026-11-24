@@ -4,10 +4,12 @@ import {
   DITA_MAP_CONTAINER_NODE_TAGS,
   DITA_MAP_ROOT_TAGS,
   DITA_MAP_TREE_NODE_TAGS,
+  DITA_TOPIC_ROOT_TAGS,
 } from '../model/dita-elements.js';
 import { getRawAttr, setRawAttr } from '../model/dita-rules.js';
 import { getNodeSourceRange, parseXml } from '../xml/parser.js';
 import { serializeXml } from '../xml/serializer.js';
+import type { DitaTopicTemplateType } from '../templates/topic-templates.js';
 import type { ParsedXmlDocument, XmlAttributeEntry } from '../xml/types.js';
 import { findDomElementByPath } from '../prosemirror/helpers.js';
 
@@ -136,6 +138,33 @@ export function extractDitaDocumentTitle(xml: string): string | null {
   try {
     const parsed = parseXml(xml, { position: false });
     return extractDitaDocumentTitleFromDocument(parsed.document);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Detect which DITA topic type a document's root element declares.
+ *
+ * Specialized or non-topic roots return `null`, so callers can keep showing a neutral
+ * icon instead of guessing. Used by the workspace scan to label map-tree rows with the
+ * real type of the referenced file rather than the optional `type=` attribute.
+ */
+export function extractDitaTopicTypeFromDocument(
+  document: slimdom.Document,
+): DitaTopicTemplateType | null {
+  const root = document.documentElement;
+  if (!root) return null;
+  const tagName = root.tagName;
+  if (!DITA_TOPIC_ROOT_TAGS.has(tagName)) return null;
+  return tagName as DitaTopicTemplateType;
+}
+
+/** Detect the DITA topic type of a topic XML string (`null` when unknown or not a topic). */
+export function extractDitaTopicType(xml: string): DitaTopicTemplateType | null {
+  try {
+    const parsed = parseXml(xml, { position: false });
+    return extractDitaTopicTypeFromDocument(parsed.document);
   } catch {
     return null;
   }

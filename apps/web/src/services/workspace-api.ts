@@ -55,6 +55,7 @@ export interface WorkspaceSnapshot {
   ditavals: WorkspaceDitavalSummary[];
   files: WorkspaceFileNode[];
   topicTitles: Record<string, string>;
+  topicTypes?: Record<string, DitaTopicTemplateType>;
   stats: {
     totalFiles: number;
     totalTopics: number;

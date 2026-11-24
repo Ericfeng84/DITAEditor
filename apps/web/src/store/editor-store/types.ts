@@ -63,6 +63,8 @@ export interface EditorWorkbenchState {
   workspaceMaps: WorkspaceMapSummary[];
   workspaceDitavals: WorkspaceDitavalSummary[];
   topicTitles: Record<string, string>;
+  /** Root-element topic type per file path (concept/task/reference/topic) for map-tree icons. */
+  topicTypes: Record<string, DitaTopicTemplateType>;
   activeRootMapPath: string | null;
   activeDitavalPath: string | null;
   activeDitaval: ParsedDitaval | null;

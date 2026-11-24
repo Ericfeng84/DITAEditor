@@ -106,7 +106,7 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
             }}
             className={`rounded-lg border p-3 text-left ${
               kind === 'map'
-                ? 'border-indigo-500 bg-indigo-50/70 ring-1 ring-indigo-500'
+                ? 'border-blue-500 bg-blue-50/70 ring-1 ring-blue-500'
                 : 'border-slate-200 hover:bg-slate-50'
             }`}
           >
@@ -124,12 +124,12 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
             }}
             className={`rounded-lg border p-3 text-left ${
               kind === 'bookmap'
-                ? 'border-indigo-500 bg-indigo-50/70 ring-1 ring-indigo-500'
+                ? 'border-blue-500 bg-blue-50/70 ring-1 ring-blue-500'
                 : 'border-slate-200 hover:bg-slate-50'
             }`}
           >
             <div className="flex items-center gap-1.5 font-semibold">
-              <BookMarked className="h-3.5 w-3.5 text-violet-600" aria-hidden="true" />
+              <BookMarked className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
               <span>{t('newMap.bookmap')}</span>
             </div>
             <p className="mt-1 text-[11px] text-slate-500">{t('newMap.bookmapDesc')}</p>
@@ -148,7 +148,7 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t('newMap.titlePlaceholder')}
-            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 focus:border-indigo-500 focus:outline-none"
+            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 focus:border-blue-500 focus:outline-none"
           />
         </div>
 
@@ -163,7 +163,7 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
               required
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono focus:border-blue-500 focus:outline-none"
             />
           </div>
           <div>
@@ -176,7 +176,7 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
               value={targetDir}
               onChange={(e) => setTargetDir(e.target.value)}
               placeholder={t('newMap.dirPlaceholder')}
-              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono focus:border-blue-500 focus:outline-none"
             />
           </div>
         </div>
@@ -192,7 +192,7 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
               required
               value={mapId}
               onChange={(e) => setMapId(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono focus:border-blue-500 focus:outline-none"
             />
           </div>
           <div>
@@ -203,7 +203,7 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
               id="new-map-lang"
               value={lang}
               onChange={(e) => setLang(e.target.value)}
-              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono focus:border-blue-500 focus:outline-none"
             >
               <option value="zh-CN">zh-CN</option>
               <option value="en-US">en-US</option>
@@ -222,7 +222,7 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 font-semibold text-white hover:bg-indigo-500"
+            className="rounded-lg bg-blue-600 px-4 py-1.5 font-semibold text-white hover:bg-blue-700"
           >
             {t('newMap.submit')}
           </button>

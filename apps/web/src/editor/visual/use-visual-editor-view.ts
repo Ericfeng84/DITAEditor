@@ -182,7 +182,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
             localeRef.current,
             resolveTaskModelForDocument(initialDoc),
           ),
-          dropCursor({ color: '#4f46e5', width: 2 }),
+          dropCursor({ color: '#2563eb', width: 2 }),
           gapCursor(),
         ],
       });

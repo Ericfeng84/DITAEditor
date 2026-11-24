@@ -79,7 +79,7 @@ export function WorkbenchHeader({
           onClick={onToggleLeftSidebar}
           className={`inline-flex items-center justify-center rounded-md border p-1.5 transition-colors ${
             leftSidebarOpen
-              ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+              ? 'border-blue-300 bg-blue-50 text-blue-700'
               : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
           }`}
           title={leftSidebarOpen ? t('header.toggleCollapseTitle') : t('header.toggleExpandTitle')}
@@ -157,7 +157,7 @@ export function WorkbenchHeader({
               : warningCount > 0
                 ? 'border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100'
                 : problemsOpen
-                  ? 'border-indigo-300 bg-indigo-50 text-indigo-700'
+                  ? 'border-blue-300 bg-blue-50 text-blue-700'
                   : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
           }`}
           title={t('header.problems.toggleTitle')}
@@ -218,7 +218,7 @@ export function WorkbenchHeader({
           <button
             type="button"
             onClick={onExpandInspector}
-            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-indigo-200 hover:bg-indigo-50 hover:text-indigo-700"
+            className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
             title={t('header.inspector.expandTitle')}
             aria-label={t('header.inspector.expandAria')}
           >

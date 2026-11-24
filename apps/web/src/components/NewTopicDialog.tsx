@@ -222,13 +222,13 @@ export function NewTopicDialog({
                 }}
                 className={`rounded-lg border p-3 text-left transition-colors ${
                   selected
-                    ? 'border-indigo-500 bg-indigo-50/70 ring-1 ring-indigo-500'
+                    ? 'border-blue-500 bg-blue-50/70 ring-1 ring-blue-500'
                     : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-900">
-                    <Icon className="h-3.5 w-3.5 text-indigo-600" aria-hidden="true" />
+                    <Icon className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
                     {t(opt.labelKey)}
                   </span>
                   <code className="font-mono text-[10px] text-slate-500">{opt.subtitle}</code>
@@ -254,7 +254,7 @@ export function NewTopicDialog({
               value={docTitle}
               onChange={(e) => setDocTitle(e.target.value)}
               placeholder={t('newTopic.titlePlaceholder')}
-              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
+              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
@@ -270,7 +270,7 @@ export function NewTopicDialog({
                 value={docId}
                 onChange={(e) => setDocId(e.target.value)}
                 placeholder="e.g. task_setup_fonts"
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
               />
             </div>
 
@@ -282,7 +282,7 @@ export function NewTopicDialog({
                 id="new-topic-lang"
                 value={lang}
                 onChange={(e) => setLang(e.target.value)}
-                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
               >
                 <option value="zh-CN">zh-CN</option>
                 <option value="en-US">en-US</option>
@@ -303,7 +303,7 @@ export function NewTopicDialog({
                 value={targetDir}
                 onChange={(e) => setTargetDir(e.target.value)}
                 placeholder={t('newTopic.dirPlaceholder')}
-                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900 focus:border-indigo-500 focus:outline-none"
+                className="w-full rounded-lg border border-slate-200 px-3 py-1.5 font-mono text-xs text-slate-900 focus:border-blue-500 focus:outline-none"
               />
               <datalist id={dirListId}>
                 {directories
@@ -323,7 +323,7 @@ export function NewTopicDialog({
                   id="new-topic-mount-tag"
                   value={mountTagName}
                   onChange={(e) => setMountTagName(e.target.value)}
-                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-indigo-500 focus:outline-none"
+                  className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
                 >
                   <option value="topicref">&lt;topicref&gt;</option>
                   {mountContext.isBookmap ? (
@@ -349,7 +349,7 @@ export function NewTopicDialog({
           </button>
           <button
             type="submit"
-            className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-indigo-500"
+            className="rounded-lg bg-blue-600 px-4 py-1.5 text-xs font-semibold text-white hover:bg-blue-700"
           >
             {mountContext ? t('newTopic.submitMount') : t('newTopic.submit')}
           </button>

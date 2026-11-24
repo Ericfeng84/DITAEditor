@@ -81,7 +81,7 @@ export function MapOverviewPane({
               <span
                 className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[11px] font-bold uppercase ${
                   map.kind === 'bookmap'
-                    ? 'bg-violet-100 text-violet-800'
+                    ? 'bg-blue-100 text-blue-800'
                     : 'bg-sky-100 text-sky-800'
                 }`}
               >
@@ -103,7 +103,7 @@ export function MapOverviewPane({
               type="text"
               value={map.title}
               onChange={(e) => onUpdateRootTitle(mapPath, e.target.value)}
-              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-base font-bold text-slate-900 focus:border-indigo-500 focus:outline-none"
+              className="mt-1 w-full rounded-lg border border-slate-200 px-3 py-1.5 text-base font-bold text-slate-900 focus:border-blue-500 focus:outline-none"
             />
           </div>
 
@@ -118,7 +118,7 @@ export function MapOverviewPane({
             <button
               type="button"
               onClick={() => onCreateAndMount(mapPath, map.title)}
-              className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-indigo-500"
+              className="inline-flex items-center gap-1 rounded-lg bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700"
             >
               <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
               {t('mapTree.createMounted')}
@@ -212,7 +212,7 @@ export function MapOverviewPane({
                       <button
                         type="button"
                         onClick={() => onOpenTopic(res.targetPath)}
-                        className="shrink-0 rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-indigo-700 hover:bg-indigo-50"
+                        className="shrink-0 rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
                       >
                         {t('mapOverview.open')}
                       </button>

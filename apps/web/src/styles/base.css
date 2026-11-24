@@ -17,6 +17,28 @@
   --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   --scrollbar-thumb: #94a3b8;
   --scrollbar-track: #f1f5f9;
+
+  /* Profiling attribute color coding — single source of truth for the React attribute
+   * chips (ProfilingAttrEditor) and the inline tag-mode badges (projections.css).
+   * One hue per attribute, no two attributes share a hue; the accent itself stays blue. */
+  --dita-prof-audience-bg: #e0f2fe;
+  --dita-prof-audience-border: #7dd3fc;
+  --dita-prof-audience-fg: #0369a1;
+  --dita-prof-platform-bg: #dcfce7;
+  --dita-prof-platform-border: #86efac;
+  --dita-prof-platform-fg: #166534;
+  --dita-prof-product-bg: #dbeafe;
+  --dita-prof-product-border: #93c5fd;
+  --dita-prof-product-fg: #1d4ed8;
+  --dita-prof-otherprops-bg: #fef3c7;
+  --dita-prof-otherprops-border: #fcd34d;
+  --dita-prof-otherprops-fg: #92400e;
+  --dita-prof-props-bg: #f1f5f9;
+  --dita-prof-props-border: #cbd5e1;
+  --dita-prof-props-fg: #475569;
+  --dita-prof-rev-bg: #ffe4e6;
+  --dita-prof-rev-border: #fda4af;
+  --dita-prof-rev-fg: #be123c;
 }
 
 html,

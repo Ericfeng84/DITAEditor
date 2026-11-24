@@ -67,6 +67,7 @@ export function createStoreRuntime(set: StoreSet, get: StoreGet) {
       workspaceMaps: snapshot.maps,
       workspaceDitavals: snapshot.ditavals ?? [],
       topicTitles: snapshot.topicTitles,
+      topicTypes: snapshot.topicTypes ?? {},
     });
     return nextFileSet;
   };
@@ -232,6 +233,7 @@ export function createStoreRuntime(set: StoreSet, get: StoreGet) {
       workspaceMaps: demo.snapshot.maps,
       workspaceDitavals: demo.snapshot.ditavals,
       topicTitles: demo.snapshot.topicTitles,
+      topicTypes: demo.snapshot.topicTypes ?? {},
       activeRootMapPath: defaultRootMap,
       activeDitavalPath: null,
       activeDitaval: null,

@@ -69,7 +69,7 @@ export function StrictValidationDialog({
         <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-200 px-4 py-2.5">
           <div className="min-w-0">
             <h2 className="flex items-center gap-1.5 text-sm font-semibold text-slate-900">
-              <ShieldCheck className="h-4 w-4 text-indigo-600" aria-hidden="true" />
+              <ShieldCheck className="h-4 w-4 text-blue-600" aria-hidden="true" />
               {t('strict.title')}
             </h2>
             <p className="mt-0.5 truncate text-[11px] text-slate-500">
@@ -96,7 +96,7 @@ export function StrictValidationDialog({
 
         {strictRunning ? (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 text-xs text-slate-500">
-            <Loader2 className="h-5 w-5 animate-spin text-indigo-600" aria-hidden="true" />
+            <Loader2 className="h-5 w-5 animate-spin text-blue-600" aria-hidden="true" />
             <p>{t('strict.running')}</p>
             {strictTargets.length > 0 ? (
               <p className="font-mono text-[10.5px] text-slate-400">
@@ -207,7 +207,7 @@ export function StrictValidationDialog({
                           onClick={() => onAiFixDiagnostic(diagnostic)}
                           title={t('strict.fixWithAi')}
                           aria-label={t('strict.fixWithAi')}
-                          className="mt-1.5 shrink-0 rounded p-1 text-indigo-500 hover:bg-indigo-50 hover:text-indigo-700"
+                          className="mt-1.5 shrink-0 rounded p-1 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
                         >
                           <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
                         </button>

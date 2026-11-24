@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="task_drd8" xml:lang="zh-CN">
+  <title>task</title>
+  <shortdesc>说明完成该操作任务的目标以及预计达成的结果。</shortdesc>
+  <taskbody>
+    <prereq>
+      <p>确认已具备操作所需的环境与权限。</p>
+    </prereq>
+    <context>
+      <p>按以下步骤完成配置：</p>
+    </context>
+    <steps>
+      <step>
+        <cmd>执行第一步操作命令。</cmd>
+        <info>
+          <p>可在此补充参数细节或注意事项。</p>
+        </info>
+      </step>
+      <step>
+        <cmd>验证服务状态并检查输出结果。</cmd>
+        <stepresult>
+          <p>控制台返回就绪状态提示。</p>
+        </stepresult>
+      </step>
+    </steps>
+    <result>
+      <p>任务执行完成。</p>
+    </result>
+  </taskbody>
+</task>
