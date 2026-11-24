@@ -12,7 +12,7 @@ Phase 9–11 交付：DITA 1.3 顺序/基数内容模型校验、手册编辑工
 - **轻量桌面端 `@dita/desktop`（Phase 11）**：
   - 基于 Electron 35 + `electron-builder` + `esbuild`，主进程直接内嵌 `@dita/api`（仅监听 `127.0.0.1` 随机回环端口），内置打包后的 `@dita/web`、`com.ditaeditor.pdf-cjk` 中文 PDF 字体插件与 `demo-dita-project`。
   - 所有可写状态（`dita-editor.sqlite`、`workspaces/`、`git-worktrees/`、`publishes/`、可写示例副本）均隔离至系统 `userData` 目录（支持 `DITA_DESKTOP_DATA_DIR` 覆盖）。
-  - 新增 `.github/workflows/release-desktop.yml`，在发布 GitHub Release 时自动于原生 `macos-14`（`arm64` `.dmg`/`.zip`）与 `windows-latest`（`x64` NSIS `.exe`/`.zip`）并行打包并挂载到 Release Assets。
+  - 新增 `.github/workflows/release-desktop.yml`，在发布 GitHub Release 时自动于原生 `macos-latest`（`arm64` `.dmg`/`.zip`）与 `windows-latest`（`x64` NSIS `.exe`/`.zip`）并行打包并挂载到 Release Assets。
 - **手册编辑工作台与 Topic 委派（Phase 10）**：独立工作台首页（`/`）+ 多手册/多分支请求级隔离（`ManualContextResolver`）+ SQLite 轻量 `Assignment` 委派与 Check-out/Check-in/Rename 软联动；支持复用候选拖拽插入、Keys 原位编辑与可折叠 `prolog`。
 - **DITA 1.3 顺序/基数内容模型校验（Phase 9）**：`@dita/core` 新增 `DITA_SEQUENCE_MODEL` 与 `getInsertionSlot()` 引导式插入，可视化装饰、源码 Lint 与问题面板三处同源诊断。
 

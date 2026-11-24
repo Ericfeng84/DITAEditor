@@ -369,7 +369,7 @@ CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:mac   # m
 CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # Windows x64
 ```
 
-**自动发布**：在 GitHub 发布正式 Release 时，[`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml) 会自动在 `macos-14`（`arm64`）与 `windows-latest`（`x64`）并行打包，将 Tag 同步为应用版本号并把双端安装包自动挂载到该 Release 下（也支持在 GitHub Actions 中通过 `workflow_dispatch` 手动试跑验证）。
+**自动发布**：在 GitHub 发布正式 Release 时，[`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml) 会自动在 `macos-latest`（`arm64`）与 `windows-latest`（`x64`）并行打包，将 Tag 同步为应用版本号并把双端安装包自动挂载到该 Release 下（也支持在 GitHub Actions 中通过 `workflow_dispatch` 手动试跑验证）。
 
 ### 方式四：仅编辑 / 语义写作（不安装 DITA-OT）
 

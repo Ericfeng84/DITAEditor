@@ -442,7 +442,7 @@ DITAEditor/
   - 修复 `apps/api/src/modules/dita-ot/dita-runtime.ts` 在 Windows + Node 22 下直接 `spawn('dita.bat')` 触发 `EINVAL` 的问题（改为 `cmd.exe /d /s /c` + 参数转义 `resolveDitaSpawn()`），补充 Windows 常见 DITA-OT 与字体目录探测，并将 `apps/api/src/index.ts` 入口判断改为 `pathToFileURL()` 兼容 Windows 盘符路径。
   - 在 `Dockerfile`、`scripts/sync-hf-space.sh` 与 `.github/workflows/deploy-site.yml` 中跳过 Electron 二进制下载并按包过滤安装，确保容器镜像与官网 CI 零膨胀。
 - **GitHub Release 双平台自动化流水线（`.github/workflows/release-desktop.yml`）**：
-  - 监听 `release: [published]`（与 HF Space 同步工作流一致）及 `workflow_dispatch` 手动试跑，在原生 `macos-14`（`arm64` `.dmg` / `.zip`）与 `windows-latest`（`x64` NSIS `.exe` / 便携 `.zip`）并行构建，自动将 Release Tag 同步为安装包版本号并挂载到对应 GitHub Release；无证书时自动跳过签名发现，配置 `CSC_LINK` / `WIN_CSC_LINK` 等 Secrets 后即自动启用签名。
+  - 监听 `release: [published]`（与 HF Space 同步工作流一致）及 `workflow_dispatch` 手动试跑，在原生 `macos-latest`（`arm64` `.dmg` / `.zip`）与 `windows-latest`（`x64` NSIS `.exe` / 便携 `.zip`）并行构建，自动将 Release Tag 同步为安装包版本号并挂载到对应 GitHub Release；无证书时自动跳过签名发现，配置 `CSC_LINK` / `WIN_CSC_LINK` 等 Secrets 后即自动启用签名。
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含 `apps/api/test/dita-runtime.test.ts` 与 `apps/desktop/test/paths.test.ts`）；本机 `pnpm --filter @dita/desktop run dist:mac` 产出可运行的 Apple Silicon `.dmg`/`.zip`，实包启动能正常初始化 `better-sqlite3` 数据库、拷贝示例项目并快速优雅退出；`./scripts/sync-hf-space.sh --dry-run` 保持精简无桌面产物混入。
 
 ---
