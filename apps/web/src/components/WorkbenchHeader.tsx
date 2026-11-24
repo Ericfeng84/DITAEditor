@@ -8,8 +8,6 @@ import {
   Eye,
   PanelLeft,
   PanelRightOpen,
-  RotateCcw,
-  Save,
 } from 'lucide-react';
 import type { EditorViewMode, OpenEditorTab } from '../store/editor-store';
 import type { IdentityResponse, IdentityUser } from '../services/identity-api';
@@ -28,20 +26,17 @@ export interface WorkbenchHeaderProps {
   errorCount: number;
   warningCount: number;
   dirtyCount: number;
-  isCurrentDirty: boolean;
-  saving: boolean;
   identity: IdentityResponse | null;
   currentUser: IdentityUser | null;
   onSwitchIdentity: (userId: string) => void;
   onToggleLeftSidebar: () => void;
-  onResetBaseline: () => void;
-  onSaveActive: () => void;
-  onSaveAll: () => void;
   onChangeMode: (nextMode: EditorViewMode) => void;
   onToggleProblems: () => void;
   /** Collapsed inspector: show an explicit toolbar button so the panel is always recoverable. */
   showInspectorExpand: boolean;
   onExpandInspector: () => void;
+  /** Phase 10: manual name of this session, shown as the header brand when the sidebar is collapsed. */
+  manualName?: string | null;
 }
 
 export function WorkbenchHeader({
@@ -54,19 +49,15 @@ export function WorkbenchHeader({
   errorCount,
   warningCount,
   dirtyCount,
-  isCurrentDirty,
-  saving,
   identity,
   currentUser,
   onSwitchIdentity,
   onToggleLeftSidebar,
-  onResetBaseline,
-  onSaveActive,
-  onSaveAll,
   onChangeMode,
   onToggleProblems,
   showInspectorExpand,
   onExpandInspector,
+  manualName = null,
 }: WorkbenchHeaderProps) {
   const { t } = useI18n();
   return (
@@ -94,8 +85,12 @@ export function WorkbenchHeader({
               D
             </div>
             <div className="hidden leading-tight xl:block">
-              <div className="text-xs font-bold tracking-tight text-slate-900">DITAEditor</div>
-              <div className="text-[10px] font-medium text-slate-400">{t('header.brandSubtitle')}</div>
+              <div className="text-xs font-bold tracking-tight text-slate-900">
+                {manualName ?? 'DITAEditor'}
+              </div>
+              <div className="text-[10px] font-medium text-slate-400">
+                {manualName ? t('header.manualSubtitle') : t('header.brandSubtitle')}
+              </div>
             </div>
           </div>
         ) : null}
@@ -189,29 +184,13 @@ export function WorkbenchHeader({
         <LocaleSwitcher />
         <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
         {dirtyCount > 0 ? (
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              disabled={saving}
-              onClick={isCurrentDirty ? onSaveActive : onSaveAll}
-              className="inline-flex items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white hover:bg-slate-800 disabled:opacity-50"
-              title={t('header.save.title')}
-            >
-              <Save className="h-3 w-3" aria-hidden="true" />
-              <span>{saving ? t('common.saving') : dirtyCount > 1 ? t('header.save.saveAll', { count: dirtyCount }) : t('common.save')}</span>
-            </button>
-            {isCurrentDirty ? (
-              <button
-                type="button"
-                onClick={onResetBaseline}
-                className="hidden items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 hover:bg-slate-50 xl:inline-flex"
-                title={t('header.reset.title')}
-              >
-                <RotateCcw className="h-3 w-3" aria-hidden="true" />
-                <span>{t('header.reset.label')}</span>
-              </button>
-            ) : null}
-          </div>
+          <span
+            className="inline-flex shrink-0 items-center gap-1 rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-medium text-amber-800"
+            title={t('header.dirtyTitle')}
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" aria-hidden="true" />
+            <span>{t('header.dirtyCount', { count: dirtyCount })}</span>
+          </span>
         ) : null}
 
         {showInspectorExpand ? (

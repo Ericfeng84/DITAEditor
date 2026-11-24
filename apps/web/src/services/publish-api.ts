@@ -1,3 +1,4 @@
+import { getActiveScope } from './active-scope.js';
 import { getCurrentUserId } from './identity-api.js';
 import { requestJson } from './workspace-api.js';
 
@@ -174,6 +175,9 @@ export async function streamPublishJobEvents(
   };
   const userId = getCurrentUserId();
   if (userId) headers['x-dita-user-id'] = userId;
+  const scope = getActiveScope();
+  if (scope.manualId) headers['x-dita-manual-id'] = scope.manualId;
+  if (scope.branch) headers['x-dita-branch'] = scope.branch;
   const response = await fetch(
     `/api/publish/jobs/${encodeURIComponent(id)}/events`,
     { headers, cache: 'no-store', signal },

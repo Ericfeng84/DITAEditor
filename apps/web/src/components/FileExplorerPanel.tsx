@@ -15,6 +15,7 @@ import {
   Pencil,
   Search,
   Trash2,
+  Users,
 } from 'lucide-react';
 import type { WorkspaceFileNode, WorkspaceMapSummary } from '../services/workspace-api';
 import { useI18n } from '../i18n/index.js';
@@ -23,6 +24,8 @@ export interface FileExplorerPanelProps {
   files: WorkspaceFileNode[];
   activeTabPath: string | null;
   activeRootMapPath: string | null;
+  /** Manual / workspace name shown next to the panel title so the session stays identifiable. */
+  projectName?: string | null;
   maps: WorkspaceMapSummary[];
   topicTitles: Record<string, string>;
   onOpenFile: (path: string) => void;
@@ -33,7 +36,26 @@ export interface FileExplorerPanelProps {
   onCreateFolder: (dirPath: string) => void;
   onRenameFile: (fromPath: string, toPath: string) => void;
   onDeleteFile: (path: string) => void;
+  /** Phase 10: topic path → assignment badge (assignee initials + status). */
+  assignmentBadges?: Record<string, AssignmentBadge>;
+  /** Phase 10: opens the delegate dialog for this topic (admin/writer, api mode only). */
+  onDelegateTopic?: (path: string) => void;
 }
+
+export interface AssignmentBadge {
+  initials: string;
+  displayName: string;
+  status: 'pending' | 'in_progress' | 'done' | 'cancelled';
+  overdue: boolean;
+  mine: boolean;
+}
+
+const BADGE_TONE: Record<AssignmentBadge['status'], string> = {
+  pending: 'bg-amber-100 text-amber-700 ring-amber-200',
+  in_progress: 'bg-blue-100 text-blue-700 ring-blue-200',
+  done: 'bg-emerald-100 text-emerald-700 ring-emerald-200',
+  cancelled: 'bg-slate-100 text-slate-500 ring-slate-200',
+};
 
 function filterTreeNodes(nodes: WorkspaceFileNode[], query: string): WorkspaceFileNode[] {
   const q = query.trim().toLowerCase();
@@ -77,6 +99,7 @@ export function FileExplorerPanel({
   files,
   activeTabPath,
   activeRootMapPath,
+  projectName = null,
   maps,
   topicTitles,
   onOpenFile,
@@ -87,6 +110,8 @@ export function FileExplorerPanel({
   onCreateFolder,
   onRenameFile,
   onDeleteFile,
+  assignmentBadges,
+  onDelegateTopic,
 }: FileExplorerPanelProps) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
@@ -215,7 +240,35 @@ export function FileExplorerPanel({
           </button>
         ) : null}
 
+        {assignmentBadges?.[node.path] ? (
+          <span
+            title={t('assignments.badgeTooltip', {
+              name: assignmentBadges[node.path]?.displayName ?? '',
+              status: t(`assignments.status.${assignmentBadges[node.path]?.status ?? 'pending'}`),
+            })}
+            className={`inline-flex shrink-0 items-center gap-1 rounded-full px-1 py-px text-[9px] font-semibold ring-1 ${
+              BADGE_TONE[assignmentBadges[node.path]?.status ?? 'pending']
+            }`}
+          >
+            {assignmentBadges[node.path]?.initials}
+            {assignmentBadges[node.path]?.overdue ? (
+              <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden="true" />
+            ) : null}
+          </span>
+        ) : null}
+
         <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
+          {onDelegateTopic && node.name.endsWith('.dita') ? (
+            <button
+              type="button"
+              onClick={() => onDelegateTopic(node.path)}
+              aria-label={t('assignments.menuDelegate')}
+              title={t('assignments.badgeDelegateHint')}
+              className="rounded p-0.5 text-slate-400 hover:bg-blue-100 hover:text-blue-700"
+            >
+              <Users className="h-3 w-3" aria-hidden="true" />
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => {
@@ -247,9 +300,19 @@ export function FileExplorerPanel({
       {/* Workspace & Root Map Toolbar */}
       <div className="border-b border-slate-100 px-2.5 py-2">
         <div className="flex min-w-0 items-center justify-between gap-1">
-          <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+          <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
             {t('files.title')}
           </span>
+          {projectName ? (
+            <span
+              className="min-w-0 flex-1 truncate text-[10.5px] font-medium text-slate-500"
+              title={projectName}
+            >
+              {projectName}
+            </span>
+          ) : (
+            <span className="min-w-0 flex-1" />
+          )}
           <div className="flex shrink-0 items-center gap-0.5">
             <button
               type="button"

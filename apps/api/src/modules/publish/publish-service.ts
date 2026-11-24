@@ -261,7 +261,7 @@ export class PublishService {
         ditaval: input.ditaval ?? null,
         title,
         status: 'queued',
-        optionsJson: JSON.stringify({ timeoutMs: this.timeoutMs, locale }),
+        optionsJson: JSON.stringify({ timeoutMs: this.timeoutMs, locale, workDir: input.workDir }),
         createdAt: now,
         logPath,
         snapshotPath: join(jobDir, 'snapshot'),
@@ -360,6 +360,22 @@ export class PublishService {
     };
   }
 
+  /**
+   * The manual/branch worktree snapshot source. Phase 10 makes workspaces per-request, so the
+   * work dir is persisted with the job instead of read from a mutable process singleton.
+   */
+  private sourceDirForRow(row: PublishJobRow): string {
+    if (row.optionsJson) {
+      try {
+        const parsed = JSON.parse(row.optionsJson) as { workDir?: string };
+        if (parsed.workDir) return parsed.workDir;
+      } catch {
+        // fall through to the legacy singleton path
+      }
+    }
+    return this.workspace.getRootDir();
+  }
+
   /** Locale persisted at job creation (`optionsJson.locale`), defaulting to zh-CN. */
   private localeForRow(row: PublishJobRow | null): ApiLocale {
     if (!row?.optionsJson) return 'zh-CN';
@@ -415,7 +431,8 @@ export class PublishService {
       await mkdir(outputDir, { recursive: true });
 
       const publishRoot = resolve(this.publishRootDir);
-      await cp(this.workspace.getRootDir(), snapshotDir, {
+      const sourceDir = this.sourceDirForRow(row);
+      await cp(sourceDir, snapshotDir, {
         recursive: true,
         force: true,
         dereference: false,
@@ -425,7 +442,7 @@ export class PublishService {
             return false;
           }
           const entry = basename(absSource);
-          if (absSource !== resolve(this.workspace.getRootDir()) && EXCLUDED_SNAPSHOT_ENTRIES.has(entry)) {
+          if (absSource !== resolve(sourceDir) && EXCLUDED_SNAPSHOT_ENTRIES.has(entry)) {
             return false;
           }
           return true;

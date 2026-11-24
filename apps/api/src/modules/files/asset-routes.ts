@@ -1,11 +1,12 @@
 import { existsSync, promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import {
   computeRelativeDitaHref,
   resolveDitaHref,
 } from '@dita/core';
 import type { IdentityService } from '../identity/identity-service.js';
+import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
 import { handleWorkspaceError } from './routes.js';
 import { resolveSafeWorkspacePath, type WorkspaceManager } from './workspace-fs.js';
 
@@ -44,7 +45,12 @@ export function registerAssetRoutes(
   app: FastifyInstance,
   workspace: WorkspaceManager,
   identity?: IdentityService,
+  context?: ManualContextResolver,
 ): void {
+  /** Phase 10: assets belong to the manual + branch session of the request. */
+  const workspaceFor = async (req: FastifyRequest) =>
+    context ? (await context.resolveRequest(req)).workspace : workspace;
+
   app.post('/api/assets/upload', async (req, reply) => {
     try {
       if (identity) {
@@ -86,7 +92,8 @@ export function registerAssetRoutes(
         });
       }
 
-      const rootDir = workspace.getRootDir();
+      const sessionWorkspace = await workspaceFor(req);
+      const rootDir = sessionWorkspace.getRootDir();
       const safeDir = await resolveSafeWorkspacePath(rootDir, targetDir);
       await fs.mkdir(safeDir.absPath, { recursive: true });
 
@@ -103,7 +110,7 @@ export function registerAssetRoutes(
       }
 
       await fs.writeFile(safeTarget.absPath, fileBuffer);
-      await workspace.notifyAssetAdded(safeTarget.posixPath);
+      await sessionWorkspace.notifyAssetAdded(safeTarget.posixPath);
 
       const relativeHref = fromDocPath
         ? computeRelativeDitaHref(fromDocPath, safeTarget.posixPath)
@@ -128,7 +135,7 @@ export function registerAssetRoutes(
       return reply.status(400).send({ error: 'Missing required query parameter: path' });
     }
     try {
-      const asset = await workspace.readBinaryAsset(query.path);
+      const asset = await (await workspaceFor(req)).readBinaryAsset(query.path);
       const contentType = MIME_TYPES[asset.ext] ?? 'application/octet-stream';
       return reply
         .header('Content-Type', contentType)
@@ -152,7 +159,7 @@ export function registerAssetRoutes(
       });
     }
     try {
-      const asset = await workspace.readBinaryAsset(resolved.targetPath);
+      const asset = await (await workspaceFor(req)).readBinaryAsset(resolved.targetPath);
       const contentType = MIME_TYPES[asset.ext] ?? 'application/octet-stream';
       return reply
         .header('Content-Type', contentType)

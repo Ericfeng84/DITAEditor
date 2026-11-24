@@ -123,6 +123,24 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       const scope = await resolvePhase4Scope(req, options);
       identity.requireRole(scope.user, ['admin', 'writer']);
       const branch = validateBranchName(parsed.data.branch);
+
+      if (options.context) {
+        // Phase 10: switching a branch only repoints this client's session. New branch
+        // worktrees live outside the project root, and every other request keeps its own.
+        const session = await options.context.resolve(scope.manualId ?? null, branch);
+        options.context.setDefaultBranch(session.manualId, session.branch);
+        await options.onBranchChanged?.(session.workDir);
+        return {
+          branch: session.branch,
+          workDir: session.workDir,
+          projectRootDir: session.projectRootDir,
+          manualId: session.manualId,
+          snapshot: await session.workspace.scanWorkspace(),
+          status: await git.status(session.workDir, scope.projectRootDir, resolveRequestLocale(req)),
+          locks: locks.list(scope.projectId, session.branch),
+        };
+      }
+
       const workDir = await git.ensureWorktree(scope.projectRootDir, branch);
       await workspace.setActiveRootDirForBranch(workDir);
       await options.onBranchChanged?.(workDir);

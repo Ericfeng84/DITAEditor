@@ -221,8 +221,6 @@ export const zhCNEditor = {
   'visual.tagMode.tagsTitle': '显示紧凑尖括号开始/结束标签',
   'visual.tagMode.full': '含属性',
   'visual.tagMode.fullTitle': '显示带 XML 属性的完整尖括号标签（Oxygen 风格）',
-  'visual.gapHintBefore': '选中段落后点击段间',
-  'visual.gapHintAfter': '快速插块',
   'visual.ditavalExcluded': '排除',
   'visual.ditavalFlagged': '标记',
   'visual.insertHere': '在 <{tag}> 此处插入块',

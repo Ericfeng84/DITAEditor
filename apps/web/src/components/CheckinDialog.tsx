@@ -15,7 +15,16 @@ export interface CheckinDialogProps {
   open: boolean;
   candidates: CheckinCandidate[];
   onClose: () => void;
-  onConfirm: (paths: string[], message: string) => Promise<boolean>;
+  /**
+   * Phase 10: topic paths that hold one of my active assignments. When any selected path is
+   * in this list the dialog offers to close those assignments as part of the check-in.
+   */
+  assignedPaths?: string[];
+  onConfirm: (
+    paths: string[],
+    message: string,
+    options?: { completeMyAssignments: boolean },
+  ) => Promise<boolean>;
   onStrictValidate?: (paths: string[]) => void;
 }
 
@@ -23,6 +32,7 @@ export function CheckinDialog({
   open,
   candidates,
   onClose,
+  assignedPaths = [],
   onConfirm,
   onStrictValidate,
 }: CheckinDialogProps) {
@@ -31,6 +41,7 @@ export function CheckinDialog({
   const [message, setMessage] = useState('');
   const [previewPath, setPreviewPath] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [completeAssignments, setCompleteAssignments] = useState(true);
   const diff = useGitStore((state) => state.diff);
   const diffLoading = useGitStore((state) => state.diffLoading);
   const loadDiff = useGitStore((state) => state.loadDiff);
@@ -42,6 +53,7 @@ export function CheckinDialog({
     setPreviewPath(paths[0] ?? null);
     setMessage('');
     setSubmitting(false);
+    setCompleteAssignments(true);
   }, [open, candidates]);
 
   useEffect(() => {
@@ -50,6 +62,11 @@ export function CheckinDialog({
   }, [open, previewPath, loadDiff]);
 
   const selectedSet = useMemo(() => new Set(selected), [selected]);
+  const assignedSet = useMemo(() => new Set(assignedPaths), [assignedPaths]);
+  const selectedAssignedCount = useMemo(
+    () => selected.filter((path) => assignedSet.has(path)).length,
+    [selected, assignedSet],
+  );
   const canSubmit = selected.length > 0 && message.trim().length > 0 && !submitting;
 
   if (!open) return null;
@@ -163,6 +180,18 @@ export function CheckinDialog({
                 className="w-full rounded-md border border-slate-300 px-2.5 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
               />
             </label>
+
+            {selectedAssignedCount > 0 ? (
+              <label className="flex shrink-0 items-center gap-1.5 text-[11px] text-slate-600">
+                <input
+                  type="checkbox"
+                  checked={completeAssignments}
+                  onChange={(event) => setCompleteAssignments(event.target.checked)}
+                  className="h-3 w-3 rounded border-slate-300 text-blue-600 focus:ring-blue-500/30"
+                />
+                {t('checkin.completeAssignments', { count: selectedAssignedCount })}
+              </label>
+            ) : null}
           </div>
         </div>
 
@@ -196,7 +225,9 @@ export function CheckinDialog({
               disabled={!canSubmit}
               onClick={async () => {
                 setSubmitting(true);
-                const ok = await onConfirm(selected, message.trim());
+                const ok = await onConfirm(selected, message.trim(), {
+                  completeMyAssignments: completeAssignments && selectedAssignedCount > 0,
+                });
                 setSubmitting(false);
                 if (ok) onClose();
               }}

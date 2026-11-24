@@ -7,6 +7,7 @@ import type { WorkspaceManager } from '../files/workspace-fs.js';
 import type { DitaRuntimeOptions } from '../dita-ot/dita-runtime.js';
 import { detectDitaRuntime } from '../dita-ot/dita-runtime.js';
 import { validateStrict } from './strict-validator.js';
+import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
 
 const strictValidationSchema = z.object({
   paths: z.array(z.string().min(1)).max(100).optional(),
@@ -19,6 +20,8 @@ export interface StrictValidationRouteOptions {
   workspace: WorkspaceManager;
   runtime?: DitaRuntimeOptions;
   timeoutMs?: number;
+  /** Phase 10: validate inside the request's manual + branch worktree. */
+  context?: ManualContextResolver;
 }
 
 function errorReply(req: FastifyRequest, reply: FastifyReply, err: unknown) {
@@ -65,7 +68,9 @@ export function registerStrictValidationRoutes(
         .send({ error: apiT(resolveRequestLocale(req), 'validate.argsRequired') });
     }
     try {
-      const workDir = options.workspace.getRootDir();
+      const workDir = options.context
+        ? (await options.context.resolveRequest(req)).workDir
+        : options.workspace.getRootDir();
       const result = await validateStrict({
         workDir,
         paths: selected,

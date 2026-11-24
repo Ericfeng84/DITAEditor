@@ -7,6 +7,7 @@ import { apiT } from '../../i18n/messages.js';
 import type { WorkspaceManager } from '../files/workspace-fs.js';
 import type { IdentityService, IdentityUser } from '../identity/identity-service.js';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
+import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
 import { handlePhase4Error } from '../locks/routes.js';
 import type { AiModelFactory } from './ai-model-factory.js';
 import type { AiServiceLogger } from './ai-service.js';
@@ -25,6 +26,8 @@ import {
 export interface AiRouteDeps {
   workspace: WorkspaceManager;
   indexer: WorkspaceSemanticIndexer;
+  /** Phase 10: read the target topic inside the request's manual + branch worktree. */
+  context?: ManualContextResolver;
   identity: IdentityService;
   settings: AiSettingsService;
   usage: AiUsageService;
@@ -81,6 +84,13 @@ async function withTimeout<T>(
 
 export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void {
   const service = new AiService(deps);
+
+  /** Manual + branch isolation: the AI target locator must read the caller's own worktree. */
+  const serviceFor = async (req: FastifyRequest) => {
+    if (!deps.context) return service;
+    const session = await deps.context.resolveRequest(req);
+    return new AiService({ ...deps, workspace: session.workspace, indexer: session.indexer });
+  };
 
   app.get('/api/ai/config', async (req, reply) => {
     try {
@@ -224,7 +234,8 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
 
     const startedAt = Date.now();
     try {
-      for await (const event of service.stream(input, user, {
+      const activeService = await serviceFor(req);
+      for await (const event of activeService.stream(input, user, {
           signal: controller.signal,
           locale: resolveRequestLocale(req),
         })) {

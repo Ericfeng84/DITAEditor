@@ -153,6 +153,29 @@ export const apiMessagesZh = {
   'ai.configTest.ok': '连接成功。',
 
   'ditaRuntime.cliNotFound': '找不到 DITA-OT CLI 可执行文件：{command}',
+
+  'manuals.notFound': '手册不存在：{id}',
+  'manuals.viewerCannotManage': '只读角色无权管理手册',
+  'manuals.adminOrCreatorOnly': '仅管理员或手册创建者可以移除手册',
+  'manuals.builtinNotRemovable': '内置示例手册不能从工作台移除，可选择归档',
+  'manuals.rootDirMissing': '手册目录不存在：{path}',
+  'manuals.rootDirExists': '该目录已登记为手册：{path}',
+  'manuals.invalidMode': '不支持的手册创建方式：{mode}',
+  'manuals.nameRequired': '手册名称不能为空',
+  'manuals.createFailed': '手册创建失败',
+  'manuals.legacyWorkspaceOnly': '旧工作区接口仅支持切换请求上下文中的手册',
+
+  'assignments.notFound': '编辑任务不存在：{id}',
+  'assignments.viewerForbidden': '只读角色无法参与编辑任务委派',
+  'assignments.topicNotDita': '只能对 .dita Topic 委派编辑任务：{path}',
+  'assignments.topicMissing': '委派目标 Topic 不存在：{path}',
+  'assignments.assigneeNotFound': '受托人不存在：{id}',
+  'assignments.assigneeViewer': '只读角色不能被委派编辑任务：{user}',
+  'assignments.activeExists': '该 Topic 在当前分支已有活跃任务，请改用转派',
+  'assignments.adminOrAssignerOnly': '仅管理员或委派人可以修改该任务',
+  'assignments.invalidDueDate': '截止日期格式应为 YYYY-MM-DD：{value}',
+  'assignments.sameAssignee': '该任务已委派给同一人',
+  'assignments.assignerOrAssigneeOnly': '仅委派人或受托人可以修改该任务',
 } as const;
 
 export type ApiMessageKey = keyof typeof apiMessagesZh;
@@ -304,6 +327,33 @@ export const apiMessagesEn: Record<ApiMessageKey, string> = {
   'ai.configTest.ok': 'Connected successfully.',
 
   'ditaRuntime.cliNotFound': 'DITA-OT CLI executable not found: {command}',
+
+  'manuals.notFound': 'Manual not found: {id}',
+  'manuals.viewerCannotManage': 'A read-only role cannot manage manuals',
+  'manuals.adminOrCreatorOnly': 'Only an admin or the manual creator can remove it',
+  'manuals.builtinNotRemovable':
+    'The built-in sample manual cannot be removed from the workbench; archive it instead',
+  'manuals.rootDirMissing': 'The manual folder does not exist: {path}',
+  'manuals.rootDirExists': 'That folder is already registered as a manual: {path}',
+  'manuals.invalidMode': 'Unsupported manual creation mode: {mode}',
+  'manuals.nameRequired': 'A manual name is required',
+  'manuals.createFailed': 'Creating the manual failed',
+  'manuals.legacyWorkspaceOnly':
+    'The legacy workspace endpoints can only switch the manual in the request context',
+
+  'assignments.notFound': 'Assignment not found: {id}',
+  'assignments.viewerForbidden': 'A read-only role cannot take part in assignment delegation',
+  'assignments.topicNotDita': 'Assignments can only target .dita topics: {path}',
+  'assignments.topicMissing': 'The assigned topic does not exist: {path}',
+  'assignments.assigneeNotFound': 'Assignee not found: {id}',
+  'assignments.assigneeViewer': 'A read-only role cannot receive assignments: {user}',
+  'assignments.activeExists':
+    'This topic already has an active assignment on this branch; reassign it instead',
+  'assignments.adminOrAssignerOnly': 'Only an admin or the assigner can edit this assignment',
+  'assignments.invalidDueDate': 'The due date must use the YYYY-MM-DD format: {value}',
+  'assignments.sameAssignee': 'This assignment is already delegated to that person',
+  'assignments.assignerOrAssigneeOnly':
+    'Only the assigner or the assignee can edit this assignment',
 };
 
 const CATALOGUES: Record<UiLocale, Record<ApiMessageKey, string>> = {

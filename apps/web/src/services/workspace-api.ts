@@ -19,6 +19,7 @@ import {
   type XmlParseError,
 } from '@dita/core';
 import { getCurrentLocale } from '../i18n/index.js';
+import { applyScopeHeaders } from './active-scope.js';
 import { getCurrentUserId } from './identity-api.js';
 
 export interface WorkspaceFileNode {
@@ -123,6 +124,7 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
   const userId = getCurrentUserId();
   if (userId) headers.set('x-dita-user-id', userId);
   headers.set('x-dita-locale', getCurrentLocale());
+  applyScopeHeaders(headers);
   const res = await fetch(url, { ...init, headers });
   const text = await res.text();
   let data: unknown = null;

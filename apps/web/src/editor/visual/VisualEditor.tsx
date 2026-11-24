@@ -101,6 +101,10 @@ export interface VisualEditorProps {
   showTaskModelSwitch?: boolean;
   /** Authoring-guide toggle, placed at the end of the sub-header toolbar. */
   guideSlot?: ReactNode;
+  /** Save affordance, placed on the sub-header toolbar next to the guide toggle. */
+  saveSlot?: ReactNode;
+  /** Lock state + assignment chip for the open topic, on the sub-header toolbar. */
+  contextSlot?: ReactNode;
   /** Expanded authoring-guide panel, rendered directly under the sub-header. */
   guidePanel?: ReactNode;
 }
@@ -131,6 +135,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onChangeTaskModelSetting,
       showTaskModelSwitch = false,
       guideSlot,
+      saveSlot,
+      contextSlot,
       guidePanel,
     },
     ref,
@@ -852,6 +858,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           resolvedTaskModel={resolvedTaskModel}
           onChangeTaskModelSetting={onChangeTaskModelSetting}
           guideSlot={guideSlot}
+          saveSlot={saveSlot}
+          contextSlot={contextSlot}
         />
 
         {guidePanel}

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Filter, Tags } from 'lucide-react';
+import { Filter } from 'lucide-react';
 import type {
   ParsedDitaval,
   TaskContentModel,
@@ -22,13 +22,15 @@ export interface VisualEditorSubHeaderProps {
   onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
   /** Authoring-guide toggle (topic type badge + expand/collapse) at the end of the toolbar. */
   guideSlot?: ReactNode;
+  /** Save affordance, rendered right before the guide toggle so it stays on the document toolbar. */
+  saveSlot?: ReactNode;
+  /** Lock state and assignment chip for the open topic, kept on one row with the toolbar. */
+  contextSlot?: ReactNode;
 }
 
-const TAG_MODE_HINT = '+';
-
 /**
- * Compact visual-mode sub-header: tag display mode switch, gap-insert hint,
- * task content-model switch and the active DITAVAL badge.
+ * Compact visual-mode sub-header: tag display mode switch, task content-model switch,
+ * the active DITAVAL badge, the topic's lock/assignment context and the save affordance.
  */
 export function VisualEditorSubHeader({
   tagDisplayMode,
@@ -41,17 +43,28 @@ export function VisualEditorSubHeader({
   resolvedTaskModel,
   onChangeTaskModelSetting,
   guideSlot,
+  saveSlot,
+  contextSlot,
 }: VisualEditorSubHeaderProps) {
   const { t } = useI18n();
   return (
-    <div className="flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/95 px-3 py-1.5 text-xs">
-      <div className="flex items-center gap-2.5">
+    <div className="@container flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/95 px-3 py-1.5 text-xs">
+      <div className="flex min-w-0 shrink items-center gap-2.5 overflow-hidden">
+        {/* Document identity first, then the controls that are scoped to it: the task
+            content-model switch (task topics only) and the tag-display mode. */}
+        {guideSlot}
+        {showTaskModelSwitch && onChangeTaskModelSetting ? (
+          <TaskModelSwitch
+            setting={taskModelSetting}
+            resolved={resolvedTaskModel}
+            onChange={onChangeTaskModelSetting}
+          />
+        ) : null}
         <div
           role="group"
           aria-label={t('visual.tagModeGroupAria')}
           className="flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
         >
-          <Tags className="mx-1.5 h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />
           {(
             [
               { id: 'none', label: t('visual.tagMode.none'), title: t('visual.tagMode.noneTitle') },
@@ -83,23 +96,11 @@ export function VisualEditorSubHeader({
           })}
         </div>
 
-        <span className="hidden min-w-0 truncate text-[11px] text-slate-400 md:inline-block">
-          {t('visual.gapHintBefore')}{' '}
-          <kbd className="rounded border border-slate-200 bg-white px-1 font-mono text-[10px] text-slate-600">
-            {TAG_MODE_HINT}
-          </kbd>{' '}
-          {t('visual.gapHintAfter')}
-        </span>
       </div>
 
-      <div className="flex shrink-0 items-center gap-2">
-        {guideSlot}
-        {showTaskModelSwitch && onChangeTaskModelSetting ? (
-          <TaskModelSwitch
-            setting={taskModelSetting}
-            resolved={resolvedTaskModel}
-            onChange={onChangeTaskModelSetting}
-          />
+      <div className="flex shrink-0 items-center justify-end gap-2">
+        {contextSlot ? (
+          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">{contextSlot}</div>
         ) : null}
 
         {activeDitaval ? (
@@ -114,6 +115,7 @@ export function VisualEditorSubHeader({
             ) : null}
           </div>
         ) : null}
+        {saveSlot}
       </div>
     </div>
   );

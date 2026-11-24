@@ -5,6 +5,7 @@ import { resolveRequestLocale } from '../../i18n/locale.js';
 import type { GitManager } from '../git/git-manager.js';
 import type { IdentityService, IdentityUser } from '../identity/identity-service.js';
 import type { LockService } from './lock-service.js';
+import type { ManualContextResolver, ManualSession } from '../manuals/manual-context-resolver.js';
 import {
   resolveSafeWorkspacePath,
   type WorkspaceManager,
@@ -16,6 +17,10 @@ const releaseSchema = z.object({ path: z.string().min(1) });
 const checkinSchema = z.object({
   paths: z.array(z.string().min(1)).min(1),
   message: z.string().trim().min(1),
+  /** Phase 10: assignments to complete together with this check-in (assignee's own only). */
+  completeAssignmentIds: z.array(z.string().min(1)).optional(),
+  /** Phase 10: complete every assignment of the caller covering the checked-in topics. */
+  completeMyAssignments: z.boolean().optional(),
 });
 const forceUnlockSchema = z.object({
   path: z.string().min(1),
@@ -28,6 +33,9 @@ export interface Phase4Scope {
   projectRootDir: string;
   projectId: string;
   branch: string;
+  /** Phase 10: the manual + branch session this request resolved to, when available. */
+  manualId?: string;
+  session?: ManualSession;
 }
 
 export interface LockRouteOptions {
@@ -35,6 +43,20 @@ export interface LockRouteOptions {
   git: GitManager;
   identity: IdentityService;
   locks: LockService;
+  /** Phase 10 per-request manual/branch isolation; absent in legacy unit tests. */
+  context?: ManualContextResolver;
+  /** Phase 10 hook: check-out moves the caller's pending assignment to `in_progress`. */
+  onCheckout?: (input: {
+    scope: Phase4Scope;
+    filePath: string;
+  }) => Promise<unknown>;
+  /** Phase 10 hook: check-in completes the caller's assignments for the committed topics. */
+  onCheckin?: (input: {
+    scope: Phase4Scope;
+    paths: string[];
+    completeAssignmentIds?: string[];
+    completeMyAssignments?: boolean;
+  }) => Promise<unknown>;
 }
 
 export function handlePhase4Error(err: unknown, req: FastifyRequest, reply: FastifyReply) {
@@ -52,6 +74,21 @@ export async function resolvePhase4Scope(
   options: LockRouteOptions,
 ): Promise<Phase4Scope> {
   const user = options.identity.resolve(req.headers['x-dita-user-id']);
+
+  if (options.context) {
+    const session = await options.context.resolveRequest(req);
+    const projectId = options.locks.ensureRepository(session.projectRootDir);
+    return {
+      user,
+      workDir: session.workDir,
+      projectRootDir: session.projectRootDir,
+      projectId,
+      branch: session.branch,
+      manualId: session.manualId,
+      session,
+    };
+  }
+
   const workDir = options.workspace.getRootDir();
   const projectRootDir = options.workspace.getProjectRootDir();
   const projectId = options.locks.ensureRepository(projectRootDir);
@@ -97,10 +134,14 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         filePath,
         user: scope.user,
       });
+      const updatedAssignment = options.onCheckout
+        ? await options.onCheckout({ scope, filePath })
+        : null;
       return {
         lock,
         branch: scope.branch,
         locks: locks.list(scope.projectId, scope.branch),
+        updatedAssignment: updatedAssignment ?? null,
       };
     } catch (err) {
       return handlePhase4Error(err, req, reply);
@@ -169,10 +210,19 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         message: parsed.data.message,
         user: scope.user,
       });
+      const completedAssignments = options.onCheckin
+        ? await options.onCheckin({
+            scope,
+            paths,
+            completeAssignmentIds: parsed.data.completeAssignmentIds,
+            completeMyAssignments: parsed.data.completeMyAssignments,
+          })
+        : null;
       return {
         ...result,
         locks: locks.list(scope.projectId, scope.branch),
         status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
+        completedAssignments: completedAssignments ?? [],
       };
     } catch (err) {
       return handlePhase4Error(err, req, reply);

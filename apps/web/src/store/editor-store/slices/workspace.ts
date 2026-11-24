@@ -43,7 +43,7 @@ export function createWorkspaceSlice(
   runtime: StoreRuntime,
 ) {
   return {
-    async initWorkspace() {
+    async initWorkspace(options) {
       if (import.meta.env.VITE_STATIC_DEMO === 'true') {
         runtime.activateMemoryFallback(
           t('status.offlineDemo'),
@@ -73,15 +73,17 @@ export function createWorkspaceSlice(
           statusMessage: t('status.workspaceConnected', { name: snapshot.name, topics: snapshot.stats.totalTopics, maps: snapshot.stats.totalMaps }),
         });
 
+        const requested = options?.topicPath && fSet.has(options.topicPath) ? options.topicPath : null;
         if (firstMap) {
           await runtime.loadMapTreeBuffers(firstMap, true);
           const rootXml = get().mapBuffers[firstMap]?.xml ?? null;
-          const firstTopic = runtime.findFirstTopicInWorkspace(rootXml, firstMap, fSet);
+          const firstTopic =
+            requested ?? runtime.findFirstTopicInWorkspace(rootXml, firstMap, fSet);
           if (firstTopic) {
             await get().openFileTab(firstTopic);
           }
         } else {
-          const firstTopic = runtime.findFirstTopicInWorkspace(null, null, fSet);
+          const firstTopic = requested ?? runtime.findFirstTopicInWorkspace(null, null, fSet);
           if (firstTopic) await get().openFileTab(firstTopic);
         }
         await get().refreshSemantics();

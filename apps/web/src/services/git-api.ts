@@ -1,3 +1,4 @@
+import type { Assignment } from './assignments-api.js';
 import type { IdentityResponse } from './identity-api.js';
 import { requestJson, type WorkspaceSnapshot } from './workspace-api.js';
 
@@ -107,6 +108,13 @@ export interface LockOperationResponse extends LockListResponse {
   autoLocked?: boolean;
 }
 
+export interface CheckinOptions {
+  /** Phase 10: complete every one of my active assignments whose topic is being checked in. */
+  completeMyAssignments?: boolean;
+  /** Restrict completion to these assignment ids (from the check-in dialog). */
+  completeAssignmentIds?: string[];
+}
+
 export interface CheckinResponse {
   commit: GitCommitInfo;
   branch: string;
@@ -116,6 +124,8 @@ export interface CheckinResponse {
   status: GitStatusSummary;
   workDir: string;
   projectRootDir: string;
+  /** Assignments the server moved to `done` as part of this check-in. */
+  completedAssignments?: Assignment[];
 }
 
 export interface ForceUnlockResponse extends LockListResponse {
@@ -161,11 +171,20 @@ export function cancelCheckout(path: string): Promise<LockOperationResponse> {
   });
 }
 
-export function checkinFiles(paths: string[], message: string): Promise<CheckinResponse> {
+export function checkinFiles(
+  paths: string[],
+  message: string,
+  options: CheckinOptions = {},
+): Promise<CheckinResponse> {
   return requestJson<CheckinResponse>('/api/locks/checkin', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ paths, message }),
+    body: JSON.stringify({
+      paths,
+      message,
+      completeMyAssignments: options.completeMyAssignments,
+      completeAssignmentIds: options.completeAssignmentIds,
+    }),
   });
 }
 

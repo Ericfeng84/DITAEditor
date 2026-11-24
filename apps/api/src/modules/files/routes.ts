@@ -1,3 +1,4 @@
+import path from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
@@ -11,7 +12,10 @@ import {
   WorkspacePathError,
   resolveSafeWorkspacePath,
   type WorkspaceManager,
+  type WorkspaceSnapshot,
 } from './workspace-fs.js';
+import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
+import type { ManualRegistryService } from '../manuals/manual-registry-service.js';
 
 async function resolveSafeWorkspacePathFor(workspace: WorkspaceManager, relPath: string) {
   return resolveSafeWorkspacePath(workspace.getRootDir(), relPath);
@@ -90,6 +94,17 @@ export function handleWorkspaceError(err: unknown, req: FastifyRequest, reply: F
 export interface WorkspaceRouteSecurity {
   identity: IdentityService;
   locks: LockService;
+  /** Phase 10: resolves the manual/branch session this request belongs to. */
+  context?: ManualContextResolver;
+  /** Phase 10: bridges the legacy single-workspace routes onto the manual registry. */
+  registry?: ManualRegistryService;
+  /** Phase 10: fired after a rename so assignments can follow the new topic path. */
+  onFileRenamed?: (input: {
+    manualId: string;
+    branch: string;
+    fromPath: string;
+    toPath: string;
+  }) => Promise<unknown> | unknown;
 }
 
 export function registerWorkspaceFileRoutes(
@@ -105,12 +120,24 @@ export function registerWorkspaceFileRoutes(
     return user;
   };
 
+  const sessionFor = async (req: FastifyRequest) =>
+    security?.context ? await security.context.resolveRequest(req) : null;
+
+  /** The workspace view this request must read and write through (manual + branch isolated). */
+  const workspaceFor = async (req: FastifyRequest) =>
+    (await sessionFor(req))?.workspace ?? workspace;
+
+  const indexerFor = async (req: FastifyRequest) => (await sessionFor(req))?.indexer ?? indexer;
+
   const authorizeWrite = async (req: FastifyRequest, relPath: string, exists: boolean) => {
     if (!security) return;
     const user = security.identity.resolve(req.headers['x-dita-user-id']);
+    const session = await sessionFor(req);
+    const workDir = session?.workDir ?? workspace.getRootDir();
+    const projectRootDir = session?.projectRootDir ?? workspace.getProjectRootDir();
     await security.locks.authorizeWrite({
-      workDir: workspace.getRootDir(),
-      projectRootDir: workspace.getProjectRootDir(),
+      workDir,
+      projectRootDir,
       filePath: relPath,
       user,
       exists,
@@ -120,16 +147,35 @@ export function registerWorkspaceFileRoutes(
   const currentScope = async (req: FastifyRequest) => {
     if (!security) return null;
     const user = security.identity.resolve(req.headers['x-dita-user-id']);
-    const projectRootDir = workspace.getProjectRootDir();
+    const session = await sessionFor(req);
+    const workDir = session?.workDir ?? workspace.getRootDir();
+    const projectRootDir = session?.projectRootDir ?? workspace.getProjectRootDir();
     const projectId = security.locks.ensureRepository(projectRootDir);
-    const branch = await security.locks.currentBranch(workspace.getRootDir());
-    return { user, projectId, branch, workDir: workspace.getRootDir() };
+    const branch = session?.branch ?? (await security.locks.currentBranch(workDir));
+    return { user, projectId, branch, workDir, session };
   };
-  app.get('/api/workspace', async (_req, reply) => {
+
+  /** Legacy open/import/create routes: adopt the directory as a manual so requests can
+   *  address it by `x-dita-manual-id` from then on. */
+  const adoptWorkspace = async (
+    req: FastifyRequest,
+    snapshot: WorkspaceSnapshot,
+    requestedPath?: string,
+  ) => {
+    if (!security?.context || !security.registry) return snapshot;
+    const view = await security.registry.registerDirectory(requestedPath ?? snapshot.rootDir, {
+      name: snapshot.name,
+      locale: resolveRequestLocale(req),
+    });
+    security.context.setActiveManual(view.id);
+    return snapshot;
+  };
+
+  app.get('/api/workspace', async (req, reply) => {
     try {
-      return await workspace.scanWorkspace();
+      return await (await workspaceFor(req)).scanWorkspace();
     } catch (err) {
-      return handleWorkspaceError(err, _req, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -140,7 +186,12 @@ export function registerWorkspaceFileRoutes(
     }
     try {
       const target = 'useDefault' in parsed.data ? { useDefault: true as const } : parsed.data.rootDir;
-      return await workspace.openWorkspace(target);
+      const snapshot = await workspace.openWorkspace(target);
+      return await adoptWorkspace(
+        req,
+        snapshot,
+        'useDefault' in parsed.data ? workspace.defaultRootDir : path.resolve(parsed.data.rootDir),
+      );
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
@@ -153,7 +204,8 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      return await workspace.importBatchFiles(parsed.data.projectName, parsed.data.files);
+      const snapshot = await workspace.importBatchFiles(parsed.data.projectName, parsed.data.files);
+      return await adoptWorkspace(req, snapshot);
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
@@ -174,10 +226,11 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      return await workspace.createWorkspace({
+      const snapshot = await workspace.createWorkspace({
         ...parsed.data,
         locale: resolveRequestLocale(req),
       });
+      return await adoptWorkspace(req, snapshot);
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
@@ -190,15 +243,28 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
+      const known =
+        security?.registry && security.context
+          ? (await security.registry.list({ includeArchived: true })).manuals.find(
+              (manual) => manual.rootDir === parsed.data.path,
+            )
+          : undefined;
+      if (known) {
+        await security!.registry!.remove(
+          known.id,
+          security!.identity.resolve(req.headers['x-dita-user-id']),
+        );
+        security!.context!.invalidateManual(known.id);
+      }
       return { workspaces: await workspace.forgetWorkspace(parsed.data.path) };
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
   });
 
-  app.get('/api/files/tree', async (_req, reply) => {
+  app.get('/api/files/tree', async (req, reply) => {
     try {
-      const snapshot = await workspace.scanWorkspace();
+      const snapshot = await (await workspaceFor(req)).scanWorkspace();
       return {
         rootDir: snapshot.rootDir,
         files: snapshot.files,
@@ -207,7 +273,7 @@ export function registerWorkspaceFileRoutes(
         topicTypes: snapshot.topicTypes,
       };
     } catch (err) {
-      return handleWorkspaceError(err, _req, reply);
+      return handleWorkspaceError(err, req, reply);
     }
   });
 
@@ -217,7 +283,7 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: 'Missing required query parameter: path' });
     }
     try {
-      return await workspace.readFile(query.path);
+      return await (await workspaceFor(req)).readFile(query.path);
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
@@ -229,13 +295,10 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      const safePath = (await resolveSafeWorkspacePathFor(workspace, parsed.data.path)).posixPath;
-      await authorizeWrite(req, safePath, await workspace.fileExists(safePath));
-      return await workspace.writeFile(
-        parsed.data.path,
-        parsed.data.content,
-        parsed.data.createDirs ?? true,
-      );
+      const ws = await workspaceFor(req);
+      const safePath = (await resolveSafeWorkspacePathFor(ws, parsed.data.path)).posixPath;
+      await authorizeWrite(req, safePath, await ws.fileExists(safePath));
+      return await ws.writeFile(parsed.data.path, parsed.data.content, parsed.data.createDirs ?? true);
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
@@ -247,12 +310,13 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      const exists = await workspace.fileExists(parsed.data.path);
+      const ws = await workspaceFor(req);
+      const exists = await ws.fileExists(parsed.data.path);
       if (!exists || parsed.data.overwrite) {
-        const safePath = (await resolveSafeWorkspacePathFor(workspace, parsed.data.path)).posixPath;
+        const safePath = (await resolveSafeWorkspacePathFor(ws, parsed.data.path)).posixPath;
         await authorizeWrite(req, safePath, exists);
       }
-      return await workspace.createFromTemplate(parsed.data);
+      return await ws.createFromTemplate(parsed.data);
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
@@ -265,7 +329,7 @@ export function registerWorkspaceFileRoutes(
     }
     try {
       requireWriterOrAdmin(req);
-      return await workspace.mkdir(parsed.data.path);
+      return await (await workspaceFor(req)).mkdir(parsed.data.path);
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
     }
@@ -277,9 +341,10 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      const safeFrom = (await resolveSafeWorkspacePathFor(workspace, parsed.data.fromPath)).posixPath;
+      const ws = await workspaceFor(req);
+      const safeFrom = (await resolveSafeWorkspacePathFor(ws, parsed.data.fromPath)).posixPath;
       await authorizeWrite(req, safeFrom, true);
-      const result = await workspace.renamePath(parsed.data.fromPath, parsed.data.toPath);
+      const result = await ws.renamePath(parsed.data.fromPath, parsed.data.toPath);
       const scope = await currentScope(req);
       if (scope) {
         await security!.locks.transferLock({
@@ -289,6 +354,14 @@ export function registerWorkspaceFileRoutes(
           toPath: result.toPath,
           user: scope.user,
         });
+        if (scope.session) {
+          await security!.onFileRenamed?.({
+            manualId: scope.session.manualId,
+            branch: scope.session.branch,
+            fromPath: result.fromPath,
+            toPath: result.toPath,
+          });
+        }
       }
       return result;
     } catch (err) {
@@ -302,9 +375,10 @@ export function registerWorkspaceFileRoutes(
       return reply.status(400).send({ error: 'Missing required query parameter: path' });
     }
     try {
-      const safePath = (await resolveSafeWorkspacePathFor(workspace, query.path)).posixPath;
+      const ws = await workspaceFor(req);
+      const safePath = (await resolveSafeWorkspacePathFor(ws, query.path)).posixPath;
       await authorizeWrite(req, safePath, true);
-      const result = await workspace.deletePath(query.path);
+      const result = await ws.deletePath(query.path);
       const scope = await currentScope(req);
       if (scope) {
         const lock = security!.locks.find(scope.projectId, scope.branch, safePath);
@@ -321,9 +395,13 @@ export function registerWorkspaceFileRoutes(
   app.get('/api/diagnostics', async (req, reply) => {
     const query = req.query as { rootMap?: string; branch?: string };
     try {
-      const diagnostics = indexer
-        ? await indexer.collectDiagnostics(query.rootMap ?? null, query.branch ?? 'default')
-        : await workspace.collectDiagnostics(query.rootMap, resolveRequestLocale(req));
+      const session = await sessionFor(req);
+      const activeIndexer = session?.indexer ?? indexer;
+      const ws = session?.workspace ?? workspace;
+      const branch = query.branch ?? session?.branch ?? 'default';
+      const diagnostics = activeIndexer
+        ? await activeIndexer.collectDiagnostics(query.rootMap ?? null, branch)
+        : await ws.collectDiagnostics(query.rootMap, resolveRequestLocale(req));
       return { diagnostics };
     } catch (err) {
       return handleWorkspaceError(err, req, reply);

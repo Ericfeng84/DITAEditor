@@ -91,7 +91,11 @@ export function createTabsSlice(
       }
 
       set((s) => ({
-        openTabs: [...s.openTabs, newTab],
+        // Guard against concurrent opens: awaited reads above can let two callers
+        // (e.g. a double-invoked bootstrap effect) both reach this point.
+        openTabs: s.openTabs.some((t) => t.path === filePath)
+          ? s.openTabs.map((t) => (t.path === filePath ? { ...t, mode: defaultMode } : t))
+          : [...s.openTabs, newTab],
         activeTabPath: filePath,
         inspectorTarget: 'topic',
         pendingSourceOffset: defaultMode !== 'visual' ? jumpOffset : null,
@@ -158,7 +162,7 @@ export function createTabsSlice(
       });
     },
 
-    async saveFile(filePath) {
+    async saveFile(filePath, options) {
       const state = get();
       const tab = state.openTabs.find((t) => t.path === filePath);
       const mapBuf = state.mapBuffers[filePath];
@@ -205,9 +209,13 @@ export function createTabsSlice(
           statusMessage: t('status.savedFile', { path: filePath }),
         }));
 
-        await get().refreshWorkspaceTree();
-        await get().refreshSemantics();
-        await get().refreshDiagnostics();
+        // Leaving a session does not need the index/diagnostics round-trip, and awaiting it
+        // made "save and go back" look dead when the semantic refresh was slow.
+        if (options?.refresh !== false) {
+          await get().refreshWorkspaceTree();
+          await get().refreshSemantics();
+          await get().refreshDiagnostics();
+        }
         return true;
       } catch (err) {
         set((s) => ({
@@ -230,7 +238,7 @@ export function createTabsSlice(
       return false;
     },
 
-    async saveAllDirtyFiles() {
+    async saveAllDirtyFiles(options) {
       const state = get();
       const dirtyPaths = new Set<string>();
       for (const tab of state.openTabs) {
@@ -239,10 +247,18 @@ export function createTabsSlice(
       for (const [p, buf] of Object.entries(state.mapBuffers)) {
         if (buf.xml !== buf.baselineXml) dirtyPaths.add(p);
       }
+      const failed: string[] = [];
       for (const p of dirtyPaths) {
-        await get().saveFile(p);
+        const ok = await get().saveFile(p, options);
+        if (!ok) failed.push(p);
       }
-      set({ statusMessage: t('status.savedAll', { count: dirtyPaths.size }) });
+      set({
+        statusMessage:
+          failed.length === 0
+            ? t('status.savedAll', { count: dirtyPaths.size })
+            : t('status.saveFailedSome', { paths: failed.join(', ') }),
+      });
+      return failed;
     },
 
     resetCurrentToBaseline() {

@@ -13,8 +13,9 @@ export interface TaskModelSwitchProps {
 /**
  * Task content-model switch (`auto` / `strict` / `general`).
  *
- * Rendered in the visual sub-header bar and the source toolbar (never in the editing toolbar), and
- * only for `<task>` documents — style it through `variant` so it blends with each surface.
+ * Rendered next to the topic-type badge in the visual sub-header bar and in the source toolbar
+ * (never in the editing toolbar), and only for `<task>` documents — style it through `variant` so
+ * it blends with each surface.
  */
 export function TaskModelSwitch({
   setting,
@@ -29,7 +30,7 @@ export function TaskModelSwitch({
   const hint = t('toolbar.taskModelHint');
 
   return (
-    <label className={`dita-task-model dita-task-model--${variant}`} title={hint}>
+    <label className={`dita-task-model dita-task-model--${variant} shrink-0`} title={hint}>
       <span className="dita-tb-caption">{t('toolbar.taskModel')}</span>
       <select
         className="dita-tb-select dita-tb-select--compact"

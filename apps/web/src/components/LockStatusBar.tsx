@@ -1,4 +1,4 @@
-import { FileCheck2, Lock, LockOpen, ShieldAlert, Unlock } from 'lucide-react';
+import { FileCheck2, Lock, LockOpen, ShieldAlert, Undo2, Unlock } from 'lucide-react';
 import type { FileEditability } from '../services/lock-helpers';
 import type { FileLock } from '../services/git-api';
 import { formatDateTime, useI18n } from '../i18n/index.js';
@@ -24,7 +24,9 @@ export interface LockStatusBarProps {
 const stateStyles: Record<FileEditability['state'], string> = {
   admin: 'border-blue-200 bg-blue-50/70 text-blue-800',
   viewer: 'border-slate-200 bg-slate-50 text-slate-600',
-  unlocked: 'border-amber-200 bg-amber-50/70 text-amber-800',
+  // "Not checked out" is a neutral state, not a warning: keep it grey so the row never
+  // reads as an error and the actionable "检出" button carries the emphasis.
+  unlocked: 'border-slate-300 bg-white/80 text-slate-700',
   owned: 'border-emerald-200 bg-emerald-50/70 text-emerald-800',
   'locked-by-other': 'border-rose-200 bg-rose-50/70 text-rose-800',
 };
@@ -67,7 +69,13 @@ export function LockStatusBar({
         ) : (
           <LockOpen className="h-3 w-3 shrink-0" aria-hidden="true" />
         )}
-        <span className="shrink-0 font-semibold">
+        <span
+          className={
+            variant === 'inline'
+              ? 'hidden shrink-0 font-semibold @[60rem]:inline'
+              : 'shrink-0 font-semibold'
+          }
+        >
           {editability.state === 'owned'
             ? t('lock.state.owned')
             : editability.state === 'locked-by-other'
@@ -119,17 +127,29 @@ export function LockStatusBar({
               className="inline-flex items-center gap-1 rounded border border-current/25 bg-white/80 px-2 py-0.5 hover:bg-white disabled:opacity-50"
               title={t('lock.cancelTitle')}
             >
-              <Unlock className="h-3 w-3" aria-hidden="true" />
-              {t('lock.cancelCheckout')}
+              {/* Undo2 vs LockOpen keeps "取消检出" and "释放" visually distinct when the
+                  inline chip drops their labels to fit one toolbar row. */}
+              <Undo2 className="h-3 w-3" aria-hidden="true" />
+              {/* Inline chip: the icon carries the action so four lock verbs fit one toolbar row. */}
+              <span className={variant === 'inline' ? 'sr-only' : undefined}>
+                {t('lock.cancelCheckout')}
+              </span>
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={onRelease}
               className="rounded border border-current/25 bg-white/80 px-2 py-0.5 hover:bg-white disabled:opacity-50"
-              title={t('lock.releaseTitle')}
+              title={t('lock.release')}
             >
-              {t('lock.release')}
+              {variant === 'inline' ? (
+                <>
+                  <LockOpen className="h-3 w-3" aria-hidden="true" />
+                  <span className="sr-only">{t('lock.release')}</span>
+                </>
+              ) : (
+                t('lock.release')
+              )}
             </button>
           </>
         ) : null}

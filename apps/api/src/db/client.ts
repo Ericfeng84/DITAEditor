@@ -120,6 +120,47 @@ CREATE TABLE IF NOT EXISTS ai_usage_logs (
 CREATE INDEX IF NOT EXISTS ai_usage_created_idx ON ai_usage_logs (created_at);
 CREATE INDEX IF NOT EXISTS ai_usage_project_idx ON ai_usage_logs (project_id, branch);
 CREATE INDEX IF NOT EXISTS ai_usage_task_idx ON ai_usage_logs (task_type);
+
+CREATE TABLE IF NOT EXISTS manuals (
+  id TEXT PRIMARY KEY NOT NULL,
+  name TEXT NOT NULL,
+  description TEXT NOT NULL DEFAULT '',
+  root_dir TEXT NOT NULL,
+  default_root_map TEXT,
+  is_builtin INTEGER NOT NULL DEFAULT 0,
+  archived INTEGER NOT NULL DEFAULT 0,
+  created_by TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  last_opened_at INTEGER NOT NULL DEFAULT 0
+);
+CREATE UNIQUE INDEX IF NOT EXISTS manuals_root_dir_unique ON manuals (root_dir);
+CREATE INDEX IF NOT EXISTS manuals_archived_opened_idx
+  ON manuals (archived, last_opened_at DESC);
+
+CREATE TABLE IF NOT EXISTS topic_assignments (
+  id TEXT PRIMARY KEY NOT NULL,
+  manual_id TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  topic_path TEXT NOT NULL,
+  assignee_id TEXT NOT NULL,
+  assigner_id TEXT NOT NULL,
+  status TEXT NOT NULL,
+  note TEXT NOT NULL DEFAULT '',
+  due_date TEXT,
+  created_at INTEGER NOT NULL,
+  updated_at INTEGER NOT NULL,
+  completed_at INTEGER
+);
+CREATE UNIQUE INDEX IF NOT EXISTS topic_assignments_active_unique
+  ON topic_assignments (manual_id, branch, topic_path)
+  WHERE status IN ('pending', 'in_progress');
+CREATE INDEX IF NOT EXISTS topic_assignments_assignee_idx
+  ON topic_assignments (assignee_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS topic_assignments_assigner_idx
+  ON topic_assignments (assigner_id, status, updated_at DESC);
+CREATE INDEX IF NOT EXISTS topic_assignments_manual_branch_idx
+  ON topic_assignments (manual_id, branch, status);
 `;
 
 /**

@@ -28,7 +28,7 @@ export type EditorViewMode = 'visual' | 'split' | 'source';
 export type TagDisplayMode = 'none' | 'tags' | 'full';
 /** `auto` follows each document's DOCTYPE, otherwise the task content model is forced. */
 export type { TaskContentModelSetting };
-export type LeftSidebarTab = 'map' | 'files' | 'keys' | 'git';
+export type LeftSidebarTab = 'map' | 'files' | 'keys' | 'git' | 'assignments';
 export type InspectorTarget = 'topic' | 'map-node';
 
 export interface OpenEditorTab {
@@ -100,7 +100,11 @@ export interface EditorWorkbenchState {
   pendingVisualPmPos: number | null;
 
   // Workspace actions
-  initWorkspace: () => Promise<void>;
+  /**
+   * Boot the session. `options.topicPath` is the Phase 10 deep link target
+   * (`/manuals/:id?topic=…`); the manual/branch themselves arrive via request headers.
+   */
+  initWorkspace: (options?: { topicPath?: string | null }) => Promise<void>;
   refreshWorkspaceTree: () => Promise<void>;
   reloadWorkspaceFromSnapshot: (snapshot: WorkspaceSnapshot, statusMessage?: string) => Promise<void>;
   reloadFilesFromDisk: (filePaths: string[]) => Promise<void>;
@@ -146,9 +150,13 @@ export interface EditorWorkbenchState {
   closeTab: (filePath: string) => void;
   closeOtherTabs: (filePath: string) => void;
   closeSavedTabs: () => void;
-  saveFile: (filePath: string) => Promise<boolean>;
+  saveFile: (filePath: string, options?: { refresh?: boolean }) => Promise<boolean>;
   saveActiveFile: () => Promise<boolean>;
-  saveAllDirtyFiles: () => Promise<void>;
+  /**
+   * Saves every dirty tab and map buffer.
+   * @returns the paths that failed to save (empty when everything landed).
+   */
+  saveAllDirtyFiles: (options?: { refresh?: boolean }) => Promise<string[]>;
   resetCurrentToBaseline: () => void;
 
   // Editor mode & content sync

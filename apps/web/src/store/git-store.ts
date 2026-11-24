@@ -15,6 +15,7 @@ import {
   initGitRepository,
   releaseLock,
   switchGitBranch,
+  type CheckinOptions,
   type CheckinResponse,
   type FileLock,
   type GitBranchInfo,
@@ -30,6 +31,7 @@ import {
   type IdentityUser,
 } from '../services/identity-api';
 import type { WorkspaceSnapshot } from '../services/workspace-api';
+import { useAssignmentStore } from './assignment-store';
 import { useEditorStore } from './editor-store';
 
 export interface GitWorkbenchState {
@@ -61,7 +63,11 @@ export interface GitWorkbenchState {
   checkout: (path: string) => Promise<FileLock | null>;
   release: (path: string) => Promise<void>;
   cancel: (path: string) => Promise<void>;
-  checkin: (paths: string[], message: string) => Promise<CheckinResponse | null>;
+  checkin: (
+    paths: string[],
+    message: string,
+    options?: CheckinOptions,
+  ) => Promise<CheckinResponse | null>;
   forceUnlock: (path: string, reason?: string) => Promise<void>;
   initGit: () => Promise<boolean>;
   createBranch: (name: string) => Promise<boolean>;
@@ -262,15 +268,23 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
       }
     },
 
-    async checkin(paths, message) {
+    async checkin(paths, message, options) {
       if (paths.length === 0) {
         set({ error: t('gitStatus.noFilesSelected') });
         return null;
       }
       set({ busyPath: paths[0] ?? null, error: null });
       try {
-        const response = await checkinFiles(paths, message);
+        const response = await checkinFiles(paths, message, options);
         set({ locks: response.locks });
+        if ((response.completedAssignments ?? []).length > 0) {
+          // Keep the banner/tab badges honest right after a check-in completes assignments.
+          await useAssignmentStore.getState().refreshLists().catch(() => undefined);
+          await useAssignmentStore
+            .getState()
+            .refreshForTopic(useEditorStore.getState().activeTabPath)
+            .catch(() => undefined);
+        }
         await refreshGit().catch(() => undefined);
         await useEditorStore.getState().refreshWorkspaceTree().catch(() => undefined);
         await useEditorStore.getState().reloadFilesFromDisk(paths).catch(() => undefined);

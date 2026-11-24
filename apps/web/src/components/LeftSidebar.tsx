@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, type ReactNode } from 'react';
-import { ChevronDown, FolderOpen, FolderTree, GitBranch, KeyRound, Network, PanelLeftClose } from 'lucide-react';
+import { ChevronDown, ChevronLeft, FolderOpen, PanelLeftClose } from 'lucide-react';
 import type { LeftSidebarTab } from '../store/editor-store';
 import { useI18n } from '../i18n/index.js';
 
@@ -10,10 +10,19 @@ export interface LeftSidebarProps {
   workspaceName: string;
   workspaceMode: 'api' | 'memory';
   onOpenWorkspaceDialog: () => void;
+  /**
+   * Phase 10: inside a manual session the chip navigates back to the manual workbench instead of
+   * opening the legacy workspace dialog — switching manuals is a workbench-level action now.
+   */
+  onOpenManualHub?: () => void;
   mapTreeSlot: ReactNode;
   fileExplorerSlot: ReactNode;
   keyspaceSlot: ReactNode;
   gitSlot: ReactNode;
+  /** Phase 10: my assignments for this manual/branch. */
+  assignmentsSlot?: ReactNode;
+  /** Open-assignment badge on the 任务 tab. */
+  assignmentBadgeCount?: number;
 }
 
 /**
@@ -30,21 +39,26 @@ export function LeftSidebar({
   workspaceName,
   workspaceMode,
   onOpenWorkspaceDialog,
+  onOpenManualHub,
   mapTreeSlot,
   fileExplorerSlot,
   keyspaceSlot,
   gitSlot,
+  assignmentsSlot,
+  assignmentBadgeCount = 0,
 }: LeftSidebarProps) {
   const { t } = useI18n();
   const mapTabId = useId();
   const filesTabId = useId();
   const keysTabId = useId();
   const gitTabId = useId();
+  const assignmentsTabId = useId();
   const tablistRef = useRef<HTMLDivElement | null>(null);
   const mapPanelRef = useRef<HTMLDivElement | null>(null);
   const filesPanelRef = useRef<HTMLDivElement | null>(null);
   const keysPanelRef = useRef<HTMLDivElement | null>(null);
   const gitPanelRef = useRef<HTMLDivElement | null>(null);
+  const assignmentsPanelRef = useRef<HTMLDivElement | null>(null);
 
   // Roving-tabindex fallback when native `focusgroup` is unavailable
   useEffect(() => {
@@ -95,6 +109,7 @@ export function LeftSidebar({
     syncPanel(filesPanelRef.current, 'files');
     syncPanel(keysPanelRef.current, 'keys');
     syncPanel(gitPanelRef.current, 'git');
+    syncPanel(assignmentsPanelRef.current, 'assignments');
   }, [activeTab]);
 
   useEffect(() => {
@@ -102,19 +117,23 @@ export function LeftSidebar({
     const filesEl = filesPanelRef.current;
     const keysEl = keysPanelRef.current;
     const gitEl = gitPanelRef.current;
+    const assignmentsEl = assignmentsPanelRef.current;
     const onMatchMap = () => onChangeTab('map');
     const onMatchFiles = () => onChangeTab('files');
     const onMatchKeys = () => onChangeTab('keys');
     const onMatchGit = () => onChangeTab('git');
+    const onMatchAssignments = () => onChangeTab('assignments');
     mapEl?.addEventListener('beforematch', onMatchMap);
     filesEl?.addEventListener('beforematch', onMatchFiles);
     keysEl?.addEventListener('beforematch', onMatchKeys);
     gitEl?.addEventListener('beforematch', onMatchGit);
+    assignmentsEl?.addEventListener('beforematch', onMatchAssignments);
     return () => {
       mapEl?.removeEventListener('beforematch', onMatchMap);
       filesEl?.removeEventListener('beforematch', onMatchFiles);
       keysEl?.removeEventListener('beforematch', onMatchKeys);
       gitEl?.removeEventListener('beforematch', onMatchGit);
+      assignmentsEl?.removeEventListener('beforematch', onMatchAssignments);
     };
   }, [onChangeTab]);
 
@@ -136,17 +155,33 @@ export function LeftSidebar({
         <div className="flex min-w-0 shrink-0 items-center gap-1">
           <button
             type="button"
-            onClick={onOpenWorkspaceDialog}
-            title={t('sidebar.workspace.title', {
-              name: workspaceName,
-              mode: t(workspaceMode === 'api' ? 'sidebar.mode.api' : 'sidebar.mode.memory'),
-            })}
-            aria-label={t('sidebar.workspace.aria', { name: workspaceName })}
+            onClick={onOpenManualHub ?? onOpenWorkspaceDialog}
+            title={
+              onOpenManualHub
+                ? t('sidebar.manual.title', { name: workspaceName })
+                : t('sidebar.workspace.title', {
+                    name: workspaceName,
+                    mode: t(workspaceMode === 'api' ? 'sidebar.mode.api' : 'sidebar.mode.memory'),
+                  })
+            }
+            aria-label={
+              onOpenManualHub
+                ? t('sidebar.manual.aria', { name: workspaceName })
+                : t('sidebar.workspace.aria', { name: workspaceName })
+            }
             className="inline-flex h-6 min-w-0 max-w-[160px] flex-1 items-center gap-1 rounded-md border border-slate-200 bg-slate-50 px-1.5 text-[10px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500/40"
           >
-            <FolderOpen className="h-3 w-3 shrink-0 text-amber-600" aria-hidden="true" />
-            <span className="min-w-0 truncate">{workspaceName}</span>
-            <ChevronDown className="h-2.5 w-2.5 shrink-0 text-slate-400" aria-hidden="true" />
+            {onOpenManualHub ? (
+              <ChevronLeft className="h-3 w-3 shrink-0 text-slate-400" aria-hidden="true" />
+            ) : (
+              <FolderOpen className="h-3 w-3 shrink-0 text-amber-600" aria-hidden="true" />
+            )}
+            <span className="min-w-0 truncate">
+              {onOpenManualHub ? t('sidebar.manual.hubLabel') : workspaceName}
+            </span>
+            {onOpenManualHub ? null : (
+              <ChevronDown className="h-2.5 w-2.5 shrink-0 text-slate-400" aria-hidden="true" />
+            )}
           </button>
           <button
             type="button"
@@ -164,18 +199,20 @@ export function LeftSidebar({
         ref={tablistRef}
         {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
         aria-label={t('sidebar.viewGroup')}
-        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-4 border-b border-slate-200 bg-slate-50"
+        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-[0.95fr_1.25fr_0.85fr_0.7fr_1.45fr] border-b border-slate-200 bg-slate-50 text-[10.5px]"
       >
+        {/* Five tabs in a 256px rail: text-only labels plus a wider last column so
+            "Assignments" also fits in English without truncating. */}
         <button
           type="button"
           id={filesTabId}
           aria-selected={activeTab === 'files'}
           {...(activeTab === 'files' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
           onClick={() => onChangeTab('files')}
-          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
+          title={t('sidebar.tab.files')}
+          className="dita-sidebar-tab relative flex min-w-0 items-center justify-center px-0.5 text-slate-600 hover:text-slate-900"
         >
-          <FolderTree className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{t('sidebar.tab.files')}</span>
+          <span className="min-w-0 truncate">{t('sidebar.tab.files')}</span>
         </button>
         <button
           type="button"
@@ -183,10 +220,10 @@ export function LeftSidebar({
           aria-selected={activeTab === 'map'}
           {...(activeTab === 'map' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
           onClick={() => onChangeTab('map')}
-          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
+          title={t('sidebar.tab.map')}
+          className="dita-sidebar-tab relative flex min-w-0 items-center justify-center px-0.5 text-slate-600 hover:text-slate-900"
         >
-          <Network className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{t('sidebar.tab.map')}</span>
+          <span className="min-w-0 truncate">{t('sidebar.tab.map')}</span>
         </button>
         <button
           type="button"
@@ -194,10 +231,10 @@ export function LeftSidebar({
           aria-selected={activeTab === 'keys'}
           {...(activeTab === 'keys' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
           onClick={() => onChangeTab('keys')}
-          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
+          title="Keys"
+          className="dita-sidebar-tab relative flex min-w-0 items-center justify-center px-0.5 text-slate-600 hover:text-slate-900"
         >
-          <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>Keys</span>
+          <span className="min-w-0 truncate">Keys</span>
         </button>
         <button
           type="button"
@@ -205,10 +242,29 @@ export function LeftSidebar({
           aria-selected={activeTab === 'git'}
           {...(activeTab === 'git' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
           onClick={() => onChangeTab('git')}
-          className="dita-sidebar-tab relative flex items-center justify-center gap-1 text-xs text-slate-600 hover:text-slate-900"
+          title={t('sidebar.tab.git')}
+          className="dita-sidebar-tab relative flex min-w-0 items-center justify-center px-0.5 text-slate-600 hover:text-slate-900"
         >
-          <GitBranch className="h-3.5 w-3.5" aria-hidden="true" />
-          <span>{t('sidebar.tab.git')}</span>
+          <span className="min-w-0 truncate">{t('sidebar.tab.git')}</span>
+        </button>
+        <button
+          type="button"
+          id={assignmentsTabId}
+          aria-selected={activeTab === 'assignments'}
+          {...(activeTab === 'assignments' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
+          onClick={() => onChangeTab('assignments')}
+          title={t('sidebar.tab.assignments')}
+          className="dita-sidebar-tab relative flex min-w-0 items-center justify-center gap-1 px-0.5 text-slate-600 hover:text-slate-900"
+        >
+          <span className="min-w-0 truncate">{t('sidebar.tab.assignments')}</span>
+          {assignmentBadgeCount > 0 ? (
+            <span
+              aria-hidden="true"
+              className="inline-flex h-3 min-w-3 shrink-0 items-center justify-center rounded-full bg-blue-600 px-0.5 text-[8.5px] font-bold leading-none text-white"
+            >
+              {assignmentBadgeCount > 9 ? '9+' : assignmentBadgeCount}
+            </span>
+          ) : null}
         </button>
       </div>
 
@@ -248,6 +304,15 @@ export function LeftSidebar({
           className="dita-sidebar-panel col-start-1 row-start-1"
         >
           <div className="h-full w-full overflow-hidden">{gitSlot}</div>
+        </div>
+        <div
+          ref={assignmentsPanelRef}
+          role="tabpanel"
+          aria-labelledby={assignmentsTabId}
+          hidden
+          className="dita-sidebar-panel col-start-1 row-start-1"
+        >
+          <div className="h-full w-full overflow-hidden">{assignmentsSlot ?? null}</div>
         </div>
       </div>
     </aside>

@@ -1,7 +1,8 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { handleWorkspaceError } from '../files/routes.js';
 import type { WorkspaceSemanticIndexer } from './semantic-indexer.js';
+import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
 
 const resolveDocumentSchema = z.object({
   filePath: z.string().min(1),
@@ -25,11 +26,16 @@ const resolveConrefSchema = z.object({
 export function registerSemanticIndexerRoutes(
   app: FastifyInstance,
   indexer: WorkspaceSemanticIndexer,
+  context?: ManualContextResolver,
 ): void {
+  /** Phase 10: every manual + branch owns its own semantic index instance. */
+  const indexerFor = async (req: FastifyRequest) =>
+    context ? (await context.resolveRequest(req)).indexer : indexer;
+
   app.get('/api/semantics/context', async (req, reply) => {
     const query = req.query as { rootMap?: string; ditaval?: string; branch?: string };
     try {
-      return await indexer.getSemanticContext(
+      return await (await indexerFor(req)).getSemanticContext(
         query.rootMap ?? null,
         query.ditaval ?? null,
         query.branch ?? 'default',
@@ -45,7 +51,7 @@ export function registerSemanticIndexerRoutes(
       return reply.status(400).send({ error: 'Missing required query parameter: rootMap' });
     }
     try {
-      const keyspace = await indexer.getKeyspace(query.rootMap, query.branch ?? 'default');
+      const keyspace = await (await indexerFor(req)).getKeyspace(query.rootMap, query.branch ?? 'default');
       if (!keyspace) {
         return reply.status(404).send({ error: `Root map not found: ${query.rootMap}` });
       }
@@ -58,7 +64,7 @@ export function registerSemanticIndexerRoutes(
   app.get('/api/semantics/ids', async (req, reply) => {
     const query = req.query as { filePath?: string; branch?: string };
     try {
-      const topics = await indexer.getTopicIndices(query.filePath, query.branch ?? 'default');
+      const topics = await (await indexerFor(req)).getTopicIndices(query.filePath, query.branch ?? 'default');
       return { topics };
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
@@ -71,7 +77,7 @@ export function registerSemanticIndexerRoutes(
       return reply.status(400).send({ error: 'Missing required query parameter: path' });
     }
     try {
-      const res = await indexer.getDitaval(query.path, query.branch ?? 'default');
+      const res = await (await indexerFor(req)).getDitaval(query.path, query.branch ?? 'default');
       if (!res) {
         return reply.status(404).send({ error: `DITAVAL file not found: ${query.path}` });
       }
@@ -90,7 +96,7 @@ export function registerSemanticIndexerRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      return await indexer.resolveDocument({
+      return await (await indexerFor(req)).resolveDocument({
         filePath: parsed.data.filePath,
         rootMapPath: parsed.data.rootMapPath ?? null,
         xml: parsed.data.xml,
@@ -107,7 +113,7 @@ export function registerSemanticIndexerRoutes(
       return reply.status(400).send({ error: parsed.error.message });
     }
     try {
-      return await indexer.resolveConref({
+      return await (await indexerFor(req)).resolveConref({
         sourceFilePath: parsed.data.sourceFilePath,
         sourceTagName: parsed.data.sourceTagName,
         attrName: parsed.data.attrName,

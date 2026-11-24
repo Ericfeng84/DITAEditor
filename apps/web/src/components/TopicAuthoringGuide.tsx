@@ -232,7 +232,9 @@ export function TopicGuideChip({
       >
         <Icon className={`h-3 w-3 ${spec.accent.iconText}`} aria-hidden="true" />
         <span>{t(spec.badgeKey)}</span>
-        <code className="font-mono text-[10px] font-normal opacity-80">{spec.rootTag}</code>
+        {/* The raw tag token lives in the status bar / breadcrumb; the chip only needs the
+            human label so the toolbar row stays on one line next to the lock and assignment chips. */}
+        <code className="sr-only">{spec.rootTag}</code>
       </span>
 
       {structureIssueCount > 0 ? (
@@ -255,7 +257,10 @@ export function TopicGuideChip({
         onClick={onToggle}
         className="inline-flex shrink-0 items-center gap-1 rounded border border-slate-200/90 bg-white/90 px-2 py-0.5 text-[10.5px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900"
       >
-        <span>{expanded ? t('guide.collapse') : t('guide.expand')}</span>
+        {/* Label collapses first on narrow panes so the lock/assignment actions keep their room. */}
+        <span className="hidden @[60rem]:inline">
+          {expanded ? t('guide.collapse') : t('guide.expand')}
+        </span>
         {expanded ? (
           <ChevronUp className="h-3 w-3" aria-hidden="true" />
         ) : (

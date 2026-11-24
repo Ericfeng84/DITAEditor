@@ -186,17 +186,20 @@ export function EditorTabBar({
                 }`}
               >
                 <Icon className={`h-3.5 w-3.5 shrink-0 ${iconColor}`} aria-hidden="true" />
+                {/* Unsaved marker sits before the name so it reads first, not after a truncating label. */}
+                {isDirty ? (
+                  <span
+                    role="img"
+                    className="h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-100"
+                    title={t('tabs.unsaved')}
+                    aria-label={t('tabs.unsaved')}
+                  />
+                ) : null}
                 <span className="truncate font-medium">{tab.fileName}</span>
                 {tab.xmlError ? (
                   <AlertCircle
                     className="h-3 w-3 shrink-0 text-rose-500"
                     aria-label={t('tabs.xmlError')}
-                  />
-                ) : isDirty ? (
-                  <span
-                    className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500"
-                    title={t('tabs.unsaved')}
-                    aria-label={t('tabs.unsaved')}
                   />
                 ) : null}
               </button>

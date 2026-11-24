@@ -26,6 +26,62 @@ export const repositories = sqliteTable(
   (table) => [uniqueIndex('repositories_root_dir_unique').on(table.rootDir)],
 );
 
+/**
+ * Manuals (Phase 10): one manual = one independent workspace directory + Git repository.
+ * `id` reuses `repositoryIdFor(realpath(rootDir))` so locks, publish jobs and AI audit rows
+ * keep pointing at the same identity without an extra mapping table.
+ */
+export const manuals = sqliteTable(
+  'manuals',
+  {
+    id: text('id').primaryKey(),
+    name: text('name').notNull(),
+    description: text('description').notNull().default(''),
+    rootDir: text('root_dir').notNull(),
+    defaultRootMap: text('default_root_map'),
+    isBuiltin: integer('is_builtin').notNull().default(0),
+    archived: integer('archived').notNull().default(0),
+    createdBy: text('created_by').notNull(),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+    lastOpenedAt: integer('last_opened_at').notNull().default(0),
+  },
+  (table) => [
+    uniqueIndex('manuals_root_dir_unique').on(table.rootDir),
+    index('manuals_archived_opened_idx').on(table.archived, table.lastOpenedAt),
+  ],
+);
+
+/**
+ * Topic editing assignments (Phase 10). Soft collaboration metadata only: nothing is ever
+ * written into DITA XML or Git. The partial unique index keeps at most one active
+ * (`pending` / `in_progress`) assignment per (manual, branch, topic).
+ */
+export const topicAssignments = sqliteTable(
+  'topic_assignments',
+  {
+    id: text('id').primaryKey(),
+    manualId: text('manual_id').notNull(),
+    branch: text('branch').notNull(),
+    topicPath: text('topic_path').notNull(),
+    assigneeId: text('assignee_id').notNull(),
+    assignerId: text('assigner_id').notNull(),
+    status: text('status', {
+      enum: ['pending', 'in_progress', 'done', 'cancelled'],
+    }).notNull(),
+    note: text('note').notNull().default(''),
+    dueDate: text('due_date'),
+    createdAt: integer('created_at').notNull(),
+    updatedAt: integer('updated_at').notNull(),
+    completedAt: integer('completed_at'),
+  },
+  (table) => [
+    index('topic_assignments_assignee_idx').on(table.assigneeId, table.status, table.updatedAt),
+    index('topic_assignments_assigner_idx').on(table.assignerId, table.status, table.updatedAt),
+    index('topic_assignments_manual_branch_idx').on(table.manualId, table.branch, table.status),
+  ],
+);
+
 /** Exclusive check-out locks scoped by project + branch + file path. */
 export const fileLocks = sqliteTable(
   'file_locks',
@@ -147,3 +203,5 @@ export type LockBackupRow = typeof lockBackups.$inferSelect;
 export type PublishJobRow = typeof publishJobs.$inferSelect;
 export type AiSettingsRow = typeof aiSettings.$inferSelect;
 export type AiUsageLogRow = typeof aiUsageLogs.$inferSelect;
+export type ManualRow = typeof manuals.$inferSelect;
+export type TopicAssignmentRow = typeof topicAssignments.$inferSelect;

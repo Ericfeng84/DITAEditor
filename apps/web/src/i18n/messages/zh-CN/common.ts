@@ -55,6 +55,7 @@ export const zhCNCommon = {
 
   // --- header -------------------------------------------------------------
   'header.brandSubtitle': 'DITA 1.3 · Phase 8',
+  'header.manualSubtitle': '手册编辑会话',
   'header.toggleCollapseTitle': '收起左侧项目 / Map 导航栏 (⌘\\)',
   'header.toggleExpandTitle': '展开左侧项目 / Map 导航栏 (⌘\\)',
   'header.toggleCollapseAria': '收起左侧导航栏',
@@ -70,6 +71,10 @@ export const zhCNCommon = {
   'header.problems.zero': '0 问题',
   'header.save.title': '保存更改到本地磁盘 (⌘S)',
   'header.save.saveAll': '保存全部 ({count})',
+  'header.save.cleanTitle': '没有需要保存的改动',
+  'header.save.readOnlyTitle': '当前文件只读，无法保存',
+  'header.dirtyTitle': '有未保存的改动，使用编辑器工具栏的保存按钮 (⌘S)',
+  'header.dirtyCount': '{count} 项未保存',
   'header.reset.title': '还原当前标签页至上次保存状态',
   'header.reset.label': '还原',
   'header.inspector.expandTitle': '展开右侧 AI 与属性面板',
@@ -81,6 +86,9 @@ export const zhCNCommon = {
   'sidebar.aria': '项目导航工作区',
   'sidebar.workspace.title': '当前工作区：{name}（{mode}）— 点击切换、新建空白工作区或导入目录',
   'sidebar.workspace.aria': '切换工作区，当前为 {name}',
+  'sidebar.manual.title': '返回手册工作台（当前手册：{name}）',
+  'sidebar.manual.hubLabel': '工作台',
+  'sidebar.manual.aria': '返回手册工作台，当前手册为 {name}',
   'sidebar.mode.api': '本地磁盘',
   'sidebar.mode.memory': '离线内存',
   'sidebar.collapseTitle': '收起左侧栏 (⌘\\)',
@@ -90,6 +98,7 @@ export const zhCNCommon = {
   'sidebar.tab.map': 'Map 树',
   'sidebar.tab.keys': 'Keys',
   'sidebar.tab.git': '版本',
+  'sidebar.tab.assignments': '任务',
 
 
   // --- editor tab bar -----------------------------------------------------
@@ -132,6 +141,7 @@ export const zhCNCommon = {
   'status.savedFile': '已保存 {path}',
   'status.saveFailed': '保存失败 ({path})：{message}',
   'status.savedAll': '已保存全部 {count} 个改动文件',
+  'status.saveFailedSome': '以下文件保存失败：{paths}',
   'status.reverted': '已还原 {name} 至上次保存版本',
   'status.xmlErrorSwitchBlocked': '第 {line} 行第 {column} 列存在 XML 语法错误：{message}。请修复后再切换到可视化模式。',
   'status.xmlInvalidBlocked': 'XML 语法非法，已拦截切换到可视化视图',

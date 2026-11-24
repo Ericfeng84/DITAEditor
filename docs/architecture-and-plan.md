@@ -20,6 +20,7 @@
 | **AI 辅助写作（Phase 6）** | 后端 **LangChain.js**（`@langchain/core` + `@langchain/openai`，默认 DeepSeek `deepseek-flash`，支持私有化代理） | 覆盖单 Topic 写作、语义/结构/Keyref 标签优化与三类错误修复，并为后续「手册发布后 RAG 问答」统一模型、Prompt 与 `BaseRetriever` 底座；片段级无损替换 + `@dita/core` 自动校验重试 + 强制 MergeView Diff 确认，写操作强守 Check-out 锁 |
 | **项目官网与在线离线版（Phase 7）** | 独立静态站 `apps/site`（**Astro 5 + React 19 Islands + Tailwind CSS 4**），中英双语（`zh-CN` / `en`），现代技术出版编辑风；GitHub Pages 合包发布 `/workbench/`（`@dita/web` `VITE_STATIC_DEMO=true` 离线模式） | 营销页与文档页零 JS 静态输出，首页内嵌 `@dita/core` 懒加载微演示，在线体验直接跳转 `/workbench/` 纯前端离线三栏工作台；与单容器工作台镜像完全解耦 |
 | **英文版界面与国际化（Phase 8）** | 零外部依赖的强类型全栈 i18n（`zh-CN` / `en`），浏览器语言自动探测 + 顶栏实时无刷新切换（`localStorage` 持久化） | 覆盖前端工作台 UI / CSS 伪元素 / ProseMirror 热刷新、`@dita/core` 规则与模板/语义诊断、`@dita/api` 报错与 AI 回复语言（`x-dita-locale` 请求头）；严格对齐 OASIS DITA 1.3 官方英文术语且不改动已有文档正文 |
+| **手册编辑工作台与 Topic 委派（Phase 10）** | 独立「手册编辑工作台（Workbench Hub）」首页（`/`）+ 三栏编辑器路由（`/manuals/:id`）；1 手册 = 1 独立工作区与 Git 仓库；轻量 Topic 编辑任务（`Assignment`）委派与软引导协作 | 后端按 `x-dita-manual-id` + `x-dita-branch` 请求级隔离多手册与多分支 worktree；任务仅落库 SQLite（零 XML/Git 污染），与 Check-out 锁解耦（不自动加锁、不做审批流），并支持 Check-out 自动推进与 Check-in 可选同步结单 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
 | **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
@@ -73,7 +74,7 @@ flowchart TB
     end
 
     subgraph Infra["基础设施（零外部中间件）"]
-        DB[("SQLite (身份/项目/Check-out 锁/发布任务/AI 配置与调用审计)")]
+        DB[("SQLite (身份/手册/编辑任务/Check-out 锁/发布任务/AI 配置与调用审计)")]
         FS[("共享磁盘卷 (本地 Git Repos / Worktrees / 发布产物与日志)")]
     end
 
@@ -255,11 +256,15 @@ DITAEditor/
 │   │   │   ├── git-panel/      # 分支管理、Check-out 状态、版本历史、Diff 对比、Commit
 │   │   │   ├── publish/        # DITA-OT 发布配置、实时日志抽屉、产物预览
 │   │   │   ├── ai/             # AI 助手面板（TopicInspector 第一 Tab）、Diff 审阅、Admin 设置与用量统计
+│   │   │   ├── router/         # 零依赖 History API 路由（/ 工作台首页 ↔ /manuals/:id 编辑器，Phase 10）
+│   │   │   ├── workbench/      # 手册编辑工作台首页、手册卡片/新建编辑弹窗与「我的任务」面板（Phase 10）
 │   │   │   └── i18n/           # 零依赖强类型双语词典 (zh-CN / en)、useLocaleStore 与格式化器（Phase 8）
 │   ├── api/                    # Fastify + TypeScript 主后端
 │   │   ├── src/
 │   │   │   ├── modules/
 │   │   │   │   ├── identity/   # 轻量身份与角色切换 (Admin / Writer / Viewer)
+│   │   │   │   ├── manuals/    # 手册注册管理、workspaces.json 迁移与按请求多手册/多分支上下文隔离（Phase 10）
+│   │   │   │   ├── assignments/# Topic 编辑任务委派、转派、状态流转与锁/重命名联动（Phase 10）
 │   │   │   │   ├── projects/   # 项目配置、本地 Git 仓库与分支 worktree 管理
 │   │   │   │   ├── locks/      # Check-out 独占锁与管理员强制解锁
 │   │   │   │   ├── files/      # 文件读写、图片资产、重命名与引用影响检查
@@ -400,6 +405,23 @@ DITAEditor/
 - **引导而非拦截**：`getInsertionSlot()` 以 `[minIndex, maxIndex]` 合法区间 + clamp 让插入命令、`/` 插入菜单与块间 `+` 插入器在乱序位置自动落位、在重复列表中段原地插入，`getInsertableTagsBySequence()` 把已满槽位与互斥备选从菜单和源码补全中滤掉；`filterTransaction` 一律不用，保证未建模/客户特殊化元素与骨架中间态不被阻断。
 - **诊断三处同源**：视觉编辑器用 ProseMirror `Decoration.node` 标出违规节点 + `title` 悬浮说明（按 locale 热切换、不重建 View）；源码模式单次解析输出良构或结构诊断并随语言切换即时刷新；语义索引器统一调用 `@dita/core` 的 `formatStructureIssue` 汇总进问题面板（`source: 'structure'`）。
 
+### Phase 10：手册编辑工作台与 Topic 编辑任务委派
+> **状态**：✅ 已实现（后端 `apps/api/src/modules/{manuals,assignments}/`（`manual-registry-service.ts`、`manual-context-resolver.ts`、`assignment-service.ts` 及路由）、SQLite `manuals` / `topic_assignments` 表与部分唯一索引；前端 `apps/web/src/router/app-router.ts`、`workbench/`（工作台首页、手册表单、我的任务、委派/防丢弹窗）、`store/workbench-store.ts`、`store/assignment-store.ts` 与 `components/{TopicAssignmentBanner,DelegateTopicButton,ManualAssignmentsPanel}`；详细蓝图、Schema、API 契约与切片计划见 [phase10-workbench-assignments-plan.md](./phase10-workbench-assignments-plan.md)；领域词典见 [GLOSSARY.md](../GLOSSARY.md)；关键架构决策见 [ADR-0001](./adr/0001-manual-as-independent-workspace.md)、[ADR-0002](./adr/0002-per-request-manual-isolation.md)、[ADR-0003](./adr/0003-soft-assignments-in-sqlite.md)）。
+>
+> **目标**：用户进入系统即展示「手册编辑工作台（Workbench Hub）」，一站式新增、管理与进入多本手册，并提供「我的任务」与轻量 Topic 编辑任务（`Assignment`）委派闭环，同时将后端升级为按手册与分支隔离的并发上下文。
+- **手册领域统一与后端多手册/分支隔离（`apps/api/src/modules/manuals/`）**：
+  - 将 1 本手册（`Manual`）明确建模为 1 个独立工作区目录与独立 Git 仓库（SQLite `manuals` 表持久化名称、简介、默认 Root Map、归档状态与最近打开时间，ID 与现有 `repositories.id` 对齐），启动时幂等迁移内置示例、`workspaces.json` 与 `.dita-workspaces/` 已有目录；移除仅取消登记，绝不误删磁盘目录。
+  - 引入 `ManualContextResolver`，基于请求头 `x-dita-manual-id` 与可选 `x-dita-branch`（及图片资源 query 参数）定位对应手册目录或分支 `git worktree` 并通过有界 LRU 缓存池隔离 `WorkspaceSemanticIndexer`（无头请求向后兼容默认手册与主分支），彻底解决多人/多标签页并发打开不同手册或分支的串台问题。
+- **Topic 编辑任务（`Assignment`）与轻量协作联动（`apps/api/src/modules/assignments/`）**：
+  - 在领域术语、数据库表与英文界面统一称委派项为 **`Assignment`**（严格避开 DITA `<task>` 主题类型）；数据仅存 SQLite `topic_assignments` 表，绝不写入 `.dita` XML，零 Git Diff 污染。
+  - 限定目标为 `.dita` Topic，绑定 `(manualId, branch, topicPath)`，数据库部分唯一索引强制同一 Topic 同分支最多 **1 条活跃任务**（`pending` / `in_progress`），重复委派走转派（Reassign）；状态为无审批四态（`pending` → `in_progress` → `done` / `cancelled`，支持重新打开与自委派）；`admin` / `writer` 均可委派与被委派（禁止 `viewer`）。
+  - **软引导 + 锁/文件钩子**：委派不自动加锁也不硬拦截他人编辑，他人查看或检出已委派给别人的 Topic 时给出提示与二次确认；受托人 Check-out 自动推进 `pending → in_progress`，Check-in 弹窗默认勾选「同时标记关联任务完成」；文件重命名自动同步 `topic_path`，文件删除保留任务并标出「目标文件已移除」。
+- **工作台双视图路由与前端融入（`apps/web/src/{router,workbench}/`）**：
+  - 采用零新增依赖的 History API 路由（`/` 手册编辑工作台首页 ↔ `/manuals/:id?branch=...&topic=...` 三栏编辑器，兼容 `VITE_BASE` 与单容器 SPA 回退，离开未保存编辑器触发防丢确认弹窗；`VITE_STATIC_DEMO=true` 维持离线编辑器直达）。
+  - 工作台首页采用左 2/3「手册库」卡片网格（搜索、活跃/归档筛选、新建模板/导入文件夹/关联目录、编辑信息、归档/移除）+ 右 1/3 常驻「我的任务」面板（`指派给我` / `我委派的` / `团队全部`、状态筛选、逾期标红、新建委派与一键直达目标手册+分支+Topic）。
+  - 编辑器内在 **Map 树**与**文件树**节点显示受托人头像徽章与右键委派菜单，在 **Topic 顶部**增加委派提示与快捷操作条，在**左侧栏**新增「任务」Tab 展示本手册当前分支分工；采用动作即时拉取 + 窗口聚焦（`focus`/`visibilitychange`）节流自动刷新，并完整纳入 Phase 8 强类型中英双语词典与防退化门禁。
+- **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含多手册/多分支并发隔离、委派唯一性与角色权限、Check-out/Check-in/Rename 联动单测及双语门禁）；进入 `/` 展示工作台与我的任务，完成「新增/编辑手册 → Map 树委派 Topic → 切换受托人从我的任务一键跳转 → 检出自动进入编辑中 → 检入同步标记完成」端到端闭环。
+
 ---
 
 ## 七、主要工程风险与应对策略
@@ -414,3 +436,4 @@ DITAEditor/
 | **AI 改写破坏 XML 结构或污染无关行** | 模型幻觉遗漏 `DOCTYPE`/注释、输出未闭合或违背 DTD 的标签、或改写选区外内容 | 采用片段级靶向替换 + `@dita/core` 校验拼回与 1–2 次自动纠错重试；强制通过 MergeView 审阅 Diff 后应用，且受 Check-out 锁与单步 Undo 双重兜底 |
 | **官网/离线工作台拖累首屏或破坏容器构建** | 在官网引入 ProseMirror/CodeMirror/`@dita/core` 导致首页 JS 体积暴涨，或新增 `apps/site` 触发 `Dockerfile` 编译失败与双语文档漂移 | 采用 Astro 静态输出 + `client:visible` 隔离首页微演示，将完整离线工作台合包部署至 `/workbench/`（`VITE_STATIC_DEMO=true`）；在 `Dockerfile` 限定仅构建工作台三包；以 Vitest 强制校验中英字典键与文档 slug 100% 对称 |
 | **英文界面文案漏翻、布局溢出或切语言丢撤销栈** | 散落在 ProseMirror 装饰、CSS 伪元素、后端报错与 AI Prompt 的中文残留；英文词长导致窄屏顶栏/工具栏换行挤压；切换语言重挂载编辑器丢失光标与 Undo | 以 `DITA_DECORATIONS_KEY` 元数据事务实现编辑器无损热刷新；用 `:root[lang="en"]` 覆盖 CSS 伪元素；通过 `x-dita-locale` 打通后端报错与 AI 解释语言；以 Vitest 双语对称与硬编码中文扫描门禁持续防退化 |
+| **多手册/分支并发串台与任务目标漂移** | 多人或双标签页同时打开不同手册/分支时覆盖全局工作区，或已委派 Topic 被重命名/删除导致死链、未保存返回工作台丢失草稿 | 后端全部路由与图片端点通过 `ManualContextResolver` 按 `x-dita-manual-id` + `x-dita-branch` 隔离并用 LRU 缓存语义索引；文件重命名同步更新 `topic_assignments.topic_path`、删除标出缺失告警；路由切出前检测 `dirtyCount` 触发防丢确认 |

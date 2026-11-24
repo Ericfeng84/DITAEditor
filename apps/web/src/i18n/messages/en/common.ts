@@ -55,6 +55,7 @@ export const enCommon = {
 
   // --- header -------------------------------------------------------------
   'header.brandSubtitle': 'DITA 1.3 · Phase 8',
+  'header.manualSubtitle': 'Manual editor session',
   'header.toggleCollapseTitle': 'Collapse the project / Map navigator (⌘\\)',
   'header.toggleExpandTitle': 'Expand the project / Map navigator (⌘\\)',
   'header.toggleCollapseAria': 'Collapse the left navigation',
@@ -70,6 +71,10 @@ export const enCommon = {
   'header.problems.zero': '0 problems',
   'header.save.title': 'Save changes to disk (⌘S)',
   'header.save.saveAll': 'Save All ({count})',
+  'header.save.cleanTitle': 'Nothing to save',
+  'header.save.readOnlyTitle': 'This file is read-only',
+  'header.dirtyTitle': 'Unsaved changes — save from the editor toolbar (⌘S)',
+  'header.dirtyCount': '{count} unsaved',
   'header.reset.title': 'Revert the active tab to its last saved state',
   'header.reset.label': 'Revert',
   'header.inspector.expandTitle': 'Expand the AI and attributes inspector',
@@ -81,6 +86,9 @@ export const enCommon = {
   'sidebar.aria': 'Project navigation',
   'sidebar.workspace.title': 'Current workspace: {name} ({mode}) — click to switch, create a blank workspace, or import a folder',
   'sidebar.workspace.aria': 'Switch workspace, current is {name}',
+  'sidebar.manual.title': 'Back to the manual workbench (current manual: {name})',
+  'sidebar.manual.hubLabel': 'Workbench',
+  'sidebar.manual.aria': 'Back to the manual workbench, current manual is {name}',
   'sidebar.mode.api': 'Local disk',
   'sidebar.mode.memory': 'Offline memory',
   'sidebar.collapseTitle': 'Collapse the sidebar (⌘\\)',
@@ -90,6 +98,7 @@ export const enCommon = {
   'sidebar.tab.map': 'Map Tree',
   'sidebar.tab.keys': 'Keys',
   'sidebar.tab.git': 'Git',
+  'sidebar.tab.assignments': 'Assignments',
 
 
   // --- editor tab bar -----------------------------------------------------
@@ -132,6 +141,7 @@ export const enCommon = {
   'status.savedFile': 'Saved {path}',
   'status.saveFailed': 'Save failed ({path}): {message}',
   'status.savedAll': 'Saved all {count} changed file(s)',
+  'status.saveFailedSome': 'Could not save: {paths}',
   'status.reverted': 'Reverted {name} to the last saved version',
   'status.xmlErrorSwitchBlocked': 'XML syntax error at line {line}, column {column}: {message}. Fix it before switching to Visual mode.',
   'status.xmlInvalidBlocked': 'XML is not well-formed — switching to Visual was blocked',

@@ -92,6 +92,7 @@ export const zhCNCollab = {
   'checkin.messageLabel': '提交说明',
   'checkin.messagePlaceholder': '例如：更新单源化主题的产品名称 keyref',
   'checkin.localOnly': '只会提交到本地 Git 仓库；不会推送到任何远端。',
+  'checkin.completeAssignments': '同时将关联的 {count} 个编辑任务标记为已完成',
   'checkin.strictTooltip': '签入前调用 DITA-OT 严格校验选中文件',
   'checkin.strict': '严格校验',
   'checkin.submitting': '提交中…',

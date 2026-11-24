@@ -92,6 +92,7 @@ export const enCollab = {
   'checkin.messageLabel': 'Commit message',
   'checkin.messagePlaceholder': 'e.g. Update the product-name keyref in the reused topic',
   'checkin.localOnly': 'Commits to the local Git repository only; nothing is pushed to a remote.',
+  'checkin.completeAssignments': 'Also mark the {count} linked assignment(s) as done',
   'checkin.strictTooltip': 'Run DITA-OT strict validation on the selected files before checking in',
   'checkin.strict': 'Strict Validation',
   'checkin.submitting': 'Committing…',

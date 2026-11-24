@@ -103,7 +103,10 @@ function buildScaleDitaProject(rootDir: string): void {
 
 describe('Phase 2 Fastify Workspace, Map Persistence & Asset API', () => {
   it('loads the curated demo-dita-project with zero broken links or XML errors', async () => {
-    const app = createServer({ logger: false });
+    // Isolated imports root: the manual registry lives in the default sqlite DB, and a shared DB
+    // (e.g. the one a local dev server created) would make headerless requests resolve to whatever
+    // manual was touched last instead of the built-in demo project.
+    const app = createServer({ importsRootDir: createTempDir('dita-imports-'), logger: false });
     const res = await app.inject({ method: 'GET', url: '/api/workspace' });
     expect(res.statusCode).toBe(200);
     const body = res.json();

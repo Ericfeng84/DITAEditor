@@ -29,6 +29,11 @@ import {
   TopicGuideChip,
   useAuthoringGuideExpanded,
 } from './components/TopicAuthoringGuide';
+import { DelegateTopicButton } from './components/DelegateTopicButton';
+import { ManualAssignmentsPanel } from './components/ManualAssignmentsPanel';
+import type { AssignmentBadge } from './components/FileExplorerPanel';
+import { TopicAssignmentBanner } from './components/TopicAssignmentBanner';
+import { SaveControls } from './components/SaveControls';
 import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
@@ -69,13 +74,28 @@ import {
   useEditorStore,
   type EditorViewMode,
 } from './store/editor-store';
+import { useAssignmentStore } from './store/assignment-store';
 import { useGitStore } from './store/git-store';
 import {
   setDetectedTaskContentModel,
   shouldShowTaskModelSwitch,
 } from './editor/structure-options';
+import { DelegateTopicDialog } from './workbench/DelegateTopicDialog';
+import { UnsavedChangesDialog } from './workbench/UnsavedChangesDialog';
 
-export function App() {
+export interface AppProps {
+  /** Phase 10: the manual this session is bound to (identical to the scope header value). */
+  manualId: string;
+  manualName: string;
+  branch: string | null;
+  /** Deep link from the hub or an assignment card (`?topic=…`). */
+  topicPath: string | null;
+  assignmentId: string | null;
+  /** Leaves the session back to the workbench hub; the shell owns the actual navigation. */
+  onLeaveSession: () => void;
+}
+
+export function App({ manualId, manualName, branch, topicPath, assignmentId, onLeaveSession }: AppProps) {
   const { t, locale } = useI18n();
   const workspaceMode = useEditorStore((s) => s.workspaceMode);
   const workspaceRootDir = useEditorStore((s) => s.workspaceRootDir);
@@ -211,10 +231,24 @@ export function App() {
   const loadGitDiff = useGitStore((s) => s.loadDiff);
   const clearGitDiff = useGitStore((s) => s.clearDiff);
 
-  // Initialize workspace on mount
+  // Initialize workspace on mount. A deep-linked topic (`?topic=…`) wins over the first topic.
   useEffect(() => {
-    void initWorkspace();
-  }, [initWorkspace]);
+    void initWorkspace({ topicPath });
+  }, [initWorkspace, topicPath]);
+
+  // Phase 10: assignment state is scoped to this session's manual + branch by the shell headers.
+  const refreshAssignmentForTopic = useAssignmentStore((state) => state.refreshForTopic);
+  const refreshAssignmentLists = useAssignmentStore((state) => state.refreshLists);
+  useEffect(() => {
+    if (import.meta.env.VITE_STATIC_DEMO === 'true') return;
+    void refreshAssignmentLists();
+  }, [refreshAssignmentLists]);
+  useEffect(() => {
+    if (import.meta.env.VITE_STATIC_DEMO === 'true') return;
+    void refreshAssignmentForTopic(activeTabPath);
+    // A checkout/check-in changes assignment status server-side, so the lists need a re-read too.
+    void refreshAssignmentLists();
+  }, [refreshAssignmentForTopic, refreshAssignmentLists, activeTabPath, assignmentId, locks]);
 
   useEffect(() => {
     if (import.meta.env.VITE_STATIC_DEMO === 'true') return;
@@ -348,6 +382,66 @@ export function App() {
     [gitStatus],
   );
   const activeLockDirty = Boolean(activeTabPath && dirtyPathSet.has(activeTabPath));
+  // Phase 10: assignment wiring for the currently open topic.
+  const assignableUsers = useMemo(
+    () => (identity?.users ?? []).filter((user) => user.role !== 'viewer'),
+    [identity],
+  );
+  const activeAssignment = useAssignmentStore((state) => state.active);
+  const myAssignments = useAssignmentStore((state) => state.mine);
+  const openAssignmentCount = useMemo(
+    () => myAssignments.filter((item) => item.status === 'pending' || item.status === 'in_progress').length,
+    [myAssignments],
+  );
+  const delegatedAssignments = useAssignmentStore((state) => state.delegated);
+  const delegate = useAssignmentStore((state) => state.delegate);
+  const assignmentBusy = useAssignmentStore((state) => state.busy);
+  const assignmentError = useAssignmentStore((state) => state.error);
+  const [delegateTarget, setDelegateTarget] = useState<{ path: string; title: string } | null>(null);
+
+  /** Phase 10: file-explorer badge per assigned topic (mine + delegated, open statuses only). */
+  const assignmentBadges = useMemo(() => {
+    const badges: Record<string, AssignmentBadge> = {};
+    const consider = (item: (typeof myAssignments)[number]) => {
+      if (item.status === 'done' || item.status === 'cancelled') return;
+      if (!item.assignee) return;
+      badges[item.topicPath] = {
+        initials: item.assignee.initials,
+        displayName: item.assignee.displayName,
+        status: item.status,
+        overdue: item.overdue,
+        mine: item.assignee.id === currentUser?.id,
+      };
+    };
+    myAssignments.forEach(consider);
+    delegatedAssignments.forEach(consider);
+    if (activeAssignment) consider(activeAssignment);
+    return badges;
+  }, [myAssignments, delegatedAssignments, activeAssignment, currentUser?.id]);
+  /** Topic paths of my open assignments — the check-in dialog offers to close them. */
+  const assignedPaths = useMemo(() => {
+    const paths = new Set(
+      myAssignments
+        .filter((item) => item.status === 'pending' || item.status === 'in_progress')
+        .map((item) => item.topicPath),
+    );
+    if (activeAssignment && (activeAssignment.status === 'pending' || activeAssignment.status === 'in_progress')) {
+      paths.add(activeAssignment.topicPath);
+    }
+    return Array.from(paths);
+  }, [myAssignments, activeAssignment]);
+  const showDelegateButton = Boolean(
+    workspaceMode === 'api' &&
+      activeTab &&
+      activeTab.kind === 'topic' &&
+      (currentUser?.role === 'admin' || currentUser?.role === 'writer') &&
+      !(
+        activeAssignment &&
+        activeAssignment.topicPath === activeTab.path &&
+        activeAssignment.status !== 'done' &&
+        activeAssignment.status !== 'cancelled'
+      ),
+  );
   const checkinCandidates = useMemo<CheckinCandidate[]>(() => {
     const paths =
       checkinPaths.length > 0
@@ -381,7 +475,7 @@ export function App() {
     setCheckinOpen(true);
   }, []);
 
-  const dirtyCount = useMemo(() => {
+  const dirtyPaths = useMemo(() => {
     const dirty = new Set<string>();
     for (const t of openTabs) {
       if (t.xml !== t.baselineXml) dirty.add(t.path);
@@ -389,8 +483,58 @@ export function App() {
     for (const [p, buf] of Object.entries(mapBuffers)) {
       if (buf.xml !== buf.baselineXml) dirty.add(p);
     }
-    return dirty.size;
+    return Array.from(dirty);
   }, [openTabs, mapBuffers]);
+  const dirtyCount = dirtyPaths.length;
+  const reloadFilesFromDisk = useEditorStore((state) => state.reloadFilesFromDisk);
+
+  // Phase 10: leaving a manual session must not silently drop unsaved buffers.
+  const [leaveOpen, setLeaveOpen] = useState(false);
+  const [leaving, setLeaving] = useState(false);
+  const [leaveError, setLeaveError] = useState<string | null>(null);
+  const requestLeave = useCallback(() => {
+    if (dirtyPaths.length === 0) {
+      onLeaveSession();
+      return;
+    }
+    setLeaveError(null);
+    setLeaveOpen(true);
+  }, [dirtyPaths.length, onLeaveSession]);
+  const handleSaveAndLeave = useCallback(async () => {
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      // `refresh: false` — leaving the session does not need the index/diagnostics round-trip; it
+      // previously left the button spinning forever when that refresh was slow.
+      const failed = await saveAllDirtyFiles({ refresh: false });
+      if (failed.length === 0) {
+        setLeaveOpen(false);
+        onLeaveSession();
+        return;
+      }
+      // A failed save (missing checkout lock, deleted file, network error) used to leave the
+      // dialog silently open — surface which files failed, with discard as the escape hatch.
+      setLeaveError(t('workbench.leaveSaveFailed', { paths: failed.join('、') }));
+    } catch (err) {
+      setLeaveError(
+        t('workbench.leaveSaveFailed', { paths: dirtyPaths.join('、') }) +
+          (err instanceof Error ? ` ${err.message}` : ''),
+      );
+    } finally {
+      setLeaving(false);
+    }
+  }, [saveAllDirtyFiles, onLeaveSession, t, dirtyPaths]);
+  const handleDiscardAndLeave = useCallback(async () => {
+    setLeaving(true);
+    setLeaveError(null);
+    try {
+      if (dirtyPaths.length > 0) await reloadFilesFromDisk(dirtyPaths);
+      setLeaveOpen(false);
+      onLeaveSession();
+    } finally {
+      setLeaving(false);
+    }
+  }, [dirtyPaths, reloadFilesFromDisk, onLeaveSession]);
 
   const errorCount = useMemo(
     () => diagnostics.filter((d) => d.severity === 'error').length,
@@ -748,9 +892,41 @@ export function App() {
     ? diagnostics.filter((d) => d.filePath === activeTab.path && d.source === 'structure').length
     : 0;
   const showGuideChip = activeTab?.kind === 'topic';
-  const showLockStatus = workspaceMode === 'api' && Boolean(activeTab);
+  // The admin state is always editable and offers no action, so its chip would only add
+  // noise next to the assignment chip; the actionable states (unlocked / owned / others'
+  // lock / read-only) still get a home on the toolbar.
+  // A pending assignment that is mine already offers "检出并开始", so the unlocked chip
+  // would duplicate the same action right next to it.
+  const assignmentOwnsCheckout = Boolean(
+    activeAssignment &&
+      activeTab &&
+      activeAssignment.topicPath === activeTab.path &&
+      activeAssignment.status === 'pending' &&
+      editability.state === 'unlocked',
+  );
+  const showLockStatus =
+    workspaceMode === 'api' &&
+    Boolean(activeTab) &&
+    editability.state !== 'admin' &&
+    !assignmentOwnsCheckout;
   /** Locks + guide toggle still need a home when the visual toolbar is hidden (source mode, read-only). */
-  const showActionRow = (showTopicVisual && canEdit) || showGuideChip || showLockStatus;
+  const showActionRow =
+    (showTopicVisual && canEdit) || showGuideChip || showLockStatus || dirtyCount > 0;
+  /** In-memory dirty state of the active tab (not the git diff) drives save-active vs save-all. */
+  const activeTabDirty = Boolean(activeTab && activeTab.xml !== activeTab.baselineXml);
+  const saveControlsNode = showActionRow ? (
+    <SaveControls
+      dirtyCount={dirtyCount}
+      isCurrentDirty={activeTabDirty}
+      saving={savingPaths.length > 0}
+      readOnly={!canEdit}
+      onSave={() => {
+        if (activeTabDirty) void saveActiveFile();
+        else void saveAllDirtyFiles();
+      }}
+      onResetBaseline={resetCurrentToBaseline}
+    />
+  ) : null;
   const lockStatusNode =
     showLockStatus && activeTab ? (
       <LockStatusBar
@@ -783,6 +959,39 @@ export function App() {
       />
     ) : null;
 
+  /**
+   * Lock state, assignment chip and the "委派" entry share one slot so they ride on the
+   * topic toolbar (visual sub-header, or the action row when there is no visual toolbar).
+   */
+  const showTopicAssignment = Boolean(
+    workspaceMode === 'api' && activeTab && activeTab.kind === 'topic',
+  );
+  const topicContextNode = (
+    <>
+      {showTopicAssignment && activeTab ? (
+        <TopicAssignmentBanner
+          topicPath={activeTab.path}
+          topicTitle={activeTab.title}
+          currentUserId={currentUser?.id ?? null}
+          role={currentUser?.role ?? null}
+          candidates={assignableUsers}
+          lockedByMe={Boolean(activeLock && currentUser && activeLock.userId === currentUser.id)}
+          busy={gitLoading}
+          onCheckout={() => void checkoutFile(activeTab.path)}
+        />
+      ) : null}
+      {showDelegateButton && activeTab ? (
+        <DelegateTopicButton
+          topicPath={activeTab.path}
+          topicTitle={activeTab.title}
+          candidates={assignableUsers}
+          disabled={gitLoading}
+        />
+      ) : null}
+      {lockStatusNode}
+    </>
+  );
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900">
       {/* Accessible live status region */}
@@ -804,9 +1013,10 @@ export function App() {
                 activeTab={leftSidebarTab}
                 onChangeTab={setLeftSidebarTab}
                 onCollapse={() => setLeftSidebarOpen(false)}
-                workspaceName={workspaceName}
+                workspaceName={manualName || workspaceName}
                 workspaceMode={workspaceMode}
                 onOpenWorkspaceDialog={() => setWorkspaceDialogOpen(true)}
+                onOpenManualHub={requestLeave}
                 mapTreeSlot={
                   <MapTreePanel
                     rootMapPath={activeRootMapPath}
@@ -867,6 +1077,7 @@ export function App() {
                     files={fileTree}
                     activeTabPath={activeTabPath}
                     activeRootMapPath={activeRootMapPath}
+                    projectName={manualName || workspaceName}
                     maps={workspaceMaps}
                     topicTitles={topicTitles}
                     onOpenFile={(path) => void openFileTab(path)}
@@ -880,6 +1091,16 @@ export function App() {
                     onCreateFolder={(dir) => void createWorkspaceFolder(dir)}
                     onRenameFile={(from, to) => void renameWorkspaceFile(from, to)}
                     onDeleteFile={(path) => void deleteWorkspaceFile(path)}
+                    assignmentBadges={assignmentBadges}
+                    onDelegateTopic={
+                      currentUser?.role === 'admin' || currentUser?.role === 'writer'
+                        ? (path) =>
+                            setDelegateTarget({
+                              path,
+                              title: topicTitles[path] ?? path.split('/').pop() ?? path,
+                            })
+                        : undefined
+                    }
                   />
                 }
                 gitSlot={
@@ -887,6 +1108,12 @@ export function App() {
                     activePath={activeTabPath}
                     onOpenDiff={(options) => void openGitDiff(options)}
                     onOpenCheckin={openCheckin}
+                  />
+                }
+                assignmentBadgeCount={openAssignmentCount}
+                assignmentsSlot={
+                  <ManualAssignmentsPanel
+                    onOpenTopic={(assignment) => void openFileTab(assignment.topicPath)}
                   />
                 }
               />
@@ -907,19 +1134,15 @@ export function App() {
               errorCount={errorCount}
               warningCount={warningCount}
               dirtyCount={dirtyCount}
-              isCurrentDirty={!diffStats.isIdentical}
-              saving={savingPaths.length > 0}
               identity={identity}
               currentUser={currentUser}
               onSwitchIdentity={(userId) => void switchUser(userId)}
               onToggleLeftSidebar={() => setLeftSidebarOpen(!leftSidebarOpen)}
-              onResetBaseline={resetCurrentToBaseline}
-              onSaveActive={() => void saveActiveFile()}
-              onSaveAll={() => void saveAllDirtyFiles()}
               onChangeMode={handleChangeMode}
               onToggleProblems={() => setProblemsOpen(!problemsOpen)}
               showInspectorExpand={!showRightInspector && canShowInspector}
               onExpandInspector={() => setInspectorOpen(true)}
+              manualName={manualName}
             />
 
         {/* Single editor action row: formatting toolbar + authoring guide toggle + lock state */}
@@ -946,6 +1169,8 @@ export function App() {
               <div className="min-w-0 flex-1" />
             )}
             <div className="ml-auto flex shrink-0 items-center gap-2">
+              {/* The save affordance lives on the document toolbar, next to the guide toggle. */}
+              {!showVisualPane ? saveControlsNode : null}
               {/* In visual mode the guide toggle lives in the editor sub-header toolbar; the
                   action row only hosts it when there is no visual pane to attach it to. */}
               {showGuideChip && activeTab && !showVisualPane ? (
@@ -957,7 +1182,9 @@ export function App() {
                   onOpenProblems={() => setProblemsOpen(true)}
                 />
               ) : null}
-              {lockStatusNode}
+              {/* The visual editor hosts the lock/assignment/delegate cluster in its sub-header;
+                  the action row only shows it when there is no visual toolbar to attach it to. */}
+              {!showVisualPane ? topicContextNode : null}
             </div>
           </div>
         ) : null}
@@ -1091,6 +1318,8 @@ export function App() {
                                             />
                                           ) : null
                                         }
+                                        saveSlot={saveControlsNode}
+                                        contextSlot={topicContextNode}
                                         guidePanel={
                                           activeTab?.kind === 'topic' && guideExpanded ? (
                                             <TopicAuthoringGuide docType={activeTab.docType} />
@@ -1393,8 +1622,9 @@ export function App() {
         candidates={checkinCandidates}
         onClose={() => setCheckinOpen(false)}
         onStrictValidate={handleCheckinStrictValidate}
-        onConfirm={async (paths, message) => {
-          const result = await checkinFiles(paths, message);
+        assignedPaths={assignedPaths}
+        onConfirm={async (paths, message, options) => {
+          const result = await checkinFiles(paths, message, options);
           if (result) await loadGitHistory(activeTabPath);
           return result !== null;
         }}
@@ -1429,6 +1659,36 @@ export function App() {
         readOnly={aiApplyMode === 'preview-only'}
         onClose={() => setAiDiffOpen(false)}
         onApply={(patchedXml) => void handleApplyAiProposal(patchedXml)}
+      />
+
+      <DelegateTopicDialog
+        open={delegateTarget !== null}
+        mode="create"
+        topicPath={delegateTarget?.path ?? ''}
+        topicTitle={delegateTarget?.title ?? null}
+        branch={branch}
+        candidates={assignableUsers}
+        busy={assignmentBusy}
+        error={assignmentError}
+        onClose={() => setDelegateTarget(null)}
+        onSubmit={({ assigneeId, note, dueDate }) => {
+          if (!delegateTarget) return;
+          void delegate({ topicPath: delegateTarget.path, assigneeId, note, dueDate });
+          setDelegateTarget(null);
+        }}
+      />
+
+      <UnsavedChangesDialog
+        open={leaveOpen}
+        dirtyCount={dirtyPaths.length}
+        saving={leaving}
+        error={leaveError}
+        onSaveAndLeave={() => void handleSaveAndLeave()}
+        onDiscardAndLeave={() => void handleDiscardAndLeave()}
+        onCancel={() => {
+          setLeaveError(null);
+          setLeaveOpen(false);
+        }}
       />
     </div>
   );

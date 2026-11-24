@@ -12,6 +12,8 @@ import { zhCNStructure } from './zh-CN/structure.js';
 import { zhCNCollab } from './zh-CN/collab.js';
 import { zhCNAi } from './zh-CN/ai.js';
 import { zhCNGuide } from './zh-CN/guide.js';
+import { zhCNWorkbench } from './zh-CN/workbench.js';
+import { zhCNAssignments } from './zh-CN/assignments.js';
 
 export const zhCN = {
   ...zhCNCommon,
@@ -20,6 +22,8 @@ export const zhCN = {
   ...zhCNCollab,
   ...zhCNAi,
   ...zhCNGuide,
+  ...zhCNWorkbench,
+  ...zhCNAssignments,
 } as const;
 
 export type MessageKey = keyof typeof zhCN;

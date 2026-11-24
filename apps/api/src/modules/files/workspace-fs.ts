@@ -343,6 +343,23 @@ export class WorkspaceManager {
     this.activeRootDir = await fs.realpath(resolved);
   }
 
+  /**
+   * Binds this manager to an existing workspace directory without recording it in the
+   * recent-workspace registry. Used by Phase 10 per-request manual sessions, where the
+   * `manuals` table is the source of truth instead of `workspaces.json`.
+   */
+  async bindRootDir(rootDir: string, projectRootDir: string = rootDir): Promise<void> {
+    const resolved = path.resolve(rootDir);
+    const stat = await fs.stat(resolved).catch(() => null);
+    if (!stat?.isDirectory()) {
+      throw new WorkspaceNotFoundError(`Workspace directory does not exist: ${resolved}`);
+    }
+    // Keep the path spelling the caller registered (e.g. a macOS `/var` temp dir) instead of
+    // its realpath, so responses echo back exactly what was opened.
+    this.activeRootDir = resolved;
+    this.projectRootDir = path.resolve(projectRootDir);
+  }
+
   async openWorkspace(targetDir: string | { useDefault: true }): Promise<WorkspaceSnapshot> {
     const resolved =
       typeof targetDir === 'string'
@@ -577,12 +594,9 @@ export class WorkspaceManager {
     }
 
     const parentDir = path.resolve(options.parentDir?.trim() || this.importsRootDir);
-    let parentStat;
-    try {
-      parentStat = await fs.stat(parentDir);
-    } catch {
-      throw new WorkspaceNotFoundError(apiT(locale, 'files.parentMissing', { path: parentDir }));
-    }
+    // Creating the first manual on a fresh install must not fail because the imports root is absent.
+    await fs.mkdir(parentDir, { recursive: true });
+    const parentStat = await fs.stat(parentDir);
     if (!parentStat.isDirectory()) {
       throw new WorkspacePathError(`Parent path is not a directory: ${parentDir}`);
     }
@@ -637,27 +651,42 @@ export class WorkspaceManager {
 
     // Hide the entry instead of deleting it so auto-discovery does not resurrect it.
     if (realResolved !== currentReal) {
-      await this.withRegistryLock(async () => {
-        const entries = await this.readRegistry();
-        const remaining = entries.filter(
-          (entry) => entry.path !== resolved && entry.path !== realResolved,
-        );
-        remaining.push({
-          path: realResolved,
-          name: path.basename(realResolved),
-          lastOpenedAt: 0,
-          hidden: true,
-        });
-        const visible = remaining
-          .filter((entry) => !entry.hidden)
-          .slice(0, MAX_RECENT_WORKSPACES);
-        const hidden = remaining.filter((entry) => entry.hidden).slice(-MAX_HIDDEN_WORKSPACES);
-        await this.writeRegistry([...visible, ...hidden]);
-      });
+      await this.hideWorkspaceDir(realResolved);
     }
 
     const snapshot = await this.listWorkspaces();
     return snapshot.workspaces;
+  }
+
+  /**
+   * Writes a hidden tombstone for a directory so both the picker and disk discovery keep it
+   * hidden. Phase 10 uses this when a manual is removed from the workbench (disk is untouched).
+   */
+  async hideWorkspaceDir(targetDir: string): Promise<void> {
+    const resolved = path.resolve(targetDir);
+    const realResolved = await fs.realpath(resolved).catch(() => resolved);
+    await this.withRegistryLock(async () => {
+      const entries = await this.readRegistry();
+      const remaining = entries.filter(
+        (entry) => entry.path !== resolved && entry.path !== realResolved,
+      );
+      remaining.push({
+        path: realResolved,
+        name: path.basename(realResolved),
+        lastOpenedAt: 0,
+        hidden: true,
+      });
+      const visible = remaining
+        .filter((entry) => !entry.hidden)
+        .slice(0, MAX_RECENT_WORKSPACES);
+      const hidden = remaining.filter((entry) => entry.hidden).slice(-MAX_HIDDEN_WORKSPACES);
+      await this.writeRegistry([...visible, ...hidden]);
+    });
+  }
+
+  /** Raw registry entries, including hidden tombstones (used by the Phase 10 manual sync). */
+  async listRegistryEntries(): Promise<WorkspaceRegistryEntry[]> {
+    return this.readRegistry();
   }
 
   async scanWorkspace(): Promise<WorkspaceSnapshot> {

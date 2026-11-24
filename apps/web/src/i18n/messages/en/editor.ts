@@ -221,8 +221,6 @@ export const enEditor = {
   'visual.tagMode.tagsTitle': 'Show compact angle-bracket start/end tags',
   'visual.tagMode.full': 'Tags + Attrs',
   'visual.tagMode.fullTitle': 'Show full angle-bracket tags with XML attributes (Oxygen style)',
-  'visual.gapHintBefore': 'Select a paragraph, then click the gap',
-  'visual.gapHintAfter': 'to insert a block quickly',
   'visual.ditavalExcluded': 'Excluded',
   'visual.ditavalFlagged': 'Flagged',
   'visual.insertHere': 'Insert a block here inside <{tag}>',
