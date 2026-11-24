@@ -1,5 +1,5 @@
 import { AlertTriangle, CalendarClock, Check, ExternalLink, GitBranch, X } from 'lucide-react';
-import { formatDateTime, useI18n } from '../i18n/index.js';
+import { useI18n } from '../i18n/index.js';
 import type { Assignment } from '../services/assignments-api';
 
 export interface AssignmentCardProps {
@@ -28,7 +28,7 @@ function statusTone(assignment: Assignment): { className: string; key: 'workbenc
 }
 
 export function AssignmentCard({ assignment, viewer, onOpen, onComplete, onCancel }: AssignmentCardProps) {
-  const { t, locale } = useI18n();
+  const { t } = useI18n();
   const tone = statusTone(assignment);
   const person = viewer === 'mine' ? assignment.assigner : assignment.assignee;
   const personLabel =
@@ -85,10 +85,7 @@ export function AssignmentCard({ assignment, viewer, onOpen, onComplete, onCance
         </p>
       ) : null}
 
-      <div className="mt-2.5 flex items-center justify-between gap-2">
-        <span className="truncate text-[10px] text-slate-400">
-          {formatDateTime(assignment.updatedAt, locale)}
-        </span>
+      <div className="mt-2.5 flex items-center justify-end gap-2">
         <div className="flex shrink-0 items-center gap-1">
           <button
             type="button"

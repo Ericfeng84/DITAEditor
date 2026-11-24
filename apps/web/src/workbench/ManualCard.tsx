@@ -11,7 +11,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { formatDateTime, useI18n } from '../i18n/index.js';
+import { formatDateTime, formatRelativeTime, useI18n } from '../i18n/index.js';
 import type { Manual } from '../services/manuals-api.js';
 
 export interface ManualCardProps {
@@ -54,7 +54,7 @@ export function ManualCard({
   }, [menuOpen]);
 
   const lastOpened = manual.lastOpenedAt
-    ? t('workbench.lastOpened', { time: formatDateTime(manual.lastOpenedAt, locale) })
+    ? t('workbench.lastOpened', { time: formatRelativeTime(manual.lastOpenedAt, locale) })
     : t('workbench.neverOpened');
 
   return (
@@ -185,7 +185,10 @@ export function ManualCard({
       </div>
 
       <div className="mt-auto flex items-center justify-between gap-2 pt-3">
-        <span className="truncate text-[10px] text-slate-400" title={manual.rootDir}>
+        <span
+          className="truncate text-[10px] text-slate-400"
+          title={manual.lastOpenedAt ? formatDateTime(manual.lastOpenedAt, locale) : manual.rootDir}
+        >
           {lastOpened}
         </span>
         <button

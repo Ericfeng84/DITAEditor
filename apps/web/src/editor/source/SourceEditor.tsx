@@ -419,14 +419,14 @@ export function SourceEditor({
   return (
     <div className="flex h-full flex-col bg-slate-950 text-slate-200">
       {/* Compact Source Toolbar */}
-      <div className="flex items-center justify-between border-b border-slate-800 bg-slate-900/95 px-3 py-1.5 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="font-mono font-medium text-sky-400">{t('source.title')}</span>
-          <span className="text-slate-500">·</span>
-          <span className="text-slate-400">{t('source.completionReady')}</span>
+      <div className="@container flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-800 bg-slate-900/95 px-3 py-1.5 text-xs">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <span className="shrink-0 font-mono font-medium text-sky-400">{t('source.title')}</span>
+          <span className="hidden shrink-0 text-slate-500 @[560px]:inline">·</span>
+          <span className="hidden truncate text-slate-400 @[560px]:inline">{t('source.completionReady')}</span>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-2">
           {showTaskModelSwitch && onChangeTaskModelSetting ? (
             <TaskModelSwitch
               setting={taskModelSetting}
@@ -435,7 +435,7 @@ export function SourceEditor({
               onChange={onChangeTaskModelSetting}
             />
           ) : null}
-          <span className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[11px] text-slate-300">
+          <span className="hidden rounded bg-slate-800 px-2 py-0.5 font-mono text-[11px] text-slate-300 @[460px]:inline">
             Ln {cursorPos.line}, Col {cursorPos.col}
           </span>
           <button
@@ -445,7 +445,7 @@ export function SourceEditor({
             title={t('source.formatTitle')}
           >
             <Sparkles className="h-3 w-3 text-sky-400" aria-hidden="true" />
-            {t('source.format')}
+            <span className="hidden @[520px]:inline">{t('source.format')}</span>
           </button>
           <button
             type="button"
@@ -455,12 +455,12 @@ export function SourceEditor({
             {copied ? (
               <>
                 <Check className="h-3 w-3 text-emerald-400" aria-hidden="true" />
-                {t('source.copiedShort')}
+                <span className="hidden @[560px]:inline">{t('source.copiedShort')}</span>
               </>
             ) : (
               <>
                 <Copy className="h-3 w-3 text-slate-400" aria-hidden="true" />
-                {t('source.copy')}
+                <span className="hidden @[560px]:inline">{t('source.copy')}</span>
               </>
             )}
           </button>

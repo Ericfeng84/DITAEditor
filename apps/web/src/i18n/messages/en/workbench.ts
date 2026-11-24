@@ -38,7 +38,7 @@ export const enWorkbench = {
   'workbench.removeHint': 'Removes the manual from the workbench only; the folder and its Git repository stay.',
   'workbench.removeConfirm':
     'Remove “{name}” from the workbench? The folder and repository stay on disk.',
-  'workbench.lastOpened': 'Last opened {time}',
+  'workbench.lastOpened': 'Opened {time}',
   'workbench.neverOpened': 'Never opened',
   'workbench.formCreateTitle': 'New manual',
   'workbench.formAttachTitle': 'Attach existing folder',

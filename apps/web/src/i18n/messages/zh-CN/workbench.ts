@@ -35,7 +35,7 @@ export const zhCNWorkbench = {
   'workbench.remove': '移出工作台',
   'workbench.removeHint': '只从工作台移除，磁盘目录与 Git 仓库都会保留。',
   'workbench.removeConfirm': '确定把“{name}”移出工作台？目录和仓库会保留在磁盘上。',
-  'workbench.lastOpened': '最近打开 {time}',
+  'workbench.lastOpened': '打开于 {time}',
   'workbench.neverOpened': '尚未打开',
   'workbench.formCreateTitle': '新建手册',
   'workbench.formAttachTitle': '接入已有目录',

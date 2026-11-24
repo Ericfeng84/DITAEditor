@@ -33,10 +33,10 @@ export function MyAssignmentsPanel({
 
   return (
     <aside className="flex min-w-0 flex-col rounded-xl border border-slate-200 bg-slate-50/60 p-3">
-      <div className="flex items-center justify-between gap-2">
+      <div className="min-w-0">
         <h2 className="text-[12.5px] font-semibold text-slate-900">{t('workbench.assignmentsTitle')}</h2>
         {summary ? (
-          <span className="text-[10px] font-medium text-slate-500">
+          <span className="mt-0.5 block text-[10px] font-medium leading-4 text-slate-500">
             {t('workbench.assignmentsSummary', {
               pending: summary.myPending,
               inProgress: summary.myInProgress,
