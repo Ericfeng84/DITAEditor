@@ -13,14 +13,18 @@ import {
   type DitavalDisplayMode,
   type DocumentSemanticOverlay,
   type ParsedDitaval,
+  type RawAttrs,
 } from '@dita/core';
 import type { TagDisplayMode } from '../../store/editor-store';
 import { resolveTaskModelForDocument } from '../structure-options';
 import { buildDitaKeymapPlugins } from './keymap';
 import { createDitaDecorationsPlugin, type BlockGapOpenMenuPayload } from './decorations';
 import { createDitaStructurePlugin } from './structure-decorations';
+import { createPrologCollapsePlugin } from './prolog-collapse.js';
 import { createDitaNodeViews, type SemanticViewRegistry } from './node-views';
-import { hydrateEmptyContainerAtPos } from './commands';
+import { hydrateEmptyContainerAtPos, insertReuseElementAtPos } from './commands';
+import { hasConrefDragPayload, readConrefDragPayload } from './conref-drag.js';
+import { getCurrentLocale, translate } from '../../i18n/index.js';
 import type { InlineBubbleInfo } from './inline-selection';
 import type { BlockHandleTarget } from './block-transforms';
 import type { InsertContextGroup } from './selection-info';
@@ -43,6 +47,7 @@ export interface VisualEditorViewDeps {
   >;
   onXrefRef: RefObject<() => void>;
   onXmlChangeRef: RefObject<(nextXml: string, nextTitle: string | null) => void>;
+  onAnnounceRef: RefObject<((message: string) => void) | undefined>;
   resolveImageSrcRef: RefObject<((href: string) => string | null) | undefined>;
   semanticRegistryRef: RefObject<SemanticViewRegistry>;
   blockDragRef: RefObject<{
@@ -102,6 +107,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
     onJumpToSourceRef,
     onXrefRef,
     onXmlChangeRef,
+    onAnnounceRef,
     resolveImageSrcRef,
     semanticRegistryRef,
     blockDragRef,
@@ -127,6 +133,43 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
   useEffect(() => {
       const container = mountRef.current;
       if (!container) return;
+
+      // A browser drop can arrive already cancelled (`defaultPrevented`), in which case
+      // ProseMirror's `eventBelongsToView` guard skips its handlers and `handleDrop` never runs.
+      // Applying reuse drops from the mount container keeps them working; the WeakSet keeps the
+      // ProseMirror path from inserting twice when both listeners see the same event.
+      const appliedDrops = new WeakSet<Event>();
+      const applyConrefDrop = (editorView: EditorView, event: DragEvent) => {
+        if (appliedDrops.has(event)) return;
+        const payload = readConrefDragPayload(event.dataTransfer);
+        if (!payload) return;
+        appliedDrops.add(event);
+        if (readOnlyRef.current) return;
+        const announceDrop = (dropped: boolean) =>
+          onAnnounceRef.current?.(
+            translate(
+              getCurrentLocale(),
+              dropped ? 'visual.announce.conrefDropped' : 'visual.announce.conrefDropBlocked',
+              { tag: payload.tagName },
+            ),
+          );
+        const coords = editorView.posAtCoords({ left: event.clientX, top: event.clientY });
+        if (!coords) {
+          // Dropped in the canvas padding: never fall back to the caret, that would mutate a
+          // spot the user did not aim at.
+          announceDrop(false);
+          return;
+        }
+        const attrs: RawAttrs = [
+          { name: payload.attrName, value: payload.value, namespaceURI: null },
+        ];
+        const inserted = insertReuseElementAtPos(payload.tagName, coords.pos, attrs)(
+          editorView.state,
+          editorView.dispatch,
+        );
+        announceDrop(inserted);
+        if (inserted) editorView.focus();
+      };
 
       let initialDoc;
       try {
@@ -184,6 +227,9 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
           ),
           dropCursor({ color: '#2563eb', width: 2 }),
           gapCursor(),
+          // Keeps the `<prolog>` metadata drawer's collapsed state out of the NodeView DOM so
+          // decoration-driven redraws cannot re-collapse an expanded drawer.
+          createPrologCollapsePlugin(),
         ],
       });
 
@@ -239,6 +285,23 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
           void pos;
           return false;
         },
+        // Reuse-panel drag: mark the editor as an accepting drop target so the browser shows a
+        // copy cursor. `handleDrop` then inserts the element instead of the payload's XML text.
+        handleDOMEvents: {
+          dragover(_editorView, event) {
+            if (!hasConrefDragPayload(event.dataTransfer)) return false;
+            event.preventDefault();
+            if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+            return true;
+          },
+        },
+        handleDrop(editorView, event) {
+          if (!hasConrefDragPayload(event.dataTransfer)) return false;
+          // Consume the drop even when it cannot be applied, so raw XML never lands as text.
+          event.preventDefault();
+          applyConrefDrop(editorView, event);
+          return true;
+        },
         dispatchTransaction(tr) {
           // Readers and non-owners must never mutate XML, even via keyboard shortcuts.
           if (readOnlyRef.current && tr.docChanged) return;
@@ -274,7 +337,22 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
       window.addEventListener('scroll', handleViewportChange, true);
       window.addEventListener('resize', handleViewportChange);
 
+      const onContainerDragOver = (event: DragEvent) => {
+        if (!hasConrefDragPayload(event.dataTransfer)) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+      };
+      const onContainerDrop = (event: DragEvent) => {
+        if (!hasConrefDragPayload(event.dataTransfer)) return;
+        event.preventDefault();
+        applyConrefDrop(view, event);
+      };
+      container.addEventListener('dragover', onContainerDragOver);
+      container.addEventListener('drop', onContainerDrop);
+
       return () => {
+        container.removeEventListener('dragover', onContainerDragOver);
+        container.removeEventListener('drop', onContainerDrop);
         window.removeEventListener('scroll', handleViewportChange, true);
         window.removeEventListener('resize', handleViewportChange);
         view.destroy();

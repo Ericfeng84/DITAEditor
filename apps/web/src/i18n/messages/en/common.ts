@@ -152,6 +152,8 @@ export const enCommon = {
   'status.insertedTag': 'Inserted <{tag}>',
   'status.attrUpdated': 'Updated attribute {name}',
   'status.navtitleUpdated': 'Updated the navigation title',
+  'status.keyRenamed': 'Renamed key {from} to {to}',
+  'status.keyValueUpdated': 'Updated the value of key {key}',
   'status.mapTitleUpdated': 'Updated the map title',
   'status.nodeRemoved': 'Removed the node from the map',
   'status.created': 'Created {path}',

@@ -162,28 +162,77 @@
 }
 
 .dita-nv-prolog-header {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
   padding: 0.35rem 0.65rem;
   background: #f1f5f9;
   border-bottom: 1px solid #e2e8f0;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.15s ease;
+}
+
+.dita-nv-prolog-header:hover,
+.dita-nv-prolog-header:focus-visible {
+  background: #e6edf6;
+  outline: none;
+}
+
+.dita-nv-prolog-header:focus-visible {
+  box-shadow: inset 0 0 0 2px #93c5fd;
 }
 
 .dita-nv-prolog[data-collapsed="true"] .dita-nv-prolog-header {
   border-bottom: none;
 }
 
-.dita-nv-prolog-toggle {
-  border: none;
-  background: transparent;
+.dita-nv-prolog-caret {
+  font-size: 10px;
+  line-height: 1;
+  color: #475569;
+}
+
+.dita-nv-prolog-label {
   font-family: var(--font-mono);
   font-size: 11px;
   font-weight: 600;
   color: #475569;
-  cursor: pointer;
+}
+
+.dita-nv-prolog-hint {
+  margin-left: auto;
+  font-size: 10.5px;
+  color: #94a3b8;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.dita-nv-prolog-header:hover .dita-nv-prolog-hint,
+.dita-nv-prolog-header:focus-visible .dita-nv-prolog-hint {
+  opacity: 1;
 }
 
 .dita-nv-prolog-body {
   padding: 0.65rem 0.85rem;
   font-size: 13px;
+}
+
+/* Metadata rows (`<author>` / `<critdates>` / `<metadata>` are passthrough nodes): present them as
+   editable metadata fields instead of amber "unmodeled element" warnings. */
+.dita-nv-prolog-body .dita-nv-unknown-block {
+  margin: 0.3rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  background: #ffffff;
+  padding: 0.3rem 0.55rem;
+}
+
+.dita-nv-prolog-body .dita-nv-unknown-block > .dita-nv-unknown-badge {
+  margin-bottom: 0.15rem;
+  background: #eef2f7;
+  border-color: #dbe3ec;
+  color: #475569;
 }
 
 .dita-nv-prolog[data-collapsed="true"] .dita-nv-prolog-body {
@@ -416,4 +465,13 @@
 .dita-tag-mode-tags .dita-prosemirror-doc [data-dita-tag] > br.ProseMirror-trailingBreak,
 .dita-tag-mode-full .dita-prosemirror-doc [data-dita-tag] > br.ProseMirror-trailingBreak {
   display: none;
+}
+
+/* Reuse-panel pointer drag fallback: signal that the canvas accepts the drop. Kept as a class
+ * (not an inline style) so the ghost/preview never leaks into serialized state. */
+.dita-prosemirror-doc.dita-drop-target {
+  outline: 2px dashed #14b8a6;
+  outline-offset: 6px;
+  border-radius: 6px;
+  background-color: rgb(240 253 250 / 0.55);
 }

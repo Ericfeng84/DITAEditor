@@ -3,30 +3,51 @@ import { useI18n } from '../i18n/index.js';
 import type { KeyDefinition, KeyspaceResult } from '@dita/core';
 import {
   AlertTriangle,
+  Check,
   ExternalLink,
   KeyRound,
+  Pencil,
   PlusCircle,
   Search,
+  X,
 } from 'lucide-react';
 
 export interface KeyspacePanelProps {
   rootMapPath: string | null;
   keyspace: KeyspaceResult | null;
   canInsertInTopic: boolean;
+  /** Whether the current identity may rewrite key definitions in the map sources. */
+  canEditKeys?: boolean;
   onInsertKeyref: (qualifiedKey: string) => void;
   onJumpToKeyDef: (def: KeyDefinition) => void;
+  /** Rename the `keys` token behind one definition; returns false when the map could not be updated. */
+  onRenameKey?: (def: KeyDefinition, nextKey: string) => boolean;
+  /** Rewrite the definition's displayed value (keyword/linktext/navtitle text or `@href`). */
+  onUpdateKeyValue?: (def: KeyDefinition, nextValue: string) => boolean;
 }
+
+/** DITA key names are NMTOKENs: whitespace separates keys, so a token cannot contain spaces. */
+const KEY_NAME_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
 
 export function KeyspacePanel({
   rootMapPath,
   keyspace,
   canInsertInTopic,
+  canEditKeys = false,
   onInsertKeyref,
   onJumpToKeyDef,
+  onRenameKey,
+  onUpdateKeyValue,
 }: KeyspacePanelProps) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
   const [activeScope, setActiveScope] = useState<string>('__all__');
+  const [renamingKey, setRenamingKey] = useState<string | null>(null);
+  const [keyDraft, setKeyDraft] = useState('');
+  const [keyError, setKeyError] = useState<string | null>(null);
+  const [editingValueKey, setEditingValueKey] = useState<string | null>(null);
+  const [valueDraft, setValueDraft] = useState('');
+  const [valueError, setValueError] = useState<string | null>(null);
 
   const definitions = useMemo(() => {
     if (!keyspace) return [];
@@ -51,6 +72,87 @@ export function KeyspacePanel({
       );
     });
   }, [keyspace, search, activeScope]);
+
+  const startRename = (def: KeyDefinition) => {
+    setEditingValueKey(null);
+    setValueError(null);
+    setRenamingKey(def.qualifiedKey);
+    setKeyDraft(def.key);
+    setKeyError(null);
+  };
+
+  const cancelRename = () => {
+    setRenamingKey(null);
+    setKeyError(null);
+  };
+
+  const commitRename = (def: KeyDefinition) => {
+    const next = keyDraft.trim();
+    if (next === def.key) {
+      cancelRename();
+      return;
+    }
+    if (!KEY_NAME_PATTERN.test(next)) {
+      setKeyError(t('keyspace.renameInvalid'));
+      return;
+    }
+    const qualifiedNext = def.keyscope ? `${def.keyscope}.${next}` : next;
+    const collides = Boolean(keyspace && keyspace.keys[qualifiedNext]);
+    if (collides) {
+      setKeyError(t('keyspace.renameDuplicate', { key: qualifiedNext }));
+      return;
+    }
+    const applied = onRenameKey?.(def, next) ?? false;
+    if (!applied) {
+      setKeyError(t('keyspace.renameFailed'));
+      return;
+    }
+    cancelRename();
+  };
+
+  /** `null` when the definition carries no rewritable value (no text source and no `@href`). */
+  const readKeyValue = (def: KeyDefinition): string | null => {
+    const source = def.inlineTextSource && def.inlineTextSource !== 'none' ? def.inlineTextSource : null;
+    if (source) return def.inlineText ?? '';
+    if (def.href !== undefined) return def.href;
+    return null;
+  };
+
+  const isValueEditable = (def: KeyDefinition) =>
+    Boolean(canEditKeys && onUpdateKeyValue) && readKeyValue(def) !== null;
+
+  const startValueEdit = (def: KeyDefinition) => {
+    const current = readKeyValue(def);
+    if (current === null) return;
+    setRenamingKey(null);
+    setKeyError(null);
+    setEditingValueKey(def.qualifiedKey);
+    setValueDraft(current);
+    setValueError(null);
+  };
+
+  const cancelValueEdit = () => {
+    setEditingValueKey(null);
+    setValueError(null);
+  };
+
+  const commitValueEdit = (def: KeyDefinition) => {
+    const next = valueDraft.trim();
+    if (!next) {
+      setValueError(t('keyspace.valueInvalid'));
+      return;
+    }
+    if (next === readKeyValue(def)) {
+      cancelValueEdit();
+      return;
+    }
+    const applied = onUpdateKeyValue?.(def, next) ?? false;
+    if (!applied) {
+      setValueError(t('keyspace.valueFailed'));
+      return;
+    }
+    cancelValueEdit();
+  };
 
   if (!rootMapPath) {
     return (
@@ -170,64 +272,198 @@ export function KeyspacePanel({
             const preview =
               def.inlineText ??
               (def.targetTitle ? `${def.targetTitle} (${def.resolvedHref ?? def.href})` : def.resolvedHref ?? def.href ?? t('keyspace.noValue'));
+            const isRenaming = renamingKey === def.qualifiedKey;
+            const isEditingValue = editingValueKey === def.qualifiedKey;
 
             return (
               <div
                 key={def.qualifiedKey}
-                className="group rounded-lg border border-slate-200/90 bg-slate-50/70 p-2 text-xs transition-colors hover:border-blue-300 hover:bg-blue-50/30"
+                className={`group rounded-lg border bg-slate-50/70 p-2 text-xs transition-colors ${
+                  isRenaming || isEditingValue
+                    ? 'border-blue-400 bg-blue-50/40'
+                    : 'border-slate-200/90 hover:border-blue-300 hover:bg-blue-50/30'
+                }`}
               >
                 <div className="flex items-center justify-between gap-1.5">
-                  <div className="flex min-w-0 items-center gap-1">
-                    <code className="truncate rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-blue-900">
-                      {def.qualifiedKey}
-                    </code>
-                    {def.keyscope ? (
-                      <span className="shrink-0 rounded bg-sky-100 px-1 py-0.5 font-mono text-[9.5px] text-sky-800">
-                        scope:{def.keyscope}
-                      </span>
-                    ) : null}
-                    {def.shadowedCount > 0 ? (
-                      <span
-                        className="shrink-0 rounded bg-amber-100 px-1 py-0.5 font-mono text-[9.5px] text-amber-800"
-                        title={t('keyspace.shadowedTooltip', { count: def.shadowedCount })}
-                      >
-                        {t('keyspace.shadowedCount', { count: def.shadowedCount })}
-                      </span>
-                    ) : null}
-                  </div>
+                  {isRenaming ? (
+                    <input
+                      autoFocus
+                      value={keyDraft}
+                      onChange={(e) => {
+                        setKeyDraft(e.target.value);
+                        setKeyError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          commitRename(def);
+                        } else if (e.key === 'Escape') {
+                          e.preventDefault();
+                          cancelRename();
+                        }
+                      }}
+                      aria-label={t('keyspace.renameAria')}
+                      aria-invalid={keyError ? true : undefined}
+                      spellCheck={false}
+                      className="w-full min-w-0 rounded border border-blue-500 bg-white px-1.5 py-0.5 font-mono text-[11px] font-semibold text-blue-900 focus:outline-none"
+                    />
+                  ) : (
+                    <div className="flex min-w-0 items-center gap-1">
+                      <code className="truncate rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[11px] font-semibold text-blue-900">
+                        {def.qualifiedKey}
+                      </code>
+                      {def.keyscope ? (
+                        <span className="shrink-0 rounded bg-sky-100 px-1 py-0.5 font-mono text-[9.5px] text-sky-800">
+                          scope:{def.keyscope}
+                        </span>
+                      ) : null}
+                      {def.shadowedCount > 0 ? (
+                        <span
+                          className="shrink-0 rounded bg-amber-100 px-1 py-0.5 font-mono text-[9.5px] text-amber-800"
+                          title={t('keyspace.shadowedTooltip', { count: def.shadowedCount })}
+                        >
+                          {t('keyspace.shadowedCount', { count: def.shadowedCount })}
+                        </span>
+                      ) : null}
+                    </div>
+                  )}
                 </div>
 
-                <p className="mt-1 truncate text-[11.5px] font-medium text-slate-800" title={preview}>
-                  {preview}
-                </p>
+                {isEditingValue ? (
+                  <input
+                    autoFocus
+                    value={valueDraft}
+                    onChange={(e) => {
+                      setValueDraft(e.target.value);
+                      setValueError(null);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        commitValueEdit(def);
+                      } else if (e.key === 'Escape') {
+                        e.preventDefault();
+                        cancelValueEdit();
+                      }
+                    }}
+                    aria-label={t('keyspace.valueAria')}
+                    aria-invalid={valueError ? true : undefined}
+                    spellCheck={false}
+                    className="mt-1 w-full min-w-0 rounded border border-blue-500 bg-white px-1.5 py-0.5 text-[11.5px] font-medium text-slate-900 focus:outline-none"
+                  />
+                ) : (
+                  <div className="mt-1 flex items-center gap-1">
+                    <p
+                      className="min-w-0 flex-1 truncate text-[11.5px] font-medium text-slate-800"
+                      title={preview}
+                    >
+                      {preview}
+                    </p>
+                    {isValueEditable(def) ? (
+                      <button
+                        type="button"
+                        onClick={() => startValueEdit(def)}
+                        title={t('keyspace.valueTooltip')}
+                        aria-label={t('keyspace.valueTooltip')}
+                        className="shrink-0 rounded p-0.5 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white hover:text-blue-700 focus-visible:opacity-100"
+                      >
+                        <Pencil className="h-2.5 w-2.5" aria-hidden="true" />
+                      </button>
+                    ) : null}
+                  </div>
+                )}
 
                 <div className="mt-1.5 flex items-center justify-between gap-1 text-[10px] text-slate-400">
                   <span className="truncate font-mono" title={`${def.sourceMapPath}:${def.line}`}>
                     {def.sourceMapPath}:{def.line}
                   </span>
                   <div className="flex shrink-0 items-center gap-1">
-                    {canInsertInTopic ? (
-                      <button
-                        type="button"
-                        onClick={() => onInsertKeyref(def.qualifiedKey)}
-                        title={t('keyspace.insertTooltip')}
-                        className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
-                      >
-                        <PlusCircle className="h-2.5 w-2.5" aria-hidden="true" />
-                        {t('keyspace.insert')}
-                      </button>
-                    ) : null}
-                    <button
-                      type="button"
-                      onClick={() => onJumpToKeyDef(def)}
-                      title={t('keyspace.jumpTooltip')}
-                      className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
-                    >
-                      <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
-                      {t('attributes.define')}
-                    </button>
+                    {isRenaming ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => commitRename(def)}
+                          title={t('keyspace.renameSave')}
+                          className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
+                        >
+                          <Check className="h-2.5 w-2.5" aria-hidden="true" />
+                          {t('keyspace.renameSave')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelRename}
+                          title={t('keyspace.renameCancel')}
+                          className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
+                        >
+                          <X className="h-2.5 w-2.5" aria-hidden="true" />
+                          {t('keyspace.renameCancel')}
+                        </button>
+                      </>
+                    ) : isEditingValue ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => commitValueEdit(def)}
+                          title={t('keyspace.valueSave')}
+                          className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
+                        >
+                          <Check className="h-2.5 w-2.5" aria-hidden="true" />
+                          {t('keyspace.valueSave')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelValueEdit}
+                          title={t('keyspace.valueCancel')}
+                          className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
+                        >
+                          <X className="h-2.5 w-2.5" aria-hidden="true" />
+                          {t('keyspace.valueCancel')}
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        {canEditKeys && onRenameKey ? (
+                          <button
+                            type="button"
+                            onClick={() => startRename(def)}
+                            title={t('keyspace.renameTooltip')}
+                            aria-label={t('keyspace.renameTooltip')}
+                            className="inline-flex items-center rounded border border-slate-200 bg-white p-0.5 text-slate-500 hover:bg-slate-100 hover:text-blue-700"
+                          >
+                            <Pencil className="h-2.5 w-2.5" aria-hidden="true" />
+                          </button>
+                        ) : null}
+                        {canInsertInTopic ? (
+                          <button
+                            type="button"
+                            onClick={() => onInsertKeyref(def.qualifiedKey)}
+                            title={t('keyspace.insertTooltip')}
+                            className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
+                          >
+                            <PlusCircle className="h-2.5 w-2.5" aria-hidden="true" />
+                            {t('keyspace.insert')}
+                          </button>
+                        ) : null}
+                        <button
+                          type="button"
+                          onClick={() => onJumpToKeyDef(def)}
+                          title={t('keyspace.jumpTooltip')}
+                          className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
+                        >
+                          <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                          {t('attributes.define')}
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {isRenaming && keyError ? (
+                  <p className="mt-1 text-[10.5px] font-medium text-rose-600">{keyError}</p>
+                ) : null}
+                {isEditingValue && valueError ? (
+                  <p className="mt-1 text-[10.5px] font-medium text-rose-600">{valueError}</p>
+                ) : null}
               </div>
             );
           })

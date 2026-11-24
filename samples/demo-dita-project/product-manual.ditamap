@@ -43,7 +43,7 @@
     <keydef keys="endpoint_url" processing-role="resource-only">
       <topicmeta>
         <keywords>
-          <keyword>https://cloud.ditaeditor.dev/api</keyword>
+          <keyword>https://cloud.ditaeditor.dev/api2</keyword>
         </keywords>
       </topicmeta>
     </keydef>

@@ -7,6 +7,7 @@ import {
   type DocumentSemanticOverlay,
 } from '@dita/core';
 import { updateNodeRawAttr } from './commands';
+import { isPrologCollapsed, setPrologCollapsed } from './prolog-collapse.js';
 import { getCurrentLocale, translate } from '../../i18n/index.js';
 
 export class SemanticViewRegistry {
@@ -194,63 +195,108 @@ class DitaCodeblockNodeView implements NodeView {
 }
 
 /**
- * Custom NodeView for `<prolog>`: collapsible metadata drawer so metadata stays accessible and lossless
- * without dominating the editorial reading flow.
+ * Custom NodeView for `<prolog>`: collapsible metadata drawer so metadata stays accessible and
+ * editable without dominating the editorial reading flow. Expanded by default; the collapsed
+ * state is kept in plugin state (see `prolog-collapse.ts`) so decoration-driven redraws cannot
+ * silently re-collapse the drawer.
  */
 class DitaPrologNodeView implements NodeView {
   dom: HTMLElement;
   contentDOM: HTMLElement;
-  private toggleBtn: HTMLButtonElement;
-  private collapsed = true;
+  private header: HTMLElement;
+  private caretEl: HTMLElement;
+  private labelEl: HTMLElement;
+  private hintEl: HTMLElement;
+  private collapsed = false;
   private node: PMNode;
+  private view: EditorView;
+  private getPos: () => number | undefined;
 
-  constructor(node: PMNode) {
+  constructor(node: PMNode, view: EditorView, getPos: () => number | undefined) {
     this.node = node;
+    this.view = view;
+    this.getPos = getPos;
     this.dom = document.createElement('aside');
     this.dom.className = 'dita-nv-prolog';
     this.dom.dataset.ditaTag = 'prolog';
-    this.dom.dataset.collapsed = 'true';
 
-    const header = document.createElement('div');
-    header.className = 'dita-nv-prolog-header';
-    header.contentEditable = 'false';
+    this.header = document.createElement('div');
+    this.header.className = 'dita-nv-prolog-header';
+    this.header.contentEditable = 'false';
+    this.header.setAttribute('role', 'button');
+    this.header.tabIndex = 0;
 
-    this.toggleBtn = document.createElement('button');
-    this.toggleBtn.type = 'button';
-    this.toggleBtn.className = 'dita-nv-prolog-toggle';
-    this.toggleBtn.addEventListener('click', (ev) => {
+    this.caretEl = document.createElement('span');
+    this.caretEl.className = 'dita-nv-prolog-caret';
+    this.caretEl.setAttribute('aria-hidden', 'true');
+
+    this.labelEl = document.createElement('span');
+    this.labelEl.className = 'dita-nv-prolog-label';
+
+    this.hintEl = document.createElement('span');
+    this.hintEl.className = 'dita-nv-prolog-hint';
+    this.hintEl.textContent = translate(getCurrentLocale(), 'nodeView.prologHint');
+
+    this.header.append(this.caretEl, this.labelEl, this.hintEl);
+    this.header.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      this.collapsed = !this.collapsed;
-      this.dom.dataset.collapsed = String(this.collapsed);
-      this.syncToggleLabel();
+      this.toggle();
     });
-    header.appendChild(this.toggleBtn);
+    this.header.addEventListener('keydown', (ev) => {
+      if (ev.key !== 'Enter' && ev.key !== ' ' && ev.key !== 'Spacebar') return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      this.toggle();
+    });
 
     this.contentDOM = document.createElement('div');
     this.contentDOM.className = 'dita-nv-prolog-body';
 
-    this.dom.appendChild(header);
+    this.dom.appendChild(this.header);
     this.dom.appendChild(this.contentDOM);
-    this.syncToggleLabel();
+    this.syncState(this.readCollapsed());
   }
 
-  private syncToggleLabel() {
+  private currentPos(): number | undefined {
+    try {
+      return this.getPos();
+    } catch {
+      return undefined;
+    }
+  }
+
+  private readCollapsed(): boolean {
+    const pos = this.currentPos();
+    if (typeof pos !== 'number') return this.collapsed;
+    return isPrologCollapsed(this.view.state, pos);
+  }
+
+  private toggle(): void {
+    const next = !this.collapsed;
+    this.syncState(next);
+    const pos = this.currentPos();
+    if (typeof pos === 'number') setPrologCollapsed(this.view, pos, next);
+  }
+
+  private syncState(collapsed: boolean): void {
+    this.collapsed = collapsed;
+    this.dom.dataset.collapsed = String(collapsed);
+    this.header.setAttribute('aria-expanded', String(!collapsed));
+    this.caretEl.textContent = collapsed ? '▸' : '▾';
     const count = this.node.childCount;
-    const arrow = this.collapsed ? '▸' : '▾';
-    this.toggleBtn.textContent = `${arrow} ${translate(getCurrentLocale(), 'nodeView.prologToggle', { count })}`;
-    this.toggleBtn.setAttribute('aria-expanded', String(!this.collapsed));
+    this.labelEl.textContent = translate(getCurrentLocale(), 'nodeView.prologToggle', { count });
   }
 
   update(node: PMNode): boolean {
     if (node.type !== this.node.type) return false;
     this.node = node;
-    this.syncToggleLabel();
+    this.syncState(this.readCollapsed());
     return true;
   }
 
   stopEvent(event: Event): boolean {
-    return event.target === this.toggleBtn;
+    return event.target instanceof Node && this.header.contains(event.target);
   }
 }
 
@@ -760,7 +806,7 @@ export function createDitaNodeViews(
     dita_note: (node, view, getPos) => new DitaNoteNodeView(node, view, getPos),
     dita_codeblock: (node) => new DitaCodeblockNodeView(node, 'codeblock'),
     dita_pre: (node) => new DitaCodeblockNodeView(node, 'pre'),
-    dita_prolog: (node) => new DitaPrologNodeView(node),
+    dita_prolog: (node, view, getPos) => new DitaPrologNodeView(node, view, getPos),
     dita_image_block: (node) =>
       new DitaImageNodeView(
         node,

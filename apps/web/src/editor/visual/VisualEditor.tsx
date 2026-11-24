@@ -600,6 +600,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onJumpToSourceRef,
       onXrefRef,
       onXmlChangeRef,
+      onAnnounceRef,
       resolveImageSrcRef,
       semanticRegistryRef,
       blockDragRef,

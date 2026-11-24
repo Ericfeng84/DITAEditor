@@ -5,6 +5,8 @@ import {
   createTopicTemplate,
   deleteMapNode,
   insertMapNode,
+  renameMapNodeKeyToken,
+  updateMapKeyValueText,
   updateMapNodeAttr,
   updateMapNodeNavtitle,
   updateMapTitle,
@@ -324,6 +326,66 @@ export function createMapTreeSlice(
       if (!buf) return;
       const res = updateMapNodeNavtitle(buf.xml, elementPath, navtitle);
       get().mutateMapXml(mapPath, res.xml, t('status.navtitleUpdated'));
+    },
+
+    renameMapKey(def, nextKey) {
+      const state = get();
+      const buf = state.mapBuffers[def.sourceMapPath];
+      if (!buf) return false;
+
+      const res = renameMapNodeKeyToken(buf.xml, def.elementPath, def.key, nextKey);
+      if (!res.changed) return false;
+
+      get().mutateMapXml(
+        def.sourceMapPath,
+        res.xml,
+        t('status.keyRenamed', { from: def.key, to: nextKey }),
+      );
+
+      // In API mode the keyspace is resolved server-side from the files on disk, so the rename must
+      // be persisted before `refreshSemantics()` can report the new key name.
+      if (state.workspaceMode === 'api') {
+        void get().saveFile(def.sourceMapPath);
+      }
+      return true;
+    },
+
+    updateMapKeyValue(def, nextValue) {
+      const state = get();
+      const buf = state.mapBuffers[def.sourceMapPath];
+      if (!buf) return false;
+
+      const trimmed = nextValue.trim();
+      if (!trimmed) return false;
+
+      const source =
+        def.inlineTextSource && def.inlineTextSource !== 'none' ? def.inlineTextSource : null;
+
+      if (source) {
+        const res = updateMapKeyValueText(buf.xml, def.elementPath, source, trimmed);
+        if (!res.changed) return false;
+        get().mutateMapXml(
+          def.sourceMapPath,
+          res.xml,
+          t('status.keyValueUpdated', { key: def.qualifiedKey }),
+        );
+      } else if (def.href !== undefined) {
+        const res = updateMapNodeAttr(buf.xml, def.elementPath, 'href', trimmed);
+        if (res.xml === buf.xml) return false;
+        get().mutateMapXml(
+          def.sourceMapPath,
+          res.xml,
+          t('status.keyValueUpdated', { key: def.qualifiedKey }),
+        );
+      } else {
+        return false;
+      }
+
+      // Same reason as `renameMapKey`: the keyspace is re-indexed from persisted map files.
+      if (state.workspaceMode === 'api') {
+        void get().saveFile(def.sourceMapPath);
+      }
+      return true;
     },
 
     updateMapRootTitle(mapPath, title) {

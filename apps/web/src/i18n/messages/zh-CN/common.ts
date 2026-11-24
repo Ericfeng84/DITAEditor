@@ -152,6 +152,8 @@ export const zhCNCommon = {
   'status.insertedTag': '已插入 <{tag}>',
   'status.attrUpdated': '已更新属性 {name}',
   'status.navtitleUpdated': '已更新导航标题',
+  'status.keyRenamed': '已将 key {from} 重命名为 {to}',
+  'status.keyValueUpdated': '已更新 key {key} 的值',
   'status.mapTitleUpdated': '已更新 Map 标题',
   'status.nodeRemoved': '已从 Map 中移除节点',
   'status.created': '已新建 {path}',

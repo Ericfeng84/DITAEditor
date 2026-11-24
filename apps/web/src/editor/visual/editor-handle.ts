@@ -8,12 +8,14 @@ import {
   deleteDitaNodeAtPos,
   insertBlockDitaElement,
   insertBlockDitaElementAtPos,
+  insertReuseElementAtPos,
   moveDitaNodeSibling,
   selectNodeAtPos,
   toggleInlineDitaElement,
   updateNodeRawAttr,
 } from './commands';
 import { DITA_DECORATIONS_KEY } from './decorations';
+import type { ConrefDragPayload } from './conref-drag.js';
 import { findLegalAncestorDepthForBlock, isInlineTagAllowedAtSelection } from './selection-info';
 import {
   addTableColumn,
@@ -43,6 +45,15 @@ export interface VisualEditorHandle {
   toggleInline: (tag: string, attrs?: RawAttrs, defaultText?: string) => boolean;
   insertBlock: (tag: string, containerDepth?: number, attrs?: RawAttrs) => boolean;
   insertBlockAtPos: (tag: string, insertPos: number, attrs?: RawAttrs) => boolean;
+  /**
+   * Insert a conref/conkeyref element at viewport coordinates (reuse-panel pointer-drop fallback).
+   * Returns false when the point is not over the canvas or no container accepts the element.
+   */
+  insertReuseAtPoint: (
+    clientX: number,
+    clientY: number,
+    payload: ConrefDragPayload,
+  ) => boolean;
   updateAttr: (nodePos: number, attrName: string, value: string | null) => void;
   deleteNode: (nodePos: number) => void;
   moveNode: (nodePos: number, direction: 'up' | 'down') => void;
@@ -150,6 +161,27 @@ export function createVisualEditorHandle(deps: VisualEditorHandleDeps): VisualEd
         'visual.announce.blockInserted',
         { tag },
       );
+    },
+    insertReuseAtPoint(clientX, clientY, payload) {
+      const view = viewRef.current;
+      if (!view) return false;
+      const coords = view.posAtCoords({ left: clientX, top: clientY });
+      if (!coords) return false;
+      const attrs: RawAttrs = [
+        { name: payload.attrName, value: payload.value, namespaceURI: null },
+      ];
+      const ok = insertReuseElementAtPos(payload.tagName, coords.pos, attrs)(
+        view.state,
+        view.dispatch,
+        view,
+      );
+      if (ok) view.focus();
+      announce(
+        deps,
+        ok ? 'visual.announce.conrefDropped' : 'visual.announce.conrefDropBlocked',
+        { tag: payload.tagName },
+      );
+      return ok;
     },
     updateAttr(nodePos, attrName, value) {
       const view = viewRef.current;

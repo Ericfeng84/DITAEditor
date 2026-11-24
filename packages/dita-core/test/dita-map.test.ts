@@ -12,9 +12,11 @@ import {
   normalizePosixPath,
   parseDitaMap,
   parseXml,
+  renameMapNodeKeyToken,
   resolveDitaHref,
   serializeXml,
   transferMapNode,
+  updateMapKeyValueText,
   updateMapNodeAttr,
   updateMapNodeNavtitle,
   updateMapTitle,
@@ -277,6 +279,99 @@ describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
       'topichead',
       'mapref',
     ]);
+  });
+
+  it('renames one keys token without touching sibling tokens or attribute order', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="keys_map" keys="root_key">
+  <keydef keys="prod_name cloud_endpoint" href="concepts/intro.dita" type="concept" scope="peer"/>
+  <keydef keys="prod_name" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>DITAEditor</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+</map>
+`;
+
+    const node = parseDitaMap(xml).nodes[0]!;
+    const renamed = renameMapNodeKeyToken(xml, node.elementPath, 'cloud_endpoint', 'cloud_api');
+    expect(renamed.changed).toBe(true);
+    expect(parseDitaMap(renamed.xml).nodes[0]!.rawAttrs.map((a) => `${a.name}=${a.value}`)).toEqual([
+      'keys=prod_name cloud_api',
+      'href=concepts/intro.dita',
+      'type=concept',
+      'scope=peer',
+    ]);
+    // Round-trip stays deterministic and lossless (declaration, DOCTYPE, comments, other keys).
+    expect(serializeXml(parseXml(renamed.xml))).toBe(renamed.xml);
+    expect(renamed.xml).toContain('<map id="keys_map" keys="root_key">');
+
+    // Renaming the root map's own keys token works without an element path.
+    const rootRenamed = renameMapNodeKeyToken(xml, null, 'root_key', 'workspace_root');
+    expect(rootRenamed.changed).toBe(true);
+    expect(rootRenamed.xml).toContain('<map id="keys_map" keys="workspace_root">');
+
+    // Unknown tokens and missing attributes are reported as no-ops instead of corrupting the map.
+    expect(renameMapNodeKeyToken(xml, node.elementPath, 'missing_key', 'x').changed).toBe(false);
+    expect(renameMapNodeKeyToken(xml, node.elementPath, 'prod_name', '  ').changed).toBe(false);
+  });
+
+  it('rewrites a key value in place and refuses to flatten inline markup', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="value_map">
+  <keydef keys="prod_name" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>DITAEditor</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="rich_name" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>DITA <ph>markup</ph></keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <topicref keys="legacy_title" href="concepts/intro.dita" navtitle="旧标题"/>
+</map>
+`;
+
+    const nodes = parseDitaMap(xml).nodes;
+    const keywordDef = nodes[0]!;
+    const updated = updateMapKeyValueText(xml, keywordDef.elementPath, 'keyword', 'DITAEditor Enterprise');
+    expect(updated.changed).toBe(true);
+    expect(updated.xml).toContain('<keyword>DITAEditor Enterprise</keyword>');
+    // Value element and attributes are untouched, and formatting stays deterministic.
+    expect(parseDitaMap(updated.xml).nodes[0]!.rawAttrs.map((a) => `${a.name}=${a.value}`)).toEqual([
+      'keys=prod_name',
+      'processing-role=resource-only',
+    ]);
+    expect(serializeXml(parseXml(updated.xml))).toBe(updated.xml);
+
+    // Inline markup inside the value is never flattened into plain text.
+    const richDef = nodes[1]!;
+    const rich = updateMapKeyValueText(xml, richDef.elementPath, 'keyword', 'flattened');
+    expect(rich.changed).toBe(false);
+    expect(rich.xml).toBe(xml);
+
+    // Keys whose value lives in `@navtitle` update the attribute and keep attribute order.
+    const legacyDef = nodes[2]!;
+    const legacy = updateMapKeyValueText(xml, legacyDef.elementPath, 'navtitle', '新标题');
+    expect(legacy.changed).toBe(true);
+    expect(parseDitaMap(legacy.xml).nodes[2]!.rawAttrs.map((a) => `${a.name}=${a.value}`)).toEqual([
+      'keys=legacy_title',
+      'href=concepts/intro.dita',
+      'navtitle=新标题',
+    ]);
+
+    // Empty values and mismatched sources are reported as no-ops.
+    expect(updateMapKeyValueText(xml, keywordDef.elementPath, 'keyword', '   ').changed).toBe(false);
+    expect(updateMapKeyValueText(xml, legacyDef.elementPath, 'linktext', 'x').changed).toBe(false);
   });
 
   it('creates clean lossless .ditamap and .bookmap templates', () => {

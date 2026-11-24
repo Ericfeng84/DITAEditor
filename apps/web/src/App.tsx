@@ -152,6 +152,8 @@ export function App() {
   const insertMapStructureNode = useEditorStore((s) => s.insertMapStructureNode);
   const updateMapAttr = useEditorStore((s) => s.updateMapAttr);
   const updateMapNavtitle = useEditorStore((s) => s.updateMapNavtitle);
+  const renameMapKey = useEditorStore((s) => s.renameMapKey);
+  const updateMapKeyValue = useEditorStore((s) => s.updateMapKeyValue);
   const updateMapRootTitle = useEditorStore((s) => s.updateMapRootTitle);
   const deleteMapTreeNode = useEditorStore((s) => s.deleteMapTreeNode);
   const jumpToMapNodeSource = useEditorStore((s) => s.jumpToMapNodeSource);
@@ -844,11 +846,14 @@ export function App() {
                     rootMapPath={activeRootMapPath}
                     keyspace={keyspace}
                     canInsertInTopic={Boolean(showTopicVisual)}
+                    canEditKeys={canEdit}
                     onInsertKeyref={(keyName) => {
                       visualRef.current?.toggleInline('keyword', [
                         { name: 'keyref', value: keyName, namespaceURI: null },
                       ]);
                     }}
+                    onRenameKey={(def, nextKey) => renameMapKey(def, nextKey)}
+                    onUpdateKeyValue={(def, nextValue) => updateMapKeyValue(def, nextValue)}
                     onJumpToKeyDef={(def) =>
                       void jumpToSemanticLocation(def.sourceMapPath, {
                         mode: 'source',
@@ -1249,6 +1254,9 @@ export function App() {
                               onResolvePreview: resolveConrefPreview,
                               onConfirm: handleConfirmConref,
                               onConfirmed: () => setInspectorTab('attributes'),
+                              onDropAtPoint: (clientX, clientY, payload) =>
+                                visualRef.current?.insertReuseAtPoint(clientX, clientY, payload) ??
+                                false,
                             }}
                             ai={
                               activeTab ? (

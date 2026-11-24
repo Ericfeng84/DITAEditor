@@ -154,6 +154,20 @@ export const zhCNStructure = {
   'keyspace.insertTooltip': "在当前光标插入 <keyword keyref='...'>",
   'keyspace.insert': '插入',
   'keyspace.jumpTooltip': '跳转到 Key 定义源码位置',
+  'keyspace.renameTooltip': '修改 key 名称（同名引用需自行同步）',
+  'keyspace.renameAria': 'Key 名称',
+  'keyspace.renameSave': '保存',
+  'keyspace.renameCancel': '取消',
+  'keyspace.renameInvalid': 'Key 名称只能包含字母、数字、下划线、连字符和点，且不能包含空格。',
+  'keyspace.renameDuplicate': 'Key {key} 已存在（广度优先定义生效），请换一个名称。',
+  'keyspace.renameFailed': '无法修改该 Key：定义所在 Map 未加载或已不包含此 key。',
+  'keyspace.valueTooltip': '修改 Key 的值（keyword / linktext 文本或 href）',
+  'keyspace.valueAria': 'Key 的值',
+  'keyspace.valueSave': '保存',
+  'keyspace.valueCancel': '取消',
+  'keyspace.valueInvalid': 'Key 的值不能为空。',
+  'keyspace.valueFailed':
+    '无法修改该 Key 的值：定义所在 Map 未加载，或该值含行内标记（请到定义处编辑以保留标记）。',
 
   // --- xref / image + conref reuse ----------------------------------------
   'xref.defaultText': '参考文档',
@@ -204,6 +218,7 @@ export const zhCNStructure = {
   'conref.searchPlaceholder': '搜索 ID、标签名或文本…',
   'conref.noCandidates': '所选文件中没有带 id 属性的可复用子元素。',
   'conref.incompatible': '不兼容',
+  'conref.dragHint': '可直接拖拽到编辑器中插入：视觉视图在落点插入元素，源码视图插入 XML 片段。',
   'conref.insertModeAria': '插入方式',
   'conref.insertNew': '新建 <{tag}>',
   'conref.insertNewHint': '在光标处插入复用元素',

@@ -763,6 +763,122 @@ export function updateMapNodeAttr(
 }
 
 /**
+ * Rename one whitespace-separated token of a map node's `keys` attribute (DITA 1.3 key names are
+ * NMTOKENs, so `<keydef keys="a b c">` defines three keys). Every other token and the exact
+ * attribute order are preserved, so a Keyspace rename only touches the renamed token in the XML.
+ */
+export function renameMapNodeKeyToken(
+  xml: string,
+  targetPath: readonly number[] | null,
+  fromKey: string,
+  toKey: string,
+): { xml: string; changed: boolean } {
+  const parsed = parseXml(xml, { position: false });
+  const root = parsed.document.documentElement;
+  if (!root) return { xml, changed: false };
+
+  const target =
+    !targetPath || targetPath.length === 0
+      ? root
+      : findDomElementByPath(parsed.document, targetPath);
+  if (!target) return { xml, changed: false };
+
+  const existing = extractElementAttrs(target);
+  const keysEntry = existing.find((entry) => entry.name === 'keys' && !entry.namespaceURI);
+  if (!keysEntry) return { xml, changed: false };
+
+  const tokens = keysEntry.value.split(/\s+/).filter(Boolean);
+  const tokenIndex = tokens.indexOf(fromKey);
+  const trimmedToKey = toKey.trim();
+  if (tokenIndex < 0 || !trimmedToKey) return { xml, changed: false };
+
+  tokens[tokenIndex] = trimmedToKey;
+  const next = setRawAttr(existing, 'keys', tokens.join(' '));
+  applyElementAttrsPreservingOrder(parsed.document, target, next);
+
+  return { xml: serializeXml(parsed), changed: true };
+}
+
+/** Where the human-readable value of a key definition lives in the DITA map source. */
+export type MapKeyValueSource = 'keyword' | 'linktext' | 'navtitle';
+
+/**
+ * Rewrite the display value of a key definition (`<topicmeta>/<keywords>/<keyword>`,
+ * `<topicmeta>/<linktext>`, `<topicmeta>/<navtitle>` or a `@navtitle` attribute) in place.
+ *
+ * Only pure-text values are rewritten: when the holder mixes in inline markup the edit is refused
+ * (`changed: false`) so a Keyspace value edit can never silently drop elements. The value's element
+ * and every attribute stay untouched, so the serialized map keeps its exact formatting.
+ */
+export function updateMapKeyValueText(
+  xml: string,
+  targetPath: readonly number[],
+  source: MapKeyValueSource,
+  value: string,
+): { xml: string; changed: boolean } {
+  const trimmed = value.trim();
+  if (!trimmed || !targetPath || targetPath.length === 0) return { xml, changed: false };
+
+  const parsed = parseXml(xml, { position: false });
+  const root = parsed.document.documentElement;
+  if (!root) return { xml, changed: false };
+
+  const target = findDomElementByPath(parsed.document, targetPath);
+  if (!target || target === root) return { xml, changed: false };
+
+  const topicmeta = findDirectChildElement(target, 'topicmeta');
+
+  if (source === 'navtitle') {
+    const metaNav = topicmeta ? findDirectChildElement(topicmeta, 'navtitle') : null;
+    if (!metaNav) {
+      const existing = extractElementAttrs(target);
+      const navtitleEntry = existing.find(
+        (entry) => entry.name === 'navtitle' && !entry.namespaceURI,
+      );
+      if (!navtitleEntry) return { xml, changed: false };
+      applyElementAttrsPreservingOrder(
+        parsed.document,
+        target,
+        setRawAttr(existing, 'navtitle', trimmed),
+      );
+      return { xml: serializeXml(parsed), changed: true };
+    }
+    if (!setElementPlainText(parsed.document, metaNav, trimmed)) return { xml, changed: false };
+    return { xml: serializeXml(parsed), changed: true };
+  }
+
+  if (!topicmeta) return { xml, changed: false };
+
+  let holder: slimdom.Element | null = null;
+  if (source === 'keyword') {
+    const keywords = findDirectChildElement(topicmeta, 'keywords');
+    holder = keywords ? findDirectChildElement(keywords, 'keyword') : null;
+  } else {
+    holder = findDirectChildElement(topicmeta, 'linktext');
+  }
+
+  if (!holder) return { xml, changed: false };
+  if (!setElementPlainText(parsed.document, holder, trimmed)) return { xml, changed: false };
+  return { xml: serializeXml(parsed), changed: true };
+}
+
+/** Replace an element's children with one text node, refusing when it holds child elements. */
+function setElementPlainText(
+  doc: slimdom.Document,
+  el: slimdom.Element,
+  text: string,
+): boolean {
+  for (const child of el.childNodes) {
+    if (child.nodeType === ELEMENT_NODE) return false;
+  }
+  while (el.firstChild) {
+    el.removeChild(el.firstChild);
+  }
+  el.appendChild(doc.createTextNode(text));
+  return true;
+}
+
+/**
  * Update a map node's navigation title (preferring existing `<topicmeta>/<navtitle>`, otherwise `@navtitle`).
  */
 export function updateMapNodeNavtitle(

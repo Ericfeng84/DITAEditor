@@ -242,6 +242,8 @@ export const enEditor = {
   'visual.announce.tableUpdated': 'Updated the table structure',
   'visual.announce.tableBlocked': 'That table operation is not possible in this cell (possibly constrained by spans)',
   'visual.announce.insertedTag': 'Inserted <{tag}>',
+  'visual.announce.conrefDropped': 'Inserted the reuse element <{tag}> at the drop position',
+  'visual.announce.conrefDropBlocked': 'Cannot insert the reuse element <{tag}> here — drop it on a legal DITA position',
 
   'source.title': 'XML Source',
   'source.completionReady': 'DITA 1.3 completion is ready (trigger with < or an attribute name)',
@@ -261,6 +263,7 @@ export const enEditor = {
   'source.editorAria': 'DITA XML source editor',
 
   'nodeView.prologToggle': '<prolog> metadata ({count} items)',
+  'nodeView.prologHint': 'Click to collapse / expand and edit',
   'nodeView.noHref': '(no href set)',
   'nodeView.imageMissing': 'IMG (resource not found)',
   'nodeView.keyBadgeTitle': 'Key: {key}\nResolved value: {value}\nDefined in: {source}',

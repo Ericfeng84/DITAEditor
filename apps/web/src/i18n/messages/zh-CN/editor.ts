@@ -242,6 +242,8 @@ export const zhCNEditor = {
   'visual.announce.tableUpdated': '已更新表格结构',
   'visual.announce.tableBlocked': '当前单元格无法执行该表格操作（可能受跨行/跨列约束）',
   'visual.announce.insertedTag': '已插入 <{tag}>',
+  'visual.announce.conrefDropped': '已按拖放位置插入复用元素 <{tag}>',
+  'visual.announce.conrefDropBlocked': '此处无法插入复用元素 <{tag}>，请拖到合法的 DITA 位置',
 
   'source.title': 'XML 源码',
   'source.completionReady': 'DITA 1.3 智能补全已就绪（输入 < 或属性名触发）',
@@ -261,6 +263,7 @@ export const zhCNEditor = {
   'source.editorAria': 'DITA XML 源码编辑器',
 
   'nodeView.prologToggle': '<prolog> 元数据（{count} 项）',
+  'nodeView.prologHint': '点击收起 / 展开并编辑',
   'nodeView.noHref': '(未设置 href)',
   'nodeView.imageMissing': 'IMG (资源未找到)',
   'nodeView.keyBadgeTitle': 'Key: {key}\n解析值: {value}\n定义来源: {source}',

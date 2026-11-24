@@ -9,6 +9,7 @@ import {
   foldKeymap,
   indentOnInput,
   syntaxHighlighting,
+  syntaxTree,
 } from '@codemirror/language';
 import { forceLinting, lintGutter } from '@codemirror/lint';
 import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
@@ -31,6 +32,11 @@ import type {
 } from '@dita/core';
 import { AlertTriangle, Check, Copy, LocateFixed, Sparkles } from 'lucide-react';
 import { formatDitaXml } from '../bridge/xml-bridge';
+import {
+  buildConrefDragSnippet,
+  hasConrefDragPayload,
+  readConrefDragPayload,
+} from '../visual/conref-drag.js';
 import { getCurrentLocale, translate, useI18n } from '../../i18n/index.js';
 import { TaskModelSwitch } from '../../components/TaskModelSwitch';
 import {
@@ -158,6 +164,8 @@ export function SourceEditor({
   const isApplyingExternalRef = useRef(false);
   const editableCompartmentRef = useRef(new Compartment());
   const onChangeRef = useRef(onChange);
+  const readOnlyRef = useRef(readOnly);
+  const onAnnounceRef = useRef(onAnnounce);
   const onCursorRef = useRef(onCursorOffsetChange);
   const completionCtxRef = useRef<SourceSemanticCompletionContext>({
     keyspace,
@@ -165,6 +173,8 @@ export function SourceEditor({
     profilingCatalog,
   });
   onChangeRef.current = onChange;
+  readOnlyRef.current = readOnly;
+  onAnnounceRef.current = onAnnounce;
   onCursorRef.current = onCursorOffsetChange;
   completionCtxRef.current = { keyspace, topicIndices, profilingCatalog };
 
@@ -231,6 +241,64 @@ export function SourceEditor({
     };
     // Intentionally mounted once; external `xml` updates are synced incrementally below
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Reuse-panel drag into the source view. CodeMirror skips its own drop handler when the browser
+  // delivers the drop event pre-cancelled, so the snippet is inserted here to keep the promise the
+  // reuse panel makes (源码视图插入 XML 片段). Capture phase keeps CodeMirror from inserting twice.
+  useEffect(() => {
+    const container = hostRef.current;
+    if (!container) return;
+    const onDragOver = (event: DragEvent) => {
+      if (!hasConrefDragPayload(event.dataTransfer)) return;
+      event.preventDefault();
+      if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+    };
+    const onDrop = (event: DragEvent) => {
+      if (!hasConrefDragPayload(event.dataTransfer)) return;
+      const payload = readConrefDragPayload(event.dataTransfer);
+      const view = viewRef.current;
+      if (!payload || !view) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const snippet = buildConrefDragSnippet(payload);
+      const pos = view.posAtCoords({ x: event.clientX, y: event.clientY });
+      if (pos === null) return;
+      if (readOnlyRef.current) {
+        onAnnounceRef.current?.(
+          translate(getCurrentLocale(), 'visual.announce.conrefDropBlocked', {
+            tag: payload.tagName,
+          }),
+        );
+        return;
+      }
+      // Never drop markup into the doctype, a comment, a processing instruction or an attribute
+      // value: the buffer would stop being well-formed and the visual editor could not reopen it.
+      const node = syntaxTree(view.state).resolveInner(pos, -1);
+      for (let cur: typeof node | null = node; cur; cur = cur.parent) {
+        if (/doctype|comment|processing|attribute/i.test(cur.name)) {
+          onAnnounceRef.current?.(
+            translate(getCurrentLocale(), 'visual.announce.conrefDropBlocked', {
+              tag: payload.tagName,
+            }),
+          );
+          return;
+        }
+      }
+      view.dispatch({
+        changes: { from: pos, insert: snippet },
+        selection: { anchor: pos + snippet.length },
+        userEvent: 'input.drop',
+        scrollIntoView: true,
+      });
+      view.focus();
+    };
+    container.addEventListener('dragover', onDragOver, true);
+    container.addEventListener('drop', onDrop, true);
+    return () => {
+      container.removeEventListener('dragover', onDragOver, true);
+      container.removeEventListener('drop', onDrop, true);
+    };
   }, []);
 
   // Toggle editability without rebuilding the CodeMirror instance.

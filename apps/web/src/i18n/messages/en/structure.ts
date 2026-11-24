@@ -154,6 +154,20 @@ export const enStructure = {
   'keyspace.insertTooltip': "Insert <keyword keyref='...'> at the cursor",
   'keyspace.insert': 'Insert',
   'keyspace.jumpTooltip': 'Jump to the key definition in source',
+  'keyspace.renameTooltip': 'Rename this key (keyrefs are not rewritten)',
+  'keyspace.renameAria': 'Key name',
+  'keyspace.renameSave': 'Save',
+  'keyspace.renameCancel': 'Cancel',
+  'keyspace.renameInvalid': 'Key names may only contain letters, digits, underscores, hyphens and dots.',
+  'keyspace.renameDuplicate': 'Key {key} already exists (first definition wins), pick another name.',
+  'keyspace.renameFailed': 'Cannot rename this key: its map is not loaded or no longer declares it.',
+  'keyspace.valueTooltip': 'Edit the key value (keyword / linktext text or href)',
+  'keyspace.valueAria': 'Key value',
+  'keyspace.valueSave': 'Save',
+  'keyspace.valueCancel': 'Cancel',
+  'keyspace.valueInvalid': 'A key value cannot be empty.',
+  'keyspace.valueFailed':
+    'Cannot update this key value: its map is not loaded, or the value mixes inline markup (edit it at the definition to keep the markup).',
 
   // --- xref / image + conref reuse ----------------------------------------
   'xref.defaultText': 'Reference',
@@ -204,6 +218,7 @@ export const enStructure = {
   'conref.searchPlaceholder': 'Search id, tag name, or text…',
   'conref.noCandidates': 'The selected file has no reusable child elements with an id attribute.',
   'conref.incompatible': 'Incompatible',
+  'conref.dragHint': 'Drag any item into the editor: the visual view inserts the element at the drop point, the source view inserts the XML snippet.',
   'conref.insertModeAria': 'Insertion mode',
   'conref.insertNew': 'New <{tag}>',
   'conref.insertNewHint': 'Insert the reuse element at the cursor',

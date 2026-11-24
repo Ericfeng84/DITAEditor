@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/index.js';
 import {
   areConrefTagsCompatible,
@@ -8,10 +8,13 @@ import {
   type TopicIdIndexEntry,
 } from '@dita/core';
 import { buildReuseAttrValue, filterReusableElements, listKeyBoundTopics } from './conref-reuse-model';
+import { useConrefRowDrag } from './use-conref-row-drag.js';
+import type { ConrefDragPayload } from '../editor/visual/conref-drag.js';
 import {
   AlertTriangle,
   CheckCircle2,
   CopyPlus,
+  GripVertical,
   RotateCcw,
   Search,
   ShieldAlert,
@@ -40,6 +43,11 @@ export interface ConrefReusePanelProps {
   }) => void;
   /** Called after a successful confirmation so the shell can return to the attributes tab. */
   onConfirmed?: () => void;
+  /**
+   * Insert a dragged candidate at viewport coordinates (visual editor drop). Returns whether the
+   * element was inserted so the panel can show inline feedback instead of failing silently.
+   */
+  onDropAtPoint?: (clientX: number, clientY: number, payload: ConrefDragPayload) => boolean;
 }
 
 const MODES = [
@@ -62,6 +70,7 @@ export function ConrefReusePanel({
   onResolvePreview,
   onConfirm,
   onConfirmed,
+  onDropAtPoint,
 }: ConrefReusePanelProps) {
   const { t } = useI18n();
   const [mode, setMode] = useState<'conkeyref' | 'conref'>('conkeyref');
@@ -72,6 +81,37 @@ export function ConrefReusePanel({
   const [insertAction, setInsertAction] = useState<'insert-new' | 'bind-selected'>('insert-new');
   const [preview, setPreview] = useState<ResolvedConrefResult | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
+  const [dropNotice, setDropNotice] = useState<{ ok: boolean; tag: string } | null>(null);
+
+  /** conref/conkeyref payload for one candidate row, or null when the row cannot be dragged. */
+  const buildPayload = useCallback(
+    (target: IndexedTopicElement): ConrefDragPayload | null => {
+      const value = buildReuseAttrValue({
+        attrName: mode,
+        selectedKey,
+        target,
+        activeDocPath,
+      });
+      if (!value) return null;
+      return { tagName: target.tagName, attrName: mode, value };
+    },
+    [mode, selectedKey, activeDocPath],
+  );
+
+  const drag = useConrefRowDrag({
+    onDropAtPoint: (clientX, clientY, payload) => {
+      const inserted = onDropAtPoint?.(clientX, clientY, payload) ?? false;
+      setDropNotice({ ok: inserted, tag: payload.tagName });
+      return inserted;
+    },
+  });
+
+  // Transient inline feedback: the status bar announcement alone is easy to miss during a drag.
+  useEffect(() => {
+    if (!dropNotice) return;
+    const timer = window.setTimeout(() => setDropNotice(null), 2800);
+    return () => window.clearTimeout(timer);
+  }, [dropNotice]);
 
   const keyBoundTopics = useMemo(() => listKeyBoundTopics(keyspace), [keyspace]);
 
@@ -204,6 +244,20 @@ export function ConrefReusePanel({
       aria-label={t('conref.panelAria')}
       className="flex h-full min-h-0 flex-col border-l border-slate-200 bg-white text-slate-800"
     >
+      {/* Pointer-drag ghost: only the fallback path needs it (native drags show the OS ghost). */}
+      {drag.ghost ? (
+        <div
+          aria-hidden="true"
+          className={`pointer-events-none fixed z-[70] -translate-y-1/2 translate-x-4 rounded-full border px-2 py-1 font-mono text-[10.5px] whitespace-nowrap shadow-lg ${
+            drag.ghost.overTarget
+              ? 'border-teal-500 bg-teal-600 text-white'
+              : 'border-slate-300 bg-white text-slate-600'
+          }`}
+          style={{ left: drag.ghost.x, top: drag.ghost.y }}
+        >
+          {drag.ghost.label}
+        </div>
+      ) : null}
       {/* Header: current context + reference mode */}
       <div className="shrink-0 border-b border-slate-200 bg-slate-50/90 px-3 py-2">
         <div className="flex items-center justify-between gap-2">
@@ -352,17 +406,46 @@ export function ConrefReusePanel({
                   ? !areConrefTagsCompatible(selectedElementTag, el.tagName)
                   : false;
 
+                const payload = buildPayload(el);
+
                 return (
-                  <button
+                  <div
                     key={`${el.filePath}#${el.fragment}`}
-                    type="button"
+                    role="button"
+                    tabIndex={0}
+                    draggable={payload !== null}
                     aria-pressed={isPicked}
                     title={el.previewText || `${el.tagName} #${el.elementId}`}
                     onClick={() => setSelectedTarget(el)}
-                    className={`flex w-full items-start justify-between gap-2 px-2 py-1.5 text-left transition-colors ${
+                    onKeyDown={(event) => {
+                      if (event.key !== 'Enter' && event.key !== ' ') return;
+                      event.preventDefault();
+                      setSelectedTarget(el);
+                    }}
+                    onPointerDown={(event) => {
+                      if (!payload) return;
+                      drag.startPointerDrag(
+                        event,
+                        payload,
+                        `<${el.tagName}> #${el.elementId}`,
+                      );
+                    }}
+                    onDragStart={(event) => {
+                      if (!payload) {
+                        event.preventDefault();
+                        return;
+                      }
+                      drag.startNativeDrag(event, payload);
+                    }}
+                    onDragEnd={drag.endNativeDrag}
+                    className={`group flex w-full cursor-grab items-start justify-between gap-2 px-2 py-1.5 text-left transition-colors select-none active:cursor-grabbing ${
                       isPicked ? 'bg-teal-50 text-teal-950' : 'hover:bg-slate-50'
-                    }`}
+                    } ${drag.nativeDragging && isPicked ? 'opacity-60' : ''}`}
                   >
+                    <GripVertical
+                      className="mt-0.5 h-3 w-3 shrink-0 text-slate-300 opacity-0 transition-opacity group-hover:opacity-100"
+                      aria-hidden="true"
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-1">
                         <code className="shrink-0 rounded bg-slate-200/80 px-1 font-mono text-[10px] font-semibold text-slate-800">
@@ -384,11 +467,29 @@ export function ConrefReusePanel({
                       ) : null}
                     </div>
                     <span className="shrink-0 font-mono text-[9.5px] text-slate-400">L{el.line}</span>
-                  </button>
+                  </div>
                 );
               })
             )}
           </div>
+          <p className="mt-1 shrink-0 text-[10px] leading-snug text-slate-400">
+            {t('conref.dragHint')}
+          </p>
+          {dropNotice ? (
+            <p
+              role="status"
+              className={`mt-1 shrink-0 rounded px-1.5 py-1 text-[10.5px] leading-snug ${
+                dropNotice.ok
+                  ? 'bg-emerald-50 text-emerald-800'
+                  : 'bg-amber-50 text-amber-800'
+              }`}
+            >
+              {t(
+                dropNotice.ok ? 'visual.announce.conrefDropped' : 'visual.announce.conrefDropBlocked',
+                { tag: dropNotice.tag },
+              )}
+            </p>
+          ) : null}
         </section>
 
         {/* 3. Computed value, insertion action, live preview */}

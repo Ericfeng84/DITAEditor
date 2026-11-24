@@ -5,6 +5,7 @@ import type {
   DitaTopicTemplateType,
   DitavalDisplayMode,
   DocumentSemanticOverlay,
+  KeyDefinition,
   KeyspaceResult,
   ParsedDitaval,
   ResolvedConrefResult,
@@ -205,6 +206,16 @@ export interface EditorWorkbenchState {
     value: string | null,
   ) => void;
   updateMapNavtitle: (mapPath: string, elementPath: number[], navtitle: string) => void;
+  /**
+   * Rename the `keys` token of one Keyspace definition in its source map.
+   * Returns false when the definition is no longer present (map unloaded / key already renamed).
+   */
+  renameMapKey: (def: KeyDefinition, nextKey: string) => boolean;
+  /**
+   * Rewrite the displayed value of one Keyspace definition (keyword/linktext/navtitle text or `@href`)
+   * directly in its source map. Returns false when the value cannot be rewritten losslessly.
+   */
+  updateMapKeyValue: (def: KeyDefinition, nextValue: string) => boolean;
   updateMapRootTitle: (mapPath: string, title: string) => void;
   deleteMapTreeNode: (mapPath: string, elementPath: number[]) => void;
   jumpToMapNodeSource: (mapPath: string, line?: number) => Promise<void>;
