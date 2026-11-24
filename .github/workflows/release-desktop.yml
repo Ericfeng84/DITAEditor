@@ -64,19 +64,31 @@ jobs:
         run: pnpm --filter @dita/core --filter @dita/web --filter @dita/api build
 
       - name: Package desktop installer (${{ matrix.target }})
+        shell: bash
         env:
           DESKTOP_VERSION: ${{ steps.version.outputs.version }}
-          # Disable automatic signing discovery when no signing certificate secret is configured.
-          # When CSC_LINK (macOS) or WIN_CSC_LINK (Windows) is provided, electron-builder signs automatically.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ (secrets.CSC_LINK != '' || secrets.WIN_CSC_LINK != '') && 'true' || 'false' }}
-          CSC_LINK: ${{ secrets.CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
-          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
-          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: pnpm --filter @dita/desktop run ${{ matrix.script }}
+          RAW_CSC_LINK: ${{ secrets.CSC_LINK }}
+          RAW_CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+          RAW_WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          RAW_WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+          RAW_APPLE_ID: ${{ secrets.APPLE_ID }}
+          RAW_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          RAW_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Avoid passing empty CSC_LINK="" to electron-builder (it treats empty string as cwd).
+          if [ -n "$RAW_CSC_LINK" ] || [ -n "$RAW_WIN_CSC_LINK" ]; then
+            export CSC_IDENTITY_AUTO_DISCOVERY=true
+            [ -n "$RAW_CSC_LINK" ] && export CSC_LINK="$RAW_CSC_LINK"
+            [ -n "$RAW_CSC_KEY_PASSWORD" ] && export CSC_KEY_PASSWORD="$RAW_CSC_KEY_PASSWORD"
+            [ -n "$RAW_WIN_CSC_LINK" ] && export WIN_CSC_LINK="$RAW_WIN_CSC_LINK"
+            [ -n "$RAW_WIN_CSC_KEY_PASSWORD" ] && export WIN_CSC_KEY_PASSWORD="$RAW_WIN_CSC_KEY_PASSWORD"
+            [ -n "$RAW_APPLE_ID" ] && export APPLE_ID="$RAW_APPLE_ID"
+            [ -n "$RAW_APPLE_APP_SPECIFIC_PASSWORD" ] && export APPLE_APP_SPECIFIC_PASSWORD="$RAW_APPLE_APP_SPECIFIC_PASSWORD"
+            [ -n "$RAW_APPLE_TEAM_ID" ] && export APPLE_TEAM_ID="$RAW_APPLE_TEAM_ID"
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          pnpm --filter @dita/desktop run ${{ matrix.script }}
 
       - name: Upload installer artifacts
         uses: actions/upload-artifact@v4
