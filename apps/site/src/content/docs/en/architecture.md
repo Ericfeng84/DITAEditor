@@ -41,11 +41,12 @@ Constraints: `src/` must not import Node built-ins, because it also runs in the 
 
 ### `@dita/web`
 
-The topic editor, NodeViews, DITA-aware commands, map/bookmap tree, Keys panel, publish panel, AI panel, and diffs. Every write operation ultimately produces the same XML string.
+The manual workbench and assignment rail, topic editor, NodeViews, DITA-aware commands, map/bookmap tree, Keys panel, publish panel, AI panel, and diffs — plus the `zh-CN` / `en` dictionaries that cover the whole interface. Every write operation ultimately produces the same XML string.
 
 ### `@dita/api`
 
 - `identity`: local users and roles in SQLite.
+- `manuals` / `assignments`: manual metadata and the pending / in-progress / done assignment state machine.
 - `locks`: exclusive check-out locks and admin force-unlock.
 - `files`: workspace CRUD and multipart assets.
 - `indexer`: incremental semantic index (keyspace, conref).
@@ -114,6 +115,7 @@ The PDF plugin is pure-XML font mappings with no custom Java; fonts come from No
 | --- | --- |
 | Workspace files | `DITA_WORKSPACE_DIR` |
 | Identity / locks / AI settings / usage | SQLite (inside the data volume) |
+| Manuals / assignments | SQLite; manuals point at directories in the workspace |
 | Publish artifacts | `DITA_PUBLISH_DIR` |
 | Git repository and worktrees | Local repository under the project directory |
 

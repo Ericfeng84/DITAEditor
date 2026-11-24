@@ -1,16 +1,29 @@
 ---
 title: Feature tour
 description: Dual-mode editing, lossless round-trip, CALS tables, keyspaces and conref, DITAVAL projection, map trees, check-out locks, DITA-OT publishing, and AI review.
-updated: '2026-11-22'
+updated: '2026-11-24'
 ---
 
-DITAEditor's features follow one chain: **edit → semantics → organization → collaboration → publish → AI assistance**. Every link operates on the same standard DITA XML.
+DITAEditor's features follow one chain: **distribute → edit → semantics → organization → collaboration → publish → AI assistance**. Every link operates on the same standard DITA XML, and both the UI and the docs ship in Chinese and English.
+
+## Manual workbench and topic assignment
+
+The workbench opens on the **manual list**. Each card shows the manual's topic and map counts, active branch, mounted directory and how many tasks are waiting for you, with actions to attach a local folder, create a manual, archive or restore it.
+
+The **My assignments** rail has two views: work assigned to me, and work I delegated.
+
+- A task binds `(manual, branch, topic, assignee, due date, note)` and moves between pending, in progress and done.
+- Overdue tasks turn red and disappear from the queue as soon as they are completed.
+- Assigning, reassigning and completing touch SQLite only — no DITA XML is rewritten and no extra Git commit is created.
+
+Manuals and tasks make "who writes which topic, and by when" visible while the documents stay standard XML in your repository.
 
 ## Dual-mode editing
 
 - **Visual mode**: a native ProseMirror schema. DITA elements are nodes, not marks, so empty elements, nesting order, and per-element attributes survive.
 - **Source mode**: CodeMirror 6 with XML syntax, well-formedness diagnostics, and `@dita/core`-driven completion.
 - **Switch guard**: `checkXmlWellFormed()` runs before entering visual mode. On failure the switch is blocked with line, column, offset, and message.
+- **Structure guidance**: `DITA_SEQUENCE_MODEL` centralises child ordering and cardinality for genuinely ordered containers; the editor hints instead of blocking, and `conref` / `conkeyref` elements skip required-child checks.
 
 Mixed content is never wrapped in synthetic `<p>` tags: bare text inside `<li>`, `<dd>`, or `<entry>` maps to `xml_text_block` and unwraps on serialization.
 
@@ -75,6 +88,13 @@ AI only proposes fragments:
 4. `spliceAndVerifyAiXml` performs a lossless splice and verification.
 5. The client reviews a diff and chooses apply, check out then apply, or preview only.
 6. Applying is a single ProseMirror transaction (or one CodeMirror replacement), so `Cmd/Ctrl+Z` undoes the entire AI edit.
+
+## Bilingual UI
+
+- The `zh-CN` and `en` dictionaries share one structure: `en` is typed against `zh`, so a missing key fails `pnpm -r typecheck`.
+- The locale preference persists in local storage and applies instantly without a reload; dates, durations and relative times are formatted with `Intl`.
+- The marketing site, docs and workbench follow the same convention, with fully mirrored `/` and `/en` content.
+- Publishing is locale-aware too: PDF titles, font mappings and build logs follow the interface language.
 
 ## Try it now
 

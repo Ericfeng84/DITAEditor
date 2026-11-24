@@ -6,7 +6,7 @@ export const en: typeof zh = {
     siteName: 'DITAEditor',
     homeTitle: 'DITAEditor — a web workbench where standard DITA XML is the only source of truth',
     homeDescription:
-      'Open-source web DITA 1.3 structured authoring: ProseMirror visual editing with a CodeMirror 6 source view, 100% lossless XML round-trips, minimal Git diffs, a single-sourced key/conref/DITAVAL model, check-out locks on local Git, and DITA-OT PDF publishing with CJK fonts.',
+      'Open-source web DITA 1.3 structured authoring: a manual workbench with topic assignment, ProseMirror visual editing with a CodeMirror 6 source view, 100% lossless XML round-trips, minimal Git diffs, single-sourced keys/conrefs/DITAVAL, local Git locks, DITA-OT publishing with CJK fonts, and a bilingual UI.',
     playgroundTitle: 'Interactive DITA 1.3 sandbox — DITAEditor',
     playgroundDescription:
       'A real DITA 1.3 sandbox that runs entirely in your browser: visual and source editing, CALS tables, three-state DITAVAL projection, and exact line-level diffs, all powered by @dita/core.',
@@ -34,18 +34,24 @@ export const en: typeof zh = {
     titleLead: 'Standard DITA XML as the only source of truth,',
     titleAccent: 'in a lightweight web workbench built for teams.',
     subtitle:
-      'In one browser tab: ProseMirror structured visual editing, CodeMirror 6 source control, single-sourced keys, conrefs and DITAVAL, check-out locks on local Git worktrees, DITA-OT 4.x PDF output with Noto CJK, and fragment-scoped AI assistance — no Java business code, one container.',
+      'Hand out topics and track due dates in the manual workbench, then write in ProseMirror with a CodeMirror 6 source view: single-sourced keys, conrefs and DITAVAL, exclusive locks on local Git worktrees, DITA-OT 4.x PDF output with Noto CJK, and fragment-scoped AI review all share one XML source — switch the whole interface between Chinese and English, with no Java business code and one container.',
     primaryCta: 'Open offline workbench (browser)',
     secondaryCta: 'Deploy with Docker',
     stats: [
       { value: '100%', label: 'Lossless XML round-trip' },
       { value: '10', label: 'Golden DITA 1.3 fixtures' },
       { value: '231', label: 'Automated tests' },
-      { value: '1', label: 'Container, no extra services' },
+      { value: '2', label: 'Bilingual UI' },
     ],
     showcaseLabel: 'The real workbench',
     showcaseHint: 'Switch tabs to view full-resolution screenshots',
     showcaseTabs: [
+      {
+        id: 'hub',
+        label: 'Manual workbench',
+        caption: 'Manual cards summarise topics, maps and pending work; the assignment rail splits received from delegated tasks and flags overdue ones.',
+        alt: 'DITAEditor manual workbench with my assignments screenshot',
+      },
       {
         id: 'workbench',
         label: 'Three-pane workbench',
@@ -137,9 +143,9 @@ export const en: typeof zh = {
   },
   features: {
     eyebrow: '03 — Capabilities',
-    title: 'Six capabilities, one real pipeline',
+    title: 'Eight capabilities, one real pipeline',
     description:
-      'Not a feature list: editing, semantics, map structure, collaboration, publishing, and AI all operate on the same standard DITA XML.',
+      'Not a feature list: manual distribution and topic assignment, editing, semantics, map structure, collaboration, publishing, AI review, and a bilingual UI all operate on the same standard DITA XML.',
     readDocs: 'Read the feature tour',
     screenshotLabel: 'Real interface',
   },

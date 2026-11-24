@@ -4,7 +4,7 @@
 [![Release](https://img.shields.io/badge/release-v1.3.0-blue.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
 
-A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It combines **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, **local Git versioning with check-out locks and visual diffs**, and **authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
+A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It ships a **manual workbench with topic assignment**, a **bilingual zh-CN / English UI**, **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, **local Git versioning with check-out locks and visual diffs**, and **authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
 
 > For the full architecture, technology rationale, and phased implementation baseline, see [docs/architecture-and-plan.md](docs/architecture-and-plan.md) and [AGENTS.md](AGENTS.md).
 
@@ -23,7 +23,7 @@ A separate static site, `apps/site` (`@dita/site`, Astro 5 + React 19 islands + 
 
 | Route | Contents |
 | :--- | :--- |
-| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase, CCMS / Markdown comparison, "one changed word, one changed XML line" live round-trip widget, six capability deep-dives, single-container architecture, Docker / pnpm / AI quick starts |
+| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase (manual hub, three-pane editor, dual mode, single sourcing, publishing, AI), CCMS / Markdown comparison, "one changed word, one changed XML line" live round-trip widget, eight capability deep-dives, single-container architecture, Docker / pnpm / AI quick starts |
 | `/workbench/` | **Browser-only offline 3-pane workbench**: `@dita/web` built with `VITE_STATIC_DEMO=true` and bundled alongside the site, running the multi-file demo project, Map tree, visual/source dual-mode editor, and Keys/Conref/DITAVAL (no server-side Git, DITA-OT publishing, or AI proxy) |
 | `/docs/*` · `/en/docs/*` | Six mirrored docs (introduction, Docker quick start, local development and fonts, feature tour, AI setup, architecture) with in-page TOC, copy buttons and bilingual Pagefind search (`Cmd/Ctrl+K`) |
 
@@ -41,65 +41,65 @@ Deployment: `.github/workflows/deploy-site.yml` builds `@dita/site` and the offl
 
 ## Screenshots
 
-All screenshots below show the English UI (`EN` in the header); the same views are available in Chinese and can be switched at runtime without reloading.
+> All screenshots come from the real English UI at 1600×1000. Chinese UI screenshots live in [README.md](README.md#界面预览).
 
-### Three-pane workbench with the Phase 4 version panel
+### Manual workbench: distribute first, write second (Phase 10)
 
-The left pane switches between "Project files", "Map tree", "Keys", and "Version". The Version panel shows the active branch, current identity, check-out locks, working-tree changes, and commit history. The middle is a multi-tab visual editing area; the top status bar shows whether the current file is checked out, editable, or ready to check in. The right pane is an attribute inspector that preserves the original XML attribute order.
+The workbench opens on the **manual list**. Each card shows topic and map counts, the active branch, the mounted directory and how many tasks are waiting for you, with actions to attach a folder, create, archive or restore. The **My assignments** rail splits work assigned to me from work I delegated and surfaces status, due dates and overdue badges.
 
-![Three-pane workbench with the Phase 4 version panel](docs/pic/en/phase4-workbench.png)
+![Manual workbench with manual cards and my assignments](docs/pic/en/manual-hub.webp)
 
-### Visual and XML source side-by-side mode
+The assignment panel makes "who writes which topic, and by when" visible: tasks move between pending, in progress and done, overdue items turn red, **Open topic** jumps straight to the file, and completing a task clears it from the queue. Assignments only touch SQLite — never the XML.
 
-Switch live between "Visual", "Split", and "XML source". The visual pane offers a floating format toolbar on text selection, Notion-style block handles, and a `+` inserter between blocks. The source pane adds DITA 1.3 tag/attribute completion and well-formedness checking.
+![Assignments panel with status, due dates, overdue badges and completion](docs/pic/en/assignments.webp)
 
-![Visual and XML source side-by-side mode](docs/pic/en/phase4-dual-view.png)
+### Fully bilingual stack (Phase 8)
 
-### Local Git versioning, check-out locks, and visual diffs
+The workbench, dialogs, diagnostics and docs share one typed bilingual dictionary: switching between `zh-CN` and `en` applies instantly and persists, and the Chinese UI covers manuals, assignments, check-in and publishing end to end.
 
-Files are read-only by default. Clicking "Check out" acquires an exclusive write lock scoped to `(project, branch, file)`. After saving, preview the working-tree diff, write a commit message, and check in to the local Git repository; the lock is released automatically after the commit. The Version panel shows per-file commit history and any two revisions, rendered as line-level differences with CodeMirror 6 MergeView. Each branch uses an isolated `git worktree`, so the same file can be checked out independently on different branches.
+![DITAEditor Chinese UI: manuals, assignments and the editor](docs/pic/en/bilingual.webp)
 
-![Local Git versioning, check-out locks, and visual diffs](docs/pic/en/phase4-git-diff.png)
+### Three-pane workbench and dual-mode editing
+
+The left rail switches between files, the map tree, the keyspace, versions and assignments. The middle hosts multi-tab visual editing with a live check-out/edit/check-in status bar, and the right holds an attribute inspector that preserves original XML attribute order. Visual, split and XML source views switch live, with DITA 1.3 completion, well-formedness checks and formatting in source mode.
+
+![Three-pane workbench: map tree, visual editor, attribute inspector](docs/pic/en/workbench.webp)
+
+![Visual and XML source side-by-side mode](docs/pic/en/dual-view.webp)
 
 ### Single-sourcing semantic engine (Keyref / Conref / DITAVAL)
 
-Without touching the underlying XML, the visual editor renders read-only inline previews of block and inline `conref`/`conkeyref` (including nested `keyref` resolution and one-click jump to the source definition), while the Map tree applies `.ditaval` rules live ("show all / dim excluded / hide excluded", with flag highlighting).
+Without touching the underlying XML, the visual editor expands block and inline `conref`/`conkeyref` read-only (including nested `keyref` resolution and jump-to-definition), while the map tree applies `.ditaval` rules with show / dim / hide projection and flagged highlighting.
 
-![Single-sourcing semantic engine (Keyref / Conref / DITAVAL)](docs/pic/en/phase4-single-sourcing.png)
+![Single-sourcing semantic engine and keyspace](docs/pic/en/single-sourcing.webp)
 
-### Phase 5: DITA-OT strict validation and asynchronous HTML5 / Chinese PDF publishing
+### Local Git versioning, check-out locks, and visual diffs
 
-The publish dialog combines root-map, HTML5/PDF, DITAVAL, and title selection with live DITA-OT runtime status, the exact build command, `build.log`, publish history, and artifact downloads. HTML5 output can be previewed in place; PDF output embeds Noto CJK fonts. The strict-validation dialog shows the real DITA-OT exit code, duration, input files, and `DOTJ` / `DOTX` diagnostics, with one-click jumps back to the source line.
+Topics are read-only until you check out an exclusive lock keyed by `(project, branch, file_path)`. Saving lets you preview the working-tree diff, write a message and commit to local Git, which releases the lock. Branches use isolated `git worktree` checkouts, so the same file never blocks across branches.
 
-![Phase 5 publish dialog, build log, and HTML5 / PDF artifacts](docs/pic/en/phase5-publish.png)
+![Local Git versions, check-out locks and commit history](docs/pic/en/git-diff.webp)
+
+### DITA-OT 4.x strict validation and async HTML5 / CJK PDF publishing
+
+The publish dialog picks a root map, HTML5 or PDF, a DITAVAL and a title, then streams the DITA-OT runtime, command, `build.log`, history and artifacts. Strict validation reports the real exit code, duration, input files and `DOTJ` / `DOTX` diagnostics with jump-to-line. PDF output relies on a pure-XML Noto CJK font-mappings plugin with zero custom Java code.
+
+![Publish dialog, build log and HTML5 / PDF artifacts](docs/pic/en/publish.webp)
 
 ![DITA-OT strict validation result and diagnostics](docs/pic/en/phase5-strict-validation.png)
 
-![Chinese-content PDF output with embedded Noto CJK fonts (contents and body)](docs/pic/phase5-pdf-output.png)
+![Chinese-content PDF output with embedded Noto CJK fonts](docs/pic/phase5-pdf-output.png)
 
-The PDF page is document content, so it stays in the topic's own `xml:lang` — only the workbench UI follows the language switch.
+### AI-assisted authoring with safe diffs
 
-### Phase 6: AI-assisted authoring, semantic tag optimization, and error repair
+AI only proposes fragments: the panel streams a proposal with transparent model, keyspace, path-index and DITAVAL context badges. Every patch must pass MergeView review (well-formed XML, visual compatibility, DOCTYPE preserved, revalidatable) before it is applied, and one `Cmd/Ctrl+Z` undoes it.
 
-The first inspector tab is "AI", and a floating entry point sits at the bottom-right of the document area. The default target scope is the **whole topic**, so one sentence can draft or rewrite a complete topic; switch to "Fragment" to touch only the selected element. The panel always shows the active model, keyspace / path-index / DITAVAL context badges, and streams the proposal as it is generated.
+![AI assistant: whole-topic targeting, context badges and proposal card](docs/pic/en/ai-assistant.webp)
 
-![Phase 6 AI assistant: whole-topic targeting, context badges, and proposal card](docs/pic/en/phase6-ai-assistant.png)
-
-Every patch must pass a CodeMirror 6 `MergeView` review before it is written: the dialog shows the target mode plus well-formedness, visual compatibility, DOCTYPE preservation, and re-validatable-strictness verdicts, then renders only the changed lines and collapsed unchanged ranges.
-
-![Phase 6 AI diff review (MergeView, validation badges, apply)](docs/pic/en/phase6-ai-diff.png)
-
-### Three-pane workbench and the Keys panel
-
-The left pane switches between "Project files", "Map tree", "Keys", and "Version". The Map tree mirrors the root-map structure, and its action strip carries mount / group controls plus the publish entry point. The Keys panel groups keys by `keyscope` and shows values, target paths, and source line numbers with one-click `keyref` insertion.
-
-![Three-pane workbench: Map tree, visual editor, and attribute inspector](docs/pic/en/phase6-workbench.png)
-
-![Keys panel: values, target paths, and insertion actions](docs/pic/en/phase6-keys.png)
+![AI diff review (MergeView, validation badges, apply)](docs/pic/en/ai-diff.webp)
 
 ---
 
-## Core features (Phase 0–8 implemented)
+## Core features (Phase 0–11 implemented)
 
 ### 1. 100% lossless XML round-trip kernel (`@dita/core`)
 
@@ -177,6 +177,13 @@ The left pane switches between "Project files", "Map tree", "Keys", and "Version
 - **Bilingual DITA vocabulary**: `dita-rules.ts` now carries English labels, descriptions, and placeholders for 110+ elements and attributes (`getElementLabel(spec, locale)` and friends), used by the insert menu, attributes inspector, CodeMirror completion, and tag bubbles. `createTopicTemplate` / `createMapTemplate` accept `lang: 'en'` to scaffold OASIS 1.3 topics with `xml:lang="en"`.
 - **The server answers in the same language**: `@dita/api` resolves `x-dita-locale` → `Accept-Language` → `zh-CN`, `HttpError` carries `{ key, params }` and routes render it per request, so lock conflicts, Git, validation, publish logs, DITA-OT failures, semantic diagnostics, and identity role wording all follow the request locale. AI prompts, context badges, SSE status, and explanations follow the UI language while the **XML body keeps the document's own `xml:lang`**. Every web API client sends `x-dita-locale` automatically.
 - **Regression gates**: `apps/web/test/i18n-parity.test.ts` (key sets, `{param}` placeholders, no empty values), `apps/web/test/no-hardcoded-cjk.test.ts` (no hardcoded Chinese in `apps/web/src` after comment stripping, allow-listing only the catalogues and authored demo content), and `apps/api/test/phase8-i18n.test.ts` (roles, lock conflicts, validation messages, and the AI not-configured guard all English under `x-dita-locale: en`).
+
+### 10. Manual workbench and topic assignment (Phase 10)
+
+- **Manuals are the entry point**: the workbench home lists every manual with topic and map counts, active branch, mounted directory, pending work and last-opened time. Attach an existing directory, create a manual, archive or restore it; the built-in demo manual works out of the box.
+- **Assignments**: each task binds `(manual, branch, topic, assignee, due date, note)`, with "assigned to me" / "delegated by me" views and a pending / in-progress / done state machine. Overdue tasks turn red, and one click opens the topic or marks it complete.
+- **Documents stay clean**: manual metadata and assignments live in SQLite (`manuals` / `assignments`) and never write back to XML or create extra Git commits; documents keep the standard check-out and commit flow.
+- **Editor integration**: the editor's Assignments tab and header task strip show the current topic's assignment, with assign, reassign and check-out-and-start actions. Admins can assign anywhere; authors see and complete their own work.
 
 ---
 

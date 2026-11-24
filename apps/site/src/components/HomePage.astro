@@ -22,12 +22,17 @@ const { locale } = Astro.props;
 const dict = getDictionary(locale);
 const base = SITE.base;
 
+/** Screenshots are locale-matched: /images for Chinese UI, /images/en for English UI. */
+const screenshotUrl = (name: string) =>
+  assetUrl(`/images/${locale === 'zh' ? '' : 'en/'}${name}.webp`);
+
 const showcaseImages: Record<string, string> = {
-  workbench: assetUrl('/images/workbench.webp'),
-  dual: assetUrl('/images/dual-view.webp'),
-  sourcing: assetUrl('/images/single-sourcing.webp'),
-  publish: assetUrl('/images/pdf-output.webp'),
-  ai: assetUrl('/images/ai-diff.webp'),
+  hub: screenshotUrl('manual-hub'),
+  workbench: screenshotUrl('workbench'),
+  dual: screenshotUrl('dual-view'),
+  sourcing: screenshotUrl('single-sourcing'),
+  publish: screenshotUrl('publish'),
+  ai: screenshotUrl('ai-diff'),
 };
 
 const layerRows = [
@@ -193,7 +198,7 @@ const jsonLd = {
             <div class="feature-card__media">
               {capability.screenshot ? (
                 <img
-                  src={assetUrl(capability.screenshot.src)}
+                  src={assetUrl(pickText(capability.screenshot.src, locale))}
                   alt={pickText(capability.screenshot.alt, locale)}
                   width={1400}
                   height={875}

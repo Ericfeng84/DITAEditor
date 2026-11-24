@@ -41,11 +41,12 @@ Node
 
 ### `@dita/web`
 
-Topic 编辑器、NodeViews、DITA 感知命令、Map/Bookmap 树、Keys 面板、发布面板、AI 面板与 Diff。所有写操作最终都落到同一份 XML 字符串。
+手册工作台与任务面板、Topic 编辑器、NodeViews、DITA 感知命令、Map/Bookmap 树、Keys 面板、发布面板、AI 面板与 Diff。以及覆盖全部界面的 `zh-CN` / `en` 字典。所有写操作最终都落到同一份 XML 字符串。
 
 ### `@dita/api`
 
 - `identity`：SQLite 中的本地用户与角色。
+- `manuals` / `assignments`：手册元数据与「待开始 / 进行中 / 已完成」任务状态机。
 - `locks`：Check-out 独占锁与 Admin 强制解锁。
 - `files`：工作区 CRUD 与 multipart 资源。
 - `indexer`：增量语义索引（键空间、conref）。
@@ -114,6 +115,7 @@ PDF 插件是纯 XML 的 font-mappings，不含自定义 Java 代码；字体来
 | --- | --- |
 | 工作区文件 | `DITA_WORKSPACE_DIR` |
 | 身份 / 锁 / AI 配置 / 用量 | SQLite（数据卷内） |
+| 手册元数据 / 任务委派 | SQLite；手册指向工作区内的目录 |
 | 发布产物 | `DITA_PUBLISH_DIR` |
 | Git 仓库与 worktree | 项目目录下的本地仓库 |
 

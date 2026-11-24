@@ -4,7 +4,7 @@ export const zh = {
     siteName: 'DITAEditor',
     homeTitle: 'DITAEditor — 标准 DITA XML 唯一真相源的 Web 写作工作台',
     homeDescription:
-      '开源 Web DITA 1.3 结构化写作工作台：ProseMirror 可视化编辑 + CodeMirror 6 源码、100% 无损 XML 往返、最小 Git Diff、Keys/Conref/DITAVAL 单一信息源、本地 Git Check-out 锁与 DITA-OT 中文 PDF 发布。',
+      '开源 Web DITA 1.3 结构化写作工作台：手册工作台与 Topic 委派、ProseMirror 可视化编辑 + CodeMirror 6 源码、100% 无损 XML 往返、最小 Git Diff、Keys/Conref/DITAVAL 单一信息源、本地 Git 锁、DITA-OT 中文 PDF 发布与中英双语界面。',
     playgroundTitle: 'DITA 1.3 交互式沙箱 — DITAEditor',
     playgroundDescription:
       '免部署、纯浏览器运行的真实 DITA 1.3 沙箱：可视化/源码双模编辑、CALS 表格、DITAVAL 三态过滤与精确行级 Diff，全部由 @dita/core 在本地驱动。',
@@ -31,18 +31,24 @@ export const zh = {
     titleLead: '标准 DITA XML 唯一真相源，',
     titleAccent: '团队级轻量 Web 结构化写作工作台。',
     subtitle:
-      '在浏览器中同时拥有 ProseMirror 可视化结构化编辑、CodeMirror 6 源码控制、Keys / Conref / DITAVAL 单一信息源、本地 Git Check-out 独占锁、DITA-OT 4.x 中文 PDF 发布与 AI 片段级校验辅助 —— 零 Java 业务代码，单容器开箱即用。',
+      '先用「手册工作台」分发 Topic、跟踪截止日期，再进入 ProseMirror 可视化结构化编辑与 CodeMirror 6 源码控制；Keys / Conref / DITAVAL 单一信息源、本地 Git 独占锁、DITA-OT 4.x 中文 PDF 与 AI 片段级校验共用同一份 XML，整套界面中英双语一键切换 —— 零 Java 业务代码，单容器开箱即用。',
     primaryCta: '打开在线工作台（离线版）',
     secondaryCta: 'Docker 快速部署',
     stats: [
       { value: '100%', label: '无损 XML 往返' },
       { value: '10', label: '复杂 DITA 1.3 黄金样本' },
       { value: '231', label: '自动化测试' },
-      { value: '1', label: '容器，零外部中间件' },
+      { value: '2', label: '中英双语界面' },
     ],
     showcaseLabel: '工作台实景',
     showcaseHint: '点击标签切换真实高分截图',
     showcaseTabs: [
+      {
+        id: 'hub',
+        label: '手册工作台',
+        caption: '手册卡片汇总 Topic / Map 与待办，右侧「我的编辑任务」按收到与委派分组，逾期一目了然。',
+        alt: 'DITAEditor 手册工作台与我的编辑任务截图',
+      },
       {
         id: 'workbench',
         label: '三栏工作台',
@@ -134,9 +140,9 @@ export const zh = {
   },
   features: {
     eyebrow: '03 — 核心能力',
-    title: '六个能力，一条真实链路',
+    title: '八个能力，一条真实链路',
     description:
-      '不是功能清单拼盘：从编辑、语义、编排、协作、发布到 AI，全部围绕同一份标准 DITA XML 运转。',
+      '不是功能清单拼盘：从手册分发与任务委派、编辑、语义、编排、协作、发布、AI 辅助到双语界面，全部围绕同一份标准 DITA XML 运转。',
     readDocs: '阅读功能导览',
     screenshotLabel: '界面实拍',
   },

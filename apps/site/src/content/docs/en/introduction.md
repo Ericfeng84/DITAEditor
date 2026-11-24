@@ -1,7 +1,7 @@
 ---
 title: What is DITAEditor
-description: An open-source workbench that puts standard DITA 1.3 XML back in the browser — lossless round-trip, single sourcing, local Git locks, and DITA-OT publishing.
-updated: '2026-11-22'
+description: An open-source workbench that puts standard DITA 1.3 XML back in the browser — manuals and topic assignment, lossless round-trip, single sourcing, local Git locks, DITA-OT publishing, and a bilingual UI.
+updated: '2026-11-24'
 ---
 
 DITAEditor is a lightweight, team-oriented web workbench for DITA 1.3 structured authoring. It does not invent a new document format and does not hide XML in a database: **standard DITA XML is the single source of truth**, and the browser is simply its first-class editing surface.
@@ -12,10 +12,13 @@ Three claims you can verify in minutes:
 2. Editing one character produces a one-line Git diff.
 3. Publishing calls the standard DITA-OT 4.x CLI for HTML5 and PDF — there is no custom Java service code.
 
+Since Phase 10 the entry point is a **manual workbench**: a manual is a documentation product mounted from a local directory, and topics can be assigned to teammates with an owner, due date and note. The rail splits "assigned to me" from "delegated by me". Assignments live in SQLite and never rewrite XML; documents still flow through standard Git. The workbench, CLI output and docs all ship in Chinese and English.
+
 ## Who it is for
 
 - **Documentation engineers** who need DITA structure, keyref/conref reuse, and DITAVAL publishing without running a desktop CCMS.
 - **Engineering teams** who want docs in the same repository, branch, and review flow as code.
+- **Documentation leads** who need to distribute topics, track due dates, and avoid adding another cloud collaboration system.
 - **Platform and ops teams** who want one container, one data volume, and no Redis, PostgreSQL, or message queue.
 - **Early adopters of AI-assisted writing** who want model output treated as a proposal, never as an overwrite.
 
@@ -33,6 +36,10 @@ Core DITA elements are modeled precisely: `task`, `concept`, `reference`, `topic
 
 Root Map `keydef` entries are resolved into a keyspace with BFS. `conref` / `conkeyref` are expanded read-only in the editor, and `.ditaval` applies a three-state projection (include / exclude / flag) to the view without touching the XML underneath.
 
+### Bilingual by default
+
+The `zh-CN` and `en` dictionaries share one structure, and `en` is typed against `zh`, so a missing key fails the build. Switching applies instantly and persists; dates, durations, diagnostics and publishing artifacts follow the locale, and the site ships mirrored `/` and `/en` versions.
+
 ### Locks, not CRDT
 
 Each `(project, branch, file_path)` permits exactly one exclusive check-out. Branches are isolated with `git worktree`, keeping real-time collaboration complexity out of structured XML.
@@ -42,7 +49,7 @@ Each `(project, branch, file_path)` permits exactly one exclusive check-out. Bra
 | Component | Responsibility |
 | --- | --- |
 | `@dita/core` | Isomorphic XML / CALS / keyspace / DITAVAL / ProseMirror kernel |
-| `@dita/web` | React 19 workbench: visual editor, source, map tree, locks, publish, AI |
+| `@dita/web` | React 19 workbench: manuals and tasks, visual editor, source, map tree, locks, publish, AI |
 | `@dita/api` | Fastify + SQLite + simple-git: identity, locks, semantic index, DITA-OT |
 | `dita-ot-plugins` | Pure-XML Noto CJK PDF font-mappings plugin |
 | Single container | Node 22 + JRE 21 + DITA-OT 4.2.1 + Noto CJK |

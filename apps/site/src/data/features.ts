@@ -1,7 +1,7 @@
 import type { LocalizedString } from '../i18n/index.js';
 import type { DocSlug } from '../i18n/locales.js';
 
-export type FeatureIcon = 'dual' | 'keys' | 'map' | 'lock' | 'publish' | 'ai';
+export type FeatureIcon = 'hub' | 'dual' | 'keys' | 'map' | 'git' | 'publish' | 'ai' | 'i18n';
 
 export interface Capability {
   id: FeatureIcon;
@@ -9,15 +9,44 @@ export interface Capability {
   title: LocalizedString;
   summary: LocalizedString;
   bullets: { zh: string[]; en: string[] };
-  screenshot?: { src: string; alt: LocalizedString };
+  screenshot?: { src: LocalizedString; alt: LocalizedString };
   docs: DocSlug;
 }
 
-/** Six capabilities, each anchored in shipped code and covered by the 201-test suite. */
+/** Eight capabilities, each anchored in shipped code and covered by the automated suite. */
 export const CAPABILITIES: readonly Capability[] = [
   {
-    id: 'dual',
+    id: 'hub',
     index: '01',
+    title: { zh: '手册工作台与 Topic 委派', en: 'Manual workbench and topic assignment' },
+    summary: {
+      zh: '先选手册，再进入写作：手册卡片集中呈现 Topic / Map 数量、分支与「待我处理」任务；右侧任务流按「我收到的 / 我委派的」分组，支持截止日期、逾期标记、备注与一键标记完成。',
+      en: 'Pick a manual, then write: cards surface topic and map counts, the active branch and assigned work, while the task rail splits assigned-to-me from delegated work with due dates, overdue badges, notes and one-click completion.',
+    },
+    bullets: {
+      zh: [
+        '手册可挂载任意本地目录，内置示例手册开箱可用',
+        '任务绑定 Topic、分支、负责人与截止日期，逾期实时高亮',
+        '委派 / 转派 / 标记完成全在 SQLite 中流转，不写回 XML',
+      ],
+      en: [
+        'Attach any local directory as a manual; the built-in demo works out of the box',
+        'Tasks bind a topic, branch, assignee and due date, with live overdue badges',
+        'Assign, reassign and complete in SQLite without touching the XML',
+      ],
+    },
+    screenshot: {
+      src: { zh: '/images/manual-hub.webp', en: '/images/en/manual-hub.webp' },
+      alt: {
+        zh: 'DITAEditor 手册工作台：手册卡片与我的编辑任务',
+        en: 'DITAEditor manual workbench with manual cards and my assignments',
+      },
+    },
+    docs: 'features',
+  },
+  {
+    id: 'dual',
+    index: '02',
     title: { zh: '双模无损编辑', en: 'Lossless dual-mode editing' },
     summary: {
       zh: 'ProseMirror 精细建模 DITA 1.3 块级与行内元素，未知或特化元素通过 unknown_* 节点原样透传；CodeMirror 6 提供 XML 源码、补全与良构拦截。',
@@ -36,7 +65,7 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     screenshot: {
-      src: '/images/dual-view.webp',
+      src: { zh: '/images/dual-view.webp', en: '/images/en/dual-view.webp' },
       alt: {
         zh: 'DITAEditor 可视化与 XML 源码双模编辑',
         en: 'DITAEditor visual and XML source dual-mode editing',
@@ -46,7 +75,7 @@ export const CAPABILITIES: readonly Capability[] = [
   },
   {
     id: 'keys',
-    index: '02',
+    index: '03',
     title: { zh: '单一信息源', en: 'Single sourcing' },
     summary: {
       zh: 'Root Map BFS 构建键空间并支持 keyscope；conref / conkeyref 只读展开并做 DFS 环路与特化兼容检查；.ditaval 提供全部显示 / 淡化 / 隐藏三态投影。',
@@ -65,17 +94,17 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     screenshot: {
-      src: '/images/single-sourcing.webp',
+      src: { zh: '/images/single-sourcing.webp', en: '/images/en/single-sourcing.webp' },
       alt: {
-        zh: 'DITAEditor 单一信息源与 DITAVAL 过滤',
-        en: 'DITAEditor single sourcing and DITAVAL filtering',
+        zh: 'DITAEditor Keys 键空间与 keyref 解析',
+        en: 'DITAEditor keyspace with keyref resolution',
       },
     },
     docs: 'features',
   },
   {
     id: 'map',
-    index: '03',
+    index: '04',
     title: { zh: 'Map / Bookmap 编排', en: 'Map / bookmap orchestration' },
     summary: {
       zh: 'react-arborist 可视化 Map 树，支持拖拽层级、模板建 Topic、保留 reltable 与 topicmeta；路径工具是前后端同构的 POSIX 实现。',
@@ -94,14 +123,14 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     screenshot: {
-      src: '/images/workbench.webp',
+      src: { zh: '/images/workbench.webp', en: '/images/en/workbench.webp' },
       alt: { zh: 'DITAEditor Map 树与写作工作台', en: 'DITAEditor map tree and authoring workbench' },
     },
     docs: 'features',
   },
   {
-    id: 'lock',
-    index: '04',
+    id: 'git',
+    index: '05',
     title: { zh: '本地 Git 与 Check-out 独占锁', en: 'Local Git and check-out locks' },
     summary: {
       zh: '不依赖 GitHub / GitLab：每分支隔离 git worktree，单文件悲观锁保证团队不会互相覆盖，管理员可强制解锁并自动留下补丁备份。',
@@ -120,14 +149,14 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     screenshot: {
-      src: '/images/keys.webp',
-      alt: { zh: 'DITAEditor Keys 面板与版本 Diff 视图', en: 'DITAEditor keys panel and version diff view' },
+      src: { zh: '/images/git-diff.webp', en: '/images/en/git-diff.webp' },
+      alt: { zh: 'DITAEditor 本地 Git 版本、检出锁与提交历史', en: 'DITAEditor local Git versions, check-out locks and history' },
     },
     docs: 'features',
   },
   {
     id: 'publish',
-    index: '05',
+    index: '06',
     title: { zh: 'DITA-OT 4.x 严格校验与中文 PDF', en: 'DITA-OT strict validation and CJK PDF' },
     summary: {
       zh: '内置 DITA 1.3 DTD/RNG 严格校验（--processing-mode=strict），HTML5 与 PDF 异步发布，SSE 实时日志，纯 XML Noto CJK 字体映射插件解决中文乱码。',
@@ -146,14 +175,14 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     screenshot: {
-      src: '/images/pdf-output.webp',
-      alt: { zh: 'DITAEditor Noto CJK PDF 发布结果', en: 'DITAEditor Noto CJK PDF publish output' },
+      src: { zh: '/images/publish.webp', en: '/images/en/publish.webp' },
+      alt: { zh: 'DITAEditor DITA-OT 发布对话框与构建日志', en: 'DITAEditor DITA-OT publish dialog and build log' },
     },
     docs: 'features',
   },
   {
     id: 'ai',
-    index: '06',
+    index: '07',
     title: { zh: 'AI 辅助写作与安全 Diff', en: 'AI assistance with safe diffs' },
     summary: {
       zh: 'LangChain.js 接入 DeepSeek 或任意 OpenAI 兼容私有代理。AI 永远只提交候选片段，经无损拼接、结构校验与重试后，强制在 MergeView 中审阅才写入。',
@@ -172,10 +201,36 @@ export const CAPABILITIES: readonly Capability[] = [
       ],
     },
     screenshot: {
-      src: '/images/ai-diff.webp',
+      src: { zh: '/images/ai-diff.webp', en: '/images/en/ai-diff.webp' },
       alt: { zh: 'DITAEditor AI 提案 Diff 审阅', en: 'DITAEditor AI proposal diff review' },
     },
     docs: 'ai-setup',
+  },
+  {
+    id: 'i18n',
+    index: '08',
+    title: { zh: '中英双语全栈界面', en: 'Bilingual UI across the stack' },
+    summary: {
+      zh: 'zh-CN 与 en 两套强类型字典覆盖工作台、对话框、诊断与文档站，切换即时生效并持久化；日期、时长与 PDF 字体同样按语言适配。',
+      en: 'Typed zh-CN and en dictionaries cover the workbench, dialogs, diagnostics and the docs site; switching is instant and persisted, with locale-aware dates, durations and PDF fonts.',
+    },
+    bullets: {
+      zh: [
+        'en 字典以 zh 字典类型约束，缺键直接编译失败',
+        '语言偏好持久化，界面无需刷新即可切换',
+        '官网与文档站提供 / 与 /en 完全对称的双语版本',
+      ],
+      en: [
+        'The en dictionary is typed against zh, so a missing key fails the build',
+        'The locale preference persists and switches without a reload',
+        'The site and docs ship fully mirrored / and /en versions',
+      ],
+    },
+    screenshot: {
+      src: { zh: '/images/bilingual.webp', en: '/images/en/bilingual.webp' },
+      alt: { zh: 'DITAEditor 工作台的英文界面', en: 'DITAEditor workbench in Chinese' },
+    },
+    docs: 'architecture',
   },
 ];
 

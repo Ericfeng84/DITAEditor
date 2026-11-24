@@ -6,7 +6,7 @@
 
 **简体中文** · [English](README.en.md)
 
-面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，支持 **ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排**、**单一信息源语义引擎（Keys / Conref / DITAVAL）**、**本地 Git 版本管理 / Check-out 独占锁 / 可视化 Diff**，以及 **DITA-OT 4.x 权威严格校验与 HTML5 / 中文 PDF 异步发布**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
+面向技术文档团队的轻量级 **Web DITA 1.3 结构化写作工作台**，提供 **手册工作台与 Topic 委派**、**中英双语全栈界面**、**ProseMirror 可视化结构化编辑**、**CodeMirror 6 XML 源码编辑**、**Map / Bookmap 可视化编排**、**单一信息源语义引擎（Keys / Conref / DITAVAL）**、**本地 Git 版本管理 / Check-out 独占锁 / 可视化 Diff**，以及 **DITA-OT 4.x 权威严格校验与 HTML5 / 中文 PDF 异步发布**，并以标准 DITA XML 作为唯一真相源，实现 100% 无损往返（Round-trip）与最小化 Git Diff。
 
 > 完整系统架构、技术选型论证与分阶段实施基线请参阅 [docs/architecture-and-plan.md](docs/architecture-and-plan.md) 与 [AGENTS.md](AGENTS.md)。
 
@@ -23,7 +23,7 @@
 
 | 入口 | 内容 |
 | :--- | :--- |
-| `/` · `/en/` | 中英双语官网首页：Hero、真实工作台多 Tab 展台、CCMS / Markdown 对照表、首页「改一字仅变一行 XML」微演示、六大能力深度展台、单容器架构全景、Docker / pnpm / AI 三条快速启动路径 |
+| `/` · `/en/` | 中英双语官网首页：Hero、真实工作台多 Tab 展台（手册工作台 / 三栏编辑 / 双模 / 单一信息源 / 发布 / AI）、CCMS / Markdown 对照表、首页「改一字仅变一行 XML」微演示、八大能力深度展台、单容器架构全景、Docker / pnpm / AI 三条快速启动路径 |
 | `/workbench/` | **非完整版三栏离线工作台**：由 `@dita/web` 以 `VITE_STATIC_DEMO=true` 构建并合包发布，纯浏览器运行多文件示例项目、Map 树、可视化/源码双模编辑与 Keys/Conref/DITAVAL（不含服务端 Git、DITA-OT 发布与 AI 代理） |
 | `/docs/*` · `/en/docs/*` | 六篇对称文档（简介、Docker 快速开始、本地开发与字体配置、功能导览、AI 配置、架构参考），带页内 TOC、代码一键复制与中英静态全文检索（`Cmd/Ctrl+K`，Pagefind） |
 
@@ -41,61 +41,65 @@ pnpm --filter @dita/site test     # 双语字典/文档 slug 对称性与预设�
 
 ## 界面预览
 
-### 三栏工作台与 Phase 4 版本协作面板
+> 以下截图均来自真实运行的中文界面（1600×1000）。英文界面截图见 [README.en.md](README.en.md#screenshots)。
 
-左侧在「项目文件」「Map 结构树」「Keys 键空间」与「版本」之间切换：「版本」面板集中展示当前分支、身份、Check-out 检出锁、工作区改动与提交历史。中间为多 Tab 可视化编辑区，顶部状态条实时提示当前文件的检出 / 编辑 / 签入权限；右侧为按原始 XML 属性顺序排列的属性检查器。
+### 手册工作台：先分发，再写作（Phase 10）
 
-![三栏工作台与 Phase 4 版本协作面板](docs/pic/phase4-workbench.png)
+工作台入口是**手册列表**：每张卡片展示 Topic / Map 数量、当前分支、挂载目录与「待我处理」的任务数，支持接入已有目录、新建、归档与恢复。右侧「我的编辑任务」按「我收到的 / 我委派的」分组，集中呈现状态、截止日期与逾期标记。
 
-### 可视化与 XML 源码双栏对比模式
+![手册工作台：手册卡片与我的编辑任务](docs/pic/manual-hub.webp)
 
-支持「可视化」「双栏对比」「XML 源码」三种视图实时切换，可视化区提供选中文本悬浮格式工具栏、Notion 风格块级操作手柄与块间 `+` 插块；源码区接入 DITA 1.3 标签/属性智能补全与良构性检查。
+任务面板把「谁在什么时候写哪一篇」变得可见：状态在待开始 / 进行中 / 已完成之间流转，逾期红色高亮，点「打开 Topic」直接定位文件，标记完成后任务即刻从待办中消失。任务只写 SQLite，不修改任何 XML。
 
-![可视化与 XML 源码双栏对比模式](docs/pic/phase4-dual-view.png)
+![任务面板：状态、截止日期、逾期标记与完成操作](docs/pic/assignments.webp)
 
-### 本地 Git 版本、Check-out 独占锁与可视化 Diff
+### 中英双语全栈界面（Phase 8）
 
-阅读默认只读，点击「检出」后获得 `(项目, 分支, 文件)` 维度的独占写锁；保存后可预览工作区 Diff、填写提交说明并签入到本地 Git 仓库，提交后自动释放锁。版本面板可查看单文件提交历史、切换任意两个版本，并通过 CodeMirror 6 MergeView 展示行级差异。不同分支使用独立 `git worktree`，同一文件在不同分支上的检出互不阻塞。
+工作台、对话框、诊断与文档站共用一套强类型双语文案：`zh-CN` 与 `en` 切换即时生效并持久化，英文界面同样覆盖手册、任务、检入与发布全流程。
 
-![本地 Git 版本、Check-out 独占锁与可视化 Diff](docs/pic/phase4-git-diff.png)
+![DITAEditor 英文界面：手册、任务与编辑工作台](docs/pic/bilingual.webp)
+
+### 三栏工作台与双模编辑
+
+左侧在「项目文件」「Map 结构树」「Keys 键空间」「版本」与「任务」之间切换；中间为多 Tab 可视化编辑区，顶部状态条实时提示当前文件的检出 / 编辑 / 签入权限；右侧为按原始 XML 属性顺序排列的属性检查器。「可视化 / 双栏对比 / XML 源码」三种视图可实时切换，源码区提供 DITA 1.3 标签与属性补全、良构检查与格式化。
+
+![三栏工作台：Map 树、可视化编辑区与属性检查器](docs/pic/workbench.webp)
+
+![可视化与 XML 源码双栏对比模式](docs/pic/dual-view.webp)
 
 ### 单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）
 
 在保持底层 XML 100% 无损的前提下，可视化区实时展开块级与行内 `conref`/`conkeyref` 只读预览（含嵌套 `keyref` 解析与一键跳转源定义），并联动左侧 Map 树实时应用 `.ditaval` 规则（支持「全部 / 淡化 / 隐藏」三态投影与 Flag 标记高亮）。
 
-![单一信息源语义引擎（Keyref / Conref / DITAVAL 条件过滤）](docs/pic/phase4-single-sourcing.png)
+![单一信息源语义引擎与 Keys 键空间](docs/pic/single-sourcing.webp)
 
-### Phase 5：DITA-OT 严格校验与异步 HTML5 / 中文 PDF 发布
+### 本地 Git 版本、Check-out 独占锁与可视化 Diff
 
-发布对话框集中选择 Root Map、HTML5 / PDF、DITAVAL 与标题，实时展示 DITA-OT 运行时、构建命令、`build.log`、发布历史与产物下载；HTML5 可直接在线预览，PDF 确认嵌入 Noto CJK 字体。严格校验弹窗展示真实 DITA-OT 退出码、耗时、输入文件与 `DOTJ` / `DOTX` 诊断，并可一键跳回源码行列。
+阅读默认只读，点击「检出」后获得 `(项目, 分支, 文件)` 维度的独占写锁；保存后可预览工作区 Diff、填写提交说明并签入到本地 Git 仓库，提交后自动释放锁。不同分支使用独立 `git worktree`，同一文件在不同分支上的检出互不阻塞。
 
-![Phase 5 发布对话框、构建日志与 HTML5 / PDF 产物](docs/pic/phase5-publish.png)
+![本地 Git 版本、Check-out 独占锁与提交历史](docs/pic/git-diff.webp)
+
+### DITA-OT 4.x 严格校验与异步 HTML5 / 中文 PDF 发布
+
+发布对话框集中选择 Root Map、HTML5 / PDF、DITAVAL 与标题，实时展示 DITA-OT 运行时、构建命令、`build.log`、发布历史与产物下载；严格校验弹窗展示真实 DITA-OT 退出码、耗时、输入文件与 `DOTJ` / `DOTX` 诊断，并可一键跳回源码行列。PDF 使用纯 XML 的 Noto CJK font-mappings 插件，零自定义 Java 代码。
+
+![发布对话框、构建日志与 HTML5 / PDF 产物](docs/pic/publish.webp)
 
 ![DITA-OT 严格校验结果与诊断摘要](docs/pic/phase5-strict-validation.png)
 
 ![Noto CJK 中文 PDF 输出（目录与正文）](docs/pic/phase5-pdf-output.png)
 
-### Phase 6：AI 辅助写作、语义标签优化与错误修复
+### AI 辅助写作与安全 Diff
 
-右侧检查器首位是「AI」页签，文档区右下角另有浮动入口；默认「整篇 Topic」靶向，一句话即可起草或重写完整主题，也可一键切到「片段」只改选中元素。面板会透明展示模型、键空间 / 路径索引 / DITAVAL 上下文徽标，并流式输出 AI 提案。
+AI 只提交候选片段：面板流式输出提案，并透明展示模型、键空间 / 路径索引 / DITAVAL 上下文徽标；每个补丁都必须经过 MergeView 差异确认（XML 良构、可视化兼容、DOCTYPE 保留、可重新严格校验）才能写入，应用后单步 `Cmd/Ctrl+Z` 即可撤销。
 
-![Phase 6 AI 助手面板：整篇 Topic 靶向、上下文徽标与提案卡片](docs/pic/phase6-ai-assistant.webp)
+![AI 助手面板：整篇 Topic 靶向、上下文徽标与提案卡片](docs/pic/ai-assistant.webp)
 
-每个补丁都必须经过 CodeMirror 6 `MergeView` 差异确认才能写入：弹窗展示定位模式、XML 良构 / 可视化兼容 / DOCTYPE 保留 / 可重新严格校验等校验结论，并呈现提取出的变更行与未变区间。
-
-![Phase 6 AI 修改差异确认（MergeView、校验徽标与应用）](docs/pic/phase6-ai-diff.webp)
-
-### 三栏工作台与 Keys 键空间
-
-左侧在「项目文件」「Map 结构树」「Keys 键空间」与「版本」之间切换；Map 树贴着 Root Map 结构，操作条含新建 / 挂载 / 分组与发布入口。Keys 面板按 keyscope 分组展示键值、目标路径与来源行号，可一键插入 `keyref`。
-
-![三栏工作台：Map 树、可视化编辑区与属性检查器](docs/pic/phase6-workbench.webp)
-
-![Keys 键空间面板：键值、目标路径与插入入口](docs/pic/phase6-keys.webp)
+![AI 修改差异确认（MergeView、校验徽标与应用）](docs/pic/ai-diff.webp)
 
 ---
 
-## 核心特性（已实现：Phase 0–8）
+## 核心特性（已实现：Phase 0–11）
 
 ### 1. 100% 无损 XML 往返内核（`@dita/core`）
 - 基于 `slimdom` + `slimdom-sax-parser` + `fontoxpath` 构建前后端同构的 DITA XML 内核，解析时同步记录节点源码起止行列号。
@@ -175,6 +179,13 @@ pnpm --filter @dita/site test     # 双语字典/文档 slug 对称性与预设�
 - **防回归门禁**：`apps/web/test/i18n-parity.test.ts`（键集合 / `{param}` 占位符 / 空值）、
   `apps/web/test/no-hardcoded-cjk.test.ts`（`apps/web/src` 注释剥离后零硬编码中文，白名单只留文案表与示例 DITA 内容）、
   `apps/api/test/phase8-i18n.test.ts`（角色文案、锁冲突、校验提示、AI 未配置守卫在 `x-dita-locale: en` 下均为英文）。
+
+### 10. 手册工作台与 Topic 委派（Phase 10）
+
+- **手册即入口**：工作台首页列出所有手册，卡片展示 Topic / Map 数量、当前分支、挂载目录、「待我处理」数量与最近打开时间；支持「接入已有目录」「新建手册」、归档 / 恢复 / 缺失目录提示，内置示例手册开箱可用。
+- **任务委派**：每个任务绑定 `(手册, 分支, Topic, 负责人, 截止日期, 备注)`，「我收到的 / 我委派的」双视图 + 待开始 / 进行中 / 已完成状态机，逾期红色高亮，可一键「打开 Topic」或「标记完成」。
+- **不污染文档**：手册元数据与任务只存 SQLite（`manuals` / `assignments`），从不写回 XML、也不产生额外 Git 提交；文档仍走标准 Check-out 与提交链路。
+- **与编辑区联动**：编辑器「任务」页签与顶部任务条展示当前 Topic 的委派状态，支持委派、转派、检出并开始；管理员可在任意手册中委派，作者只能查看与完成自己的任务。
 
 ---
 

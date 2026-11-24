@@ -60,15 +60,17 @@ Database-stored AI settings take precedence over environment variables. `GET /ap
 
 ## First run
 
-1. Switch to the **Admin** identity in the header.
-2. Open the demo project and its map; confirm the tree, keyspace, and topics load.
-3. Switch to **Writer**, check out a `.dita` topic, and try to check out the same file from a second window to see the lock conflict.
-4. Edit a sentence, switch to source, and confirm the diff is a single line.
-5. Run **strict validation**, then publish HTML5 and PDF while watching the streamed log.
+1. Switch to the **Admin** identity in the header and confirm the UI flips between 中文 and EN instantly.
+2. On the **manual workbench**, assign a topic from the built-in demo manual to a writer with a due date and note; then switch to that Writer and find it under "Assigned to me".
+3. Open the manual's map and confirm the tree and keyspace load.
+4. As **Writer**, check out a `.dita` topic, then try the same file from a second window to see the lock conflict.
+5. Use **Open topic** on a task card to jump straight to the file, and mark it done to clear it from the queue.
+6. Edit a sentence, switch to source, and confirm the diff is a single line.
+7. Run **strict validation**, then publish HTML5 and PDF while watching the streamed log.
 
 ## Import your own project
 
-Put a DITA project into the workspace volume, or upload a ZIP where your deployment allows it. Requirements:
+Put a DITA project into the workspace volume, attach a local directory from the manual workbench, or upload a ZIP where your deployment allows it. Requirements:
 
 - Maps and topics use standard DITA 1.3 DOCTYPEs or `<?xml-model?>`.
 - Images and other resources use relative paths and travel with the project.
