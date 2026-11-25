@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "docs/architecture-and-plan.md": {
-    "mtime": 1795580025.9489686,
-    "seen": 1795580135.318463,
-    "ast_hash": "441b4d22276a0bdd61b1bc6e24b05a63",
+    "mtime": 1795584378.8488483,
+    "seen": 1795585765.048193,
+    "ast_hash": "06501bdd5a1c0d7f134356098539f7ca",
     "semantic_hash": ""
   },
   "apps/web/src/components/NewTopicDialog.tsx": {
@@ -636,9 +636,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795580045.7281084,
-    "seen": 1795580135.318448,
-    "ast_hash": "968dcfd47836bac7aec5fbd72e7f2b7c",
+    "mtime": 1795584903.187777,
+    "seen": 1795585765.048177,
+    "ast_hash": "60cab62dd2a2a04322b7046a7976d6c3",
     "semantic_hash": ""
   },
   "apps/web/src/components/ConrefReusePanel.tsx": {
@@ -672,9 +672,9 @@
     "semantic_hash": ""
   },
   "README.en.md": {
-    "mtime": 1795580050.366838,
-    "seen": 1795580135.318448,
-    "ast_hash": "55a30192d1a22fa4fd06127ffea482db",
+    "mtime": 1795584903.1880493,
+    "seen": 1795585765.048176,
+    "ast_hash": "58011ee73c9c90cd062e3da0174ec8d9",
     "semantic_hash": ""
   },
   "apps/api/src/db/client.ts": {
@@ -822,9 +822,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/publish-service.ts": {
-    "mtime": 1795578299.6515703,
-    "seen": 1795580135.3181891,
-    "ast_hash": "6e25db71c5ce42f21e866937d45b7be4",
+    "mtime": 1795585712.2707405,
+    "seen": 1795585765.047901,
+    "ast_hash": "abcda71777a5f242091c46252d98cead",
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/routes.ts": {
@@ -882,9 +882,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/services/publish-api.ts": {
-    "mtime": 1795581637.109837,
-    "seen": 1795582019.676437,
-    "ast_hash": "1a7b14499b625e4f86d53c4d3e1a8ae4",
+    "mtime": 1795585714.5775986,
+    "seen": 1795585765.048075,
+    "ast_hash": "66c3e2ee2dc1e50e6d75a0a9d25d92c9",
     "semantic_hash": ""
   },
   "apps/web/src/store/publish-store.ts": {
@@ -1104,21 +1104,21 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/DocsIndex.astro": {
-    "mtime": 1795326444.7215018,
-    "seen": 1795331234.535866,
-    "ast_hash": "7867060b11f47506f7693c7f3f763636",
+    "mtime": 1795584824.4019413,
+    "seen": 1795585765.047931,
+    "ast_hash": "9f5330654c9b547b695bb26ec706483e",
     "semantic_hash": ""
   },
   "apps/site/src/components/Footer.astro": {
-    "mtime": 1795529943.099105,
-    "seen": 1795530050.068845,
-    "ast_hash": "523f2f5c0805b89c0329e2dd26d2ada8",
+    "mtime": 1795584791.3302422,
+    "seen": 1795585765.047932,
+    "ast_hash": "e2b00c98ca963adb594a30cbf5e97028",
     "semantic_hash": ""
   },
   "apps/site/src/components/Header.astro": {
-    "mtime": 1795529740.35793,
-    "seen": 1795530050.068846,
-    "ast_hash": "819bf5f422286a23135887bbef8dc68f",
+    "mtime": 1795584799.637633,
+    "seen": 1795585765.0479329,
+    "ast_hash": "fc6f6743f135c25e9c3c9533dcbafd69",
     "semantic_hash": ""
   },
   "apps/site/src/components/HeroShowcase.tsx": {
@@ -1128,9 +1128,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/HomePage.astro": {
-    "mtime": 1795530006.8593905,
-    "seen": 1795530050.0688472,
-    "ast_hash": "c43c80352e4154dc8f70f0926d1b8d83",
+    "mtime": 1795584803.6189072,
+    "seen": 1795585765.047934,
+    "ast_hash": "4aaf1caaa1037a002c33305e1a3fe002",
     "semantic_hash": ""
   },
   "apps/site/src/components/Icon.astro": {
@@ -1140,9 +1140,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/MiniRoundTripDemo.tsx": {
-    "mtime": 1795309995.1065667,
-    "seen": 1795310776.400364,
-    "ast_hash": "28b59744a5fe6d364fed039ee3d21962",
+    "mtime": 1795584840.4422822,
+    "seen": 1795585765.047936,
+    "ast_hash": "37fa43ef27754d51fa6cae90ed436a21",
     "semantic_hash": ""
   },
   "apps/site/src/components/QuickStartTabs.tsx": {
@@ -1176,9 +1176,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/i18n/en.ts": {
-    "mtime": 1795529998.963087,
-    "seen": 1795530050.068854,
-    "ast_hash": "da19f2f28436754585eb3cd7fb359116",
+    "mtime": 1795584870.0745952,
+    "seen": 1795585765.047942,
+    "ast_hash": "2f8940b434f5cbcfba02ca7392a9f0c9",
     "semantic_hash": ""
   },
   "apps/site/src/i18n/index.ts": {
@@ -1194,9 +1194,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/i18n/zh.ts": {
-    "mtime": 1795529998.96283,
-    "seen": 1795530050.068856,
-    "ast_hash": "15ba69e3530fc50f18230216ca50dc7c",
+    "mtime": 1795584877.5225174,
+    "seen": 1795585765.0479438,
+    "ast_hash": "430202527aef2e1f49bceefc9f31d2ec",
     "semantic_hash": ""
   },
   "apps/site/src/layouts/BaseLayout.astro": {
@@ -1206,9 +1206,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/layouts/DocsLayout.astro": {
-    "mtime": 1795326529.9096172,
-    "seen": 1795331234.535881,
-    "ast_hash": "6eded0f1e5df921e07804e402d10fff4",
+    "mtime": 1795584824.4035876,
+    "seen": 1795585765.047946,
+    "ast_hash": "6776ecfcfccf34ab0826d13bb5d92d6d",
     "semantic_hash": ""
   },
   "apps/site/src/lib/diff.ts": {
@@ -1218,9 +1218,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/lib/site.ts": {
-    "mtime": 1795529437.7391627,
-    "seen": 1795530050.0688598,
-    "ast_hash": "25b2f32b589d621d702a13dda021b05a",
+    "mtime": 1795584791.3274672,
+    "seen": 1795585765.0479481,
+    "ast_hash": "48b9553fb442b2bb7511e2552cf897c6",
     "semantic_hash": ""
   },
   "apps/site/src/pages/404.astro": {
@@ -1314,9 +1314,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/features.md": {
-    "mtime": 1795526495.3830335,
-    "seen": 1795526956.3882,
-    "ast_hash": "8d3298bae9cd82a3b3c99e688c541995",
+    "mtime": 1795584889.7976215,
+    "seen": 1795585765.0481799,
+    "ast_hash": "58242ad5a98d228d1658baabff9624c1",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/getting-started.md": {
@@ -1326,9 +1326,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/introduction.md": {
-    "mtime": 1795526517.8873136,
-    "seen": 1795526956.388202,
-    "ast_hash": "ccbb3167f6b8715d8117758ccca9b436",
+    "mtime": 1795584889.8006012,
+    "seen": 1795585765.048181,
+    "ast_hash": "db008a52af9ab3bf29c59c8f93e6f386",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/local-development.md": {
@@ -1350,9 +1350,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/features.md": {
-    "mtime": 1795526484.6909213,
-    "seen": 1795526956.388205,
-    "ast_hash": "161f0e881985f30ca7f478b0d28e7057",
+    "mtime": 1795584889.79721,
+    "seen": 1795585765.048185,
+    "ast_hash": "80d62673b3f3a179480fc5ee32b6d113",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/getting-started.md": {
@@ -1362,9 +1362,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/introduction.md": {
-    "mtime": 1795526506.8017797,
-    "seen": 1795526956.388206,
-    "ast_hash": "67c33cccb5c947449a05ea1d71088226",
+    "mtime": 1795584889.7972298,
+    "seen": 1795585765.048186,
+    "ast_hash": "d25d858cb0967b6e2d8b95034907ad6d",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/local-development.md": {
@@ -1458,9 +1458,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/components/NotFound.astro": {
-    "mtime": 1795326441.2285793,
-    "seen": 1795331234.535872,
-    "ast_hash": "b485dc615727d9b7699c92746162b3ac",
+    "mtime": 1795584824.4062638,
+    "seen": 1795585765.047937,
+    "ast_hash": "210115811371f292127b37618f8c6d3f",
     "semantic_hash": ""
   },
   "apps/site/src/pages/en/404.astro": {
@@ -2727,6 +2727,12 @@
     "mtime": 1795583986.6016023,
     "seen": 1795584356.5324092,
     "ast_hash": "5bcb60c9165c5ebbd3410337fc6dde66",
+    "semantic_hash": ""
+  },
+  "docs/deploy-gcp-cloudrun.md": {
+    "mtime": 1795584369.7938313,
+    "seen": 1795585765.048194,
+    "ast_hash": "2513b4e93f4237f6e07a8d8129371357",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

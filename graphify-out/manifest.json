@@ -636,9 +636,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795584903.187777,
-    "seen": 1795585765.048177,
-    "ast_hash": "60cab62dd2a2a04322b7046a7976d6c3",
+    "mtime": 1795593461.9966953,
+    "seen": 1795596068.6965692,
+    "ast_hash": "177efcd45363cbe1b08aad51007e8b01",
     "semantic_hash": ""
   },
   "apps/web/src/components/ConrefReusePanel.tsx": {
@@ -672,9 +672,9 @@
     "semantic_hash": ""
   },
   "README.en.md": {
-    "mtime": 1795584903.1880493,
-    "seen": 1795585765.048176,
-    "ast_hash": "58011ee73c9c90cd062e3da0174ec8d9",
+    "mtime": 1795593509.0586412,
+    "seen": 1795596068.696568,
+    "ast_hash": "290aef3ad8dd05c455d30cc74e078358",
     "semantic_hash": ""
   },
   "apps/api/src/db/client.ts": {
@@ -978,15 +978,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/ai/AiAssistantPanel.tsx": {
-    "mtime": 1795479495.412245,
-    "seen": 1795480283.2805529,
-    "ast_hash": "acd7409e6eed8562d7cf559251021551",
+    "mtime": 1795595807.1974204,
+    "seen": 1795596068.696365,
+    "ast_hash": "c8d8f07f31f4e635c8f7a94404a822dc",
     "semantic_hash": ""
   },
   "apps/web/src/ai/AiDiffDialog.tsx": {
-    "mtime": 1795479326.895336,
-    "seen": 1795480283.280554,
-    "ast_hash": "2b3a267a3eed806832a2dedcd30627e7",
+    "mtime": 1795595807.1978679,
+    "seen": 1795596068.696366,
+    "ast_hash": "1668fb75c661f27e492bb8054654e0e2",
     "semantic_hash": ""
   },
   "apps/web/src/ai/AiSettingsDialog.tsx": {
@@ -1008,9 +1008,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/ai/ai-target.ts": {
-    "mtime": 1795328884.8223586,
-    "seen": 1795331234.5359008,
-    "ast_hash": "3822c58fbabb3b383180b26fd2e6aded",
+    "mtime": 1795595765.456793,
+    "seen": 1795596068.69637,
+    "ast_hash": "cf3bebd0c3165318467014edd8f00618",
     "semantic_hash": ""
   },
   "apps/web/src/ai/ai-types.ts": {
@@ -1020,21 +1020,21 @@
     "semantic_hash": ""
   },
   "apps/web/test/ai-workbench.test.ts": {
-    "mtime": 1795330464.3741574,
-    "seen": 1795331234.5359519,
-    "ast_hash": "4637bb878a864351a2dc7c23c33446bb",
+    "mtime": 1795595921.8048809,
+    "seen": 1795596068.696496,
+    "ast_hash": "27de09cd561650ccac802ef2cdc3ef71",
     "semantic_hash": ""
   },
   "packages/dita-core/src/ai/fragment-locator.ts": {
-    "mtime": 1795329907.7895057,
-    "seen": 1795331234.5359669,
-    "ast_hash": "a2fa7c1d59d2b72cc11fc976df311eff",
+    "mtime": 1795595756.3680856,
+    "seen": 1795596068.696522,
+    "ast_hash": "11074ce4f5110e5de2fccc623c3ccd35",
     "semantic_hash": ""
   },
   "packages/dita-core/src/ai/fragment-splice.ts": {
-    "mtime": 1795329922.5136619,
-    "seen": 1795331234.535968,
-    "ast_hash": "38fde29693d2d9d8e0dfa7092c5cb1f9",
+    "mtime": 1795595905.3781073,
+    "seen": 1795596068.696523,
+    "ast_hash": "5f14dd827750e5505ca91444ae0b4f14",
     "semantic_hash": ""
   },
   "packages/dita-core/src/ai/index.ts": {
@@ -1056,15 +1056,15 @@
     "semantic_hash": ""
   },
   "packages/dita-core/test/ai-fragment.test.ts": {
-    "mtime": 1795282243.6201732,
-    "seen": 1795283599.185807,
-    "ast_hash": "c523feaaaf1f74d26cee10a1a0a78561",
+    "mtime": 1795595831.094386,
+    "seen": 1795596068.696548,
+    "ast_hash": "78c88e33575b69de9d2aa227a0b7facf",
     "semantic_hash": ""
   },
   "docs/phase6-ai-contract.md": {
-    "mtime": 1795305738.8206713,
-    "seen": 1795305796.2588649,
-    "ast_hash": "2b2b5704d7600b8f6f3e52b7612c197b",
+    "mtime": 1795595960.5874538,
+    "seen": 1795596068.6965928,
+    "ast_hash": "744b140abe00c98ed474d7164b798312",
     "semantic_hash": ""
   },
   "docs/phase6-ai-implementation-plan.md": {
@@ -1752,9 +1752,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/ai/use-ai-panel-actions.ts": {
-    "mtime": 1795450856.0640209,
-    "seen": 1795451270.195155,
-    "ast_hash": "ab0fb9df0403e371afaae8949e6d696e",
+    "mtime": 1795595789.263825,
+    "seen": 1795596068.696372,
+    "ast_hash": "82bc8c7bb72b7740e27662932a3bbfff",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/VisualEditorSubHeader.tsx": {
@@ -1908,9 +1908,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/ai.ts": {
-    "mtime": 1795451067.9776952,
-    "seen": 1795451270.195215,
-    "ast_hash": "dbf0e634d03a9584522c14da8d9d5c92",
+    "mtime": 1795595796.949036,
+    "seen": 1795596068.696445,
+    "ast_hash": "689f0ffbde275046e6a2e08ea170bb5b",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/collab.ts": {
@@ -1920,9 +1920,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/common.ts": {
-    "mtime": 1795512853.6234975,
-    "seen": 1795512972.566883,
-    "ast_hash": "c01ab604948c6a383437daf4f315356e",
+    "mtime": 1795595796.947845,
+    "seen": 1795596068.696447,
+    "ast_hash": "e41a3b9ce51edfb078fe04693b14a7b4",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/editor.ts": {
@@ -1944,9 +1944,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/ai.ts": {
-    "mtime": 1795451067.9618776,
-    "seen": 1795451270.195223,
-    "ast_hash": "0aef40cfd5b60f5b4c48318bb00f823f",
+    "mtime": 1795595796.948839,
+    "seen": 1795596068.696453,
+    "ast_hash": "1c4891204cc6b7a378a50a4dc51ac04c",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/collab.ts": {
@@ -1956,9 +1956,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/common.ts": {
-    "mtime": 1795512853.6230707,
-    "seen": 1795512972.566891,
-    "ast_hash": "2abdb60aba0773cd6a49a5ee9efd73e0",
+    "mtime": 1795595796.94694,
+    "seen": 1795596068.696456,
+    "ast_hash": "20507f06d30e13dfc61edc157b347e1f",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/editor.ts": {
@@ -2733,6 +2733,12 @@
     "mtime": 1795584369.7938313,
     "seen": 1795585765.048194,
     "ast_hash": "2513b4e93f4237f6e07a8d8129371357",
+    "semantic_hash": ""
+  },
+  "apps/web/src/ai/ai-proposal.ts": {
+    "mtime": 1795595783.8724184,
+    "seen": 1795596068.696369,
+    "ast_hash": "54df98c0370480b8a3472076c3e6e6fc",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
