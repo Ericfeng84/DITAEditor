@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { HttpError, httpError, isHttpError, localizeErrorMessage } from '../errors.js';
@@ -8,12 +11,17 @@ import type { DitaRuntimeOptions } from '../dita-ot/dita-runtime.js';
 import { detectDitaRuntime } from '../dita-ot/dita-runtime.js';
 import { validateStrict } from './strict-validator.js';
 import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
+import type { IdentityService } from '../identity/identity-service.js';
+import type { DraftService } from '../locks/draft-service.js';
+import type { LockService } from '../locks/lock-service.js';
 
 const strictValidationSchema = z.object({
   paths: z.array(z.string().min(1)).max(100).optional(),
   path: z.string().min(1).optional(),
   rootMapPath: z.string().min(1).optional(),
   ditavalPath: z.string().min(1).nullable().optional(),
+  /** Phase 13: validate the caller's own drafts by default, or the clean baseline. */
+  scope: z.enum(['my_drafts', 'baseline']).optional().default('my_drafts'),
 });
 
 export interface StrictValidationRouteOptions {
@@ -22,6 +30,10 @@ export interface StrictValidationRouteOptions {
   timeoutMs?: number;
   /** Phase 10: validate inside the request's manual + branch worktree. */
   context?: ManualContextResolver;
+  /** Phase 13: temp-materialize the caller's User Overlay for strict validation. */
+  identity?: IdentityService;
+  drafts?: DraftService;
+  locks?: LockService;
 }
 
 function errorReply(req: FastifyRequest, reply: FastifyReply, err: unknown) {
@@ -60,19 +72,44 @@ export function registerStrictValidationRoutes(
         error: parsed.error.issues[0]?.message ?? apiT(resolveRequestLocale(req), 'validate.invalidParams'),
       });
     }
-    const { paths, path, rootMapPath, ditavalPath } = parsed.data;
+    const { paths, path, rootMapPath, ditavalPath, scope } = parsed.data;
     const selected = paths ?? (path ? [path] : rootMapPath ? [rootMapPath] : []);
     if (selected.length === 0) {
       return reply
         .status(400)
         .send({ error: apiT(resolveRequestLocale(req), 'validate.argsRequired') });
     }
+    const session = options.context ? await options.context.resolveRequest(req) : null;
+    const workDir = session ? session.workDir : options.workspace.getRootDir();
+    let overlayDir: string | null = null;
     try {
-      const workDir = options.context
-        ? (await options.context.resolveRequest(req)).workDir
-        : options.workspace.getRootDir();
+      let validationWorkDir = workDir;
+
+      // Phase 13: strict validation of `my_drafts` runs on a temp materialization of the
+      // User Overlay (baseline + caller's drafts) so the shared workDir stays clean at HEAD.
+      if (scope === 'my_drafts' && session && options.drafts && options.identity) {
+        const user = options.identity.resolve(req.headers['x-dita-user-id']);
+        const projectId =
+          session.manualId ||
+          (options.locks ? options.locks.ensureRepository(session.projectRootDir) : '');
+        if (
+          projectId &&
+          options.drafts.listUserDrafts(projectId, session.branch, user.id).length > 0
+        ) {
+          overlayDir = mkdtempSync(join(tmpdir(), 'dita-overlay-val-'));
+          await options.drafts.materializeOverlayDir({
+            baselineDir: workDir,
+            projectId,
+            branch: session.branch,
+            userId: user.id,
+            destDir: overlayDir,
+          });
+          validationWorkDir = overlayDir;
+        }
+      }
+
       const result = await validateStrict({
-        workDir,
+        workDir: validationWorkDir,
         paths: selected,
         rootMapPath: rootMapPath ?? null,
         ditavalPath: ditavalPath ?? null,
@@ -85,9 +122,13 @@ export function registerStrictValidationRoutes(
           runtime: result.runtime,
         });
       }
-      return result;
+      return { ...result, scope };
     } catch (err) {
       return errorReply(req, reply, err);
+    } finally {
+      if (overlayDir) {
+        rmSync(overlayDir, { recursive: true, force: true });
+      }
     }
   });
 }

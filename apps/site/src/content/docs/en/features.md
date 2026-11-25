@@ -1,7 +1,7 @@
 ---
 title: Feature tour
 description: Dual-mode editing, lossless round-trip, CALS tables, keyspaces and conref, DITAVAL projection, map trees, check-out locks, DITA-OT publishing, and AI review.
-updated: '2026-11-24'
+updated: '2026-11-25'
 ---
 
 DITAEditor's features follow one chain: **distribute → edit → semantics → organization → collaboration → publish → AI assistance**. Every link operates on the same standard DITA XML, and both the UI and the docs ship in Chinese and English.
@@ -66,10 +66,12 @@ A `.ditaval` file is parsed into rules and evaluated against profiling attribute
 
 ## Collaboration and versioning
 
-- **Exclusive check-out locks** keyed by `(project, branch, file_path)`; expiry is controlled by `DITA_LOCK_TTL_HOURS`.
-- **Admin force-unlock** backs up current content as a patch before releasing the lock.
-- **Branch isolation**: one `git worktree` per branch, so switching branches never pollutes the working tree.
-- **Version diff**: CodeMirror MergeView with line statistics.
+- **Clean baseline plus a personal draft overlay**: each branch `workDir` stays exactly at Git `HEAD`; uncommitted edits, creates, deletes, renames and draft images live in SQLite `working_drafts` and are visible only to the lock holder. Two authors editing the same map on one branch never pollute each other’s validation, AI context or publish snapshot.
+- **Exclusive check-out locks** keyed by `(project, branch, file_path)`; expiry is controlled by `DITA_LOCK_TTL_HOURS` and renewals are judged by `updatedAt`.
+- **Explicit target views**: diagnostics, strict DITA-OT validation (defaults to `my_drafts`) and AI context read the baseline plus your own drafts; formal publishing defaults to the clean baseline (`HEAD` / `Tag` / `Commit` snapshot), with an optional preview limited to your drafts.
+- **Merges and rollbacks**: `git merge-tree` preflights, isolated merge commits, per-file conflict resolution in MergeView, tags, single-file restore (draft or commit mode) and commit revert, with protected branches refusing deletion.
+- **Version audit**: `version_audit_logs` records check-out, handoff, cancel, force-unlock, check-in, branch and tag operations, merges, reverts and publishes — SQLite only, never XML or Git metadata.
+- **Admin force-unlock** backs up the draft and current content as patches before releasing the lock.
 
 ## Publishing and strict validation
 

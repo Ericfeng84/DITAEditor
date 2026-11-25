@@ -129,15 +129,22 @@ describe('Phase 10 manual workbench API', () => {
     const contentA = await app.inject({
       method: 'GET',
       url: `/api/files/content?path=${encodeURIComponent(TOPIC)}`,
-      headers: { ...ADMIN, 'x-dita-manual-id': builtinId },
+      headers: { ...WRITER, 'x-dita-manual-id': builtinId },
     });
     expect(contentA.json().content).not.toContain('<title>B</title>');
+    // Phase 13: the edit is a personal draft in manual B, visible to its author only.
     const contentB = await app.inject({
+      method: 'GET',
+      url: `/api/files/content?path=${encodeURIComponent(TOPIC)}`,
+      headers: { ...WRITER, 'x-dita-manual-id': attachedManual.id },
+    });
+    expect(contentB.json().content).toContain('<title>B</title>');
+    const contentBAdmin = await app.inject({
       method: 'GET',
       url: `/api/files/content?path=${encodeURIComponent(TOPIC)}`,
       headers: { ...ADMIN, 'x-dita-manual-id': attachedManual.id },
     });
-    expect(contentB.json().content).toContain('<title>B</title>');
+    expect(contentBAdmin.json().content).not.toContain('<title>B</title>');
 
     // Metadata edits, archive filtering and touch bookkeeping.
     const renamed = await app.inject({
@@ -195,7 +202,10 @@ describe('Phase 10 manual workbench API', () => {
     });
     expect(removed.statusCode).toBe(200);
     expect(existsSync(fixture.otherDir)).toBe(true);
-    expect(readFileSync(path.join(fixture.otherDir, TOPIC), 'utf8')).toContain('<title>B</title>');
+    // Phase 13: the writer's edit lived in a draft, so the shared folder still holds the baseline.
+    const onDisk = readFileSync(path.join(fixture.otherDir, TOPIC), 'utf8');
+    expect(onDisk).toContain('<concept');
+    expect(onDisk).not.toContain('<title>B</title>');
 
     await app.close();
   }, 30_000);
@@ -283,6 +293,75 @@ describe('Phase 10 manual workbench API', () => {
       headers: { ...ADMIN, 'x-dita-manual-id': 'manual_unknown' },
     });
     expect(unknownManual.statusCode).toBe(404);
+
+    await app.close();
+  }, 30_000);
+
+  it('reports fresh semantic diagnostics for a manual branch after a fix is written', async () => {
+    const fixture = createFixture();
+    const app = createServer({
+      workspaceDir: fixture.projectDir,
+      importsRootDir: fixture.importsDir,
+      dbPath: fixture.dbPath,
+      worktreesRootDir: fixture.worktreesRootDir,
+      logger: false,
+    });
+    await app.ready();
+
+    const list = (await app.inject({ method: 'GET', url: '/api/manuals', headers: ADMIN })).json();
+    const builtin = list.manuals[0] as { id: string; currentBranch: string };
+    // Scoped headers are exactly what the web client sends: manual id + branch.
+    const scoped = {
+      ...ADMIN,
+      'x-dita-manual-id': builtin.id,
+      'x-dita-branch': builtin.currentBranch,
+    };
+    const topicPath = 'tasks/structure-regression.dita';
+    const taskXml = (cmds: string) => `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
+<task id="structure_regression">
+  <title>Structure regression</title>
+  <body>
+    <steps>
+      <step>${cmds}</step>
+    </steps>
+  </body>
+</task>`;
+
+    // Prime the panel the way the editor does on open (branch state is scanned from disk).
+    const primed = await app.inject({ method: 'GET', url: '/api/diagnostics', headers: scoped });
+    expect(primed.statusCode).toBe(200);
+
+    // 1. Introducing the violation must show up without a restart.
+    const badWrite = await app.inject({
+      method: 'PUT',
+      url: '/api/files/content',
+      headers: scoped,
+      payload: { path: topicPath, content: taskXml('<cmd>first</cmd><cmd>second</cmd>') },
+    });
+    expect(badWrite.statusCode).toBe(200);
+    const withIssue = (
+      await app.inject({ method: 'GET', url: '/api/diagnostics', headers: scoped })
+    ).json() as { diagnostics: { filePath: string; source: string }[] };
+    expect(
+      withIssue.diagnostics.some((d) => d.filePath === topicPath && d.source === 'structure'),
+    ).toBe(true);
+
+    // 2. Fixing it must clear the entry on the next refresh (this used to stay stale forever
+    //    because writes updated the `default` branch cache while reads hit the manual branch).
+    const fixedWrite = await app.inject({
+      method: 'PUT',
+      url: '/api/files/content',
+      headers: scoped,
+      payload: { path: topicPath, content: taskXml('<cmd>only</cmd>') },
+    });
+    expect(fixedWrite.statusCode).toBe(200);
+    const afterFix = (
+      await app.inject({ method: 'GET', url: '/api/diagnostics', headers: scoped })
+    ).json() as { diagnostics: { filePath: string; source: string }[] };
+    expect(
+      afterFix.diagnostics.some((d) => d.filePath === topicPath && d.source === 'structure'),
+    ).toBe(false);
 
     await app.close();
   }, 30_000);

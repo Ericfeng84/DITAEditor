@@ -4,7 +4,7 @@
   <prop att="product" val="cloud" action="include"/>
   <prop att="product" val="onprem" action="exclude"/>
   <prop att="otherprops" val="internal" action="exclude"/>
-  <revprop val="2.4" action="flag" color="#1d4ed8" backcolor="#dbeafe" style="bold">
+  <revprop val="2.4" action="flag" color="#6d28d9" backcolor="#ede9fe" style="bold">
     <startflag><alt-text>v2.4 Cloud</alt-text></startflag>
   </revprop>
 </val>

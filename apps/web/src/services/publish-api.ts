@@ -87,6 +87,13 @@ export interface PublishRuntimeInfo {
   error?: string;
 }
 
+/**
+ * Phase 13 publish provenance: what the build was rendered from.
+ * `baseline` renders the shared `HEAD`, `tag`/`commit` render an immutable snapshot,
+ * `my_drafts` previews the requester's own overlay without touching the shared baseline.
+ */
+export type PublishSourceMode = 'baseline' | 'tag' | 'commit' | 'my_drafts';
+
 export interface PublishJob {
   id: string;
   /** Resolved HTML5 theme snapshot; `null` for PDF jobs and legacy rows. */
@@ -113,6 +120,13 @@ export interface PublishJob {
   artifactUrl: string | null;
   logUrl: string;
   cancelRequested: boolean;
+  /** Phase 13 provenance (absent on rows published before source modes existed). */
+  sourceMode?: PublishSourceMode | null;
+  sourceRef?: string | null;
+  commitHash?: string | null;
+  isDirty?: boolean | null;
+  /** Paths that were still uncommitted when the build was snapshotted (`my_drafts` previews). */
+  dirtyFiles?: string[] | null;
 }
 
 export interface StrictValidationResult {
@@ -174,6 +188,10 @@ export async function fetchPublishJob(id: string): Promise<PublishJob> {
 
 export interface CreatePublishJobInput {
   rootMap: string;
+  /** Phase 13: which snapshot to render (defaults to `baseline` on the API). */
+  sourceMode?: PublishSourceMode;
+  /** Phase 13: tag name or commit SHA for `tag` / `commit` sources. */
+  sourceRef?: string;
   format: PublishFormat;
   ditaval?: string | null;
   title?: string;

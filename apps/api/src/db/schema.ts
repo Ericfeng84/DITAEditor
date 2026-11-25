@@ -45,6 +45,8 @@ export const manuals = sqliteTable(
     createdAt: integer('created_at').notNull(),
     updatedAt: integer('updated_at').notNull(),
     lastOpenedAt: integer('last_opened_at').notNull().default(0),
+    /** Phase 13: JSON array of branch names that may not be deleted (default `["main"]`). */
+    protectedBranchesJson: text('protected_branches_json').notNull().default('["main"]'),
   },
   (table) => [
     uniqueIndex('manuals_root_dir_unique').on(table.rootDir),
@@ -114,6 +116,76 @@ export const fileLocks = sqliteTable(
   ],
 );
 
+/**
+ * Phase 13 personal draft overlay: uncommitted per-user file changes that never touch the
+ * shared branch `workDir` (which stays clean at Git `HEAD`). Ownership is enforced by
+ * `file_locks`; text content lives in `content`, binary draft assets live outside the repo
+ * under `draftAssetsRootDir` and are referenced by `assetBlobPath`.
+ */
+export const workingDrafts = sqliteTable(
+  'working_drafts',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id').notNull(),
+    branch: text('branch').notNull(),
+    /** Target POSIX path after the draft operation. */
+    filePath: text('file_path').notNull(),
+    userId: text('user_id').notNull(),
+    op: text('op', { enum: ['edit', 'create', 'delete', 'rename'] }).notNull(),
+    /** Baseline original path; only set for `op = 'rename'`. */
+    originalPath: text('original_path'),
+    /** UTF-8 text content; `NULL` for deletes and binary drafts. */
+    content: text('content'),
+    /** Binary draft blob path relative to `draftAssetsRootDir`; `NULL` for text drafts. */
+    assetBlobPath: text('asset_blob_path'),
+    /** Baseline HEAD SHA when the draft was created. */
+    baseCommit: text('base_commit'),
+    /** `sha256(content)` first 16 hex chars, for optimistic concurrency checks. */
+    contentHash: text('content_hash'),
+    updatedAt: integer('updated_at').notNull(),
+  },
+  (table) => [
+    uniqueIndex('working_drafts_scope_unique').on(table.projectId, table.branch, table.filePath),
+    index('working_drafts_user_idx').on(table.projectId, table.branch, table.userId),
+  ],
+);
+
+/** Phase 13 version audit ledger: who performed which version action, on which path. */
+export const versionAuditLogs = sqliteTable(
+  'version_audit_logs',
+  {
+    id: text('id').primaryKey(),
+    projectId: text('project_id').notNull(),
+    branch: text('branch').notNull(),
+    actorId: text('actor_id').notNull(),
+    action: text('action', {
+      enum: [
+        'checkout',
+        'release',
+        'handoff',
+        'cancel',
+        'force_unlock',
+        'checkin',
+        'branch_create',
+        'branch_delete',
+        'tag_create',
+        'tag_delete',
+        'merge',
+        'restore',
+        'revert',
+        'publish',
+      ],
+    }).notNull(),
+    targetPath: text('target_path'),
+    detailsJson: text('details_json').notNull().default('{}'),
+    createdAt: integer('created_at').notNull(),
+  },
+  (table) => [
+    index('version_audit_project_time_idx').on(table.projectId, table.createdAt),
+    index('version_audit_branch_idx').on(table.projectId, table.branch, table.createdAt),
+  ],
+);
+
 /** Patch/content backups captured by admin force-unlock. */
 export const lockBackups = sqliteTable(
   'lock_backups',
@@ -160,6 +232,14 @@ export const publishJobs = sqliteTable(
     snapshotPath: text('snapshot_path'),
     diagnosticsJson: text('diagnostics_json'),
     cancelRequested: integer('cancel_requested').notNull().default(0),
+    /** Phase 13 publish traceability: `baseline` | `tag` | `commit` | `my_drafts`. */
+    sourceMode: text('source_mode', { enum: ['baseline', 'tag', 'commit', 'my_drafts'] })
+      .notNull()
+      .default('baseline'),
+    sourceRef: text('source_ref'),
+    commitHash: text('commit_hash'),
+    isDirty: integer('is_dirty').notNull().default(0),
+    dirtyFilesJson: text('dirty_files_json'),
   },
   (table) => [
     index('publish_jobs_created_idx').on(table.createdAt),
@@ -217,6 +297,15 @@ export type LockBackupRow = typeof lockBackups.$inferSelect;
 export type PublishJobRow = typeof publishJobs.$inferSelect;
 export type AiSettingsRow = typeof aiSettings.$inferSelect;
 export type AiUsageLogRow = typeof aiUsageLogs.$inferSelect;
-export type ManualRow = typeof manuals.$inferSelect;
+/**
+ * `protectedBranchesJson` is optional on the select type: rows inserted through Drizzle
+ * get the SQL default `["main"]`, and callers that construct a row literal (the manual
+ * registry) must not have to repeat it. Runtime reads always see a value.
+ */
+export type ManualRow = Omit<typeof manuals.$inferSelect, 'protectedBranchesJson'> & {
+  protectedBranchesJson?: string;
+};
 export type TopicAssignmentRow = typeof topicAssignments.$inferSelect;
 export type ManualPublishProfileRow = typeof manualPublishProfiles.$inferSelect;
+export type WorkingDraftRow = typeof workingDrafts.$inferSelect;
+export type VersionAuditLogRow = typeof versionAuditLogs.$inferSelect;

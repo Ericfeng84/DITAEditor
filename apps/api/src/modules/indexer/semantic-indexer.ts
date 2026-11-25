@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs';
+import { promises as fs, realpathSync } from 'node:fs';
 import path from 'node:path';
 import {
   classifyDitaFileKind,
@@ -19,6 +19,7 @@ import type {
   WorkspaceFileNode,
   WorkspaceManager,
 } from '../files/workspace-fs.js';
+import type { DraftService } from '../locks/draft-service.js';
 
 interface BranchIndexState {
   rootDir: string;
@@ -28,6 +29,33 @@ interface BranchIndexState {
   ditavals: Map<string, WorkspaceDitavalSummary>;
   initialized: boolean;
   indexedAt: number;
+  /**
+   * Phase 13: monotonically increasing revision of the shared baseline (Git `HEAD`-clean
+   * worktree). Personal draft overlays are cached against it so a check-in, revert or merge
+   * invalidates every derived overlay index without touching the baseline one.
+   */
+  baselineRev: number;
+}
+
+/** Optional Phase 13 personal draft overlay wiring for the semantic indexer. */
+export interface SemanticOverlayOptions {
+  /** Personal draft overlay (`working_drafts`) merged on top of the clean baseline. */
+  drafts?: DraftService;
+  /** Project (manual) id the drafts belong to; equals the session's `manualId`. */
+  projectId?: string;
+}
+
+interface OverlayCacheEntry {
+  baselineRev: number;
+  draftRev: number;
+  state: BranchIndexState;
+}
+
+/** Paths that just moved from a draft overlay into the shared baseline (check-in). */
+export interface BaselineRefreshInfo {
+  writtenPaths?: string[];
+  deletedPaths?: string[];
+  renames?: { from: string; to: string }[];
 }
 
 export interface SemanticContextResponse {
@@ -41,6 +69,14 @@ export interface SemanticContextResponse {
   activeDitaval: ParsedDitaval | null;
   ditavalError?: XmlParseError;
   indexedAt: number;
+}
+
+function realpathSyncOrNull(dir: string): string {
+  try {
+    return realpathSync(dir);
+  } catch {
+    return path.resolve(dir);
+  }
 }
 
 function summarizeDitaval(posixPath: string, content: string): WorkspaceDitavalSummary {
@@ -89,14 +125,28 @@ function collectAllFilePaths(nodes: readonly WorkspaceFileNode[]): string[] {
  */
 export class WorkspaceSemanticIndexer {
   private readonly branches = new Map<string, BranchIndexState>();
+  /** Cached per-user overlay indexes, keyed by `branchKey::userId` (bounded). */
+  private readonly overlayCache = new Map<string, OverlayCacheEntry>();
+  private static readonly MAX_OVERLAY_CACHE_PER_BRANCH = 32;
 
-  constructor(private readonly workspace: WorkspaceManager) {}
+  /**
+   * `defaultBranch` is the branch this indexer instance is bound to (a manual session owns
+   * exactly one worktree/branch). Every omitted `branch` argument falls back to it so that
+   * mutations (`onFileWritten`, `onFileDeleted`, …) and reads (`collectDiagnostics`, …) always
+   * address the same cached `BranchIndexState`. A mismatch there silently freezes diagnostics
+   * (reads hit a state that no write ever updates).
+   */
+  constructor(
+    private readonly workspace: WorkspaceManager,
+    private readonly defaultBranch = 'default',
+    private readonly overlayOptions: SemanticOverlayOptions = {},
+  ) {}
 
   private makeBranchKey(rootDir: string, branch: string): string {
     return `${rootDir}::${branch}`;
   }
 
-  private async getOrInitBranch(branch = 'default'): Promise<BranchIndexState> {
+  private async getOrInitBranch(branch = this.defaultBranch): Promise<BranchIndexState> {
     const realRoot = await fs.realpath(this.workspace.getRootDir());
     const key = this.makeBranchKey(realRoot, branch);
     const existing = this.branches.get(key);
@@ -139,13 +189,14 @@ export class WorkspaceSemanticIndexer {
       ditavals,
       initialized: true,
       indexedAt: Date.now(),
+      baselineRev: 1,
     };
     this.branches.set(key, state);
     return state;
   }
 
   private getLoadedBranchesForActiveRoot(): BranchIndexState[] {
-    const activeRoot = this.workspace.getRootDir();
+    const activeRoot = realpathSyncOrNull(this.workspace.getRootDir());
     const out: BranchIndexState[] = [];
     for (const st of this.branches.values()) {
       if (st.rootDir === activeRoot && st.initialized) {
@@ -155,7 +206,183 @@ export class WorkspaceSemanticIndexer {
     return out;
   }
 
-  async onFileWritten(posixPath: string, content: string, branch = 'default'): Promise<void> {
+  // -------------------------------------------------------------------------
+  // Phase 13 draft overlay
+  // -------------------------------------------------------------------------
+
+  private overlayKey(rootDir: string, branch: string, userId: string): string {
+    return `${this.makeBranchKey(rootDir, branch)}::${userId}`;
+  }
+
+  private dropOverlayCache(rootDir: string, branch: string): void {
+    const prefix = `${this.makeBranchKey(rootDir, branch)}::`;
+    for (const key of Array.from(this.overlayCache.keys())) {
+      if (key.startsWith(prefix)) this.overlayCache.delete(key);
+    }
+  }
+
+  /** Bumps the baseline revision so cached personal overlays are rebuilt on next read. */
+  bumpBaselineRev(branch = this.defaultBranch): void {
+    const activeRoot = realpathSyncOrNull(this.workspace.getRootDir());
+    for (const state of this.branches.values()) {
+      if (state.rootDir !== activeRoot || state.branch !== branch) continue;
+      state.baselineRev += 1;
+      state.indexedAt = Date.now();
+    }
+    this.dropOverlayCache(activeRoot, branch);
+  }
+
+  /**
+   * The state a caller actually reads: the clean baseline, or `Baseline + caller drafts`
+   * when the indexer was constructed with a `DraftService`. Honors the "strict read/write
+   * boundaries" rule — a read never materializes drafts or writes to the worktree.
+   */
+  private async getEffectiveState(
+    branch = this.defaultBranch,
+    userId?: string,
+  ): Promise<BranchIndexState> {
+    const baseline = await this.getOrInitBranch(branch);
+    const drafts = this.overlayOptions.drafts;
+    const projectId = this.overlayOptions.projectId;
+    if (!drafts || !projectId || !userId) return baseline;
+
+    const draftRev = drafts.getDraftRev(projectId, baseline.branch, userId);
+    const key = this.overlayKey(baseline.rootDir, baseline.branch, userId);
+    const cached = this.overlayCache.get(key);
+    if (
+      cached &&
+      cached.baselineRev === baseline.baselineRev &&
+      cached.draftRev === draftRev
+    ) {
+      this.overlayCache.delete(key);
+      this.overlayCache.set(key, cached);
+      return cached.state;
+    }
+
+    const rows = drafts.listUserDrafts(projectId, baseline.branch, userId);
+    if (rows.length === 0) {
+      this.overlayCache.delete(key);
+      return baseline;
+    }
+
+    const index = baseline.index.cloneWithOverlay(
+      drafts.toSemanticOverlayOps(projectId, baseline.branch, userId),
+    );
+    const assetPaths = new Set(baseline.assetPaths);
+    const ditavals = new Map(baseline.ditavals);
+
+    for (const row of rows) {
+      if (row.op === 'delete') {
+        assetPaths.delete(row.filePath);
+        ditavals.delete(row.filePath);
+        continue;
+      }
+      if (row.op === 'rename' && row.originalPath) {
+        if (assetPaths.delete(row.originalPath)) assetPaths.add(row.filePath);
+        const moved = ditavals.get(row.originalPath);
+        if (moved) {
+          ditavals.delete(row.originalPath);
+          ditavals.set(row.filePath, {
+            ...moved,
+            path: row.filePath,
+            name: path.posix.basename(row.filePath),
+          });
+        }
+      }
+      const kind = classifyDitaFileKind(row.filePath);
+      if (kind === 'ditaval' && row.content !== null) {
+        ditavals.set(row.filePath, summarizeDitaval(row.filePath, row.content));
+      } else if (kind === 'image' || kind === 'other') {
+        assetPaths.add(row.filePath);
+      }
+    }
+
+    const state: BranchIndexState = {
+      rootDir: baseline.rootDir,
+      branch: baseline.branch,
+      index,
+      assetPaths,
+      ditavals,
+      initialized: true,
+      indexedAt: Date.now(),
+      baselineRev: baseline.baselineRev,
+    };
+    this.overlayCache.set(key, {
+      baselineRev: baseline.baselineRev,
+      draftRev,
+      state,
+    });
+    this.trimOverlayCache(baseline.rootDir, baseline.branch);
+    return state;
+  }
+
+  private trimOverlayCache(rootDir: string, branch: string): void {
+    const prefix = `${this.makeBranchKey(rootDir, branch)}::`;
+    const keys = Array.from(this.overlayCache.keys()).filter((key) => key.startsWith(prefix));
+    while (keys.length > WorkspaceSemanticIndexer.MAX_OVERLAY_CACHE_PER_BRANCH) {
+      const oldest = keys.shift();
+      if (oldest === undefined) break;
+      this.overlayCache.delete(oldest);
+    }
+  }
+
+  /**
+   * Re-syncs the baseline index after `workDir` advanced (check-in / revert / merge).
+   * With explicit path info only those entries are re-read from disk; otherwise the whole
+   * branch index is rebuilt, which is always correct because the worktree is clean at `HEAD`.
+   */
+  async refreshFromBaselineDisk(
+    branch = this.defaultBranch,
+    info?: BaselineRefreshInfo,
+  ): Promise<void> {
+    const realRoot = await fs.realpath(this.workspace.getRootDir());
+    const key = this.makeBranchKey(realRoot, branch);
+    const state = this.branches.get(key);
+    if (!state?.initialized) return;
+
+    const written = new Set(info?.writtenPaths ?? []);
+    const deleted = new Set(info?.deletedPaths ?? []);
+    for (const rename of info?.renames ?? []) {
+      deleted.add(rename.from);
+      written.add(rename.to);
+    }
+
+    const hasInfo = written.size > 0 || deleted.size > 0;
+    if (!hasInfo) {
+      this.branches.delete(key);
+      await this.getOrInitBranch(branch);
+      this.bumpBaselineRev(branch);
+      return;
+    }
+
+    for (const posixPath of deleted) {
+      await this.onFileDeleted(posixPath, branch);
+    }
+    for (const posixPath of written) {
+      const abs = path.join(state.rootDir, ...normalizePosixPath(posixPath).split('/'));
+      try {
+        const content = await fs.readFile(abs, 'utf8');
+        await this.onFileWritten(posixPath, content, branch);
+      } catch {
+        await this.onFileDeleted(posixPath, branch);
+      }
+    }
+    this.bumpBaselineRev(branch);
+  }
+
+  /** Alias kept for callers that only know which paths changed. */
+  async refreshBaselinePaths(
+    branch = this.defaultBranch,
+    info?: BaselineRefreshInfo,
+  ): Promise<void> {
+    await this.refreshFromBaselineDisk(branch, info);
+  }
+
+  async onFileWritten(
+    posixPath: string,
+    content: string,
+    branch = this.defaultBranch,
+  ): Promise<void> {
     const norm = normalizePosixPath(posixPath);
     if (!norm) return;
     const realRoot = await fs.realpath(this.workspace.getRootDir());
@@ -171,20 +398,22 @@ export class WorkspaceSemanticIndexer {
     } else {
       state.assetPaths.add(norm);
     }
+    state.baselineRev += 1;
     state.indexedAt = Date.now();
   }
 
-  async onAssetAdded(posixPath: string, branch = 'default'): Promise<void> {
+  async onAssetAdded(posixPath: string, branch = this.defaultBranch): Promise<void> {
     const norm = normalizePosixPath(posixPath);
     if (!norm) return;
     const realRoot = await fs.realpath(this.workspace.getRootDir());
     const state = this.branches.get(this.makeBranchKey(realRoot, branch));
     if (!state?.initialized) return;
     state.assetPaths.add(norm);
+    state.baselineRev += 1;
     state.indexedAt = Date.now();
   }
 
-  async onFileDeleted(posixPath: string, branch = 'default'): Promise<void> {
+  async onFileDeleted(posixPath: string, branch = this.defaultBranch): Promise<void> {
     const norm = normalizePosixPath(posixPath);
     if (!norm) return;
     const realRoot = await fs.realpath(this.workspace.getRootDir());
@@ -204,10 +433,15 @@ export class WorkspaceSemanticIndexer {
         state.assetPaths.delete(asset);
       }
     }
+    state.baselineRev += 1;
     state.indexedAt = Date.now();
   }
 
-  async onFileRenamed(fromPath: string, toPath: string, branch = 'default'): Promise<void> {
+  async onFileRenamed(
+    fromPath: string,
+    toPath: string,
+    branch = this.defaultBranch,
+  ): Promise<void> {
     const normFrom = normalizePosixPath(fromPath);
     const normTo = normalizePosixPath(toPath);
     if (!normFrom || !normTo) return;
@@ -245,25 +479,30 @@ export class WorkspaceSemanticIndexer {
       }
     }
 
+    state.baselineRev += 1;
     state.indexedAt = Date.now();
   }
 
   onWorkspaceChanged(newRootDir: string): void {
-    // Clear caches for other roots if desired or keep keyed by rootDir; invalidate target root to force clean initial scan
-    for (const key of Array.from(this.branches.keys())) {
-      if (key.startsWith(`${newRootDir}::`)) {
-        this.branches.delete(key);
-      }
+    // Branch states are keyed by realpath(rootDir), so resolve the incoming path the same way
+    // or the invalidation silently misses and diagnostics keep serving the pre-switch scan.
+    const realRoot = realpathSyncOrNull(newRootDir);
+    for (const [key, state] of Array.from(this.branches)) {
+      if (state.rootDir !== realRoot && !key.startsWith(`${realRoot}::`)) continue;
+      this.branches.delete(key);
     }
+    this.dropOverlayCache(realRoot, this.defaultBranch);
     void this.getLoadedBranchesForActiveRoot();
   }
 
   async getSemanticContext(
     rootMapPath: string | null,
     ditavalPath: string | null,
-    branch = 'default',
+    branch = this.defaultBranch,
+    /** Phase 13: read the caller's `Baseline ⊎ own drafts` view instead of the clean baseline. */
+    userId?: string,
   ): Promise<SemanticContextResponse> {
-    const state = await this.getOrInitBranch(branch);
+    const state = await this.getEffectiveState(branch, userId);
     const normMap = rootMapPath ? normalizePosixPath(rootMapPath) : null;
     const activeMap = normMap && state.index.hasFile(normMap) ? normMap : null;
     const keyspace = activeMap ? state.index.getKeyspace(activeMap) : null;
@@ -293,15 +532,23 @@ export class WorkspaceSemanticIndexer {
     };
   }
 
-  async getKeyspace(rootMapPath: string, branch = 'default'): Promise<KeyspaceResult | null> {
-    const state = await this.getOrInitBranch(branch);
+  async getKeyspace(
+    rootMapPath: string,
+    branch = this.defaultBranch,
+    userId?: string,
+  ): Promise<KeyspaceResult | null> {
+    const state = await this.getEffectiveState(branch, userId);
     const norm = normalizePosixPath(rootMapPath);
     if (!norm || !state.index.hasFile(norm)) return null;
     return state.index.getKeyspace(norm);
   }
 
-  async getTopicIndices(filePath?: string, branch = 'default'): Promise<TopicIdIndexEntry[]> {
-    const state = await this.getOrInitBranch(branch);
+  async getTopicIndices(
+    filePath?: string,
+    branch = this.defaultBranch,
+    userId?: string,
+  ): Promise<TopicIdIndexEntry[]> {
+    const state = await this.getEffectiveState(branch, userId);
     if (filePath) {
       const entry = state.index.getTopicIndex(filePath);
       return entry ? [entry] : [];
@@ -311,9 +558,10 @@ export class WorkspaceSemanticIndexer {
 
   async getDitaval(
     ditavalPath: string,
-    branch = 'default',
+    branch = this.defaultBranch,
+    userId?: string,
   ): Promise<{ ok: true; parsed: ParsedDitaval } | { ok: false; error: XmlParseError } | null> {
-    const state = await this.getOrInitBranch(branch);
+    const state = await this.getEffectiveState(branch, userId);
     return state.index.getDitaval(ditavalPath);
   }
 
@@ -322,8 +570,9 @@ export class WorkspaceSemanticIndexer {
     rootMapPath: string | null;
     xml?: string;
     branch?: string;
+    userId?: string;
   }): Promise<DocumentSemanticOverlay> {
-    const state = await this.getOrInitBranch(params.branch ?? 'default');
+    const state = await this.getEffectiveState(params.branch ?? this.defaultBranch, params.userId);
     const normMap = params.rootMapPath ? normalizePosixPath(params.rootMapPath) : null;
     const activeMap = normMap && state.index.hasFile(normMap) ? normMap : null;
     return state.index.buildDocumentOverlay(params.filePath, activeMap, params.xml);
@@ -339,8 +588,9 @@ export class WorkspaceSemanticIndexer {
     sourceElementId?: string;
     rootMapPath: string | null;
     branch?: string;
+    userId?: string;
   }): Promise<ResolvedConrefResult> {
-    const state = await this.getOrInitBranch(params.branch ?? 'default');
+    const state = await this.getEffectiveState(params.branch ?? this.defaultBranch, params.userId);
     const normMap = params.rootMapPath ? normalizePosixPath(params.rootMapPath) : null;
     const activeMap = normMap && state.index.hasFile(normMap) ? normMap : null;
     return state.index.resolveConref({
@@ -357,9 +607,10 @@ export class WorkspaceSemanticIndexer {
 
   async collectDiagnostics(
     rootMapPath: string | null,
-    branch = 'default',
+    branch = this.defaultBranch,
+    userId?: string,
   ): Promise<SemanticDiagnostic[]> {
-    const state = await this.getOrInitBranch(branch);
+    const state = await this.getEffectiveState(branch, userId);
     return state.index.collectSemanticDiagnostics(rootMapPath, {
       assetPaths: state.assetPaths,
     });

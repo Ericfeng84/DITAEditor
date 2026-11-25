@@ -15,6 +15,7 @@ import { DiffDialog } from './components/DiffDialog';
 import { EditorTabBar } from './components/EditorTabBar';
 import { FileExplorerPanel } from './components/FileExplorerPanel';
 import { GitPanel } from './components/GitPanel';
+import { MergeDialog } from './components/MergeDialog';
 import { InsertKeyrefDialog } from './components/InsertKeyrefDialog';
 import { KeyspacePanel } from './components/KeyspacePanel';
 import { LeftSidebar } from './components/LeftSidebar';
@@ -36,6 +37,7 @@ import type { AssignmentBadge } from './components/FileExplorerPanel';
 import { TopicAssignmentBanner } from './components/TopicAssignmentBanner';
 import { SaveControls } from './components/SaveControls';
 import { WorkbenchAlertBanner } from './workbench/WorkbenchAlertBanner';
+import { ContentConflictBanner } from './workbench/ContentConflictBanner';
 import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
@@ -140,6 +142,9 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const statusMessage = useEditorStore((s) => s.statusMessage);
   const alert = useEditorStore((s) => s.alert);
   const dismissAlert = useEditorStore((s) => s.dismissAlert);
+  const contentConflict = useEditorStore((s) => s.contentConflict);
+  const dismissContentConflict = useEditorStore((s) => s.dismissContentConflict);
+  const resolveContentConflict = useEditorStore((s) => s.resolveContentConflict);
   const saveFileEnsuringLock = useEditorStore((s) => s.saveFileEnsuringLock);
   const pendingSourceOffset = useEditorStore((s) => s.pendingSourceOffset);
   const pendingVisualPmPos = useEditorStore((s) => s.pendingVisualPmPos);
@@ -220,6 +225,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const currentUser = useGitStore((s) => s.currentUser);
   const locks = useGitStore((s) => s.locks);
   const gitStatus = useGitStore((s) => s.status);
+  const userDrafts = useGitStore((s) => s.userDrafts);
   const gitLoading = useGitStore((s) => s.loading);
   const gitDiff = useGitStore((s) => s.diff);
   const gitDiffLoading = useGitStore((s) => s.diffLoading);
@@ -325,6 +331,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     setDetectedTaskContentModel(detectedTaskModel);
   }, [detectedTaskModel]);
   const [diffDialogOpen, setDiffDialogOpen] = useState(false);
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [checkinPaths, setCheckinPaths] = useState<string[]>([]);
   const [publishOpen, setPublishOpen] = useState(false);
@@ -470,13 +477,15 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                 (dirtyPathSet.has(lock.filePath) || dirtyPaths.includes(lock.filePath)),
             )
             .map((lock) => lock.filePath);
-    return paths
-      .map((path) => {
-        const lock = locks.find((item) => item.filePath === path);
-        return lock ? { path, lock } : null;
-      })
-      .filter((item): item is CheckinCandidate => item !== null);
-  }, [checkinPaths, locks, currentUser?.id, dirtyPathSet, dirtyPaths]);
+    // Phase 13: creates, renames and deletes never take a check-out lock, yet they are exactly
+    // what the caller wants to commit — include every drafts path and let `lock` be optional.
+    const draftPaths = userDrafts.map((draft) => draft.filePath);
+    const allPaths = Array.from(new Set([...paths, ...draftPaths]));
+    return allPaths.map((path) => {
+      const lock = locks.find((item) => item.filePath === path);
+      return lock ? { path, lock } : { path };
+    });
+  }, [checkinPaths, locks, userDrafts, currentUser?.id, dirtyPathSet, dirtyPaths]);
 
   const openGitDiff = useCallback(
     async (options: { path: string; from?: string; to?: string }) => {
@@ -1135,6 +1144,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                     activePath={activeTabPath}
                     onOpenDiff={(options) => void openGitDiff(options)}
                     onOpenCheckin={openCheckin}
+                    onOpenMerge={() => setMergeDialogOpen(true)}
                   />
                 }
                 assignmentBadgeCount={openAssignmentCount}
@@ -1253,6 +1263,18 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                       />
                     ) : null}
 
+                    {/* Phase 13: another writer saved this file first — the buffer is intact and
+                        the user chooses between reloading and overwriting. */}
+                    {contentConflict ? (
+                      <ContentConflictBanner
+                        conflict={contentConflict}
+                        busy={savingPaths.length > 0}
+                        onReload={() => void resolveContentConflict('reload')}
+                        onOverwrite={() => void resolveContentConflict('overwrite')}
+                        onDismiss={dismissContentConflict}
+                      />
+                    ) : null}
+
                     {showReadOnlyBanner ? (
                       <ReadOnlyBanner
                         editability={editability}
@@ -1261,6 +1283,17 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                         onCheckout={() => {
                           if (activeTabPath) void checkoutFile(activeTabPath);
                         }}
+                        onForceUnlock={
+                          activeTabPath
+                            ? () => {
+                                const reason = window.prompt(
+                                  t('app.forceUnlockPrompt', { path: activeTabPath }),
+                                  t('app.forceUnlockReason'),
+                                );
+                                if (reason !== null) void forceUnlockFile(activeTabPath, reason);
+                              }
+                            : undefined
+                        }
                         onRefresh={() => void refreshLocksGit()}
                       />
                     ) : null}
@@ -1686,6 +1719,11 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
           if (result) await loadGitHistory(activeTabPath);
           return result !== null;
         }}
+      />
+
+      <MergeDialog
+        open={mergeDialogOpen}
+        onClose={() => setMergeDialogOpen(false)}
       />
 
       <PublishDialog

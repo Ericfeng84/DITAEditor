@@ -1,10 +1,12 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
-import { httpError, isHttpError, localizeErrorMessage } from '../errors.js';
+import { HttpError, httpError, isHttpError, localizeErrorMessage } from '../errors.js';
 import { resolveRequestLocale } from '../../i18n/locale.js';
 import type { GitManager } from '../git/git-manager.js';
 import type { IdentityService, IdentityUser } from '../identity/identity-service.js';
 import type { LockService } from './lock-service.js';
+import type { DraftService } from './draft-service.js';
+import type { VersionAuditService } from '../git/audit-service.js';
 import type { ManualContextResolver, ManualSession } from '../manuals/manual-context-resolver.js';
 import {
   resolveSafeWorkspacePath,
@@ -38,9 +40,17 @@ export interface Phase4Scope {
   session?: ManualSession;
 }
 
+/** Phase 13: baseline-move notification payload used by the semantic indexers. */
+export interface BaselineChangeInfo {
+  writtenPaths?: string[];
+  deletedPaths?: string[];
+  renames?: { from: string; to: string }[];
+}
+
 export interface LockRouteOptions {
   workspace: WorkspaceManager;
-  git: GitManager;
+  /** Phase 13: optional so publish-only route sets can share these scope helpers. */
+  git?: GitManager;
   identity: IdentityService;
   locks: LockService;
   /** Phase 10 per-request manual/branch isolation; absent in legacy unit tests. */
@@ -57,6 +67,27 @@ export interface LockRouteOptions {
     completeAssignmentIds?: string[];
     completeMyAssignments?: boolean;
   }) => Promise<unknown>;
+  /** Phase 13: draft overlay, so every response can report the caller's own drafts. */
+  drafts?: DraftService;
+  /** Phase 13: append-only audit trail for every baseline mutation. */
+  audit?: VersionAuditService;
+  /** Phase 13: `topic_assignments.path` follows a rename only once the baseline commits it. */
+  onRenameCommitted?: (input: {
+    manualId: string;
+    branch: string;
+    fromPath: string;
+    toPath: string;
+  }) => Promise<unknown> | unknown;
+  /** Phase 13: refresh semantic indexes after the shared baseline moved. */
+  onBaselineChanged?: (
+    scope: Phase4Scope,
+    info?: BaselineChangeInfo,
+  ) => Promise<void> | void;
+}
+
+function requireGit(options: LockRouteOptions): GitManager {
+  if (!options.git) throw new HttpError(500, 'Git manager is not configured.');
+  return options.git;
 }
 
 export function handlePhase4Error(err: unknown, req: FastifyRequest, reply: FastifyReply) {
@@ -77,7 +108,12 @@ export async function resolvePhase4Scope(
 
   if (options.context) {
     const session = await options.context.resolveRequest(req);
-    const projectId = options.locks.ensureRepository(session.projectRootDir);
+    // Phase 13: the manual id IS the project id. Locks, drafts, audit logs and publish jobs
+    // must all use it; a path hash here would split one manual into two isolated id spaces.
+    const projectId = options.locks.projectIdForManual(
+      session.projectRootDir,
+      session.manualId,
+    );
     return {
       user,
       workDir: session.workDir,
@@ -92,7 +128,7 @@ export async function resolvePhase4Scope(
   const workDir = options.workspace.getRootDir();
   const projectRootDir = options.workspace.getProjectRootDir();
   const projectId = options.locks.ensureRepository(projectRootDir);
-  const branch = await options.git.currentBranch(workDir);
+  const branch = options.git ? await options.git.currentBranch(workDir) : 'main';
   return { user, workDir, projectRootDir, projectId, branch };
 }
 
@@ -102,7 +138,11 @@ async function normalizePath(workDir: string, rawPath: string): Promise<string> 
 }
 
 export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptions): void {
-  const { git, identity, locks } = options;
+  const { identity, locks, drafts } = options;
+
+  /** Phase 13: the caller's own drafts, so clients see "dirty" without a shared workDir change. */
+  const draftViewsFor = (scope: Phase4Scope) =>
+    drafts ? drafts.listUserDraftViews(scope.projectId, scope.branch, scope.user.id) : [];
 
   app.get('/api/locks', async (req, reply) => {
     try {
@@ -113,6 +153,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         workDir: scope.workDir,
         projectRootDir: scope.projectRootDir,
         locks: locks.list(scope.projectId, scope.branch),
+        drafts: draftViewsFor(scope),
         users: identity.list(),
       };
     } catch (err) {
@@ -186,6 +227,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         ...result,
         branch: scope.branch,
         locks: locks.list(scope.projectId, scope.branch),
+        drafts: draftViewsFor(scope),
       };
     } catch (err) {
       return handlePhase4Error(err, req, reply);
@@ -218,11 +260,72 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
             completeMyAssignments: parsed.data.completeMyAssignments,
           })
         : null;
+
+      const baselineInfo: BaselineChangeInfo = {
+        writtenPaths: result.writtenPaths,
+        deletedPaths: result.deletedPaths,
+        renames: result.renames,
+      };
+
+      // Phase 13: a draft rename only becomes a real path change once the baseline commits it.
+      if (options.onRenameCommitted) {
+        const manualId = scope.manualId ?? scope.projectId;
+        for (const rename of result.renames) {
+          await options.onRenameCommitted({
+            manualId,
+            branch: scope.branch,
+            fromPath: rename.from,
+            toPath: rename.to,
+          });
+        }
+      }
+
+      if (scope.session) {
+        await scope.session.indexer.refreshFromBaselineDisk(scope.branch, baselineInfo);
+      }
+      await options.onBaselineChanged?.(scope, baselineInfo);
+
       return {
         ...result,
         locks: locks.list(scope.projectId, scope.branch),
-        status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
+        drafts: draftViewsFor(scope),
+        status: await requireGit(options).status(
+          scope.workDir,
+          scope.projectRootDir,
+          resolveRequestLocale(req),
+        ),
         completedAssignments: completedAssignments ?? [],
+      };
+    } catch (err) {
+      return handlePhase4Error(err, req, reply);
+    }
+  });
+
+  const handoffSchema = z.object({
+    path: z.string().min(1),
+    targetUserId: z.string().min(1),
+  });
+
+  app.post('/api/locks/handoff', async (req, reply) => {
+    const parsed = handoffSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: parsed.error.message });
+    }
+    try {
+      const scope = await resolvePhase4Scope(req, options);
+      const filePath = await normalizePath(scope.workDir, parsed.data.path);
+      const result = await locks.handoff({
+        projectId: scope.projectId,
+        branch: scope.branch,
+        filePath,
+        fromUser: scope.user,
+        targetUserId: parsed.data.targetUserId,
+      });
+      return {
+        ...result,
+        branch: scope.branch,
+        locks: locks.list(scope.projectId, scope.branch),
+        drafts: draftViewsFor(scope),
       };
     } catch (err) {
       return handlePhase4Error(err, req, reply);
@@ -252,7 +355,12 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         ...result,
         branch: scope.branch,
         locks: locks.list(scope.projectId, scope.branch),
-        status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
+        drafts: draftViewsFor(scope),
+        status: await requireGit(options).status(
+          scope.workDir,
+          scope.projectRootDir,
+          resolveRequestLocale(req),
+        ),
       };
     } catch (err) {
       return handlePhase4Error(err, req, reply);

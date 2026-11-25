@@ -15,6 +15,8 @@ import type { ApiLocale } from '../../i18n/locale.js';
 import type { WorkspaceManager } from '../files/workspace-fs.js';
 import type { IdentityUser } from '../identity/identity-service.js';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
+import type { DraftService } from '../locks/draft-service.js';
+import { readFileWithOverlay } from '../files/overlay-workspace.js';
 import { buildAiContext, EMPTY_AI_CONTEXT, type AiProjectContext } from './ai-context.js';
 import type { AiChatModel, AiModelFactory } from './ai-model-factory.js';
 import { createExplanationStreamFilter, parseAiOutput } from './ai-output-parser.js';
@@ -35,6 +37,9 @@ export interface AiServiceLogger {
 export interface AiServiceDeps {
   workspace: WorkspaceManager;
   indexer: WorkspaceSemanticIndexer;
+  /** Phase 13: read the target topic through the caller's draft overlay when wired. */
+  drafts?: DraftService;
+  projectId?: string;
   settings: AiSettingsService;
   usage: AiUsageService;
   modelFactory: AiModelFactory;
@@ -314,7 +319,17 @@ export class AiService {
     let xml = request.xml;
     if (xml === undefined) {
       try {
-        xml = (await this.deps.workspace.readFile(request.projectPath)).content;
+        xml =
+          this.deps.drafts && this.deps.projectId
+            ? (
+                await readFileWithOverlay(
+                  this.deps.workspace,
+                  this.deps.drafts,
+                  { projectId: this.deps.projectId, branch, userId: user.id },
+                  request.projectPath,
+                )
+              ).content
+            : (await this.deps.workspace.readFile(request.projectPath)).content;
       } catch (err) {
         const message = apiT(locale, 'ai.error.fileUnreadable', {
           path: request.projectPath,
@@ -345,6 +360,7 @@ export class AiService {
         branch,
         currentFilePath: request.projectPath,
         locale,
+        userId: user.id,
       });
     }
     const contextBadges = [...projectContext.badges, ...badges];

@@ -43,6 +43,8 @@ export interface OpenEditorTab {
   xmlError: XmlParseError | null;
   switchBlockedReason: string | null;
   visualReloadToken: number;
+  /** Phase 13: hash of the bytes this buffer was read from / last saved to (`expectedHash`). */
+  contentHash?: string | null;
 }
 
 export interface SelectedMapNodeRef {
@@ -66,6 +68,21 @@ export interface WorkbenchAlertAction {
  * A blocking problem that must not be hidden in the screen-reader-only status line:
  * a rejected save, or a map/structure edit that could not take its check-out lock.
  */
+/**
+ * Phase 13 optimistic-concurrency conflict: another writer (or another browser tab) saved the
+ * same file first, so this buffer's save was rejected with `409 files.staleContent`.
+ *
+ * The user chooses explicitly — load the newer server version, or overwrite it.
+ */
+export interface ContentConflict {
+  path: string;
+  message: string;
+  /** Hash the server reported as current (best effort; `null` when absent). */
+  currentHash: string | null;
+  /** Hash this buffer was based on, when known. */
+  baseHash: string | null;
+}
+
 export interface WorkbenchAlert {
   id: number;
   tone: 'error' | 'warning';
@@ -121,6 +138,8 @@ export interface EditorWorkbenchState {
   statusMessage: string;
   /** Unsolved, user-visible problem (rejected save / rejected map edit). */
   alert: WorkbenchAlert | null;
+  /** Phase 13: another writer saved the open file first — reload or overwrite explicitly. */
+  contentConflict: ContentConflict | null;
   /** Failures of the most recent save attempt, with the API's localized reason. */
   lastSaveFailures: SaveFailure[];
   pendingSourceOffset: number | null;
@@ -177,18 +196,27 @@ export interface EditorWorkbenchState {
   closeTab: (filePath: string) => void;
   closeOtherTabs: (filePath: string) => void;
   closeSavedTabs: () => void;
-  saveFile: (filePath: string, options?: { refresh?: boolean }) => Promise<boolean>;
+  saveFile: (
+    filePath: string,
+    options?: { refresh?: boolean; force?: boolean },
+  ) => Promise<boolean>;
   saveActiveFile: () => Promise<boolean>;
   /**
    * Saves one file, taking its check-out lock first when the API workspace requires one.
    * On failure the reason is surfaced through `alert` (with a retry action).
    */
-  saveFileEnsuringLock: (filePath: string, options?: { refresh?: boolean }) => Promise<boolean>;
+  saveFileEnsuringLock: (
+    filePath: string,
+    options?: { refresh?: boolean; force?: boolean },
+  ) => Promise<boolean>;
   /**
    * Saves several files, taking each missing check-out lock first.
    * @returns the paths that failed to save (empty when everything landed).
    */
-  saveFilesEnsuringLocks: (filePaths: string[], options?: { refresh?: boolean }) => Promise<string[]>;
+  saveFilesEnsuringLocks: (
+    filePaths: string[],
+    options?: { refresh?: boolean; force?: boolean },
+  ) => Promise<string[]>;
   /** True when the file has edits that are not on disk yet (tab or map buffer). */
   isPathDirty: (filePath: string) => boolean;
   /**
@@ -198,6 +226,14 @@ export interface EditorWorkbenchState {
    */
   saveAllDirtyFiles: (options?: { refresh?: boolean; ensureLocks?: boolean }) => Promise<string[]>;
   dismissAlert: () => void;
+  /** Phase 13: drop the stale-content banner without touching the buffer. */
+  dismissContentConflict: () => void;
+  /**
+   * Resolve a stale-content conflict:
+   * - `reload` replaces the buffer with the newer server content (local edits are discarded);
+   * - `overwrite` saves this buffer on top of the server version (no `expectedHash`).
+   */
+  resolveContentConflict: (strategy: 'reload' | 'overwrite') => Promise<boolean>;
   resetCurrentToBaseline: () => void;
 
   // Editor mode & content sync

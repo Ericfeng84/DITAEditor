@@ -24,6 +24,7 @@ import {
   type ResolvedConrefResult,
   type ResolvedKeyrefResult,
   type SemanticDiagnostic,
+  type SemanticOverlayOperation,
   type TopicIdIndexEntry,
 } from './types.js';
 
@@ -150,6 +151,77 @@ export class DitaSemanticIndex {
     if (content !== undefined) {
       this.updateFile(normTo, content);
     }
+  }
+
+  /**
+   * Build an isolated `User Overlay` view of this index without touching `this`.
+   *
+   * Every cached map (`fileContents`, `parsedDocs`, `xmlErrors`, `topicIndices`,
+   * `parsedDitavals`, `keyspaceCache`) is shallow-copied, so untouched XML documents are
+   * shared by reference and **never re-parsed** (Phase 13 "零未改动 XML 重解析").
+   * `profilingCatalogCache` and `uiLocale` are carried over as well.
+   *
+   * The given draft operations are then applied incrementally to the clone only:
+   * - `delete` -> `removeFile()`
+   * - `edit` / `create` -> `updateFile()`
+   * - `rename` -> `removeFile(original)` + `updateFile(filePath, content)` when modified
+   *   content is supplied, otherwise `renameFile(original, filePath)`.
+   */
+  cloneWithOverlay(ops: readonly SemanticOverlayOperation[] = []): DitaSemanticIndex {
+    const clone = new DitaSemanticIndex();
+
+    // Shallow-copy cached state: O(number of files) pointer copies, zero re-parsing.
+    // Private members are reachable here because `clone` is the same class.
+    clone.uiLocale = this.uiLocale;
+    for (const [filePath, content] of this.fileContents) {
+      clone.fileContents.set(filePath, content);
+    }
+    for (const [filePath, parsedDoc] of this.parsedDocs) {
+      clone.parsedDocs.set(filePath, parsedDoc);
+    }
+    for (const [filePath, xmlError] of this.xmlErrors) {
+      clone.xmlErrors.set(filePath, xmlError);
+    }
+    for (const [filePath, topicIndex] of this.topicIndices) {
+      clone.topicIndices.set(filePath, topicIndex);
+    }
+    for (const [filePath, ditaval] of this.parsedDitavals) {
+      clone.parsedDitavals.set(filePath, ditaval);
+    }
+    for (const [rootMapPath, keyspace] of this.keyspaceCache) {
+      clone.keyspaceCache.set(rootMapPath, keyspace);
+    }
+    clone.profilingCatalogCache = this.profilingCatalogCache;
+
+    for (const op of ops) {
+      switch (op.op) {
+        case 'delete': {
+          clone.removeFile(op.filePath);
+          break;
+        }
+        case 'edit':
+        case 'create': {
+          clone.updateFile(op.filePath, op.content);
+          break;
+        }
+        case 'rename': {
+          const originalPath = normalizePosixPath(op.originalPath);
+          const filePath = normalizePosixPath(op.filePath);
+          if (!filePath) break;
+          if (op.content !== undefined && op.content !== null) {
+            if (originalPath && originalPath !== filePath) {
+              clone.removeFile(originalPath);
+            }
+            clone.updateFile(filePath, op.content);
+          } else {
+            clone.renameFile(originalPath, filePath);
+          }
+          break;
+        }
+      }
+    }
+
+    return clone;
   }
 
   hasFile(filePath: string): boolean {

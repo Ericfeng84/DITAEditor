@@ -1,13 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
-import { readdir, realpath, stat } from 'node:fs/promises';
+import { readdir, readFile, realpath, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { and, count, desc, eq, inArray, like, or, type SQL } from 'drizzle-orm';
 import type { DitaDatabase } from '../../db/client.js';
-import { manuals, topicAssignments, type ManualRow } from '../../db/schema.js';
+import { manuals, repositories, topicAssignments, type ManualRow } from '../../db/schema.js';
 import type { ApiLocale } from '../../i18n/locale.js';
 import { apiT } from '../../i18n/messages.js';
 import { httpError } from '../errors.js';
-import { repositoryIdFor, type GitManager } from '../git/git-manager.js';
+import { repositoryIdFor, validateBranchName, type GitManager } from '../git/git-manager.js';
 import type { IdentityUser } from '../identity/identity-service.js';
 import { WorkspaceManager, type WorkspaceScaffold } from '../files/workspace-fs.js';
 
@@ -34,6 +35,8 @@ export interface ManualView {
   createdAt: string;
   updatedAt: string;
   lastOpenedAt: string | null;
+  /** Phase 13: branches whose shared baseline cannot be rewritten/merged into without admin. */
+  protectedBranches: string[];
 }
 
 export interface ManualListSnapshot {
@@ -60,6 +63,8 @@ export interface ManualUpdateInput {
   description?: string;
   defaultRootMap?: string | null;
   archived?: boolean;
+  /** Phase 13: admin-only branch protection policy; `[]` means nothing is protected. */
+  protectedBranches?: string[];
 }
 
 export interface ManualRegistryOptions {
@@ -74,6 +79,72 @@ export interface ManualRegistryOptions {
 const BUILTIN_SCOPE_DIRS = new Set(['git-worktrees', 'publish']);
 const STATS_CACHE_TTL_MS = 15_000;
 const DEFAULT_MANUAL_CREATOR = 'u-admin';
+const MANUAL_ID_MARKER_FILE = 'ditaeditor-id';
+const MANUAL_ID_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$/;
+const DEFAULT_PROTECTED_BRANCHES = ['main'];
+
+/**
+ * Phase 13: the manual identity is persisted inside `.git/` (never in the working tree, so it
+ * can never show up in a diff) and survives moving/renaming the manual folder or its worktrees.
+ */
+export function manualIdMarkerPath(rootDir: string): string {
+  return path.join(rootDir, '.git', MANUAL_ID_MARKER_FILE);
+}
+
+async function gitDirectoryFor(rootDir: string): Promise<string | null> {
+  try {
+    const info = await stat(path.join(rootDir, '.git'));
+    // Worktrees and submodules use a `.git` *file*; only real repos can carry the marker.
+    return info.isDirectory() ? path.join(rootDir, '.git') : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function readManualIdMarker(rootDir: string): Promise<string | null> {
+  const gitDir = await gitDirectoryFor(rootDir);
+  if (!gitDir) return null;
+  try {
+    const raw = await readFile(path.join(gitDir, MANUAL_ID_MARKER_FILE), 'utf8');
+    const id = raw.trim();
+    return MANUAL_ID_PATTERN.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Best-effort: writing the marker must never fail registration of an otherwise valid manual. */
+export async function writeManualIdMarker(rootDir: string, id: string): Promise<boolean> {
+  if (!MANUAL_ID_PATTERN.test(id)) return false;
+  const gitDir = await gitDirectoryFor(rootDir);
+  if (!gitDir) return false;
+  try {
+    await writeFile(path.join(gitDir, MANUAL_ID_MARKER_FILE), `${id}\n`, 'utf8');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export function normalizeProtectedBranches(branches: readonly string[]): string[] {
+  const seen = new Set<string>();
+  for (const raw of branches) {
+    const branch = raw.trim();
+    if (branch) seen.add(validateBranchName(branch));
+  }
+  return [...seen];
+}
+
+export function parseProtectedBranches(raw: string | null | undefined): string[] {
+  if (!raw) return [...DEFAULT_PROTECTED_BRANCHES];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [...DEFAULT_PROTECTED_BRANCHES];
+    return normalizeProtectedBranches(parsed.filter((entry): entry is string => typeof entry === 'string'));
+  } catch {
+    return [...DEFAULT_PROTECTED_BRANCHES];
+  }
+}
 
 function nowIso(ms: number | null | undefined): string | null {
   return typeof ms === 'number' && ms > 0 ? new Date(ms).toISOString() : null;
@@ -199,6 +270,10 @@ export class ManualRegistryService {
   /**
    * Inserts the manual when the directory is unknown, otherwise refreshes bookkeeping only.
    * Used by the legacy workspace endpoints so old clients keep working after the upgrade.
+   *
+   * Phase 13: identity is resolved marker-first (`.git/ditaeditor-id`), so a manual keeps its id
+   * when its folder is moved or renamed. Legacy rows registered by path/`repositoryIdFor(real)`
+   * are recovered in place and get their marker backfilled on the next successful lookup.
    */
   async registerDirectory(
     rootDir: string,
@@ -209,24 +284,107 @@ export class ManualRegistryService {
       isBuiltin?: boolean;
       createdBy?: string;
       locale?: ApiLocale;
+      /** Phase 13: id chosen at creation time (fresh UUID) instead of the legacy path hash. */
+      manualId?: string;
     } = {},
   ): Promise<ManualView> {
     const resolvedRootDir = path.resolve(rootDir);
     const real = await realpath(resolvedRootDir).catch(() => resolvedRootDir);
-    // Identity comes from the real path (stable across symlinks); the stored path keeps the
-    // spelling the caller used so API responses stay byte-for-byte comparable.
-    const id = repositoryIdFor(real);
-    const existing = await this.db.select().from(manuals).where(eq(manuals.id, id)).limit(1);
     const timestamp = Date.now();
-    if (existing.length > 0) {
-      const row = existing[0]!;
-      await this.db
-        .update(manuals)
-        .set({ lastOpenedAt: options.lastOpenedAt ?? timestamp, updatedAt: row.updatedAt })
-        .where(eq(manuals.id, id));
-      return this.toView({ ...row, lastOpenedAt: options.lastOpenedAt ?? timestamp });
+    const markerId = await readManualIdMarker(real);
+
+    if (markerId) {
+      const byMarker = await this.rowById(markerId);
+      if (byMarker) {
+        return this.recoverManual(byMarker, resolvedRootDir, options, timestamp);
+      }
+      const legacyRow = await this.rowById(repositoryIdFor(real));
+      if (legacyRow) {
+        await writeManualIdMarker(real, legacyRow.id);
+        return this.recoverManual(legacyRow, resolvedRootDir, options, timestamp);
+      }
+      return this.insertManual(markerId, resolvedRootDir, options, timestamp);
     }
 
+    const existing =
+      (await this.rowById(repositoryIdFor(real))) ??
+      (await this.rowByRootDir(resolvedRootDir, real));
+    if (existing) {
+      await writeManualIdMarker(real, existing.id);
+      return this.recoverManual(existing, resolvedRootDir, options, timestamp);
+    }
+
+    const id = options.manualId ?? repositoryIdFor(real);
+    const clash = await this.rowById(id);
+    if (clash) {
+      await writeManualIdMarker(real, clash.id);
+      return this.recoverManual(clash, resolvedRootDir, options, timestamp);
+    }
+    await writeManualIdMarker(real, id);
+    return this.insertManual(id, resolvedRootDir, options, timestamp);
+  }
+
+  private async rowById(id: string): Promise<ManualRow | null> {
+    const rows = await this.db.select().from(manuals).where(eq(manuals.id, id)).limit(1);
+    return rows[0] ?? null;
+  }
+
+  private async rowByRootDir(resolvedRootDir: string, real: string): Promise<ManualRow | null> {
+    const rows = await this.db
+      .select()
+      .from(manuals)
+      .where(or(eq(manuals.rootDir, resolvedRootDir), eq(manuals.rootDir, real)))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  private async recoverManual(
+    row: ManualRow,
+    resolvedRootDir: string,
+    options: { lastOpenedAt?: number },
+    timestamp: number,
+  ): Promise<ManualView> {
+    const lastOpenedAt = options.lastOpenedAt ?? timestamp;
+    const moved = row.rootDir !== resolvedRootDir;
+    await this.db
+      .update(manuals)
+      .set(moved ? { rootDir: resolvedRootDir, lastOpenedAt } : { lastOpenedAt })
+      .where(eq(manuals.id, row.id));
+    if (moved) {
+      this.statsCache.delete(row.rootDir);
+      await this.syncRepositoryRootDir(row.id, resolvedRootDir);
+    }
+    return this.toView({ ...row, rootDir: resolvedRootDir, lastOpenedAt });
+  }
+
+  /** Keeps the legacy `repositories` row aligned so old endpoints resolve the same folder. */
+  private async syncRepositoryRootDir(id: string, rootDir: string): Promise<void> {
+    try {
+      const rows = await this.db
+        .select()
+        .from(repositories)
+        .where(eq(repositories.id, id))
+        .limit(1);
+      const row = rows[0];
+      if (!row || row.rootDir === rootDir) return;
+      await this.db.update(repositories).set({ rootDir }).where(eq(repositories.id, id));
+    } catch {
+      // Another repository row may already own the path; the manual itself is still correct.
+    }
+  }
+
+  private async insertManual(
+    id: string,
+    resolvedRootDir: string,
+    options: {
+      name?: string;
+      description?: string;
+      lastOpenedAt?: number;
+      isBuiltin?: boolean;
+      createdBy?: string;
+    },
+    timestamp: number,
+  ): Promise<ManualView> {
     const row: ManualRow = {
       id,
       name: options.name?.trim() || (await this.suggestName(resolvedRootDir)),
@@ -239,9 +397,20 @@ export class ManualRegistryService {
       createdAt: timestamp,
       updatedAt: timestamp,
       lastOpenedAt: options.lastOpenedAt ?? timestamp,
+      protectedBranchesJson: JSON.stringify(DEFAULT_PROTECTED_BRANCHES),
     };
     await this.db.insert(manuals).values(row);
     return this.toView(row);
+  }
+
+  /** Phase 13: branch protection policy for a manual (defaults to `["main"]`). */
+  getProtectedBranches(manualId: string): string[] {
+    const row = this.db.select().from(manuals).where(eq(manuals.id, manualId)).get();
+    return parseProtectedBranches(row?.protectedBranchesJson);
+  }
+
+  isBranchProtected(manualId: string, branch: string): boolean {
+    return this.getProtectedBranches(manualId).includes(branch);
   }
 
   async list(options: {
@@ -309,16 +478,6 @@ export class ManualRegistryService {
       if (!dirStat?.isDirectory()) {
         throw httpError(404, 'manuals.rootDirMissing', { path: resolved });
       }
-      const real = await realpath(resolved);
-      const already = await this.db
-        .select()
-        .from(manuals)
-        .where(eq(manuals.id, repositoryIdFor(real)))
-        .limit(1);
-      if (already.length > 0) {
-        await this.touch(already[0]!.id);
-        return this.toView({ ...already[0]!, lastOpenedAt: Date.now() });
-      }
       snapshotRoot = resolved;
       displayName = input.name?.trim() || (await this.suggestName(resolved));
       await this.creationManager.recordWorkspace(resolved, displayName);
@@ -344,11 +503,19 @@ export class ManualRegistryService {
       await this.git.ensureInitialized(snapshotRoot).catch(() => undefined);
     }
 
+    // Phase 13: create/import get a fresh path-independent id; attach keeps whatever the
+    // repository already carries (marker) or falls back to the legacy path hash.
+    const manualId = input.mode === 'attach' ? undefined : randomUUID();
+    if (manualId && this.git.isRepository(snapshotRoot)) {
+      await writeManualIdMarker(snapshotRoot, manualId);
+    }
+
     const view = await this.registerDirectory(snapshotRoot, {
       name: displayName,
       description: input.description?.trim() || '',
       createdBy: user.id,
       locale,
+      ...(manualId ? { manualId } : {}),
     });
     return view;
   }
@@ -374,6 +541,12 @@ export class ManualRegistryService {
       throw httpError(400, 'manuals.nameRequired');
     }
 
+    let protectedBranchesJson = row.protectedBranchesJson ?? null;
+    if (patch.protectedBranches !== undefined) {
+      if (user.role !== 'admin') throw httpError(403, 'manuals.adminOrCreatorOnly');
+      protectedBranchesJson = JSON.stringify(normalizeProtectedBranches(patch.protectedBranches));
+    }
+
     await this.db
       .update(manuals)
       .set({
@@ -383,6 +556,7 @@ export class ManualRegistryService {
           patch.defaultRootMap === undefined ? row.defaultRootMap : patch.defaultRootMap,
         archived:
           typeof patch.archived === 'boolean' ? (patch.archived ? 1 : 0) : row.archived,
+        ...(protectedBranchesJson === null ? {} : { protectedBranchesJson }),
         updatedAt: Date.now(),
       })
       .where(eq(manuals.id, id));
@@ -509,6 +683,7 @@ export class ManualRegistryService {
       createdAt: new Date(row.createdAt).toISOString(),
       updatedAt: new Date(row.updatedAt).toISOString(),
       lastOpenedAt: nowIso(row.lastOpenedAt),
+      protectedBranches: parseProtectedBranches(row.protectedBranchesJson),
     };
   }
 }

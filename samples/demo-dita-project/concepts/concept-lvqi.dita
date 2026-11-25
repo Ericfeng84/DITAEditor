@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="concept_lvqi" xml:lang="zh-CN">
+  <title>PDF 发布</title>
+  <shortdesc>PDF 发布是 DITA 发布流程中的一种输出形态，用于把 Root Map 及其引用的主题转换为可分页、可打印的 PDF 文档。</shortdesc>
+  <conbody>
+    <p>PDF 发布将 <codeph>ditamap</codeph> 及其引用的全部主题解析为统一的中间文档，再套用版式与字体生成 PDF。发布结果保留目录层级、交叉引用与页码等结构信息，因此既可作为33对外交付物，也可作为离线阅读与归档版本。</p>
+    <section id="sec_overview">
+      <title>核心组成</title>
+      <ul>
+        <li><b>发布入口</b>：由 Root Map 决定参与发布的主题范围、嵌套层级与排列顺序。</li>
+        <li><b>转换类型</b>：PDF 转换器负责把 map 与 topic 归并为单一可排版文档。</li>
+        <li><b>样式与字体</b>：样式表控制版式与标题层级，中文字体需单独配置以保证字形完整。</li>
+        <li><b>输出结果</b>：生成可分发、可打印的 PDF 文件，页码与目录随内容自动更新。</li>
+      </ul>
+    </section>
+    <section id="sec_publish_flow">
+      <title>发布流程</title>
+      <ol>
+        <li>确认 Root Map 的目录结构与主题引用完整，避免遗漏或重复引用。</li>
+        <li>按需配置中文字体，防止正文与标题出现缺字或字形回退，参见 <xref href="../tasks/configure-cjk-pdf.dita">配置 Noto CJK 中文 PDF 字体</xref>。</li>
+        <li>选择 PDF 转换类型并执行发布，等待转换任务完成。</li>
+        <li>检查生成的 PDF 中的目录、交叉引用与页码是否与 Map 结构一致。</li>
+      </ol>
+    </section>
+    <section id="sec_scenarios">
+      <title>适用场景</title>
+      <ul>
+        <li>需要交付打印稿或供离线阅读的正式文档。</li>
+        <li>需要固定版式与页码的评审稿与归档稿。</li>
+        <li>需要以单一文件对外分发的产品手册。</li>
+      </ul>
+    </section>
+  </conbody>
+</concept>

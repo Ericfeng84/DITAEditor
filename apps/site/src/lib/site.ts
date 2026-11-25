@@ -8,18 +8,21 @@ const site = (import.meta.env.SITE || 'https://ditaeditor.dev').replace(/\/$/, '
 const repo = 'https://github.com/Ericfeng84/DITAEditor';
 
 /**
- * Desktop installers live on GitHub Releases. Bump `desktopTag` together with
- * `apps/desktop/package.json` when publishing a release; asset names are derived
- * from the tag so only the tag and byte sizes below need editing.
+ * Desktop installers live on GitHub Releases. Bump `desktopVersion` together with
+ * `apps/desktop/package.json` when publishing a release.
+ *
+ * Download URLs deliberately target `/releases/latest/download/<asset>`: CI builds the
+ * installers only after the GitHub Release is published, so pinning a tag (and its byte
+ * sizes) would leave the site broken between the version bump and the finished build.
+ * GitHub resolves the `latest` redirect to the newest non-draft, non-prerelease assets.
  */
-const desktopTag = 'v1.3.0';
+const desktopTag = 'v1.4.0';
 const desktopVersion = desktopTag.replace(/^v/, '');
 
-function releaseAsset(name: string, bytes: number) {
+function releaseAsset(name: string) {
   return {
     name,
-    size: `${Math.round(bytes / 1024 / 1024)} MB`,
-    url: `${repo}/releases/download/${desktopTag}/${name}`,
+    url: `${repo}/releases/latest/download/${name}`,
   };
 }
 
@@ -28,10 +31,10 @@ export const DESKTOP = {
   tag: desktopTag,
   macArch: 'Apple Silicon (arm64)',
   winArch: 'x64',
-  dmg: releaseAsset(`DITAEditor-${desktopVersion}-mac-arm64.dmg`, 119_830_169),
-  macZip: releaseAsset(`DITAEditor-${desktopVersion}-mac-arm64.zip`, 115_706_313),
-  exe: releaseAsset(`DITAEditor-${desktopVersion}-win-x64.exe`, 101_527_625),
-  winZip: releaseAsset(`DITAEditor-${desktopVersion}-win-x64.zip`, 129_220_956),
+  dmg: releaseAsset(`DITAEditor-${desktopVersion}-mac-arm64.dmg`),
+  macZip: releaseAsset(`DITAEditor-${desktopVersion}-mac-arm64.zip`),
+  exe: releaseAsset(`DITAEditor-${desktopVersion}-win-x64.exe`),
+  winZip: releaseAsset(`DITAEditor-${desktopVersion}-win-x64.zip`),
   releaseUrl: `${repo}/releases/tag/${desktopTag}`,
   latestUrl: `${repo}/releases/latest`,
   allReleasesUrl: `${repo}/releases`,

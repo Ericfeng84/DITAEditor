@@ -31,7 +31,7 @@ export const zh = {
     titleLead: '标准 DITA XML 唯一真相源，',
     titleAccent: '团队级轻量 Web 结构化写作工作台。',
     subtitle:
-      '先用「手册工作台」分发 Topic、跟踪截止日期，再进入 ProseMirror 可视化结构化编辑与 CodeMirror 6 源码控制；Keys / Conref / DITAVAL 单一信息源、本地 Git 独占锁、DITA-OT 4.x 中文 PDF 与 AI 片段级校验共用同一份 XML，整套界面中英双语一键切换 —— 零 Java 业务代码，单容器开箱即用。',
+      '先用「手册工作台」分发 Topic、跟踪截止日期，再进入 ProseMirror 可视化结构化编辑与 CodeMirror 6 源码控制；Keys / Conref / DITAVAL 单一信息源、干净基线 + 个人草稿层、本地 Git 独占锁、DITA-OT 4.x 中文 PDF 与 AI 片段级校验共用同一份 XML，整套界面中英双语一键切换 —— 零 Java 业务代码，单容器开箱即用。',
     primaryCta: '在浏览器中试用',
     desktopCta: '下载桌面版',
     secondaryCta: 'Docker 快速部署',
@@ -40,7 +40,7 @@ export const zh = {
     stats: [
       { value: '100%', label: '无损 XML 往返' },
       { value: '10', label: '复杂 DITA 1.3 黄金样本' },
-      { value: '231', label: '自动化测试' },
+      { value: '521', label: '自动化测试' },
       { value: '2', label: '中英双语界面' },
     ],
     showcaseLabel: '工作台实景',
@@ -145,7 +145,7 @@ export const zh = {
     eyebrow: '03 — 核心能力',
     title: '八个能力，一条真实链路',
     description:
-      '不是功能清单拼盘：从手册分发与任务委派、编辑、语义、编排、协作、发布、AI 辅助到双语界面，全部围绕同一份标准 DITA XML 运转。',
+      '不是功能清单拼盘：从手册分发与任务委派、编辑、语义、编排、协作与版本、发布、AI 辅助到双语界面，全部围绕同一份标准 DITA XML 运转。',
     readDocs: '阅读功能导览',
     screenshotLabel: '界面实拍',
   },

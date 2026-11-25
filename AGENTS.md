@@ -6,7 +6,7 @@ Guidance for AI coding agents working in the **DITAEditor** repository.
 
 **DITAEditor** is a team-oriented lightweight Web DITA 1.3 structured authoring workbench.
 
-- **Architecture & Roadmap Baseline**: See `docs/architecture-and-plan.md` for full design decisions, system architecture, and phased vertical slices (Phase 0–5).
+- **Architecture & Roadmap Baseline**: See `docs/architecture-and-plan.md` for full design decisions, system architecture, and phased vertical slices (Phase 0–13 implemented; Phase 13 spec in `docs/phase13-versioning-overlay-plan.md`).
 - **DITA 1.3 Specification Reference**: [OASIS DITA Version 1.3 Part 2: Technical Content Edition](https://docs.oasis-open.org/dita/dita/v1.3/dita-v1.3-part2-tech-content.html) — authoritative reference for DITA 1.3 element content models, attributes, and semantics.
 - **Local DITA 1.3 Element References**: See [`docs/dita/`](docs/dita/) (`dita_concept.md`, `dita_reference.md`, `dita_task.md`) for local DITA topic type references.
 - **Core Product Decisions**:
@@ -122,6 +122,12 @@ Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code chang
 - **Config never touches documents**: theme choice/branding persist in SQLite `manual_publish_profiles` plus a snapshot in `publish_jobs.options_json`; no XML, map or Git changes.
 - **Escape and validate**: brand text is HTML-escaped, accents must match `#RRGGBB`, logo/CSS paths go through `resolveSafeWorkspacePath()` with extension/size allowlists.
 - **Offline search must stay script-based** (`_ditaeditor/search-index.js` → `window.__DITA_SEARCH_INDEX__`) because `fetch()` fails under `file://`.
+
+### 4.10 Versioning: Clean Baseline + Personal Draft Overlay (`Phase 13`)
+- **Keep shared branch `workDir` clean at `HEAD`**: Uncommitted edits, creates, deletes, renames, and draft binary assets live in the per-user Draft Overlay (`working_drafts` in SQLite + out-of-repo draft asset storage) guarded by `file_locks`; only atomic check-in / merge / revert advances `workDir` and Git `HEAD`.
+- **Strict read/write boundaries**: Read-only `GET` requests must never implicitly create Git branches or worktrees (`ensureWorktree(..., { createIfMissing: false })`) and must never mutate process-global default branch state.
+- **Explicit target views for core operations**: Check-in commits the caller's selected drafts against `HEAD`; cross-file diagnostics, strict DITA-OT validation (default `my_drafts` temp materialization), and AI context read `User Overlay` (`Baseline` + caller's own drafts via isomorphic `DitaSemanticIndex.cloneWithOverlay()`); formal Publish defaults to clean `Baseline` (`HEAD` / `Tag` / `Commit` via `git archive`) and resolves HTML5 theme logo/CSS from the build `snapshotDir`, while optional `my_drafts` preview includes only the requester's own drafts.
+- **Cross-module consistency**: Workspace asset URLs (`GET /api/assets`) carry `userId` alongside `manualId` and `branch` so draft images render only for their owner; `topic_assignments.topic_path` syncs on Check-in (not during draft rename); merge conflict resolution must never leave a shared `workDir` in `MERGING` state.
 
 ## 5. TypeScript & Code Style
 

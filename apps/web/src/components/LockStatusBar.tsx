@@ -47,7 +47,8 @@ export function LockStatusBar({
   const { t, locale } = useI18n();
   if (!filePath) return null;
   const showCheckout =
-    editability.state === 'unlocked' || editability.state === 'locked-by-other';
+    editability.state === 'unlocked' ||
+    (editability.state === 'locked-by-other' && !editability.canForceUnlock);
   const showOwnerActions = editability.state === 'owned' || (editability.state === 'admin' && lock);
 
   return (
@@ -153,7 +154,7 @@ export function LockStatusBar({
             </button>
           </>
         ) : null}
-        {editability.state === 'admin' && lock ? (
+        {editability.canForceUnlock ? (
           <button
             type="button"
             disabled={busy}
@@ -165,7 +166,7 @@ export function LockStatusBar({
             {t('lock.force')}
           </button>
         ) : null}
-        {editability.state === 'locked-by-other' && lock ? (
+        {editability.state === 'locked-by-other' && lock && !editability.canForceUnlock ? (
           <span className="text-current/70">{t('lock.needRelease', { name: lock.userName })}</span>
         ) : null}
       </div>

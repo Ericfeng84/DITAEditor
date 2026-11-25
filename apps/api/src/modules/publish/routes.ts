@@ -14,7 +14,8 @@ import {
   type LockRouteOptions,
 } from '../locks/routes.js';
 import type { PublishJobRow } from '../../db/schema.js';
-import type { PublishService } from './publish-service.js';
+import type { DraftService } from '../locks/draft-service.js';
+import type { PublishService, PublishSourceMode } from './publish-service.js';
 import {
   THEME_OPTION_LIMITS,
   getHtmlTheme,
@@ -38,6 +39,9 @@ const createJobSchema = z.object({
   themeId: htmlThemeIdSchema.optional(),
   htmlThemeOptions: htmlThemeOptionsSchema.optional(),
   saveAsDefault: z.boolean().optional(),
+  /** Phase 13: `tag` / `commit` publish a historical baseline, `my_drafts` only the caller's drafts. */
+  sourceMode: z.enum(['baseline', 'tag', 'commit', 'my_drafts']).optional(),
+  sourceRef: z.string().trim().min(1).max(200).nullable().optional(),
 });
 
 const saveProfileSchema = z.object({
@@ -50,6 +54,8 @@ export interface PublishRouteOptions extends LockRouteOptions {
   profiles: PublishProfileService;
   /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
   htmlThemesDir?: string;
+  /** Phase 13: validates `my_drafts` root maps against the caller's own overlay. */
+  drafts?: DraftService;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -158,20 +164,28 @@ function previewOptions(query: Record<string, unknown>): HtmlThemeOptions {
   return options;
 }
 
+async function isFileOnDisk(absPath: string): Promise<boolean> {
+  try {
+    const info = await stat(absPath);
+    return info.isFile();
+  } catch {
+    return false;
+  }
+}
+
 async function resolveWorkspacePath(
   workDir: string,
   rawPath: string,
   extensions: string[],
   label: string,
+  exists?: (posixPath: string) => Promise<boolean>,
 ): Promise<string> {
   const safe = await resolveSafeWorkspacePath(workDir, rawPath);
   if (!extensions.includes(extname(safe.posixPath).toLowerCase())) {
     throw httpError(400, 'publish.unsupportedFile', { label, path: safe.posixPath });
   }
-  try {
-    const info = await stat(safe.absPath);
-    if (!info.isFile()) throw new Error('not a file');
-  } catch {
+  const present = exists ? await exists(safe.posixPath) : await isFileOnDisk(safe.absPath);
+  if (!present) {
     throw httpError(404, 'publish.fileNotFound', { label, path: safe.posixPath });
   }
   return safe.posixPath;
@@ -319,14 +333,58 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
     try {
       const scope = await resolvePhase4Scope(req, options);
       requirePublisher(scope.user);
+      const sourceMode: PublishSourceMode = parsed.data.sourceMode ?? 'baseline';
+      const sourceRef = parsed.data.sourceRef?.trim() || null;
+      const projectRootDir = scope.projectRootDir ?? scope.workDir;
+      if ((sourceMode === 'tag' || sourceMode === 'commit') && !sourceRef) {
+        throw new HttpError(400, `Publishing from a ${sourceMode} requires a reference.`);
+      }
+      if ((sourceMode === 'tag' || sourceMode === 'commit') && !options.git) {
+        throw new HttpError(400, 'Publishing from a Git reference requires Git.');
+      }
+      if (sourceMode === 'my_drafts' && !options.drafts) {
+        throw new HttpError(400, 'Personal draft previews are not available.');
+      }
+      // Phase 13: a tag/commit job must not be validated against today's work dir, and a draft
+      // preview must see the caller's not-yet-checked-in root map.
+      const pathExists = async (posixPath: string): Promise<boolean> => {
+        if (sourceMode === 'tag' || sourceMode === 'commit') {
+          if (!options.git || !sourceRef) return false;
+          return (await options.git.fileAtRevision(projectRootDir, sourceRef, posixPath)) !== null;
+        }
+        if (sourceMode === 'my_drafts' && options.drafts) {
+          const draft = options.drafts.getUserDraft(
+            scope.projectId,
+            scope.branch,
+            scope.user.id,
+            posixPath,
+          );
+          if (draft) return draft.op !== 'delete';
+          const moved = options.drafts.findUserDraftByOriginalPath(
+            scope.projectId,
+            scope.branch,
+            scope.user.id,
+            posixPath,
+          );
+          if (moved) return false;
+        }
+        return isFileOnDisk(resolve(scope.workDir, posixPath));
+      };
       const rootMap = await resolveWorkspacePath(
         scope.workDir,
         parsed.data.rootMap,
         ['.ditamap', '.bookmap'],
         'Root Map',
+        pathExists,
       );
       const ditaval = parsed.data.ditaval
-        ? await resolveWorkspacePath(scope.workDir, parsed.data.ditaval, ['.ditaval'], 'DITAVAL')
+        ? await resolveWorkspacePath(
+            scope.workDir,
+            parsed.data.ditaval,
+            ['.ditaval'],
+            'DITAVAL',
+            pathExists,
+          )
         : null;
       const manualId = profileManualId(scope);
       let themeId: HtmlThemeId | null = null;
@@ -352,6 +410,9 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
         ditaval,
         title: parsed.data.title,
         locale: resolveRequestLocale(req),
+        sourceMode,
+        sourceRef,
+        projectRootDir,
         ...(themeId ? { themeId, themeOptions } : {}),
       });
       return reply.status(202).send({ job });

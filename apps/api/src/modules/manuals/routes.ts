@@ -31,6 +31,8 @@ const updateManualSchema = z.object({
   description: z.string().trim().max(500).optional(),
   defaultRootMap: z.string().trim().nullable().optional(),
   archived: z.boolean().optional(),
+  /** Phase 13: admin-only branch protection policy (`[]` clears protection). */
+  protectedBranches: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
 });
 
 export interface ManualRouteOptions {

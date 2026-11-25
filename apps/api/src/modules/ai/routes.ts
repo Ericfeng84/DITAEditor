@@ -8,6 +8,7 @@ import type { WorkspaceManager } from '../files/workspace-fs.js';
 import type { IdentityService, IdentityUser } from '../identity/identity-service.js';
 import type { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
 import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
+import type { DraftService } from '../locks/draft-service.js';
 import { handlePhase4Error } from '../locks/routes.js';
 import type { AiModelFactory } from './ai-model-factory.js';
 import type { AiServiceLogger } from './ai-service.js';
@@ -29,6 +30,8 @@ export interface AiRouteDeps {
   /** Phase 10: read the target topic inside the request's manual + branch worktree. */
   context?: ManualContextResolver;
   identity: IdentityService;
+  /** Phase 13: draft overlay so AI edits/context see the caller's own drafts. */
+  drafts?: DraftService;
   settings: AiSettingsService;
   usage: AiUsageService;
   modelFactory: AiModelFactory;
@@ -89,7 +92,13 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
   const serviceFor = async (req: FastifyRequest) => {
     if (!deps.context) return service;
     const session = await deps.context.resolveRequest(req);
-    return new AiService({ ...deps, workspace: session.workspace, indexer: session.indexer });
+    return new AiService({
+      ...deps,
+      workspace: session.workspace,
+      indexer: session.indexer,
+      drafts: deps.drafts,
+      projectId: session.manualId,
+    });
   };
 
   app.get('/api/ai/config', async (req, reply) => {

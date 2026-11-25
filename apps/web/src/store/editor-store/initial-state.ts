@@ -47,6 +47,7 @@ export function createInitialEditorState(): EditorStateValues {
     taskModelSetting: 'auto',
     statusMessage: '',
     alert: null,
+    contentConflict: null,
     lastSaveFailures: [],
     pendingSourceOffset: null,
     pendingVisualPmPos: null,

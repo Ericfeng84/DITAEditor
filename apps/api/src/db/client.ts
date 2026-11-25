@@ -81,7 +81,12 @@ CREATE TABLE IF NOT EXISTS publish_jobs (
   artifact_size INTEGER,
   snapshot_path TEXT,
   diagnostics_json TEXT,
-  cancel_requested INTEGER NOT NULL DEFAULT 0
+  cancel_requested INTEGER NOT NULL DEFAULT 0,
+  source_mode TEXT NOT NULL DEFAULT 'baseline',
+  source_ref TEXT,
+  commit_hash TEXT,
+  is_dirty INTEGER NOT NULL DEFAULT 0,
+  dirty_files_json TEXT
 );
 CREATE INDEX IF NOT EXISTS publish_jobs_created_idx ON publish_jobs (created_at);
 CREATE INDEX IF NOT EXISTS publish_jobs_project_idx ON publish_jobs (project_id, branch);
@@ -132,7 +137,8 @@ CREATE TABLE IF NOT EXISTS manuals (
   created_by TEXT NOT NULL,
   created_at INTEGER NOT NULL,
   updated_at INTEGER NOT NULL,
-  last_opened_at INTEGER NOT NULL DEFAULT 0
+  last_opened_at INTEGER NOT NULL DEFAULT 0,
+  protected_branches_json TEXT NOT NULL DEFAULT '["main"]'
 );
 CREATE UNIQUE INDEX IF NOT EXISTS manuals_root_dir_unique ON manuals (root_dir);
 CREATE INDEX IF NOT EXISTS manuals_archived_opened_idx
@@ -169,6 +175,40 @@ CREATE TABLE IF NOT EXISTS manual_publish_profiles (
   updated_by TEXT,
   updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS working_drafts (
+  id TEXT PRIMARY KEY NOT NULL,
+  project_id TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  file_path TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  op TEXT NOT NULL,
+  original_path TEXT,
+  content TEXT,
+  asset_blob_path TEXT,
+  base_commit TEXT,
+  content_hash TEXT,
+  updated_at INTEGER NOT NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS working_drafts_scope_unique
+  ON working_drafts (project_id, branch, file_path);
+CREATE INDEX IF NOT EXISTS working_drafts_user_idx
+  ON working_drafts (project_id, branch, user_id);
+
+CREATE TABLE IF NOT EXISTS version_audit_logs (
+  id TEXT PRIMARY KEY NOT NULL,
+  project_id TEXT NOT NULL,
+  branch TEXT NOT NULL,
+  actor_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  target_path TEXT,
+  details_json TEXT NOT NULL DEFAULT '{}',
+  created_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS version_audit_project_time_idx
+  ON version_audit_logs (project_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS version_audit_branch_idx
+  ON version_audit_logs (project_id, branch, created_at DESC);
 `;
 
 /**
@@ -187,11 +227,32 @@ function migratePublishJobs(sqlite: Database.Database): void {
       name: 'cancel_requested',
       ddl: 'cancel_requested INTEGER NOT NULL DEFAULT 0',
     },
+    { name: 'source_mode', ddl: "source_mode TEXT NOT NULL DEFAULT 'baseline'" },
+    { name: 'source_ref', ddl: 'source_ref TEXT' },
+    { name: 'commit_hash', ddl: 'commit_hash TEXT' },
+    { name: 'is_dirty', ddl: 'is_dirty INTEGER NOT NULL DEFAULT 0' },
+    { name: 'dirty_files_json', ddl: 'dirty_files_json TEXT' },
   ];
   for (const addition of additions) {
     if (columns.has(addition.name)) continue;
     sqlite.exec(`ALTER TABLE publish_jobs ADD COLUMN ${addition.ddl}`);
   }
+}
+
+/**
+ * Phase 13 Stage 3: protected branch policy per manual. Older installations get the
+ * default `["main"]` so `main` cannot be deleted by accident.
+ */
+function migrateManuals(sqlite: Database.Database): void {
+  const columns = new Set(
+    (sqlite.prepare('PRAGMA table_info(manuals)').all() as Array<{ name: string }>).map(
+      (column) => column.name,
+    ),
+  );
+  if (columns.has('protected_branches_json')) return;
+  sqlite.exec(
+    "ALTER TABLE manuals ADD COLUMN protected_branches_json TEXT NOT NULL DEFAULT '[\"main\"]'",
+  );
 }
 
 /**
@@ -206,6 +267,7 @@ export function openDatabase(dbPath: string): DitaDatabaseHandle {
   sqlite.pragma('foreign_keys = ON');
   sqlite.exec(DDL);
   migratePublishJobs(sqlite);
+  migrateManuals(sqlite);
 
   const db = drizzle(sqlite, { schema });
   return {

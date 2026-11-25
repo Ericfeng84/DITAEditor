@@ -8,16 +8,30 @@ const LOCK = {
 };
 
 describe('Phase 4 check-out editability projection', () => {
-  it('gives admins full edit rights and surfaces who holds the lock', () => {
+  it('blocks admins on another writer\'s lock and offers a forced unlock instead', () => {
     const result = resolveFileEditability({
       role: 'admin',
       userId: 'u-admin',
       filePath: 'topics/intro.dita',
       locks: [LOCK],
     });
+    // Phase 13: an admin may not overwrite somebody else's check-out silently.
+    expect(result.editable).toBe(false);
+    expect(result.state).toBe('locked-by-other');
+    expect(result.canForceUnlock).toBe(true);
+    expect(result.reason).toContain('林知远');
+  });
+
+  it('lets admins edit files nobody checked out', () => {
+    const result = resolveFileEditability({
+      role: 'admin',
+      userId: 'u-admin',
+      filePath: 'topics/intro.dita',
+      locks: [],
+    });
     expect(result.editable).toBe(true);
     expect(result.state).toBe('admin');
-    expect(result.reason).toContain('林知远');
+    expect(result.canForceUnlock).toBe(false);
   });
 
   it('keeps viewers read-only even when the file is unlocked', () => {

@@ -24,6 +24,8 @@ export interface MapBufferState {
   undoStack: string[];
   redoStack: string[];
   xmlError: XmlParseError | null;
+  /** Phase 13: hash of the bytes last read from / written to disk (optimistic concurrency). */
+  contentHash?: string | null;
 }
 
 export interface CompositeMapTreeNode {

@@ -16,15 +16,15 @@ const platforms = [
     key: 'mac',
     name: dict.macName,
     arch: dict.macArch,
-    primary: { label: dict.macPrimary, href: DESKTOP.dmg.url, size: DESKTOP.dmg.size },
-    alt: { label: dict.macAlt, href: DESKTOP.macZip.url, size: DESKTOP.macZip.size },
+    primary: { label: dict.macPrimary, href: DESKTOP.dmg.url },
+    alt: { label: dict.macAlt, href: DESKTOP.macZip.url },
   },
   {
     key: 'win',
     name: dict.winName,
     arch: dict.winArch,
-    primary: { label: dict.winPrimary, href: DESKTOP.exe.url, size: DESKTOP.exe.size },
-    alt: { label: dict.winAlt, href: DESKTOP.winZip.url, size: DESKTOP.winZip.size },
+    primary: { label: dict.winPrimary, href: DESKTOP.exe.url },
+    alt: { label: dict.winAlt, href: DESKTOP.winZip.url },
   },
 ];
 ---
@@ -79,10 +79,9 @@ const platforms = [
             <a class="btn btn-dark platform__cta" href={platform.primary.href}>
               <Icon name="download" size={14} />
               <span>{platform.primary.label}</span>
-              <span class="platform__size">{platform.primary.size}</span>
             </a>
             <a class="platform__alt" href={platform.alt.href}>
-              {platform.alt.label} · {platform.alt.size}
+              {platform.alt.label}
             </a>
           </article>
         ))

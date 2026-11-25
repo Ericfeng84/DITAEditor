@@ -1,6 +1,8 @@
 # Web 版 DITA 编辑器：架构设计、技术选型与实施计划
 
 > 本文档为本项目的架构设计基线与分阶段实施计划，面向**单人 / AI 辅助独立推进**模式，围绕**团队级轻量 Web DITA 工作台**定义系统架构、核心难点攻关方案、技术选型矩阵与垂直切片落地路线。
+>
+> 版本管理与个人草稿叠加层重构方案（Phase 13），另见 [phase13-versioning-overlay-plan.md](phase13-versioning-overlay-plan.md) 与 [ADR 0004](adr/0004-baseline-and-draft-overlay.md)。
 
 ---
 
@@ -22,6 +24,7 @@
 | **英文版界面与国际化（Phase 8）** | 零外部依赖的强类型全栈 i18n（`zh-CN` / `en`），浏览器语言自动探测 + 顶栏实时无刷新切换（`localStorage` 持久化） | 覆盖前端工作台 UI / CSS 伪元素 / ProseMirror 热刷新、`@dita/core` 规则与模板/语义诊断、`@dita/api` 报错与 AI 回复语言（`x-dita-locale` 请求头）；严格对齐 OASIS DITA 1.3 官方英文术语且不改动已有文档正文 |
 | **手册编辑工作台与 Topic 委派（Phase 10）** | 独立「手册编辑工作台（Workbench Hub）」首页（`/`）+ 三栏编辑器路由（`/manuals/:id`）；1 手册 = 1 独立工作区与 Git 仓库；轻量 Topic 编辑任务（`Assignment`）委派与软引导协作 | 后端按 `x-dita-manual-id` + `x-dita-branch` 请求级隔离多手册与多分支 worktree；任务仅落库 SQLite（零 XML/Git 污染），与 Check-out 锁解耦（不自动加锁、不做审批流），并支持 Check-out 自动推进与 Check-in 可选同步结单 |
 | **HTML5 发布样式主题与多套模板（Phase 12）** | 内置 **4 套专业 HTML5 文档主题（现代技术文档 / 出版极简纸白 / 企业标准手册 / 开发者暗夜风）+ 原生默认兜底**；DITA-OT 原生 `--nav-toc=full` 搭配确定性静态后处理增强（侧栏树、页内 TOC、`Cmd+K` 离线搜索、代码复制、明暗切换、移动端适配）；轻量品牌定制（主色 / Logo / 标题 / 页脚 / 自定义 CSS）按手册持久化 | 零 DITA-OT XSLT/Java 插件安装门槛（Docker / 本机 / 桌面端一致可用），零 CDN 外部依赖，ZIP 解压 `file://` 双击离线搜索同样可用；配置仅落库 SQLite，零 XML/Git 污染 |
+| **干净基线 + 个人草稿叠加层与合并闭环（Phase 13，已实施）** | 分支 `workDir` 永远保持 clean（严格等于 `HEAD` 基线），未检入编辑/新建/删除/重命名与草稿图片资产全部隔离在 SQLite `working_drafts`（仅持锁人可见）；签入原子落盘推进基线，语法校验/AI 上下文读 `User Overlay`，正式发布默认走 `Baseline/Tag/Commit`（可选 `my_drafts` 预览），补齐 Tag、安全回滚、无污染 Merge、乐观锁与路径解耦（见 [phase13-versioning-overlay-plan.md](./phase13-versioning-overlay-plan.md) 与 [ADR 0004](./adr/0004-baseline-and-draft-overlay.md)） | 同分支多人共编同一 Map 仍只用 1 个 worktree 且零互相污染；只读 GET 永不隐式建分支；零 XML/Git 元数据污染；兼容桌面端外部改盘探测 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
 | **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑）+ **GCP Cloud Run 低成本试用部署**（`min=0`/`max=1`、子路径反向代理 `VITE_BASE` / `DITA_BASE_PATH` + GitHub Actions 无密钥 WIF `push` 自动发布）+ 轻量桌面端（`apps/desktop`，macOS Apple Silicon & Windows x64） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖；单容器支持根路径 `/` 与反代子路径（如 `/dita`）双形态运行；桌面端主进程内嵌 `@dita/api`（`127.0.0.1:0`），数据目录隔离至 `app.getPath('userData')`，与 `Dockerfile` 完全解耦 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
@@ -75,7 +78,7 @@ flowchart TB
     end
 
     subgraph Infra["基础设施（零外部中间件）"]
-        DB[("SQLite (身份/手册/编辑任务/Check-out 锁/发布任务/AI 配置与调用审计)")]
+        DB[("SQLite (身份/手册/编辑任务/Check-out 锁/个人草稿/版本审计/发布任务/AI 配置与调用审计)")]
         FS[("共享磁盘卷 (本地 Git Repos / Worktrees / 发布产物与日志)")]
     end
 
@@ -144,7 +147,7 @@ Web DITA 编辑器 80% 的工程风险集中在下面 6 个模块，必须在编
 
 ### 3. Root Map 驱动的跨文件语义引擎（Keys / Conref / DITAVAL）
 
-这是决定产品是否是“真 DITA 编辑器”的分水岭。后端维护按 `(repoId, branch)` 缓存的增量语义索引器（修改单个文件仅增量重算受影响节点）：
+这是决定产品是否是“真 DITA 编辑器”的分水岭。后端维护按 `(repoId, branch)` 缓存的增量语义索引器（修改单个文件仅增量重算受影响节点；Phase 13 起进一步拆分为共享只读 `Baseline` 基线索引 + 按用户浅拷贝增量叠加的 `User Overlay` 索引，杜绝同分支未检入草稿互相污染）：
 
 ```mermaid
 flowchart LR
@@ -175,13 +178,13 @@ flowchart LR
 
 - **锁模型**：在 SQLite（Drizzle ORM）`file_locks` 表建立唯一索引 `UNIQUE(project_id, branch, file_path)`，彻底杜绝并发抢锁竞态，零外部数据库依赖。
 - **轻量身份切换**：免密码登录门槛，工具栏直接切换当前作者身份与角色（管理员 / 编辑者 / 只读），Check-out 锁归属与本地 Git Commit 作者信息均自动关联当前身份。
-- **单文件生命周期**：
+- **单文件生命周期（Phase 4 现状 → Phase 13 演进目标）**：
   1. **打开文件**：默认以**只读模式**打开（可直接浏览、复制、预览 `conref`/DITAVAL），顶部状态栏显示当前锁定人（若已被他人检出）。
-  2. **Check out（检出）**：点击检出 → 后端检查当前分支工作区与锁状态 → 写入锁记录 → 编辑器切换为可编辑态。编辑过程中的自动保存写入工作区文件并标记为未提交（Dirty）。
-  3. **Check in（检入）**：点击检入 → 可选先跑一次权威校验（有 Error 时拦截或二次确认）→ 展示单文件/批量 Git Diff → 填写 Commit Message → 仅 `git add` 当前身份检出的文件并执行本地 `git commit` → 释放数据库锁。
-  4. **Cancel Check-out（撤销检出）**：执行 `git checkout -- <file>` 回滚本地改动并释放锁。
-  5. **管理员强制解锁**：管理员在锁管理面板可强制释放他人占用的锁（默认先备份未提交内容为补丁/草稿，防止误删他人工作）。
-- **版本管理与对比（无外部平台依赖）**：提供本地仓库自动初始化、分支切换/新建、项目级与单文件 Commit 历史浏览、工作区未提交改动与任意两个历史版本之间的可视化并排/行内 Diff 对比（基于 CodeMirror 6 MergeView），以及查看历史只读快照或按版本回滚。
+  2. **Check out（检出）**：点击检出 → 后端检查当前分支工作区与锁状态 → 写入锁记录 → 编辑器切换为可编辑态。Phase 4 现状下自动保存直接写入共享 `workDir`；**Phase 13 起演进为写入 SQLite `working_drafts` 个人草稿层（共享 `workDir` 永远保持 clean = `HEAD`）**，同分支他人的校验、AI 上下文与正式发布完全不受未检入半成品污染。
+  3. **Check in（检入）**：点击检入 → 可选先跑一次权威校验（Phase 13 按 `HEAD + 本人草稿 Overlay` 校验）→ 展示单文件/批量 Git Diff（个人草稿 vs `HEAD`）→ 填写 Commit Message → 在单分支互斥锁内原子落盘并执行本地 `git commit` → 释放数据库锁与草稿（并同步重命名的 `topic_assignments`）。
+  4. **Cancel Check-out（撤销检出）**：Phase 4 现状执行 `git checkout -- <file>` 回滚磁盘改动；**Phase 13 起直接事务性删除个人 `working_drafts` 与锁记录**，无需操作 Git 工作区，彻底消除删除/重命名检入死锁与无主脏文件。
+  5. **管理员强制解锁**：管理员在锁管理面板可强制释放他人占用的锁（默认先备份未提交内容/草稿与补丁至 `lock_backups`，防止误删他人工作；Phase 13 同时收口 `admin` 写规则，覆盖他人锁须先走显式强解）。
+- **版本管理与对比（无外部平台依赖）**：提供本地仓库自动初始化、分支切换/新建、项目级与单文件 Commit 历史浏览、可视化并排/行内 Diff 对比（基于 CodeMirror 6 MergeView），以及在 Phase 13 补齐的发布标签（Tag）、单文件/提交安全回滚、无污染分支合并（`merge-tree` + MergeView XML 冲突求解）、保护分支与 worktree 回收。
 
 ### 5. 双层校验与 DITA-OT 异步发布（含中文 PDF 关键处理）
 
@@ -190,7 +193,7 @@ flowchart LR
   - **为什么不硬拦截**：未建模/客户特殊化元素必须无损透传，全新骨架的中间态也常常“暂时不合法”，因此顺序违规只诊断不抛错；真正的硬性闸口仍是源码↔可视化切换时的 XML 良构检查与第二层 DITA-OT strict 校验。
   - **第二层（官方权威，手动触发 / 检入前 / 发布前）**：TS 后端通过子进程调用 `dita` CLI（启用 `--validate=yes --processing-mode=strict`，使用 DITA-OT 内置 OASIS DITA 1.3 DTD/RNG 与 XML Catalog），解析 DOTJ/DOTX 诊断日志并合并 TS 语义诊断，统一归一为 `{ filePath, line, column, severity, source, message }` 结构，在底部“问题面板”、源码红线和可视化节点旁同步高亮。
 - **DITA-OT CLI 异步发布流水线**：
-  - 用户选择 `Root Map` + `Output Format (HTML5 / PDF)` + 可选 `DITAVAL` → TS 后端写入 SQLite `publish_jobs` 记录并将当前分支工作区文件快照到独立构建目录 → 进程内并发限流调度器（默认并发 1–2）调用 `dita` CLI 执行构建，将 stdout/stderr 一边落盘到 `build.log`、一边通过 `EventEmitter` + SSE 实时回传前端构建日志抽屉（支持断线续看与手动取消）。
+  - 用户选择 `Root Map` + `Output Format (HTML5 / PDF)` + 可选 `DITAVAL` → TS 后端写入 SQLite `publish_jobs` 记录并生成只读快照目录（Phase 5 现状拷贝工作区；**Phase 13 起默认基于干净基线 `Baseline / Tag / Commit`（`git archive`）并落库 `commit_hash` / `is_dirty`，同时支持可选 `my_drafts` 个人草稿预览**）→ 进程内并发限流调度器（默认并发 1–2）调用 `dita` CLI 执行构建，将 stdout/stderr 一边落盘到 `build.log`、一边通过 `EventEmitter` + SSE 实时回传前端构建日志抽屉（支持断线续看与手动取消）。
   - HTML5 产物通过受鉴权的静态预览路由直接在浏览器新标签页/抽屉内在线预览，同时提供 `.zip` 打包下载；PDF 支持在线预览与下载。
   - **中文 PDF 避坑方案（必做）**：DITA-OT 默认 `pdf2`（Apache FOP）不含中文字体，中文会全部渲染成 `###`。在 `api` 容器镜像内预装 **Noto Sans CJK SC / Noto Serif CJK SC**，并在仓库内置纯 XML 的 DITA-OT PDF 字体映射插件（`dita-ot-plugins/com.ditaeditor.pdf-cjk/`，含 `plugin.xml`、`catalog.xml`、`cfg/fo/font-mappings.xml` 与 `fop.xconf`），通过 `dita install` 注册（运行时同时通过 `--customization.dir` 优先加载仓库 XML Catalog，并以 `--args.fo.userconfig` 传入按字体目录生成的 FOP 配置），确保零 Java 代码即可开箱导出中文 PDF。
 
@@ -268,7 +271,8 @@ DITAEditor/
 │   │   │   │   ├── manuals/    # 手册注册管理、workspaces.json 迁移与按请求多手册/多分支上下文隔离（Phase 10）
 │   │   │   │   ├── assignments/# Topic 编辑任务委派、转派、状态流转与锁/重命名联动（Phase 10）
 │   │   │   │   ├── projects/   # 项目配置、本地 Git 仓库与分支 worktree 管理
-│   │   │   │   ├── locks/      # Check-out 独占锁与管理员强制解锁
+│   │   │   │   ├── locks/      # Check-out 独占锁、个人草稿叠加层 (working_drafts, Phase 13) 与管理员强制解锁
+│   │   │   │   ├── git/        # 本地 Git worktree、单飞/互斥锁、Tag、无污染 Merge、安全回滚与审计日志（Phase 4/13）
 │   │   │   │   ├── files/      # 文件读写、图片资产、重命名与引用影响检查
 │   │   │   │   ├── indexer/    # Root Map Keyspace / Conref / ID / DITAVAL 语义引擎
 │   │   │   │   ├── validate/   # 校验编排（调用 dita CLI 严格校验 + 解析日志 + 合并语义诊断）
@@ -465,6 +469,24 @@ DITAEditor/
   - 升级 `PublishDialog`：HTML5 模式下展示带迷你布局缩略图的主题卡片网格、可折叠品牌定制区、`ThemePreviewModal`（桌面/平板/手机多视口实时预览）及历史任务主题徽章，并纳入 Phase 8 中英双语词典与防退化门禁；同步接通 `apps/desktop` 打包资源路径。
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含主题后处理、多级目录相对路径、离线搜索索引、XSS/路径穿越拦截、多手册 Profile 隔离与双语门禁测试）；使用示例项目分别发布 4 套主题与 `vanilla`，工作台在线预览与解压 ZIP 双击 `index.html`（`file://`）均样式完整、离线搜索与交互零报错。
 
+### Phase 13：Git 干净基线 + 个人草稿叠加层（版本管理重构与合并闭环）
+> **状态**：📋 规划已确认（待进入编码实现；详细蓝图、四类操作对象边界、SQLite 迁移与分阶段测试矩阵见 [phase13-versioning-overlay-plan.md](./phase13-versioning-overlay-plan.md)；架构决策见 [ADR-0004](./adr/0004-baseline-and-draft-overlay.md)）。
+>
+> **目标**：在不改变“标准 DITA XML & Git 为唯一真相源、单容器零外部中间件、1 分支 = 1 worktree”轻量定位的前提下，彻底消除同分支半成品互相污染、删除/重命名检入死锁、只读请求隐式建分支与并发竞态等版本管理根因缺陷，并补齐发布基线（Tag）、安全回滚与无污染分支合并闭环。
+- **三层视图解耦与个人草稿层（Stage 1 / P0）**：
+  - 确立 **公共基线（`workDir = HEAD`，永远 clean）**、**个人叠加视图（`User Overlay = Baseline + 仅当前用户 working_drafts`）** 与 **编辑器瞬时内容（`Editor Live XML`）** 三层边界：同分支多人共编同一 Map 下的不同 Topic 仍共用 1 个 worktree 且完全零互相污染。
+  - 新增 SQLite `working_drafts` 表与仓库外草稿二进制资产目录（图片 URL 扩展 `userId` query 参数以兼容 `<img src>` 预览）；普通保存、新建、删除、重命名均写草稿层，签入在 `withWorkDirLock` 内原子落盘并 `git commit`（失败即还原 `workDir`，草稿零丢失；重命名的 `topic_assignments.topic_path` 仅在签入推进基线时同步），取消检出直接事务删草稿与锁。
+  - 收口锁与并发边界：修复 `isExpired(updatedAt)` 续期、`release` 禁止留脏并新增 `POST /api/locks/handoff`、统一 `admin` 写入/强解/提交规则；`ensureWorktree` 默认 `createIfMissing = false` 禁止 GET 隐式建分支、放开 `viewer` 切换已有分支、`createBranch` 默认基于当前分支、补充 `inflightWorktrees`/`inflightSessions` 单飞锁与 `${slug}-${sha1(branch).slice(0,8)}` 目录防碰撞、消除全局 `defaultBranchByManual` 跨用户串台。
+  - 在 `@dita/core` 新增同构 `DitaSemanticIndex.cloneWithOverlay()`（浅拷贝基线 Map + 仅增量解析本人草稿，零重解析），让跨文件语义诊断、DITA-OT 严格校验（默认 `scope='my_drafts'` 临时物化目录，可选 `'baseline'`）与 AI 上下文（`buildAiContext`）全部准确读取 `User Overlay`。
+- **可信基线发布、乐观锁与路径解耦（Stage 2 / P1）**：
+  - `publish_jobs` 增补 `source_mode / source_ref / commit_hash / is_dirty / dirty_files_json` 溯源列，正式发布默认基于干净 `Baseline`（或 `git archive <Tag|Commit>`），同时支持 `my_drafts` 个人草稿预览（不含他人草稿），HTML5 主题 Logo/CSS 统一基于构建快照目录 `snapshotDir` 解析；新增 `GET/POST/DELETE /api/git/tags`。
+  - `GET/PUT /api/files/content` 接入 `contentHash` / `expectedHash` 乐观并发防静默覆写；新建手册改用独立 UUID 并持久化至 `.git/ditaeditor-id`，目录迁移后 `attach` 自动认回原 `manualId`；落地 `version_audit_logs` 统一操作审计流。
+- **安全回滚、无污染合并与生命周期回收（Stage 3 / P2）**：
+  - 落地 `POST /api/git/restore-file`（恢复历史版本进草稿或直提）与 `POST /api/git/revert-commit`（冲突自动 `--abort`）。
+  - 落地 `GET /api/git/merge-preview`（`git merge-tree --write-tree` 纯内存预检 `ahead/behind`、冲突与受影响锁）、`GET /api/git/merge-conflict` 与 `POST /api/git/merge`（前端 MergeView 求解 + `@dita/core` 良构校验 + 隔离合成 merge commit，共享 `workDir` 永不残留 `MERGING` 态）。
+  - 落地保护分支配置、`DELETE /api/git/branches/:branch` 与 worktree 回收、24h 孤儿目录与过期草稿资产巡检，以及桌面端/本机外部编辑器直接改盘的脏状态探测与保护策略。
+- **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿；同分支 A 写入畸形 XML 草稿时 `workDir` 始终 clean 且 B 的读取/诊断/严格校验/AI 编写/默认发布 100% 不受影响；删除与重命名已跟踪文件可正常签入或撤销；`viewer` 携带不存在分支头调用 GET 返回 404 且零分支创建；无冲突与 XML 冲突合并均不污染共享 `workDir`。
+
 ---
 
 ## 七、主要工程风险与应对策略
@@ -483,3 +505,4 @@ DITAEditor/
 | **桌面端原生模块 ABI、Windows 批处理与退出挂死** | pnpm symlink 导致 `electron-builder` 漏包、`better-sqlite3` ABI 不匹配、Windows Node 22 直接 `spawn('dita.bat')` 报 `EINVAL`，或 Chromium keep-alive 阻塞 Fastify 退出 | 用 `esbuild` 打包后端并经扁平 `stage/` 目录 + `asarUnpack` 由 `electron-builder` 在原生 macOS/Windows Runner 上重编 `better-sqlite3`；Windows `.bat` 通过 `cmd.exe /d /s /c` + 显式引号转义执行；退出前先关闭窗口再设 3 秒 drain 兜底；`Dockerfile`/官网 CI 设 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 严格隔离 |
 | **HTML5 主题多级子目录断链、离线 `file://` CORS 与品牌注入风险** | 嵌套目录 Topic 样式/Logo 路径错误、本地双击解压 ZIP 时 `fetch` 搜索索引报 CORS、或自定义标题/CSS 路径引入 XSS 与路径穿越 | 后处理增强器按每个 `.html` 相对深度自动计算 `relRoot`；搜索索引改以 `_ditaeditor/search-index.js` 脚本加载兼容 `file://`；标题/页脚严格 HTML 转义、主色强校验 `#RRGGBB`、Logo/CSS 强制走 `resolveSafeWorkspacePath()` 与后缀白名单；主题资产统一放在三端已覆盖的 `dita-ot-plugins/html5-themes/` |
 | **云端试用部署子路径断链、国内不可达与镜像存储膨胀** | Cloud Run 默认 `*.run.app` 域名国内不可达；反向代理挂载 `/dita` 子路径时 `/api/*` 请求打到主站；本地 `.tsbuildinfo` 混入容器导致 `tsc` 跳过产物输出；多次 push 导致 Artifact Registry 镜像堆积产生额外费用 | 前端统一经 `apiUrl()` 拼接 `VITE_BASE`、后端以 `DITA_BASE_PATH` + Fastify `rewriteUrl` 透明剥离前缀；复用主域名反代网关（Vercel + Cloudflare）免去 GCP LB 费用；`.dockerignore`/`.gcloudignore` 忽略 `**/*.tsbuildinfo`；GitHub Actions 用无密钥 WIF（锁死 `main`）+ 免费 Runner GHA 缓存构建，并在 AR 配置清理策略仅留最新 2 版（详见 [deploy-gcp-cloudrun.md](./deploy-gcp-cloudrun.md)） |
+| **草稿叠加层与基线/外部改盘一致性风险（Phase 13）** | 桌面端外部编辑器直接修改 `workDir` 破坏 clean 假设；草稿图片 `<img src>` 无法带自定义请求头；草稿期重命名过早修改全员共享的 `topic_assignments`；或合并冲突把共享 `workDir` 卡死在 `MERGING` 态 | 签入与状态查询探测外部 `git status` 并提供显式提交/丢弃入口，冲突路径拦截不盲覆；图片端点通过 `userId` query 参数隔离草稿资产；`topic_assignments` 仅在签入推进基线时同步；合并采用 `git merge-tree` 预检 + 隔离合成 merge commit，确保共享 `workDir` 永不残留半截状态 |

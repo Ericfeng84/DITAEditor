@@ -78,6 +78,26 @@ export interface LockListResponse {
   projectId: string;
   workDir: string;
   projectRootDir: string;
+  /** Phase 13: the caller's own personal drafts (never another writer's). */
+  drafts?: DraftView[];
+}
+
+/**
+ * Phase 13 personal draft overlay row.
+ *
+ * A draft is one user's uncommitted change: the shared work dir stays clean at `HEAD`, so
+ * "dirty" for a writer means exactly this list.
+ */
+export interface DraftView {
+  id: string;
+  filePath: string;
+  op: 'edit' | 'create' | 'delete' | 'rename';
+  originalPath: string | null;
+  contentHash: string | null;
+  isBinary: boolean;
+  /** `HEAD` the draft was created against (null when unknown). */
+  baseCommit?: string | null;
+  updatedAt: string;
 }
 
 export interface GitStatusResponse extends GitStatusSummary {
@@ -85,6 +105,11 @@ export interface GitStatusResponse extends GitStatusSummary {
   projectRootDir: string;
   projectId: string;
   locks: FileLock[];
+  /** Phase 13: the caller's drafts — this is what "dirty" means now. */
+  userDrafts?: DraftView[];
+  /** Phase 13: uncommitted on-disk edits made by desktop editors / external tools. */
+  externalDirtyFiles?: GitFileChange[];
+  externalDirtyCount?: number;
 }
 
 export interface GitBranchesResponse {
@@ -92,6 +117,99 @@ export interface GitBranchesResponse {
   branch: string;
   primaryBranch: string;
   branches: GitBranchInfo[];
+  /** Phase 13: branches an admin protects against deletion / non-admin merges. */
+  protectedBranches?: string[];
+}
+
+/** Phase 13 annotated or lightweight tag (an immutable publish snapshot). */
+export interface GitTagInfo {
+  name: string;
+  commitHash: string;
+  shortHash: string;
+  message: string;
+  taggerName: string;
+  date: string;
+}
+
+/** Phase 13 append-only audit row for every baseline mutation. */
+export type VersionAuditAction =
+  | 'checkout'
+  | 'release'
+  | 'handoff'
+  | 'cancel'
+  | 'force_unlock'
+  | 'checkin'
+  | 'branch_create'
+  | 'branch_delete'
+  | 'tag_create'
+  | 'tag_delete'
+  | 'merge'
+  | 'restore'
+  | 'revert'
+  | 'publish';
+
+export interface VersionAuditLogView {
+  id: string;
+  projectId: string;
+  branch: string;
+  actorId: string;
+  actorName: string;
+  actorColor: string;
+  action: VersionAuditAction;
+  targetPath: string | null;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+/** Phase 13 safe-merge preflight (never touches a worktree). */
+export interface MergeConflictPreview {
+  path: string;
+  base: string | null;
+  ours: string | null;
+  theirs: string | null;
+}
+
+export interface MergePreview {
+  sourceBranch: string;
+  targetBranch: string;
+  sourceCommit: string;
+  targetCommit: string;
+  baseCommit: string | null;
+  ahead: number;
+  behind: number;
+  canFastForward: boolean;
+  hasConflicts: boolean;
+  conflicts: MergeConflictPreview[];
+  blockingLocks: FileLock[];
+  protectedTarget: boolean;
+  alreadyUpToDate: boolean;
+}
+
+export interface MergeConflictContent {
+  path: string;
+  sourceBranch: string;
+  targetBranch: string;
+  baseCommit: string | null;
+  base: string | null;
+  ours: string | null;
+  theirs: string | null;
+  isXml: boolean;
+}
+
+export interface MergeResult {
+  commit: string;
+  sourceBranch: string;
+  targetBranch: string;
+  changedFiles: string[];
+  resolvedFiles: string[];
+}
+
+export interface RestoreFileInput {
+  path: string;
+  revision: string;
+  /** `draft` (default) stages the old content in my overlay; `commit` rewrites the baseline. */
+  mode?: 'draft' | 'commit';
+  message?: string;
 }
 
 export interface GitSwitchBranchResponse {
@@ -212,12 +330,26 @@ export function fetchBranches(): Promise<GitBranchesResponse> {
   return requestJson<GitBranchesResponse>('/api/git/branches');
 }
 
-export function createGitBranch(name: string): Promise<{ branch: string }> {
-  return requestJson<{ branch: string }>('/api/git/branches', {
+export function createGitBranch(
+  name: string,
+  baseBranch?: string | null,
+): Promise<{ created: string; branches: GitBranchInfo[] }> {
+  return requestJson<{ created: string; branches: GitBranchInfo[] }>('/api/git/branches', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify({ name, ...(baseBranch ? { baseBranch } : {}) }),
   });
+}
+
+export function deleteGitBranch(
+  branch: string,
+  force = false,
+): Promise<{ deleted: string; branches: GitBranchInfo[] }> {
+  const qs = force ? '?force=true' : '';
+  return requestJson<{ deleted: string; branches: GitBranchInfo[] }>(
+    `/api/git/branches/${encodeURIComponent(branch)}${qs}`,
+    { method: 'DELETE' },
+  );
 }
 
 export function switchGitBranch(branch: string): Promise<GitSwitchBranchResponse> {
@@ -256,5 +388,147 @@ export function fetchFileAtRevision(
   const params = new URLSearchParams({ path, rev });
   return requestJson<{ path: string; rev: string; content: string }>(
     `/api/git/file?${params}`,
+  );
+}
+
+/** Phase 13: hand a check-out to another writer without losing the draft overlay. */
+export function handoffLock(
+  path: string,
+  targetUserId: string,
+): Promise<{ locks: FileLock[]; drafts?: DraftView[] }> {
+  return requestJson<{ locks: FileLock[]; drafts?: DraftView[] }>('/api/locks/handoff', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ path, targetUserId }),
+  });
+}
+
+export function fetchGitTags(): Promise<{ branch: string; tags: GitTagInfo[] }> {
+  return requestJson<{ branch: string; tags: GitTagInfo[] }>('/api/git/tags');
+}
+
+export function createGitTag(input: {
+  name: string;
+  target?: string;
+  message?: string;
+}): Promise<{ tag: GitTagInfo; tags: GitTagInfo[] }> {
+  return requestJson<{ tag: GitTagInfo; tags: GitTagInfo[] }>('/api/git/tags', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      name: input.name,
+      ...(input.target ? { target: input.target } : {}),
+      ...(input.message ? { message: input.message } : {}),
+    }),
+  });
+}
+
+export function deleteGitTag(name: string): Promise<{ deleted: string; tags: GitTagInfo[] }> {
+  return requestJson<{ deleted: string; tags: GitTagInfo[] }>(
+    `/api/git/tags/${encodeURIComponent(name)}`,
+    { method: 'DELETE' },
+  );
+}
+
+export function fetchGitAudit(options?: {
+  branch?: string;
+  action?: string;
+  limit?: number;
+}): Promise<{ branch: string; logs: VersionAuditLogView[] }> {
+  const params = new URLSearchParams();
+  if (options?.branch) params.set('branch', options.branch);
+  if (options?.action) params.set('action', options.action);
+  if (options?.limit) params.set('limit', String(options.limit));
+  const qs = params.toString();
+  return requestJson<{ branch: string; logs: VersionAuditLogView[] }>(
+    `/api/git/audit${qs ? `?${qs}` : ''}`,
+  );
+}
+
+export function restoreGitFile(
+  input: RestoreFileInput,
+): Promise<{ status?: GitStatusResponse } & Record<string, unknown>> {
+  return requestJson<{ status?: GitStatusResponse } & Record<string, unknown>>(
+    '/api/git/restore-file',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    },
+  );
+}
+
+export function revertGitCommit(
+  commitHash: string,
+): Promise<{ commit: GitCommitInfo | string; status?: GitStatusResponse }> {
+  return requestJson<{ commit: GitCommitInfo | string; status?: GitStatusResponse }>(
+    '/api/git/revert-commit',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ commitHash }),
+    },
+  );
+}
+
+export function fetchMergePreview(sourceBranch: string, targetBranch: string): Promise<MergePreview> {
+  const params = new URLSearchParams({ source: sourceBranch, target: targetBranch });
+  return requestJson<MergePreview>(`/api/git/merge-preview?${params}`);
+}
+
+export function fetchMergeConflict(
+  sourceBranch: string,
+  targetBranch: string,
+  path: string,
+): Promise<MergeConflictContent> {
+  const params = new URLSearchParams({ source: sourceBranch, target: targetBranch, path });
+  return requestJson<MergeConflictContent>(`/api/git/merge-conflict?${params}`);
+}
+
+export function executeGitMerge(input: {
+  sourceBranch: string;
+  targetBranch: string;
+  message?: string;
+  resolutions?: Record<string, string>;
+}): Promise<MergeResult & { status?: GitStatusResponse }> {
+  return requestJson<MergeResult & { status?: GitStatusResponse }>('/api/git/merge', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      sourceBranch: input.sourceBranch,
+      targetBranch: input.targetBranch,
+      ...(input.message ? { message: input.message } : {}),
+      ...(input.resolutions && Object.keys(input.resolutions).length > 0
+        ? { resolutions: input.resolutions }
+        : {}),
+    }),
+  });
+}
+
+export function commitExternalChanges(
+  message: string,
+): Promise<{ commit: GitCommitInfo | string; status?: GitStatusResponse }> {
+  return requestJson<{ commit: GitCommitInfo | string; status?: GitStatusResponse }>(
+    '/api/git/external-commit',
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ message }),
+    },
+  );
+}
+
+export function discardExternalChanges(): Promise<{
+  discarded: boolean | string[];
+  paths?: string[];
+  status?: GitStatusResponse;
+}> {
+  return requestJson<{
+    discarded: boolean | string[];
+    paths?: string[];
+    status?: GitStatusResponse;
+  }>(
+    '/api/git/external-discard',
+    { method: 'POST' },
   );
 }

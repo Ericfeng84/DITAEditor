@@ -3,6 +3,30 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.4.0] — 2026-11-25
+
+Phase 13 交付：**Git 干净基线 + 个人草稿叠加层**（版本管理重构与合并闭环）。未检入的编辑/新建/删除/重命名全部离开共享 `workDir`，隔离进 SQLite `working_drafts`；同分支多人共编同一 Map 不再互相污染校验、AI 上下文与发布快照，并补齐 Tag、安全回滚、无污染合并、乐观锁与版本审计。全仓测试 521 项全绿（`@dita/core` 175 / `@dita/web` 210 / `@dita/api` 102 / `@dita/site` 30 / `@dita/desktop` 4）。设计见 [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) 与 [Phase 13 方案](docs/phase13-versioning-overlay-plan.md)。
+
+### Added
+
+- **个人草稿叠加层（Baseline / Draft Overlay / User Overlay）**：共享分支 `workDir` 永远保持 clean（严格等于 Git `HEAD`）；`apps/api/src/modules/locks/draft-service.ts` 以 SQLite `working_drafts` + 仓库外草稿资产目录保存 `edit` / `create` / `delete` / `rename` 与草稿图片，`apps/api/src/modules/files/overlay-workspace.ts` 提供等价的叠加读取视图。
+- **显式目标视图**：跨文件诊断、严格 DITA-OT 校验（默认 `my_drafts` 临时物化）与 AI 上下文读取 `User Overlay`（`Baseline` + 本人草稿，`DitaSemanticIndex.cloneWithOverlay()` 浅拷贝叠加）；正式发布默认走干净 `Baseline`（`HEAD` / `Tag` / `Commit`，经 `git archive` 快照），可选 `my_drafts` 预览只含请求者自己的草稿，落库 `commit_hash` / `is_dirty` 供溯源。
+- **无污染分支合并**：`apps/api/src/modules/git/merge-service.ts` 用 `git merge-tree` 预检冲突，隔离合成 merge commit；`apps/web/src/components/MergeDialog.tsx` 提供 XML 冲突并排求解，`GET /api/git/merge-preview`、`GET /api/git/merge-conflict`、`POST /api/git/merge` 全套接口。
+- **Tag、安全回滚与生命周期清理**：`GET/POST/DELETE /api/git/tags`、`POST /api/git/restore-file`（`draft` / `commit` 两种模式）、`POST /api/git/revert-commit`、分支删除自动回收 worktree，保护分支拒绝删除。
+- **版本审计台账**：`apps/api/src/modules/git/audit-service.ts` 新增 append-only `version_audit_logs` 与 `GET /api/git/audit`，记录检入/检出/转派/撤销/强解/分支/标签/合并/回滚/发布，绝不写入 DITA XML 或 Git 元数据。
+- **前端协作闭环**：`apps/web/src/components/MergeDialog.tsx`、`apps/web/src/workbench/ContentConflictBanner.tsx` 与 `CheckinDialog` / `GitPanel` / `LockStatusBar` 改造，支持草稿态提示、外部改盘探测与合并入口。
+
+### Fixed
+
+- **并发与状态机漏洞**：删除/重命名已跟踪文件不再触发检入死锁；`release` 不再制造无主脏文件；`admin` 免锁写与 `checkin` 规则收口；锁续期改用 `updatedAt` 判定过期（原误用 `lockedAt`）；只读 `GET` 请求不再隐式 `git worktree add -b` 建垃圾分支（`ensureWorktree(..., { createIfMissing: false })`）；首屏并发 worktree 创建加单飞锁；`slugifyBranch` 目录名碰撞修复；`discard` 后同步刷新语义索引。
+- **乐观锁与路径解耦**：保存携带 `expectedHash`，拒绝过期写入与重放编辑；手册身份不再绑定磁盘目录，目录移动后仍是同一手册。
+- **主题资产与草稿隔离**：`GET /api/assets` 携带 `userId`，草稿图片仅对作者本人渲染。
+
+### Changed
+
+- `topic_assignments.topic_path` 改为在**签入**推进基线时同步（草稿期重命名不再影响他人视图），合并冲突路径拦截不盲覆，共享 `workDir` 永不残留 `MERGING` 态。
+- 演示示例手册（`samples/demo-dita-project/`）与 Map 结构同步精简到 Phase 13 的干净基线形态。
+
 ## [1.3.0] — 2026-11-24
 
 Phase 9–11 交付：DITA 1.3 顺序/基数内容模型校验、手册编辑工作台（Workbench Hub）与 Topic 编辑任务委派，以及 macOS Apple Silicon (`arm64`) & Windows (`x64`) 轻量桌面端与 GitHub Release 自动构建流水线。全仓测试 411 项全绿（`@dita/core` 158 / `@dita/web` 174 / `@dita/api` 45 / `@dita/site` 30 / `@dita/desktop` 4）。

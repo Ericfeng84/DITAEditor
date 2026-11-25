@@ -104,6 +104,7 @@ export const apiMessagesZh = {
   'files.refOutsideRoot': '引用路径超出工作区根目录：{href}',
   'files.refTargetMissing': '目标文件不存在：{href}（解析路径：{resolved}）',
   'files.submapCycle': '检测到循环子地图引用 (<mapref>)：{from} -> {to}',
+  'files.staleContent': '文件已在别处更新，请重新载入后再保存：{path}',
 
   'ai.adminOnlyConfig': '仅管理员可以修改 AI 配置。',
   'ai.adminOnlyUsage': '仅管理员可以查看 AI 用量统计。',
@@ -207,6 +208,24 @@ export const apiMessagesZh = {
   'publish.themeAssetsMissing': '未找到 HTML 主题资源，请检查 dita-ot-plugins/html5-themes 或 DITAEDITOR_HTML_THEMES_DIR',
   'publish.themeEnhanceFailed': 'HTML 主题增强失败：{message}',
   'publish.themePreviewFailed': '主题预览渲染失败',
+
+  // Phase 13 — baseline + personal draft overlay
+  'git.branchNotFound': '分支不存在：{branch}',
+  'git.cannotDeletePrimaryBranch': '不能删除默认主分支：{branch}',
+  'git.branchNotMerged': '分支尚未合并且未启用强制删除：{branch}',
+  'git.tagExists': '标签已存在：{name}',
+  'git.tagNotFound': '标签不存在：{name}',
+  'git.invalidTag': '非法标签名：{tag}',
+  'git.revisionNotFound': '找不到版本：{revision}',
+  'git.archiveFailed': '导出历史版本失败：{message}',
+  'git.revertConflict': '还原提交时发生冲突，已中止本次还原',
+  'git.workDirNotClean': '工作区存在未提交的改动，请先处理后再操作',
+  'git.externalDirtyConflict': '以下文件在工作区被外部改动，无法安全提交：{paths}',
+  'locks.releaseDirtyBlocked': '该文件仍有未提交的个人草稿，请先签入或取消检出：{path}',
+  'locks.draftRequired': '该文件没有可签入的个人草稿：{path}',
+  'locks.handoffTargetInvalid': '无法移交：目标用户不存在或不可用',
+  'locks.handoffViewerForbidden': '只读角色不能接收文件移交',
+  'drafts.ownedByOther': '该文件已有其他用户的草稿：{path}',
 } as const;
 
 
@@ -309,6 +328,7 @@ export const apiMessagesEn: Record<ApiMessageKey, string> = {
   'files.refOutsideRoot': 'The reference resolves outside the workspace root: {href}',
   'files.refTargetMissing': 'The target file does not exist: {href} (resolved: {resolved})',
   'files.submapCycle': 'Circular submap reference (<mapref>) detected: {from} -> {to}',
+  'files.staleContent': 'The file changed since it was opened. Reload before saving: {path}',
 
   'ai.adminOnlyConfig': 'Only an admin can change the AI configuration.',
   'ai.adminOnlyUsage': 'Only an admin can view AI usage statistics.',
@@ -418,6 +438,24 @@ export const apiMessagesEn: Record<ApiMessageKey, string> = {
     'HTML theme assets are missing; check dita-ot-plugins/html5-themes or DITAEDITOR_HTML_THEMES_DIR',
   'publish.themeEnhanceFailed': 'HTML theme enhancement failed: {message}',
   'publish.themePreviewFailed': 'Failed to render the theme preview',
+
+  // Phase 13 — baseline + personal draft overlay
+  'git.branchNotFound': 'Branch not found: {branch}',
+  'git.cannotDeletePrimaryBranch': 'The default primary branch cannot be deleted: {branch}',
+  'git.branchNotMerged': 'Branch is not merged and force delete was not requested: {branch}',
+  'git.tagExists': 'Tag already exists: {name}',
+  'git.tagNotFound': 'Tag not found: {name}',
+  'git.invalidTag': 'Invalid tag name: {tag}',
+  'git.revisionNotFound': 'Revision not found: {revision}',
+  'git.archiveFailed': 'Failed to export the historical revision: {message}',
+  'git.revertConflict': 'Revert hit a conflict and was aborted',
+  'git.workDirNotClean': 'The working tree has uncommitted changes; resolve them before continuing',
+  'git.externalDirtyConflict': 'These files were changed outside the workbench and cannot be committed safely: {paths}',
+  'locks.releaseDirtyBlocked': 'This file still has uncommitted personal drafts; check in or cancel the check-out first: {path}',
+  'locks.draftRequired': 'There is no personal draft to check in for this file: {path}',
+  'locks.handoffTargetInvalid': 'Cannot hand off: the target user does not exist or is unavailable',
+  'locks.handoffViewerForbidden': 'A read-only role cannot receive a file handoff',
+  'drafts.ownedByOther': 'Another user already has a draft for this file: {path}',
 };
 
 

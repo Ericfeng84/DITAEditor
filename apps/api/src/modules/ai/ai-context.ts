@@ -14,6 +14,8 @@ export interface AiContextInput {
   branch: string;
   currentFilePath: string | null;
   locale?: ApiLocale;
+  /** Phase 13: read the caller's `User Overlay` (baseline + own drafts) when set. */
+  userId?: string;
 }
 
 export interface AiProjectContext {
@@ -85,6 +87,7 @@ export async function buildAiContext(input: AiContextInput): Promise<AiProjectCo
       input.rootMapPath,
       input.ditavalPath,
       input.branch,
+      input.userId,
     );
     const badges: string[] = [];
     let keyspaceSummary = '';

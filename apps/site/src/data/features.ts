@@ -131,21 +131,21 @@ export const CAPABILITIES: readonly Capability[] = [
   {
     id: 'git',
     index: '05',
-    title: { zh: '本地 Git 与 Check-out 独占锁', en: 'Local Git and check-out locks' },
+    title: { zh: '干净基线 + 个人草稿层与本地 Git', en: 'Clean baseline, personal drafts and local Git' },
     summary: {
-      zh: '不依赖 GitHub / GitLab：每分支隔离 git worktree，单文件悲观锁保证团队不会互相覆盖，管理员可强制解锁并自动留下补丁备份。',
-      en: 'No GitHub or GitLab dependency: branch-isolated git worktrees and per-file pessimistic locks stop writers overwriting each other, with admin force-unlock patch backups.',
+      zh: '共享分支的 workDir 永远等于 Git HEAD 基线；未检入的编辑、新建、删除、重命名与草稿图片全部隔离在每人自己的 SQLite 草稿层，同分支共编同一 Map 也不会互相污染校验、AI 上下文与发布快照。',
+      en: 'Each branch workDir stays exactly at the Git HEAD baseline; uncommitted edits, creates, deletes, renames and draft images live in a per-user SQLite draft overlay, so co-editing one map on one branch never leaks into others’ validation, AI context or publish snapshots.',
     },
     bullets: {
       zh: [
-        'SQLite + Drizzle 记录身份、锁与提交历史',
-        'MergeView 做版本 Diff 与签入前审阅',
-        '锁粒度精确到 (project, branch, file_path)',
+        '草稿图片按 userId 只对作者渲染，检入才进入基线',
+        '合并先 git merge-tree 预检，冲突在 MergeDialog 中逐文件求解',
+        'version_audit_logs 记录检出 / 转派 / 检入 / 合并 / 回滚 / 发布全链路',
       ],
       en: [
-        'SQLite + Drizzle track identities, locks and commit history',
-        'MergeView powers version diffs and pre-check-in review',
-        'Lock granularity is exactly (project, branch, file_path)',
+        'Draft images render only for their author until check-in promotes them',
+        'Merges are preflighted with git merge-tree and resolved per file in MergeDialog',
+        'version_audit_logs trail check-out, handoff, check-in, merge, revert and publish',
       ],
     },
     screenshot: {

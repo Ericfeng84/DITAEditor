@@ -145,6 +145,20 @@ export interface DocumentSemanticOverlay {
 }
 
 /**
+ * One incremental draft operation applied on top of a shared baseline semantic index
+ * when building a per-user `User Overlay` view (Phase 13).
+ *
+ * - `edit` / `create`: the file exists at `filePath` with the given XML text in the overlay.
+ * - `delete`: the file is hidden in the overlay even though the baseline still has it.
+ * - `rename`: the baseline file at `originalPath` lives at `filePath` in the overlay;
+ *   an optional `content` replaces the baseline text (modified rename).
+ */
+export type SemanticOverlayOperation =
+  | { op: 'edit' | 'create'; filePath: string; content: string }
+  | { op: 'delete'; filePath: string }
+  | { op: 'rename'; originalPath: string; filePath: string; content?: string | null };
+
+/**
  * Deterministic key used to index and look up conref overlays between `DitaSemanticIndex`
  * and Visual Editor / AttributesPanel consumers.
  */

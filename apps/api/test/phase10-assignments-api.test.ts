@@ -357,6 +357,14 @@ describe('Phase 10 topic assignment API', () => {
       payload: { fromPath: OTHER_TOPIC, toPath: renamedPath },
     });
     expect(rename.statusCode).toBe(200);
+    // Phase 13: topic_assignments.topic_path follows the rename on check-in, not on draft rename.
+    const checkinRename = await app.inject({
+      method: 'POST',
+      url: '/api/locks/checkin',
+      headers: scoped(LIN),
+      payload: { paths: [renamedPath], message: 'chore: 重命名代理主题' },
+    });
+    expect(checkinRename.statusCode).toBe(200);
     const afterRename = await app.inject({
       method: 'GET',
       url: '/api/assignments?status=all',

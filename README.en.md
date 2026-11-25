@@ -1,44 +1,35 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.3.0-blue.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.4.0-blue.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
-[![Download macOS](https://img.shields.io/badge/download-macOS%20arm64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/download/v1.3.0/DITAEditor-1.3.0-mac-arm64.dmg)
-[![Download Windows](https://img.shields.io/badge/download-Windows%20x64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/download/v1.3.0/DITAEditor-1.3.0-win-x64.exe)
-
-A lightweight **web-based DITA 1.3 structured authoring workbench** for technical documentation teams. It ships a **manual workbench with topic assignment**, a **bilingual zh-CN / English UI**, **ProseMirror structured WYSIWYG editing**, **CodeMirror 6 XML source editing**, a **visual Map / Bookmap workbench**, a **single-sourcing semantic engine (Keys / Conref / DITAVAL)**, **local Git versioning with check-out locks and visual diffs**, and **authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing** — while keeping standard DITA XML as the single source of truth, with 100% lossless round-trips and minimal Git diffs.
-
-> For the full architecture, technology rationale, and phased implementation baseline, see [docs/architecture-and-plan.md](docs/architecture-and-plan.md) and [AGENTS.md](AGENTS.md).
-
-> Current release **v1.3.0** (Phase 0–11: the workbench, marketing site & browser offline workbench, bilingual zh-CN/en UI, DITA 1.3 ordered content-model validation, multi-manual Workbench Hub & topic assignments, and the macOS/Windows lightweight desktop app). Changelog in [CHANGELOG.md](CHANGELOG.md), license in [LICENSE](LICENSE) (MIT).
-
-- **Website & Bilingual Docs (GitHub Pages)**: https://ericfeng84.github.io/DITAEditor/ (English: `/en/`)
-- **Online Workbench (Full Trial)**: https://www.cemplatformcvs.cloud/dita (GCP Cloud Run behind a subpath proxy: DITA-OT 4.2.1 strict validation, HTML5 themes with Noto CJK PDF publishing, local Git check-out locks, and fragment-scoped AI; deployment guide in [docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md))
-- **Browser-only offline build (static demo, optional)**: https://ericfeng84.github.io/DITAEditor/workbench/ (in-memory `demo-dita-project`; no server-side Git, publishing, or AI)
+[![Download macOS](https://img.shields.io/badge/download-macOS%20arm64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.4.0-mac-arm64.dmg)
+[![Download Windows](https://img.shields.io/badge/download-Windows%20x64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.4.0-win-x64.exe)
 
 **English** · [简体中文](README.md)
 
----
+A **web-based DITA 1.3 structured authoring workbench** for technical documentation teams: ProseMirror visual editing paired with CodeMirror 6 XML source, a visual Map / Bookmap workbench, a single-sourcing semantic engine (Keys / Conref / DITAVAL), local Git with check-out locks and visual diffs, authoritative DITA-OT 4.x validation with asynchronous HTML5 / Chinese PDF publishing, fragment-scoped AI assistance, and manual-level topic assignment — all keeping standard DITA XML as the single source of truth with 100% lossless round-trips and minimal Git diffs.
 
-## Website and GitHub Pages online demo (Phase 7)
+> **v1.4.0** (Phase 0–13) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE) · [Architecture baseline and roadmap](docs/architecture-and-plan.md) · [Engineering conventions](AGENTS.md)
 
-A separate static site, `apps/site` (`@dita/site`, Astro 5 + React 19 islands + Tailwind CSS 4), fully decoupled from the single-container workbench image and hostable on any CDN:
+| Try it online | URL | Notes |
+| :--- | :--- | :--- |
+| Website and bilingual docs | https://ericfeng84.github.io/DITAEditor/ | Astro static site with a DITA sandbox and full-text search (`/en/` for English) |
+| Full workbench | https://www.cemplatformcvs.cloud/dita | GCP Cloud Run behind a subpath proxy: DITA-OT 4.2.1 strict validation, HTML5 themes with Noto CJK PDF, Git locks, AI ([deployment guide](docs/deploy-gcp-cloudrun.md)) |
+| Browser-only offline build | https://ericfeng84.github.io/DITAEditor/workbench/ | Runs `demo-dita-project` in memory; no server-side Git, publishing, or AI |
 
-| Route | Contents |
-| :--- | :--- |
-| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase (manual hub, three-pane editor, dual mode, single sourcing, publishing, AI), CCMS / Markdown comparison, "one changed word, one changed XML line" live round-trip widget, eight capability deep-dives, single-container architecture, Docker / pnpm / AI quick starts |
-| `/workbench/` | **Browser-only offline 3-pane workbench**: `@dita/web` built with `VITE_STATIC_DEMO=true` and bundled alongside the site, running the multi-file demo project, Map tree, visual/source dual-mode editor, and Keys/Conref/DITAVAL (no server-side Git, DITA-OT publishing, or AI proxy) |
-| `/docs/*` · `/en/docs/*` | Six mirrored docs (introduction, Docker quick start, local development and fonts, feature tour, AI setup, architecture) with in-page TOC, copy buttons and bilingual Pagefind search (`Cmd/Ctrl+K`) |
+## Table of contents
 
-The home-page "one changed word, one changed XML line" widget loads with `client:visible`, so ProseMirror never enters the first paint.
-
-```bash
-pnpm --filter @dita/site dev      # http://localhost:4321
-pnpm --filter @dita/site build    # static output + Pagefind index
-pnpm --filter @dita/site test     # dictionary/doc-slug symmetry and preset round-trips
-```
-
-Deployment: `.github/workflows/deploy-site.yml` builds `@dita/site` and the offline `@dita/web` bundle (published under `/workbench/`) to GitHub Pages on every push to `main` (see [docs/deploy-github-pages.md](docs/deploy-github-pages.md)); `SITE_URL` / `SITE_BASE` repo variables cover the root path or a sub-path such as `/DITAEditor/`.
+- [Screenshots](#screenshots)
+- [Core capabilities](#core-capabilities)
+- [Architecture and technology stack](#architecture-and-technology-stack)
+- [Repository layout](#repository-layout)
+- [Getting started](#getting-started)
+- [Website, docs site and offline workbench](#website-docs-site-and-offline-workbench)
+- [Develop, build, and test](#develop-build-and-test)
+- [REST API overview](#rest-api-overview)
+- [Roadmap](#roadmap)
+- [License](#license)
 
 ---
 
@@ -46,154 +37,202 @@ Deployment: `.github/workflows/deploy-site.yml` builds `@dita/site` and the offl
 
 > All screenshots come from the real English UI at 1600×1000. Chinese UI screenshots live in [README.md](README.md#界面预览).
 
-### Manual workbench: distribute first, write second (Phase 10)
-
-The workbench opens on the **manual list**. Each card shows topic and map counts, the active branch, the mounted directory and how many tasks are waiting for you, with actions to attach a folder, create, archive or restore. The **My assignments** rail splits work assigned to me from work I delegated and surfaces status, due dates and overdue badges.
+**Manual workbench: distribute first, write second (Phase 10)** — The workbench opens on the manual list. Each card shows topic and map counts, the active branch, the mounted directory and how many tasks are waiting for you; the "My assignments" rail splits work assigned to me from work I delegated, surfacing status, due dates and overdue badges.
 
 ![Manual workbench with manual cards and my assignments](docs/pic/en/manual-hub.webp)
 
-The assignment panel makes "who writes which topic, and by when" visible: tasks move between pending, in progress and done, overdue items turn red, **Open topic** jumps straight to the file, and completing a task clears it from the queue. Assignments only touch SQLite — never the XML.
-
-![Assignments panel with status, due dates, overdue badges and completion](docs/pic/en/assignments.webp)
-
-### Fully bilingual stack (Phase 8)
-
-The workbench, dialogs, diagnostics and docs share one typed bilingual dictionary: switching between `zh-CN` and `en` applies instantly and persists, and the Chinese UI covers manuals, assignments, check-in and publishing end to end.
-
-![DITAEditor Chinese UI: manuals, assignments and the editor](docs/pic/en/bilingual.webp)
-
-### Three-pane workbench and dual-mode editing
-
-The left rail switches between files, the map tree, the keyspace, versions and assignments. The middle hosts multi-tab visual editing with a live check-out/edit/check-in status bar, and the right holds an attribute inspector that preserves original XML attribute order. Visual, split and XML source views switch live, with DITA 1.3 completion, well-formedness checks and formatting in source mode.
+**Three-pane workbench and dual-mode editing** — The left rail switches between files, the map tree, the keyspace, versions and assignments. The middle hosts multi-tab visual editing with a live check-out status bar, and the right holds an attribute inspector that preserves original XML attribute order; visual, split and XML source views switch live.
 
 ![Three-pane workbench: map tree, visual editor, attribute inspector](docs/pic/en/workbench.webp)
 
-![Visual and XML source side-by-side mode](docs/pic/en/dual-view.webp)
-
-### Single-sourcing semantic engine (Keyref / Conref / DITAVAL)
-
-Without touching the underlying XML, the visual editor expands block and inline `conref`/`conkeyref` read-only (including nested `keyref` resolution and jump-to-definition), while the map tree applies `.ditaval` rules with show / dim / hide projection and flagged highlighting.
+**Single-sourcing semantic engine (Keyref / Conref / DITAVAL)** — Without touching the underlying XML, the visual editor expands block and inline `conref`/`conkeyref` read-only (including nested `keyref` resolution and jump-to-definition), while the map tree applies `.ditaval` rules with show / dim / hide projection and flagged highlighting.
 
 ![Single-sourcing semantic engine and keyspace](docs/pic/en/single-sourcing.webp)
 
-### Local Git versioning, check-out locks, and visual diffs
-
-Topics are read-only until you check out an exclusive lock keyed by `(project, branch, file_path)`. Saving lets you preview the working-tree diff, write a message and commit to local Git, which releases the lock. Branches use isolated `git worktree` checkouts, so the same file never blocks across branches.
-
-![Local Git versions, check-out locks and commit history](docs/pic/en/git-diff.webp)
-
-### DITA-OT 4.x strict validation and async HTML5 / CJK PDF publishing
-
-The publish dialog picks a root map, HTML5 or PDF, a DITAVAL and a title, then streams the DITA-OT runtime, command, `build.log`, history and artifacts. Strict validation reports the real exit code, duration, input files and `DOTJ` / `DOTX` diagnostics with jump-to-line. PDF output relies on a pure-XML Noto CJK font-mappings plugin with zero custom Java code.
+**DITA-OT 4.x strict validation and async HTML5 / CJK PDF publishing** — The publish dialog picks a root map, HTML5 or PDF, a DITAVAL and a title, then streams the runtime, command, `build.log`, history and artifacts. Strict validation reports the real exit code, duration and `DOTJ` / `DOTX` diagnostics with jump-to-line. PDF output relies on a pure-XML Noto CJK font-mappings plugin with zero custom Java code.
 
 ![Publish dialog, build log and HTML5 / PDF artifacts](docs/pic/en/publish.webp)
 
+<details>
+<summary>More screenshots (assignments, bilingual UI, split view, Git diffs, strict validation, PDF output, AI assistant and AI diff)</summary>
+
+**Assignments panel: status, due dates, overdue badges and completion** — Tasks move between pending, in progress and done, overdue items turn red, "Open topic" jumps straight to the file, and completing a task clears it from the queue. Assignments only touch SQLite — never the XML.
+
+![Assignments panel with status, due dates, overdue badges and completion](docs/pic/en/assignments.webp)
+
+**Fully bilingual stack (Phase 8)** — The workbench, dialogs, diagnostics and docs share one typed bilingual dictionary: switching between `zh-CN` and `en` applies instantly and persists, and the English UI covers manuals, assignments, check-in and publishing end to end.
+
+![DITAEditor English UI: manuals, assignments and the editor](docs/pic/en/bilingual.webp)
+
+**Visual and XML source side by side** — Source mode offers DITA 1.3 completion, well-formedness checks and formatting, while split view keeps both representations of the same document in sync.
+
+![Visual and XML source side-by-side mode](docs/pic/en/dual-view.webp)
+
+**Local Git versioning, check-out locks, and visual diffs** — Topics are read-only until you check out an exclusive lock keyed by `(project, branch, file_path)`. Saving lets you preview the working-tree diff, write a message and commit, which releases the lock; branches use isolated `git worktree` checkouts, so the same file never blocks across branches.
+
+![Local Git versions, check-out locks and commit history](docs/pic/en/git-diff.webp)
+
+**DITA-OT strict validation result and diagnostics**
+
 ![DITA-OT strict validation result and diagnostics](docs/pic/en/phase5-strict-validation.png)
+
+**Chinese-content PDF output (contents and body, embedded Noto CJK fonts)**
 
 ![Chinese-content PDF output with embedded Noto CJK fonts](docs/pic/phase5-pdf-output.png)
 
-### AI-assisted authoring with safe diffs
-
-AI only proposes fragments: the panel streams a proposal with transparent model, keyspace, path-index and DITAVAL context badges. Every patch must pass MergeView review (well-formed XML, visual compatibility, DOCTYPE preserved, revalidatable) before it is applied, and one `Cmd/Ctrl+Z` undoes it.
+**AI-assisted authoring with safe diffs** — AI only proposes fragments: the panel streams a proposal with transparent model, keyspace, path-index and DITAVAL context badges. Every patch must pass MergeView review (well-formed XML, visual compatibility, DOCTYPE preserved, revalidatable) before it is applied, and one `Cmd/Ctrl+Z` undoes it.
 
 ![AI assistant: whole-topic targeting, context badges and proposal card](docs/pic/en/ai-assistant.webp)
 
 ![AI diff review (MergeView, validation badges, apply)](docs/pic/en/ai-diff.webp)
 
+</details>
+
 ---
 
-## Core features (Phase 0–11 implemented)
+## Core capabilities
 
 ### 1. 100% lossless XML round-trip kernel (`@dita/core`)
 
-- An isomorphic DITA XML kernel built on `slimdom` + `slimdom-sax-parser` + `fontoxpath`, recording each node's source start/end line and column while parsing.
-- **Zero metadata loss**: XML declaration (`<?xml ...?>`), `<!DOCTYPE ...>`, comments (`<!-- ... -->`), processing instructions (`<?...?>`), CDATA, namespaces (`xml:*`, `xmlns:*`, `ditaarch:*`), and the original attribute order (`rawAttrs`) all survive `XML → slimdom → ProseMirror Doc → slimdom → XML`.
-- **Deterministic serialization**: idempotent and minimal-diff — editing a text node does not reformat anything else. Verified against 10 complex DITA 1.3 golden round-trip fixtures (`packages/dita-core/test/fixtures/`).
+An isomorphic DITA XML kernel: the XML declaration, `<!DOCTYPE>`, comments, PIs, CDATA, namespaces and the original attribute order (`rawAttrs`) all survive `XML → slimdom → ProseMirror Doc → slimdom → XML`. Serialization is idempotent — editing one word rewrites exactly one XML line — and verified by 10 complex golden fixtures.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Parsing and position tracking**: built on `slimdom` + `slimdom-sax-parser` + `fontoxpath`, recording each node's source start/end line and column while parsing for jump-to-line and diagnostics.
+- **Zero metadata loss**: XML declaration (`<?xml ...?>`), `<!DOCTYPE ...>` (including the exact PUBLIC/SYSTEM identifiers and internal subset), comments (`<!-- ... -->`), processing instructions (`<?...?>`), CDATA and namespaces (`xml:*`, `xmlns:*`, `ditaarch:*`) are preserved, and attributes are always written back in `rawAttrs` document order rather than an unordered object.
+- **Deterministic serialization**: strictly idempotent (`roundTrip(roundTrip(x)) === roundTrip(x)`) with a minimal change footprint, so editing text never disturbs neighbouring formatting — guarded by the 10 golden fixtures in `packages/dita-core/test/fixtures/`.
+
+</details>
 
 ### 2. Dual-mode topic editor (visual / split / XML source)
 
-- **Fine-grained DITA 1.3 modeling with lossless passthrough**
-  - Native ProseMirror Schema models `concept` / `task` / `reference` / `topic` structures (`title`, `shortdesc`, `prolog`, `section`, `steps/step/cmd`, `note`, `codeblock`, `dl`, `fig/image`, …).
-  - Inline elements (`<b>`, `<i>`, `<u>`, `<codeph>`, `<keyword>`, `<ph>`, `<xref>`, …) are modeled as **ProseMirror inline nodes**, not marks, so empty elements, nesting order, and attributes are never merged or dropped.
-  - Both `<simpletable>` and OASIS CALS `<table>` are supported (explicit `<colspec>` retention, `namest`/`nameend`/`morerows` ↔ `colspan`/`rowspan`, multi-`tgroup` protection).
-  - Unknown or specialized tags pass through as `unknown_block` / `unknown_pre_block` / `unknown_inline` / `unknown_inline_block`, preserving `xml:space="preserve"` semantics.
-- **Efficient structured authoring**
-  - Three tag rendering modes: no tags, tags, tags with attributes.
-  - Context-aware `/` insert menu (only shows elements legal at the caret), floating bubble toolbar on selection, Notion-style block handles, and a `+` inserter between blocks.
-  - The right inspector covers generic core attributes, DITAVAL profiling attributes, conref attributes, and custom attributes while keeping the original XML attribute order; the breadcrumb selects ancestors quickly.
-- **CodeMirror 6 XML source with switch protection**
-  - DITA 1.3 tag/attribute and `keyref` / `conkeyref` / profiling-value completion driven by the `@dita/core` rule tables and the active Root Map semantics, plus live well-formedness lint and source formatting.
-  - **Source → Visual guard**: `checkXmlWellFormed()` must pass before switching back; malformed XML blocks the switch and reports precise `{ line, column }` in the source editor.
+A native ProseMirror schema models DITA 1.3 structures precisely; inline elements are inline nodes rather than marks so empty elements and nesting order stay intact, and unknown or specialized tags pass through untouched. CodeMirror 6 adds semantic completion, well-formedness lint and switch protection.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Fine-grained modeling with lossless passthrough**: the schema covers `concept` / `task` / `reference` / `topic` structures (`title`, `shortdesc`, `prolog`, `section`, `steps/step/cmd`, `note`, `codeblock`, `dl`, `fig/image`, …); inline elements (`<b>`, `<i>`, `<u>`, `<codeph>`, `<keyword>`, `<ph>`, `<xref>`, …) are ProseMirror inline nodes so empty elements, nesting order and attributes never degrade; both `<simpletable>` and OASIS CALS `<table>` are supported (explicit `<colspec>` retention, `namest`/`nameend`/`morerows` ↔ `colspan`/`rowspan`, multi-`tgroup` protection); unknown or specialized tags pass through as `unknown_block` / `unknown_pre_block` / `unknown_inline` / `unknown_inline_block`, preserving `xml:space="preserve"` whitespace.
+- **Efficient structured authoring**: three tag rendering modes (no tags / tags / tags with attributes); a context-aware `/` menu that only lists elements legal at the caret, a floating bubble toolbar on selection, Notion-style block handles and a `+` inserter between blocks; the right inspector covers generic core attributes, DITAVAL profiling attributes, conref attributes and custom attributes while keeping original XML attribute order, and the breadcrumb selects ancestors quickly.
+- **CodeMirror 6 source with switch protection**: DITA 1.3 tag/attribute plus `keyref` / `conkeyref` / profiling-value completion driven by the `@dita/core` rule tables and the active Root Map semantics, live well-formedness lint and formatting; `checkXmlWellFormed()` must pass before switching back to visual, otherwise the switch is blocked and precise `{ line, column }` is reported in the source editor.
+
+</details>
 
 ### 3. Visual Map / Bookmap tree and multi-file workbench
 
-- **Three-pane resizable workbench** (`react-resizable-panels`): the left pane switches between project files, the Map tree (`react-arborist`), and Keys; the file panel holds the **Root Map selector**; the Map tree panel holds the **DITAVAL configuration selector and three-state projection switch**, plus quick new topic / new map / new folder actions.
-- **Lossless Map / Bookmap DOM engine**: drag to reorder and re-nest `topicref` / `mapref` / `topichead` / `chapter` / `keydef`, create-and-mount topics from templates, mount existing files, edit node attributes, and open the map source — while keeping `<reltable>`, `<topicmeta>`, comments, and PIs in place.
-- **Multi-tab editing and a diagnostics panel**: multiple document tabs, dirty tracking, save-one/save-all, revert to baseline, and a project-level problems panel (XML well-formedness, broken `href`, recursive `<mapref>`, missing images, undefined `keyref`, invalid or cyclic `conref`, `.ditaval` syntax errors).
+A three-pane resizable workbench plus a lossless Map / Bookmap DOM engine: drag to reorder and re-nest `topicref` / `mapref` / `topichead` / `chapter` / `keydef` while keeping `<reltable>`, `<topicmeta>`, comments and PIs in place — with multi-tab editing and a project-level problems panel.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Three-pane resizable workbench** (`react-resizable-panels`): the left pane switches between project files, the Map tree (`react-arborist`) and Keys; the top bar holds the Root Map selector, the DITAVAL configuration selector with its three-state projection switch, and quick new / import / export actions.
+- **Lossless Map / Bookmap DOM engine**: drag to reorder and re-nest, create-and-mount topics from templates, mount existing files, edit node attributes, and open the map source.
+- **Multi-tab editing and diagnostics**: dirty tracking, save-one / save-all, revert to baseline, and a project-level problems panel covering XML well-formedness, broken `href`, recursive `<mapref>`, missing images, undefined `keyref`, invalid or cyclic `conref`, and `.ditaval` syntax errors.
+
+</details>
 
 ### 4. Single-sourcing semantic engine (Keys / Conref / DITAVAL)
 
-- **Root Map BFS keyspace (`keydef` / `keyref` / `keyscope`)**
-  - Breadth-first traversal with **First Definition Wins** conflict resolution per the DITA 1.3 spec, `keyscope` isolation, and no false reports when the same submap appears in several scopes.
-  - The **Keys panel** lists every effective key definition for the current Root Map (with override counts), inserts `<keyword keyref="..."/>`, or jumps to the defining line. The visual editor resolves inline `keyref` text and image references live with one-click traceability, and the toolbar offers a key picker.
-- **Cross-document content reuse (`conref` / `conkeyref` / `conrefend`) with DFS cycle detection**
-  - Direct `conref`, indirect `conkeyref`, same-document `#./id`, `conrefend` ranges, nested `keyref` expansion, and DITA 1.3 specialization compatibility checks.
-  - A DFS `visitStack` catches self-cycles, two-way and multi-hop cycles, and nested child-element cycles (while allowing legal diamond DAGs), showing the full cycle chain in the editor and the problems panel.
-  - Reused fragments render as read-only inline cards (pure DOM construction — the underlying ProseMirror `Doc` and XML are never rewritten). The toolbar and the inspector's **Reuse** tab let you browse target elements, preview the expanded result live, and insert a new reused element or bind the reuse attribute to the current element.
-- **DITAVAL filtering with live three-state projection**
-  - Full `.ditaval` parsing (`<prop>`, `<revprop>`, `<startflag>` / `<endflag>`, `<style-conflict>`), following DITA 1.3 evaluation rules for multi-value exclusion within an attribute, cross-attribute AND semantics, and `props="group(val)"`.
-  - One-click switching between `.ditaval` files and **show all / dim excluded / hide excluded**, synced live to the Map tree (dragging is locked in hide mode to avoid index drift) and the visual editor (flag colors and start/end badges) with zero XML modification.
-  - The attribute inspector and Map node inspector embed a visual **profiling attribute editor** (`ProfilingAttrEditor`) backed by the project-wide value vocabulary, with live effect preview.
+The effective keyspace runs BFS with **First Definition Wins** resolution and `keyscope` isolation; `conref` / `conkeyref` / `conrefend` reuse is guarded by DFS cycle detection; `.ditaval` filtering offers live three-state projection — all with zero XML modification.
+
+<details>
+<summary>Implementation details</summary>
+
+- **BFS keyspace (`keydef` / `keyref` / `keyscope`)**: breadth-first traversal with specs-compliant conflict resolution, `keyscope` isolation, and no false reports when the same submap appears in several scopes; the Keys panel lists effective key definitions with override counts, inserts `<keyword keyref="..."/>` or jumps to the defining line, and the visual editor resolves inline `keyref` text and image references live with one-click traceability.
+- **Reuse and DFS cycle detection**: direct `conref`, indirect `conkeyref`, same-document `#./id`, `conrefend` ranges, nested `keyref` expansion and DITA 1.3 specialization compatibility; a DFS `visitStack` catches self-cycles, two-way and multi-hop cycles and nested child-element cycles (while allowing legal diamond DAGs) and shows the full cycle chain; reused fragments render as read-only inline cards (pure DOM construction — the `Doc` and XML are never rewritten), and the inspector's "Reuse" tab browses target elements by key or relative path, previews the expansion live, and inserts a new reused element or binds the attribute to the current element.
+- **DITAVAL three-state projection**: full `.ditaval` parsing (`<prop>`, `<revprop>`, `<startflag>` / `<endflag>`, `<style-conflict>`) following DITA 1.3 rules for multi-value exclusion within an attribute, cross-attribute AND semantics and `props="group(val)"`; one-click switching between files and show / dim / hide, synced live to the map tree (dragging is locked in hide mode to avoid index drift) and the visual editor (flag colours and start/end badges), plus a `ProfilingAttrEditor` backed by the project-wide value vocabulary with live effect preview.
+
+</details>
 
 ### 5. Local workspace, incremental semantic index, and asset backend (`@dita/api`)
 
-- Fastify 5 + Zod provide local workspace scanning, file CRUD, directory switching, bulk project import, and a per-branch cached incremental semantic indexer (`WorkspaceSemanticIndexer`) that refreshes the keyspace, topic-id index, and diagnostics after every save, rename, or delete.
-- Ships with a multi-variant demo project at `samples/demo-dita-project/` (`product-manual.ditamap`, `admin-book.bookmap`, the shared reuse library `shared/common-reuse.dita`, `filters/cloud-edition.ditaval` and `onprem-admin.ditaval`, nested submaps, concept/task/reference documents, and SVG diagrams) — with the same experience in offline in-memory mode.
-- **Path safety**: `resolveSafeWorkspacePath` rejects traversal (`..`), absolute paths, NUL bytes, and symlink escapes.
-- **Image asset pipeline**: multipart upload (`.png` / `.jpg` / `.jpeg` / `.gif` / `.svg` / `.webp` / `.avif`, 10 MB limit), automatic document-relative POSIX `href` computation, and a preview route.
+Fastify 5 + Zod provide workspace scanning, file CRUD, bulk import and a per-branch cached incremental semantic indexer (`WorkspaceSemanticIndexer`) that refreshes the keyspace, topic-id index and diagnostics after every save, rename or delete — plus path safety and an image asset pipeline.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Bundled demo project**: `samples/demo-dita-project/` (`product-manual.ditamap`, `admin-book.bookmap`, the shared reuse library `shared/common-reuse.dita`, `filters/cloud-edition.ditaval` & `onprem-admin.ditaval`, nested submaps, concept/task/reference documents and SVG diagrams), with the same experience in offline in-memory mode.
+- **Path safety**: `resolveSafeWorkspacePath` rejects traversal (`..`), absolute paths, NUL bytes and symlink escapes.
+- **Asset pipeline**: multipart image upload (`.png` / `.jpg` / `.jpeg` / `.gif` / `.svg` / `.webp` / `.avif`, 10 MB limit) with automatic document-relative POSIX `href` computation and a preview route.
+
+</details>
 
 ### 6. Local Git version control and check-out exclusive locks (Phase 4)
 
-- **Zero external dependencies**: initialize a local Git repository with `simple-git` directly in the project folder — no GitHub / GitLab / Gitee required. Branches are isolated with `git worktree`, and switching branches repoints the workspace root without copying the project.
-- **Lightweight identities and roles**: SQLite + Drizzle ORM persist password-less author identities (Admin / Writer / Viewer) switchable from the toolbar. Write endpoints enforce roles and lock ownership server-side; viewers and files checked out by another author are automatically read-only in both visual and source editors.
-- **Check-out exclusive locks**: files open read-only by default. Checking out grants editing rights on the same `(project, branch, file_path)` scope while other files and branches stay unblocked. Only the lock owner's dirty files can be committed, and check-in releases their locks; cancel-checkout rolls back to `HEAD`, release keeps the draft, and admin force-unlock stores the current content and patch in `lock_backups`.
-- **Visual diff and history**: the left **Version** panel shows branches, locks, working-tree changes, and commit history. CodeMirror 6 `MergeView` compares working-tree changes or any two revisions, and check-in previews the diff with a local commit message before committing.
+Initialize a local Git repository with `simple-git` directly in the project folder — no external hosting. Branches are isolated with `git worktree`; files open read-only until an exclusive `(project, branch, file_path)` lock is checked out, check-in releases it, and MergeView supplies visual diffs and history.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Zero external dependencies**: no GitHub / GitLab / Gitee; switching branches repoints the workspace root without copying the project.
+- **Lightweight identities and roles**: SQLite + Drizzle ORM persist password-less author identities (Admin / Writer / Viewer) switchable from the toolbar; write endpoints enforce roles and lock ownership server-side, and viewers plus files checked out by another author are read-only in both visual and source editors.
+- **Locks and recovery**: different files and branches never block each other, and only the lock owner's dirty files can be committed; cancel-checkout rolls back to `HEAD`, release keeps the draft, and admin force-unlock stores the current content and patch in `lock_backups`.
+- **Visual diff and history**: the left "Version" panel shows branches, locks, working-tree changes and commit history, CodeMirror 6 `MergeView` compares working-tree changes or any two revisions, and check-in previews the diff with a local commit message before committing.
+
+</details>
 
 ### 7. Authoritative DITA-OT 4.x validation and asynchronous publishing (Phase 5)
 
-- **Two-layer strict validation**: day-to-day typing stays guarded by zero-latency frontend constraints and the TS semantic index. The toolbar, problems panel, and check-in dialog can call `POST /api/validate/strict`, which runs DITA-OT with `--validate=yes --processing-mode=strict`, parses `DOTJ` / `DOTX` codes, and jumps to the exact source line/column. Passing a Root Map validates the whole map in context so `keyref` / `conkeyref` / `conref` resolve; isolated topic validation downgrades context-free `DOTJ046E` to a warning.
-- **Zero-middleware publish pipeline**: SQLite `publish_jobs` persists tasks and an in-process `PublishQueue` limits concurrency (default 1). Each publish copies a branch working-tree snapshot for an isolated build, supports timeout kills, cancellation while queued or running, `build.log` plus SSE streaming (`GET /api/publish/jobs/:id/events`), restart recovery, and retention-based artifact pruning.
-- **HTML5 style themes**: non-`vanilla` HTML5 jobs append `--nav-toc=full`, then a deterministic Node post-processor injects one of the built-in themes (`dita-ot-plugins/html5-themes/`: Tech Docs, Editorial Paper, Enterprise Manual, Dev Dark, plus the untouched Vanilla fallback) with a collapsible sidebar tree, on-page outline, `Cmd/Ctrl+K` offline search, copy buttons, colour-mode toggle and a mobile drawer. Branding (accent, title, logo, footer, custom CSS, feature switches) is stored per manual in SQLite `manual_publish_profiles`, previewed live at multiple viewports inside the publish dialog, and stays intact when the ZIP is unzipped and opened over `file://`; the configuration never touches XML or Git.
-- **HTML5 and Chinese PDF delivery**: successful HTML5 builds are zipped and served under `/preview/*` with working relative assets. PDF uses the pure-XML `dita-ot-plugins/com.ditaeditor.pdf-cjk/` plugin (`plugin.xml` + XML Catalog + DITA-OT 4 `font-mappings.xml` + `fop.xconf`) to map Noto Sans / Serif / Mono CJK; publishing adds `--customization.dir` and `--args.fo.userconfig` and always enables `--validate=yes` so CJK fonts are embedded and text never turns into tofu.
-- **Single-container delivery**: the `Dockerfile` bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts, and the font plugin. In production `@dita/api` serves the built `@dita/web` assets directly with zero Redis / PostgreSQL dependencies; the `/data` volume keeps workspaces, SQLite, branch worktrees, and publish artifacts.
+Two layers of validation: frontend constraints and the TS semantic index guard typing with zero latency, while `--validate=yes --processing-mode=strict` runs the official DTD/RNG checks on demand. Publishing uses a SQLite job table plus an in-process concurrency-limited queue to produce themed HTML5 ZIPs and Noto-CJK-embedded Chinese PDFs.
 
-### 8. AI-assisted writing, semantic tag optimization, and error repair (Phase 6)
+<details>
+<summary>Implementation details</summary>
 
-- **Fragment-level lossless AI edits**: `@dita/core` gains an `ai/` kernel (`extractTargetFragment` / `spliceAndVerifyAiXml` / `normalizeCandidateXml` / `buildDitaConstraintSummary`) with **element**, **line-window**, and **full-document** targeting. The model only returns the replaced span; the server splices it back at exact source offsets and re-validates XML well-formedness, ProseMirror convertibility, and preservation of the `DOCTYPE` and XML declaration, retrying with the reported error (default 2 attempts) before anything reaches the editor.
-- **Four task types**: `ask` (explain only), `authoring` (rewrite/expand/condense, `shortdesc` and step completion), `optimize_tags` (`uicontrol` / `menucascade` / `wintitle` / `filepath` / `codeph` / `parmname`, block structures), and `fix_error` (well-formedness, map links, asset paths, keyref, conref cycles, DITAVAL, and DITA-OT strict-validation failures).
-- **Entry points across the workbench**: the **AI** tab is the first tab of the right inspector, and a floating AI button sits at the bottom-right of the document area; both open the assistant (which defaults to **whole-topic** targeting so one instruction can author a complete topic, with a one-click switch to **fragment** scope; target and context badges, streaming output, diff confirmation), AI rewrite/ask actions in the inline bubble toolbar, **AI fix** on the source XML error banner, and per-diagnostic repair in the problems panel and strict-validation dialog. Every request carries the current unsaved editor buffer.
-- **Model access and audit**: `@dita/api` wraps an OpenAI-compatible `ChatOpenAI` from LangChain.js (`@langchain/core` + `@langchain/openai`), defaults to DeepSeek, and accepts a private/proxied `baseURL`, model, key, timeout, and retry count. SQLite `ai_settings` stores admin configuration (keys are returned masked only) and `ai_usage_logs` records author, task, file, status, retries, tokens, and duration, with `GET /api/ai/usage` aggregating by day, task, user, and model. Writes still honor check-out locks: admins and file owners apply directly, an unchecked-out writer is checked out first, and viewers or files locked by someone else stay preview-only.
+- **Two-layer strict validation**: parses `DOTJ` / `DOTX` codes and jumps to the exact source line/column; a Root Map validates the whole map in context so `keyref` / `conkeyref` / `conref` resolve, isolated topic validation downgrades context-free `DOTJ046E` to a warning, and the publish entry always targets the current Root Map from the map tree panel.
+- **Zero-middleware publish pipeline**: an in-process `PublishQueue` limits concurrency (default 1) and every publish copies a branch working-tree snapshot for an isolated build, with timeout kills, cancellation while queued or running, `build.log` plus SSE streaming, restart recovery and retention-based artifact pruning.
+- **HTML5 and Chinese PDF delivery**: successful HTML5 builds are zipped and served under `/preview/*` with working relative assets; PDF uses the pure-XML `dita-ot-plugins/com.ditaeditor.pdf-cjk/` plugin (`plugin.xml` + XML Catalog + DITA-OT 4 `font-mappings.xml` + `fop.xconf`) to map Noto Sans / Serif / Mono CJK, adding `--customization.dir` and `--args.fo.userconfig` and always enabling `--validate=yes`.
+- **HTML5 style themes**: non-`vanilla` jobs append `--nav-toc=full`, then a deterministic Node post-processor injects one of the built-in themes (`dita-ot-plugins/html5-themes/`: Tech Docs, Editorial Paper, Enterprise Manual, Dev Dark, plus the untouched Vanilla fallback) with a collapsible sidebar tree, on-page outline, `Cmd/Ctrl+K` offline search, copy buttons, colour-mode toggle and a mobile drawer; branding is stored per manual in SQLite `manual_publish_profiles`, previewed live at multiple viewports in the publish dialog, and stays intact when the ZIP is opened over `file://`, with no XML or Git pollution.
+- **Single-container delivery**: the `Dockerfile` bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts and the font plugin; in production `@dita/api` serves the built `@dita/web` assets directly with zero Redis / PostgreSQL dependencies.
+
+</details>
+
+### 8. AI-assisted writing and error repair (Phase 6)
+
+AI only returns the replaced span; `@dita/core` splices it back at exact source offsets and re-validates XML well-formedness, ProseMirror convertibility and preservation of the `DOCTYPE` and XML declaration, retrying with the reported error. Nothing is written without diff confirmation and lock authorization.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Fragment-level lossless edits**: the kernel (`extractTargetFragment` / `spliceAndVerifyAiXml` / `normalizeCandidateXml` / `buildDitaConstraintSummary`) supports **element**, **line-window** and **full-document** targeting, retrying twice by default.
+- **Four task types**: `ask` (explain only), `authoring` (rewrite / expand / condense, `shortdesc` and step completion), `optimize_tags` (`uicontrol` / `menucascade` / `wintitle` / `filepath` / `codeph` / `parmname` semantic tags and block structures), and `fix_error` (well-formedness, map links, asset paths, keyref, conref cycles, DITAVAL and DITA-OT strict-validation failures).
+- **Entry points across the workbench**: the first tab of the right inspector, a floating AI button at the bottom-right of the document area (whole-topic targeting by default with one-click fragment scope, target and context badges, streaming output, diff confirmation), AI rewrite/ask in the inline bubble toolbar, AI fix on the source XML error banner, and per-diagnostic repair in the problems panel and strict-validation dialog — every request carrying the current unsaved buffer.
+- **Model access and audit**: `@dita/api` wraps an OpenAI-compatible `ChatOpenAI` from LangChain.js (`@langchain/core` + `@langchain/openai`), defaults to DeepSeek, and accepts a private/proxied `baseURL`, model, key, timeout and retry count; SQLite `ai_settings` stores admin configuration (keys returned masked only) and `ai_usage_logs` records author, task, file, status, retries, tokens and duration; admins and file owners apply directly, an unchecked-out writer is checked out first, and viewers or files locked by someone else stay preview-only.
+
+</details>
 
 ### 9. Fully bilingual zh-CN / English UI (Phase 8)
 
-- **Zero-dependency, strongly typed i18n**: `@dita/core` exposes `UiLocale` (`zh-CN` / `en`), `normalizeLocale`, and `formatMessage`; `@dita/web` keeps a single source of truth in `src/i18n/messages/zh-CN.ts` (which derives `MessageKey`) while `en.ts` is typed as `Record<MessageKey, string>`, so a missing or misspelled key fails `pnpm --filter @dita/web typecheck` instead of rendering `undefined`.
-- **Lossless hot switch**: the header `中文 / EN` toggle only updates the Zustand locale store and `html[lang]`; the page never reloads and ProseMirror / CodeMirror instances are never recreated, so unsaved buffers, tabs, selection, and the `Cmd/Ctrl+Z` stack survive. ProseMirror decorations refresh through a single `DITA_DECORATIONS_KEY` locale-meta transaction, and `:root[lang="en"]` overrides in `index.css` swap the five DITA section pseudo-labels.
-- **Bilingual DITA vocabulary**: `dita-rules.ts` now carries English labels, descriptions, and placeholders for 110+ elements and attributes (`getElementLabel(spec, locale)` and friends), used by the insert menu, attributes inspector, CodeMirror completion, and tag bubbles. `createTopicTemplate` / `createMapTemplate` accept `lang: 'en'` to scaffold OASIS 1.3 topics with `xml:lang="en"`.
-- **The server answers in the same language**: `@dita/api` resolves `x-dita-locale` → `Accept-Language` → `zh-CN`, `HttpError` carries `{ key, params }` and routes render it per request, so lock conflicts, Git, validation, publish logs, DITA-OT failures, semantic diagnostics, and identity role wording all follow the request locale. AI prompts, context badges, SSE status, and explanations follow the UI language while the **XML body keeps the document's own `xml:lang`**. Every web API client sends `x-dita-locale` automatically.
-- **Regression gates**: `apps/web/test/i18n-parity.test.ts` (key sets, `{param}` placeholders, no empty values), `apps/web/test/no-hardcoded-cjk.test.ts` (no hardcoded Chinese in `apps/web/src` after comment stripping, allow-listing only the catalogues and authored demo content), and `apps/api/test/phase8-i18n.test.ts` (roles, lock conflicts, validation messages, and the AI not-configured guard all English under `x-dita-locale: en`).
+`@dita/core` exposes a typed `UiLocale` and `formatMessage`, while `@dita/web` keeps a single message catalogue typed as `Record<MessageKey, string>` so a missing key fails typecheck. Switching language never reloads the page or recreates editors — unsaved buffers and undo history survive — and `@dita/api` answers lock conflicts, validation, publishing and AI messages in the request language.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Zero-dependency, strongly typed i18n**: `src/i18n/messages/zh-CN.ts` is the single source of truth (it derives `MessageKey`), `en.ts` is typed as `Record<MessageKey, string>`, and `pnpm --filter @dita/web typecheck` rejects a missing or misspelled key.
+- **Lossless hot switch**: the header `中文 / EN` toggle only updates the Zustand locale store and `html[lang]`, ProseMirror decorations refresh through a single `DITA_DECORATIONS_KEY` locale-meta transaction, and `:root[lang="en"]` overrides in `index.css` swap the five DITA section pseudo-labels.
+- **Bilingual DITA vocabulary**: `dita-rules.ts` carries English labels, descriptions and placeholders for 110+ elements and attributes (`getElementLabel(spec, locale)` and friends), and `createTopicTemplate` / `createMapTemplate` accept `lang: 'en'` to scaffold OASIS 1.3 topics with `xml:lang="en"`.
+- **Server-side bilingual plus gates**: `resolveRequestLocale(req)` resolves `x-dita-locale` → `Accept-Language` → `zh-CN`, `HttpError` carries `{ key, params }` rendered per request, and the **XML body keeps the document's own `xml:lang`**; `apps/web/test/i18n-parity.test.ts` (key sets, placeholders, empty values), `apps/web/test/no-hardcoded-cjk.test.ts` (no hardcoded Chinese after comment stripping) and `apps/api/test/phase8-i18n.test.ts` (roles, lock conflicts, validation messages and the AI not-configured guard all English under `x-dita-locale: en`) prevent regressions.
+
+</details>
 
 ### 10. Manual workbench and topic assignment (Phase 10)
 
-- **Manuals are the entry point**: the workbench home lists every manual with topic and map counts, active branch, mounted directory, pending work and last-opened time. Attach an existing directory, create a manual, archive or restore it; the built-in demo manual works out of the box.
-- **Assignments**: each task binds `(manual, branch, topic, assignee, due date, note)`, with "assigned to me" / "delegated by me" views and a pending / in-progress / done state machine. Overdue tasks turn red, and one click opens the topic or marks it complete.
-- **Documents stay clean**: manual metadata and assignments live in SQLite (`manuals` / `assignments`) and never write back to XML or create extra Git commits; documents keep the standard check-out and commit flow.
-- **Editor integration**: the editor's Assignments tab and header task strip show the current topic's assignment, with assign, reassign and check-out-and-start actions. Admins can assign anywhere; authors see and complete their own work.
+The workbench opens on the manual list with attach / create / archive / restore actions; every assignment binds `(manual, branch, topic, assignee, due date, note)` with overdue highlighting and one-click open or complete — metadata lives only in SQLite and never pollutes XML or Git history.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Manuals as the entry point**: cards show topic and map counts, active branch, mounted directory, pending work and last-opened time; the built-in demo manual works out of the box.
+- **Assignments**: "assigned to me" / "delegated by me" views with a pending / in-progress / done state machine.
+- **Documents stay clean**: manual metadata and assignments live in SQLite (`manuals` / `assignments`), create no extra Git commits, and documents keep the standard check-out and commit flow.
+- **Editor integration**: the Assignments tab and header task strip show the current topic's assignment with assign, reassign and check-out-and-start actions; admins can assign anywhere, authors see and complete their own work.
+
+</details>
 
 ---
 
 ## Architecture and technology stack
 
-A pure TypeScript full-stack monorepo organized with **pnpm workspaces + Turborepo**. XML parsing, lossless serialization, DITA 1.3 element rules, the CALS table model, and Map DOM operations live in the shared `@dita/core` package, reused by both `@dita/web` and `@dita/api`. Authoritative DITA 1.3 DTD/RNG validation and HTML5/PDF publishing are driven directly from `@dita/api` through the DITA-OT 4.x CLI (zero custom Java service code).
+A pure TypeScript full-stack monorepo organized with **pnpm workspaces + Turborepo**. XML parsing, lossless serialization, DITA 1.3 element rules, the CALS table model and Map DOM operations live in the shared `@dita/core` package, reused by both `@dita/web` and `@dita/api`. Authoritative DITA 1.3 DTD/RNG validation and HTML5/PDF publishing are driven directly from `@dita/api` through the DITA-OT 4.x CLI (zero custom Java service code).
 
 ```mermaid
 flowchart LR
@@ -217,7 +256,7 @@ flowchart LR
 
 | Layer / module | Choice | Notes |
 | :--- | :--- | :--- |
-| **Monorepo** | pnpm 11 + Turborepo | One pipeline for building, type-checking, and testing `@dita/core`, `@dita/web`, `@dita/api` |
+| **Monorepo** | pnpm 11 + Turborepo | One pipeline for building, type-checking and testing `@dita/core`, `@dita/web`, `@dita/api` |
 | **Frontend workbench** | React 19 + TypeScript 5.8 + Vite 6 + Tailwind CSS 4 | Responsive three-pane workbench with a high-precision editing surface |
 | **Visual editing** | Native ProseMirror | Follows DITA DTD structure constraints; custom NodeViews and block/inline interactions |
 | **XML source editing** | CodeMirror 6 | XML highlighting, DITA 1.3 completion, live well-formedness lint |
@@ -230,9 +269,7 @@ flowchart LR
 | **Desktop app** | Electron 35 + `electron-builder` + `esbuild` | Lightweight macOS Apple Silicon (`arm64`) & Windows (`x64`) desktop app embedding `@dita/api` with `userData` isolation |
 | **Testing** | Vitest 3 | Golden round-trip fixtures, editor commands, workspace/Git/lock APIs, and desktop path/Windows runtime tests |
 
----
-
-## Repository layout
+### Repository layout
 
 ```text
 DITAEditor/
@@ -316,7 +353,7 @@ DITAEditor/
 
 ### Option 1: Single-container Docker (recommended, zero setup)
 
-The image bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts, and the font plugin; no host Java or DITA-OT installation is required. In production the API serves the built frontend directly:
+The image bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts and the font plugin; no host Java or DITA-OT installation is required. In production the API serves the built frontend directly:
 
 ```bash
 docker build -t dita-editor .
@@ -324,7 +361,7 @@ docker run --rm -p 3001:3001 -v dita-editor-data:/data dita-editor
 # Open http://localhost:3001
 ```
 
-The `/data` volume contains the seeded demo workspace, the SQLite database, branch worktrees, and publish history; back up this volume to migrate all project data. Mount a host project with `-v /path/to/project:/data/workspace` if preferred.
+The `/data` volume contains the seeded demo workspace, the SQLite database, branch worktrees and publish history; back up this volume to migrate all project data. Mount a host project with `-v /path/to/project:/data/workspace` if preferred.
 
 ### Option 2: Local source with host DITA-OT
 
@@ -349,21 +386,11 @@ mv "$HOME/.local/share/dita-ot-4.2.1" "$HOME/.local/share/dita-ot"
 pnpm dev
 ```
 
-Then open:
-
-- **Workbench**: `http://localhost:5173` (Vite proxies `/api` to `http://localhost:3001`)
-- **API**: `http://localhost:3001` (health check: `GET /health`)
-
-You can also start them in two terminals:
-
-```bash
-pnpm --filter @dita/api dev
-pnpm --filter @dita/web dev
-```
+Then open the **workbench** at `http://localhost:5173` (Vite proxies `/api` to `http://localhost:3001`) and the **API** at `http://localhost:3001` (health check: `GET /health`). You can also run `pnpm --filter @dita/api dev` and `pnpm --filter @dita/web dev` in two terminals.
 
 #### Host DITA-OT setup
 
-Without Docker, install DITA-OT 4.x and make sure `dita` is on `PATH` (or set `DITA_OT_HOME`; the runtime also probes `~/dita-ot`, `~/.local/share/dita-ot`, `/opt/dita-ot`, and `/usr/local/dita-ot`). Chinese PDF also needs Noto CJK fonts: set `DITAEDITOR_NOTO_CJK_DIR`, or place them in `~/.local/share/fonts/noto` / `~/Library/Fonts/Noto` for automatic discovery. After `pnpm --filter @dita/api dev`, the publish dialog reports runtime detection. You do not need to install the plugin into DITA-OT: `@dita/api` always loads the repository plugin through `--customization.dir` to avoid DITA-OT 4 catalog ordering overrides. To reuse it with other DITA-OT commands: `cd dita-ot-plugins && zip -qr /tmp/plugin.zip com.ditaeditor.pdf-cjk && dita install /tmp/plugin.zip`.
+Without Docker, install DITA-OT 4.x and make sure `dita` is on `PATH` (or set `DITA_OT_HOME`; the runtime also probes `~/dita-ot`, `~/.local/share/dita-ot`, `/opt/dita-ot` and `/usr/local/dita-ot`). Chinese PDF also needs Noto CJK fonts: set `DITAEDITOR_NOTO_CJK_DIR`, or place them in `~/.local/share/fonts/noto` / `~/Library/Fonts/Noto` for automatic discovery. After `pnpm --filter @dita/api dev`, the publish dialog reports runtime detection. You do not need to install the plugin into DITA-OT: `@dita/api` always loads the repository plugin through `--customization.dir` to avoid DITA-OT 4 catalog ordering overrides. To reuse it with other DITA-OT commands: `cd dita-ot-plugins && zip -qr /tmp/plugin.zip com.ditaeditor.pdf-cjk && dita install /tmp/plugin.zip`.
 
 ### Option 3: Desktop app (macOS Apple Silicon & Windows x64, lightweight)
 
@@ -372,7 +399,7 @@ No Docker or Node.js required — download the installer for your platform from 
 - **macOS (Apple Silicon `arm64`)**: `DITAEditor-<version>-mac-arm64.dmg` / `.zip`
 - **Windows (`x64`)**: `DITAEditor-<version>-win-x64.exe` (NSIS installer) / `.zip` (portable)
 
-The desktop app embeds `@dita/api` inside the Electron main process (listening only on `127.0.0.1` with an ephemeral port), bundles the built web workbench, the Noto CJK PDF plugin, and the sample project, and keeps all writable state (`dita-editor.sqlite`, workspaces, branch worktrees, and publish output) under the OS `userData` directory (overridable via `DITA_DESKTOP_DATA_DIR`). This lightweight build auto-detects host Git and DITA-OT 4.x installations; authoring, Map editing, Keys/Conref/DITAVAL, and AI assistance work even without DITA-OT installed.
+The desktop app embeds `@dita/api` inside the Electron main process (listening only on `127.0.0.1` with an ephemeral port), bundles the built web workbench, the Noto CJK PDF plugin and the sample project, and keeps all writable state (`dita-editor.sqlite`, workspaces, branch worktrees, publish output) under the OS `userData` directory (overridable via `DITA_DESKTOP_DATA_DIR`). This lightweight build auto-detects host Git and DITA-OT 4.x installations; authoring, Map editing, Keys/Conref/DITAVAL and AI assistance work even without DITA-OT installed.
 
 > For unsigned open-source builds without signing certificates: on macOS, if Gatekeeper blocks the first launch, run `xattr -cr /Applications/DITAEditor.app`; on Windows SmartScreen, choose **More info → Run anyway**.
 
@@ -390,7 +417,7 @@ CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:mac   # m
 CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # Windows x64
 ```
 
-**Automated releases**: publishing a GitHub Release triggers [`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml), which builds macOS `arm64` (on `macos-latest`) and Windows `x64` (on `windows-latest`) in parallel, syncs the installer version from the release tag, and attaches all artifacts directly to the GitHub Release (also runnable manually via `workflow_dispatch`).
+**Automated releases**: publishing a GitHub Release triggers [`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml), which builds macOS `arm64` (on `macos-latest`) and Windows `x64` (on `windows-latest`) in parallel, syncs the installer version from the release tag and attaches all artifacts to the GitHub Release (also runnable manually via `workflow_dispatch`).
 
 ### Option 4: Low-cost cloud trial (GCP Cloud Run + subpath reverse proxy + auto-deploy on push)
 
@@ -401,39 +428,91 @@ For live evaluation or team demos, deploy the single container to GCP Cloud Run 
 GCP_PROJECT_ID="<your-gcp-project-id>" ./deploy/gcp/deploy-cloudrun.sh
 ```
 
-See **[docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md)** for the full architecture, reverse-proxy setup, keyless WIF CI configuration, Artifact Registry cleanup policy, and one-command teardown (see also [Hugging Face Spaces](docs/deploy-huggingface-spaces.md) and [GitHub Pages](docs/deploy-github-pages.md)).
+See **[docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md)** for the full architecture, reverse-proxy setup, keyless WIF CI configuration, Artifact Registry cleanup policy and one-command teardown (see also [Hugging Face Spaces](docs/deploy-huggingface-spaces.md) and [GitHub Pages](docs/deploy-github-pages.md)).
 
 ### Option 5: Editing and semantic authoring only (no DITA-OT)
 
-For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, Java and DITA-OT are optional. Publishing and "DITA-OT strict validation" report that the runtime is not ready without affecting any other feature.
+For editing, Map authoring, Keys / Conref / DITAVAL, Git and check-out locks, Java and DITA-OT are optional. Publishing and "DITA-OT strict validation" report that the runtime is not ready without affecting any other feature.
 
 ### Backend environment variables (`@dita/api`)
+
+<details>
+<summary>Expand the environment variable table (port, DITA-OT, publishing, AI)</summary>
 
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `PORT` | `3001` | Fastify listen port |
-| `DITA_BASE_PATH` | empty | Optional reverse-proxy subpath prefix (e.g. `/dita`); Fastify strips it via `rewriteUrl` when paired with `VITE_BASE=/dita/` at build time |
+| `DITA_BASE_PATH` | empty | Optional reverse-proxy subpath prefix (e.g. `/dita`); stripped by `rewriteUrl`, paired with `VITE_BASE=/dita/` at build time |
 | `DITA_WORKSPACE_DIR` | `samples/demo-dita-project` | Local DITA project opened at startup |
-| `DITA_IMPORTS_DIR` | `.dita-workspaces` | Root for UI-imported projects, the SQLite database (`dita-editor.sqlite`), and branch `git worktree`s |
-| `DITA_LOCK_TTL_HOURS` | `72` | Lock age shown as stale in the UI (hours; locks are never auto-deleted) |
-| `DITA_OT_HOME` / `DITA_HOME` | empty | DITA-OT 4.x installation; falls back to common install directories, then `dita` from `PATH` |
+| `DITA_IMPORTS_DIR` | `.dita-workspaces` | Root for imported projects, the SQLite database (`dita-editor.sqlite`) and branch `git worktree`s |
+| `DITA_LOCK_TTL_HOURS` | `72` | Lock age shown as stale (hours; locks are never auto-deleted) |
+| `DITA_OT_HOME` / `DITA_HOME` | empty | DITA-OT 4.x installation; falls back to common directories, then `dita` from `PATH` |
 | `DITA_CMD` | empty | Explicit `dita` executable path (takes precedence over `DITA_OT_HOME`) |
-| `DITA_PUBLISH_DIR` | `.dita-workspaces/publish` | Root for publish snapshots, `build.log`, and artifacts |
+| `DITA_PUBLISH_DIR` | `.dita-workspaces/publish` | Root for publish snapshots, `build.log` and artifacts |
 | `DITA_PUBLISH_CONCURRENCY` | `1` | In-process build concurrency; keep 1–2 for large queues |
 | `DITAEDITOR_PDF_PLUGIN_DIR` | repo `dita-ot-plugins/com.ditaeditor.pdf-cjk` | Chinese PDF font plugin directory, also used as `--customization.dir` |
 | `DITAEDITOR_HTML_THEMES_DIR` | repo `dita-ot-plugins/html5-themes` | HTML5 publish theme assets; packaged desktop passes it explicitly |
 | `DITAEDITOR_FOP_XCONF` | plugin `fop.xconf` | FOP font configuration template |
-| `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK font directory used to generate the per-job `fop.xconf` |
+| `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK directory used to generate the per-job `fop.xconf` |
 | `DITA_WEB_DIST` | `apps/web/dist` | Production web assets; served by the API when `index.html` exists |
-| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/v1` | OpenAI-compatible AI endpoint; point at an internal proxy's `/v1` (overridable from **AI settings**) |
+| `DEEPSEEK_BASE_URL` | `https://api.deepseek.com/v1` | OpenAI-compatible AI endpoint; point at an internal proxy's `/v1` (overridable in AI settings) |
 | `DEEPSEEK_MODEL` | `deepseek-flash` | Default model name; any model exposed by the proxy works |
 | `DEEPSEEK_API_KEY` | empty | Environment fallback for the AI key; a key saved by an admin in SQLite wins |
 | `AI_TIMEOUT_MS` | `45000` | Per-call model timeout (ms) |
 | `AI_MAX_CONTEXT_CHARS` | `24000` | Character budget for project context (keyspace, path index, DITAVAL values) |
 
+</details>
+
 ---
 
-## Workspace, semantics, and asset REST API
+## Website, docs site and offline workbench
+
+A separate static site, `apps/site` (`@dita/site`, Astro 5 + React 19 islands + Tailwind CSS 4), fully decoupled from the single-container workbench image and hostable on any CDN:
+
+| Route | Contents |
+| :--- | :--- |
+| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase (manual hub, three-pane editor, dual mode, single sourcing, publishing, AI), CCMS / Markdown comparison, a "one changed word, one changed XML line" live round-trip widget, eight capability deep-dives, single-container architecture, Docker / pnpm / AI quick starts |
+| `/workbench/` | **Browser-only three-pane offline workbench**: `@dita/web` built with `VITE_STATIC_DEMO=true` and bundled alongside the site, running the multi-file demo project, map tree, visual/source dual-mode editing and Keys/Conref/DITAVAL (no server-side Git, DITA-OT publishing or AI proxy) |
+| `/docs/*` · `/en/docs/*` | Six mirrored docs (introduction, Docker quick start, local development and fonts, feature tour, AI setup, architecture) with in-page TOC, copy buttons and bilingual Pagefind search (`Cmd/Ctrl+K`) |
+
+The home-page round-trip widget loads with `client:visible`, so ProseMirror and CodeMirror never enter the first paint.
+
+```bash
+pnpm --filter @dita/site dev      # http://localhost:4321
+pnpm --filter @dita/site build    # static output + Pagefind index
+pnpm --filter @dita/site test     # dictionary/doc-slug symmetry and preset round-trips
+```
+
+Deployment: `.github/workflows/deploy-site.yml` builds `@dita/site` and the offline `@dita/web` bundle (published under `/workbench/`) to GitHub Pages on every push to `main` (see [docs/deploy-github-pages.md](docs/deploy-github-pages.md)); `SITE_URL` / `SITE_BASE` repo variables cover the root path or a sub-path such as `/DITAEditor/`.
+
+---
+
+## Develop, build, and test
+
+```bash
+pnpm -r build && pnpm -r typecheck && pnpm -r test   # everything
+pnpm build && pnpm typecheck && pnpm test            # or the Turborepo shortcuts
+```
+
+Current coverage (**411/411 Vitest tests passing**):
+
+<details>
+<summary>Expand per-package test coverage</summary>
+
+- `@dita/core` (158): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless Map/Bookmap operations, DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, and AI fragment targeting/normalization/lossless splice verification.
+- `@dita/web` (174): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, and Phase 10 workbench hub router & unsaved-changes guards.
+- `@dita/api` (45): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, and Phase 10 per-manual isolation & assignment workflows.
+- `@dita/site` (30): bilingual dictionary key parity, doc-slug symmetry, `SITE_BASE` / offline workbench route helpers, and `@dita/core` preset round-trip tests.
+- `@dita/desktop` (4): packaged vs dev resource/`userData` path resolution, idempotent first-launch demo workspace seeding (stripping `.git`, preserving user edits), and release-tag semver normalization.
+
+</details>
+
+---
+
+## REST API overview
+
+<details>
+<summary>Expand the workspace / semantics / assets / Git / validate / publish endpoint table</summary>
 
 | Method and path | Description |
 | :--- | :--- |
@@ -445,8 +524,7 @@ For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, J
 | `GET /api/files/content?path=...` | Reads a file plus its well-formedness result |
 | `PUT /api/files/content` | Saves content to disk and triggers an incremental semantic re-index |
 | `POST /api/files/create` | Creates a topic / map / bookmap / DITAVAL file from a template |
-| `POST /api/files/mkdir` | Creates a subdirectory inside the workspace |
-| `POST /api/files/rename` | Renames or moves a file or directory |
+| `POST /api/files/mkdir` / `rename` | Creates a subdirectory / renames or moves a file or directory |
 | `DELETE /api/files?path=...` | Deletes a file or directory |
 | `POST /api/assets/upload` | Uploads an image asset and returns a document-relative DITA `href` |
 | `GET /api/assets/raw?path=...` | Serves a binary image asset by workspace path |
@@ -456,76 +534,59 @@ For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, J
 | `POST /api/ai/config/test` | Sends one real request with the current or overridden config and reports connectivity/latency |
 | `POST /api/ai/stream` | Streaming AI task over SSE: `meta` / `delta` / `retry` / `proposal` / `error` / `done` |
 | `GET /api/ai/usage?days=...&limit=...` | Admin usage ledger (totals plus by day/task/user/model and recent calls) |
-| `GET /api/semantics/context?rootMap=...&ditaval=...` | Keyspace, topic-id index, profiling vocabulary, and parsed `.ditaval` for the given Root Map |
+| `GET /api/semantics/context?rootMap=...&ditaval=...` | Keyspace, topic-id index, profiling vocabulary and parsed `.ditaval` for the given Root Map |
 | `GET /api/semantics/keyspace?rootMap=...` | Builds and returns the effective BFS keyspace for a Root Map |
 | `GET /api/semantics/ids?filePath=...` | Index of reusable `@id` elements in the workspace or one topic |
 | `GET /api/semantics/ditaval?path=...` | Parses a `.ditaval` file into filtering and flag rules |
 | `POST /api/semantics/resolve-document` | Computes the live `keyref` / `conref` overlay and diagnostics for one document (including unsaved drafts) |
 | `POST /api/semantics/resolve-conref` | Expands a single `conref` / `conkeyref` preview on demand (with DFS cycle detection) |
 | `GET /api/diagnostics?rootMap=...` | Well-formedness, broken `href`, recursive `<mapref>`, missing images, undefined `keyref`, conref cycles, `.ditaval` errors |
-| `GET /api/identity` | Switchable authors, current identity, and the three role descriptions |
-| `GET /api/locks` | Locks on the current branch, author directory, and Git workspace info |
-| `POST /api/locks/checkout` | Check out and exclusively lock one file (409 for another author) |
-| `POST /api/locks/release` / `cancel` | Release the lock keeping the draft / cancel and roll back to `HEAD` |
-| `POST /api/locks/checkin` | Commit the author's dirty checked-out files, then release their locks |
+| `GET /api/identity` | Switchable authors, current identity and the three role descriptions |
+| `GET /api/locks` | Locks on the current branch, author directory and Git workspace info |
+| `POST /api/locks/checkout` | Checks out and exclusively locks one file (409 when another author holds it) |
+| `POST /api/locks/release` / `cancel` | Releases the lock keeping the draft / cancels and rolls back to `HEAD` |
+| `POST /api/locks/checkin` | Commits the author's dirty checked-out files, then releases their locks |
 | `POST /api/locks/force-unlock` | Admin force-unlock, archiving content and patch in `lock_backups` |
-| `GET /api/git/status` | Repository init state, current branch, `git status` changes, and locks |
-| `POST /api/git/init` | Initialize the local repository, `.gitignore`, and first commit (Admin/Writer) |
-| `GET /api/git/branches` / `POST /api/git/branches` | Branch list with worktree paths / create a branch |
-| `POST /api/git/switch-branch` | Switch to the primary workspace or a branch worktree and return the new snapshot |
+| `GET /api/git/status` | Repository init state, current branch, `git status` changes and locks |
+| `POST /api/git/init` | Initializes the local repository, `.gitignore` and first commit (Admin/Writer) |
+| `GET` / `POST /api/git/branches` | Branch list with worktree paths / create a branch |
+| `POST /api/git/switch-branch` | Switches to the primary workspace or a branch worktree and returns the new snapshot |
 | `GET /api/git/log` / `diff` / `file` | Commit history, diff between two revisions, file content at a revision |
 | `POST /api/git/commit` / `discard` | Local commit (validates lock ownership) / discard one file's changes |
-| `GET /api/validate/runtime` | DITA-OT version, Chinese PDF plugin, and Noto CJK font readiness |
-| `POST /api/validate/strict` | Runs DITA-OT `--validate=yes --processing-mode=strict` for files or a Root Map and returns normalized DOTJ/DOTX diagnostics |
+| `GET /api/validate/runtime` | DITA-OT version, Chinese PDF plugin and Noto CJK font readiness |
+| `POST /api/validate/strict` | Runs `--validate=yes --processing-mode=strict` for files or a Root Map and returns normalized DOTJ/DOTX diagnostics |
 | `GET /api/publish/runtime` | Publish runtime state and publish root |
 | `GET` / `POST /api/publish/jobs` | Branch publish history / create an HTML5 or PDF job (viewers get 403) |
-| `GET /api/publish/jobs/:id` | Job status, diagnostics, artifact, and log/preview/download URLs |
-| `POST /api/publish/jobs/:id/cancel` | Cancel a queued or running job (owner or admin) |
+| `GET /api/publish/jobs/:id` | Job status, diagnostics, artifact and log/preview/download URLs |
+| `POST /api/publish/jobs/:id/cancel` | Cancels a queued or running job (owner or admin) |
 | `GET /api/publish/jobs/:id/log?offset=` | Incremental `build.log` reads |
 | `GET /api/publish/jobs/:id/events` | SSE stream of build status and logs |
 | `GET /api/publish/jobs/:id/preview/*` | HTML5 output preview (directories default to `index.html`) |
-| `GET /api/publish/jobs/:id/artifact?inline=1` | Download the PDF or HTML5 ZIP; `inline=1` embeds it |
+| `GET /api/publish/jobs/:id/artifact?inline=1` | Downloads the PDF or HTML5 ZIP; `inline=1` embeds it |
 
----
-
-## Develop, build, and test
-
-```bash
-# Build, type-check, and test everything
-pnpm -r build
-pnpm -r typecheck
-pnpm -r test
-
-# Or use the Turborepo shortcuts at the repo root
-pnpm build
-pnpm typecheck
-pnpm test
-```
-
-Current coverage (**411/411 Vitest tests passing**):
-
-- `@dita/core` (158): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content-model rules, lossless Map/Bookmap operations, DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, and AI fragment targeting/normalization/lossless splice verification.
-- `@dita/web` (174): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue key/placeholder parity and hardcoded-CJK scan, and Phase 10 workbench hub router & unsaved-changes guards.
-- `@dita/api` (45): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, and Phase 10 per-manual isolation & topic assignment workflows.
-- `@dita/site` (30): bilingual dictionary key parity, doc-slug symmetry, `SITE_BASE` / offline workbench route helpers, and `@dita/core` preset round-trip tests.
-- `@dita/desktop` (4): packaged vs dev resource/`userData` path resolution, idempotent first-launch demo workspace seeding (stripping `.git`, preserving user edits), and release-tag semver normalization.
+</details>
 
 ---
 
 ## Roadmap
 
-- [x] **Phase 0**: Monorepo foundation, `@dita/core` (`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS adapter), and 10 golden round-trip fixtures.
-- [x] **Phase 1**: Dual-mode topic editor MVP (ProseMirror visual editing + NodeViews + CALS/simpletable editing + `/` context insert menu + attribute panel + breadcrumb + CodeMirror 6 XML source with completion/lint and switch protection).
-- [x] **Phase 2**: Visual Map / Bookmap tree (`react-arborist`), lossless Map DOM engine, three-pane multi-tab workbench, Fastify workspace/asset APIs, and the `samples/demo-dita-project/` demo project.
+<details>
+<summary>Expand the completed Phase 0–11 items</summary>
+
+- [x] **Phase 0**: Monorepo foundation, `@dita/core` (`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS adapter) and 10 golden round-trip fixtures.
+- [x] **Phase 1**: Dual-mode topic editor MVP (ProseMirror visual editing + NodeViews + CALS/simpletable editing + `/` context insert menu + attribute panel + breadcrumb + CodeMirror 6 source with completion/lint and switch protection).
+- [x] **Phase 2**: Visual Map / Bookmap tree (`react-arborist`), lossless Map DOM engine, three-pane multi-tab workbench, Fastify workspace/asset APIs and the `samples/demo-dita-project/` demo project.
 - [x] **Phase 3**: Root Map cross-file semantic engine (`keydef/keyref` BFS + `keyscope`, `conref/conkeyref`/`conrefend` with DFS cycle detection, DITAVAL three-state filtering and flags, incremental `/api/semantics/*` indexer, Keys panel, reuse/semantic insert UI, profiling attribute editor, CodeMirror 6 semantic completion).
-- [x] **Phase 4**: SQLite + Drizzle identities and three roles, local `simple-git` repository with branch-isolated `git worktree`s, check-out exclusive locks / check-in / cancel / admin force-unlock backups, CodeMirror 6 MergeView working-tree and revision diffs, and the left **Version** panel.
-- [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (zero custom Java code; built-in DITA 1.3 DTD/RNG strict validation + pure-XML Noto CJK PDF font-mappings plugin), zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE log streaming, and single-container `Dockerfile` deployment.
-- [x] **Phase 6**: LangChain.js AI assistance (DeepSeek / OpenAI-compatible endpoints), lossless fragment splice with automatic verification retries in `@dita/core`, streaming authoring / tag optimization / error repair, mandatory diff confirmation with check-out lock guards, SQLite config and token-usage auditing, AI settings/usage panels, and the real-endpoint acceptance script `apps/api/scripts/e2e-ai-live.mts`.
-- [x] **Phase 7**: Standalone static marketing site `@dita/site` (Astro 5 + React 19 + Tailwind CSS 4, bilingual landing page + 6 mirrored doc pages + Pagefind search + an interactive browser-only DITA sandbox), with the offline three-pane workbench hosted on GitHub Pages at `/workbench/`.
-- [x] **Phase 8**: Fully bilingual zh-CN/en stack — bilingual element vocabulary and semantic/AI diagnostics in `@dita/core`, a strongly typed i18n layer with lossless hot switching in `@dita/web`, request-locale resolution and bilingual messages in `@dita/api`, plus three i18n regression gates (see `docs/phase8-i18n-plan.md`).
-- [x] **Phase 9**: DITA 1.3 ordered/cardinality content-model validation — pure sequence rules in `@dita/core`, guided slot insertion via `getInsertionSlot()`, and unified structure diagnostics across ProseMirror, CodeMirror, and the Problems panel.
-- [x] **Phase 10**: Multi-manual Workbench Hub and lightweight topic editing task (`Assignment`) delegation with per-manual/per-branch request isolation and soft check-out/check-in/rename hooks (see `docs/phase10-workbench-assignments-plan.md`).
+- [x] **Phase 4**: SQLite + Drizzle identities and three roles, local `simple-git` repository with branch-isolated `git worktree`s, check-out locks / check-in / cancel / admin force-unlock backups, CodeMirror 6 MergeView diffs and the left "Version" panel.
+- [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (zero custom Java code; built-in DTD/RNG strict validation + pure-XML Noto CJK PDF plugin), zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE logs, and single-container `Dockerfile` deployment.
+- [x] **Phase 6**: LangChain.js AI assistance (DeepSeek / OpenAI-compatible endpoints), lossless fragment splice with verification retries in `@dita/core`, streaming authoring / tag optimization / error repair, mandatory diff confirmation with lock guards, SQLite config and token-usage auditing, and the real-endpoint script `apps/api/scripts/e2e-ai-live.mts`.
+- [x] **Phase 7**: Standalone static site `@dita/site` (Astro 5 + React 19 + Tailwind CSS 4, bilingual landing page + 6 mirrored docs + Pagefind search + interactive sandbox), with the offline three-pane workbench hosted on GitHub Pages at `/workbench/`.
+- [x] **Phase 8**: Fully bilingual zh-CN/en stack (bilingual element vocabulary and semantic/AI diagnostics in `@dita/core`, a strongly typed i18n layer with lossless hot switching in `@dita/web`, request-locale resolution and bilingual messages in `@dita/api`, plus three i18n regression gates; see `docs/phase8-i18n-plan.md`).
+- [x] **Phase 9**: DITA 1.3 ordered/cardinality content-model validation — pure sequence rules in `@dita/core`, guided slot insertion via `getInsertionSlot()`, and unified structure diagnostics across ProseMirror, CodeMirror and the Problems panel.
+- [x] **Phase 10**: Multi-manual Workbench Hub and lightweight topic editing task (`Assignment`) delegation with per-manual/per-branch request isolation and check-out/check-in/rename hooks (see `docs/phase10-workbench-assignments-plan.md`).
 - [x] **Phase 11**: Lightweight desktop app `@dita/desktop` (Electron 35 + `electron-builder`, embedded `@dita/api` with `userData` isolation, Windows `dita.bat` runtime fixes) and automated GitHub Release builds for macOS Apple Silicon (`arm64` `.dmg`/`.zip`) and Windows (`x64` NSIS `.exe`/`.zip`).
+
+</details>
 
 ---
 

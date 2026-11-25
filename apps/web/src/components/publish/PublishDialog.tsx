@@ -21,7 +21,15 @@ import {
 } from 'lucide-react';
 import type { IdentityUser } from '../../services/identity-api';
 import type { WorkspaceDitavalSummary, WorkspaceMapSummary } from '../../services/workspace-api';
-import type { HtmlThemeDescriptor, HtmlThemeId, PublishFormat, PublishJob, PublishStatus } from '../../services/publish-api';
+import type {
+  HtmlThemeDescriptor,
+  HtmlThemeId,
+  PublishFormat,
+  PublishJob,
+  PublishSourceMode,
+  PublishStatus,
+} from '../../services/publish-api';
+import { fetchGitTags, type GitTagInfo } from '../../services/git-api';
 import { usePublishStore } from '../../store/publish-store';
 import { useEditorStore } from '../../store/editor-store';
 import { useI18n } from '../../i18n/index.js';
@@ -54,6 +62,55 @@ const STATUS_META: Record<PublishStatus, { labelKey: MessageKey; className: stri
   failed: { labelKey: 'publish.status.failed', className: 'bg-rose-50 text-rose-700', icon: XCircle },
   cancelled: { labelKey: 'publish.status.cancelled', className: 'bg-amber-50 text-amber-700', icon: Ban },
 };
+
+const SOURCE_MODE_OPTIONS: { id: PublishSourceMode; labelKey: MessageKey }[] = [
+  { id: 'baseline', labelKey: 'publish.source.baseline' },
+  { id: 'tag', labelKey: 'publish.source.tag' },
+  { id: 'commit', labelKey: 'publish.source.commit' },
+  { id: 'my_drafts', labelKey: 'publish.source.my_drafts' },
+];
+
+/** Phase 13 traceability: what a job was rendered from, as a compact pill. */
+interface PublishTrace {
+  label: string;
+  title: string;
+  dirty: boolean;
+}
+
+function publishTrace(
+  job: PublishJob,
+  t: (key: MessageKey, params?: Record<string, string | number>) => string,
+): PublishTrace {
+  const mode: PublishSourceMode = job.sourceMode ?? 'baseline';
+  const shortHash = (hash: string | null | undefined): string =>
+    hash ? hash.slice(0, 7) : '—';
+  if (mode === 'tag') {
+    return {
+      label: t('publish.trace.tag', { tag: job.sourceRef ?? '—' }),
+      title: `${job.sourceRef ?? ''} ${shortHash(job.commitHash)}`.trim(),
+      dirty: job.isDirty === true,
+    };
+  }
+  if (mode === 'commit') {
+    return {
+      label: t('publish.trace.commit', { hash: shortHash(job.sourceRef ?? job.commitHash) }),
+      title: shortHash(job.sourceRef ?? job.commitHash),
+      dirty: job.isDirty === true,
+    };
+  }
+  if (mode === 'my_drafts') {
+    return {
+      label: t('publish.trace.myDrafts'),
+      title: t('publish.trace.dirtyTitle'),
+      dirty: job.isDirty === true,
+    };
+  }
+  return {
+    label: t('publish.trace.baseline'),
+    title: shortHash(job.commitHash),
+    dirty: job.isDirty === true,
+  };
+}
 
 function formatBytes(value: number | null): string {
   if (!value || value <= 0) return '—';
@@ -130,6 +187,10 @@ export function PublishDialog({
   const [themeExpanded, setThemeExpanded] = useState(true);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [sourceMode, setSourceMode] = useState<PublishSourceMode>('baseline');
+  const [sourceRef, setSourceRef] = useState('');
+  const [tags, setTags] = useState<GitTagInfo[]>([]);
+  const [tagsLoading, setTagsLoading] = useState(false);
   const themeInitialized = useRef(false);
   const fileTree = useEditorStore((state) => state.fileTree);
 
@@ -146,12 +207,19 @@ export function PublishDialog({
     setThemeExpanded(true);
     setSaveAsDefault(false);
     setPreviewOpen(false);
+    setSourceMode('baseline');
+    setSourceRef('');
     themeInitialized.current = false;
     clearActionError();
     void loadRuntime();
     void loadJobs();
     void loadThemes();
     void loadProfile();
+    setTagsLoading(true);
+    void fetchGitTags()
+      .then((response) => setTags(response.tags))
+      .catch(() => setTags([]))
+      .finally(() => setTagsLoading(false));
   }, [
     open,
     activeRootMapPath,
@@ -204,8 +272,16 @@ export function PublishDialog({
     ? (themes.find((theme) => theme.id === themeDraft.themeId) ?? null)
     : null;
   const themeIsDefault = Boolean(themeDraft && profile && profile.htmlThemeId === themeDraft.themeId);
+  const sourceReady =
+    sourceMode === 'baseline' ||
+    sourceMode === 'my_drafts' ||
+    (sourceMode === 'tag' ? Boolean(sourceRef) : /^[0-9a-f]{4,40}$/i.test(sourceRef.trim()));
   const canPublish =
-    Boolean(runtime?.available) && Boolean(rootMap) && !submitting && role !== 'viewer';
+    Boolean(runtime?.available) &&
+    Boolean(rootMap) &&
+    sourceReady &&
+    !submitting &&
+    role !== 'viewer';
 
   const themeNameOf = (id: HtmlThemeId | null): string => {
     if (!id) return t('publish.theme.badgeDefault');
@@ -251,6 +327,11 @@ export function PublishDialog({
       format,
       ditaval: ditaval || null,
       title: title.trim() || defaultTitle,
+      // Phase 13: record exactly which snapshot this build renders.
+      sourceMode,
+      ...(sourceMode === 'tag' || sourceMode === 'commit'
+        ? { sourceRef: sourceRef.trim() }
+        : {}),
       ...themeFields,
     });
     if (job) setTitle('');
@@ -459,6 +540,68 @@ export function PublishDialog({
               {submitting ? t('publish.submitting') : t('publish.start')}
             </button>
           </div>
+          <div className="mt-2 flex flex-wrap items-end gap-2">
+            <label className="min-w-0">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {t('publish.sourceLabel')}
+              </span>
+              <select
+                value={sourceMode}
+                onChange={(event) => {
+                  const mode = event.target.value as PublishSourceMode;
+                  setSourceMode(mode);
+                  setSourceRef(mode === 'tag' ? (tags[0]?.name ?? '') : '');
+                }}
+                aria-label={t('publish.sourceAria')}
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              >
+                {SOURCE_MODE_OPTIONS.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {t(option.labelKey)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {sourceMode === 'tag' ? (
+              <label className="min-w-0 flex-1">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  {t('publish.source.tag')}
+                </span>
+                <select
+                  value={sourceRef}
+                  onChange={(event) => setSourceRef(event.target.value)}
+                  disabled={tagsLoading}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 font-mono text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50"
+                >
+                  <option value="">{t('publish.source.tagPlaceholder')}</option>
+                  {tags.map((tag) => (
+                    <option key={tag.name} value={tag.name}>
+                      {tag.name} · {tag.shortHash}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            {sourceMode === 'commit' ? (
+              <label className="min-w-0 flex-1">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  {t('publish.source.commit')}
+                </span>
+                <input
+                  value={sourceRef}
+                  onChange={(event) => setSourceRef(event.target.value)}
+                  placeholder={t('publish.source.commitPlaceholder')}
+                  spellCheck={false}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1.5 font-mono text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+                />
+              </label>
+            ) : null}
+            {sourceMode === 'my_drafts' ? (
+              <p className="mb-1 min-w-0 flex-1 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10.5px] leading-relaxed text-amber-900">
+                {t('publish.source.myDraftsHint')}
+              </p>
+            ) : null}
+          </div>
           {actionError ? (
             <p className="mt-1.5 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[11px] text-rose-700">
               {actionError}
@@ -640,8 +783,28 @@ export function PublishDialog({
                         <span className="truncate">{formatTime(job.createdAt)}</span>
                         <span className="shrink-0">{formatDuration(job.durationMs)}</span>
                       </div>
-                      <div className="mt-0.5 truncate font-mono text-[9.5px] text-slate-400">
-                        {job.id.slice(0, 8)} · {job.status}
+                      <div className="mt-0.5 flex items-center gap-1">
+                        <span className="truncate font-mono text-[9.5px] text-slate-400">
+                          {job.id.slice(0, 8)} · {job.status}
+                        </span>
+                        {(() => {
+                          const trace = publishTrace(job, t);
+                          return (
+                            <>
+                              <span
+                                className="shrink-0 rounded bg-slate-100 px-1 text-[9px] text-slate-600"
+                                title={trace.title}
+                              >
+                                {trace.label}
+                              </span>
+                              {trace.dirty ? (
+                                <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] font-medium text-amber-800">
+                                  {t('publish.trace.dirty')}
+                                </span>
+                              ) : null}
+                            </>
+                          );
+                        })()}
                       </div>
                     </button>
                   );
@@ -675,6 +838,22 @@ export function PublishDialog({
                       {selectedJob.format === 'html5' ? (
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600">
                           {themeNameOf(selectedJob.themeId)}
+                        </span>
+                      ) : null}
+                      <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600">
+                        {publishTrace(selectedJob, t).label}
+                      </span>
+                      {selectedJob.commitHash ? (
+                        <span
+                          className="rounded bg-white px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500"
+                          title={t('publish.traceTitle')}
+                        >
+                          {selectedJob.commitHash.slice(0, 7)}
+                        </span>
+                      ) : null}
+                      {selectedJob.isDirty ? (
+                        <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9.5px] font-medium text-amber-800">
+                          {t('publish.trace.dirty')}
                         </span>
                       ) : null}
                       {selectedJob.ditaval ? (

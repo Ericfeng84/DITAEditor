@@ -1,7 +1,7 @@
 ---
 title: 功能导览
 description: 双模编辑、无损往返、CALS 表格、键空间与 conref、DITAVAL 投影、Map/Bookmap、Check-out 锁、DITA-OT 发布与 AI 审阅。
-updated: '2026-11-24'
+updated: '2026-11-25'
 ---
 
 DITAEditor 的功能围绕一条链路组织：**分发 → 编辑 → 语义 → 编排 → 协作 → 发布 → AI 辅助**。每一环都作用于同一份标准 DITA XML，界面与文档站均提供中英双语。
@@ -66,10 +66,12 @@ DITAEditor 的功能围绕一条链路组织：**分发 → 编辑 → 语义 �
 
 ## 协作与版本
 
-- **Check-out 独占锁**：键为 `(project, branch, file_path)`；过期时间由 `DITA_LOCK_TTL_HOURS` 控制。
-- **Admin 强制解锁**：释放前先备份当前内容为补丁，避免覆盖他人工作。
-- **分支隔离**：每个分支一个 `git worktree`，切换分支不会污染工作区。
-- **版本 Diff**：CodeMirror MergeView 展示提交差异，配合行级统计。
+- **干净基线 + 个人草稿层**：共享分支的 `workDir` 永远等于 Git `HEAD`；未检入的编辑、新建、删除、重命名与草稿图片全部隔离在 SQLite `working_drafts` 中，只有持锁人看得到。同分支两人共编同一 Map，彼此的校验、AI 上下文与发布快照互不污染。
+- **Check-out 独占锁**：键为 `(project, branch, file_path)`；过期时间由 `DITA_LOCK_TTL_HOURS` 控制，续期按 `updatedAt` 判定。
+- **显式目标视图**：语法/跨文件诊断、严格 DITA-OT 校验（默认 `my_drafts`）与 AI 上下文读「基线 + 本人草稿」；正式发布默认走干净基线（`HEAD` / `Tag` / `Commit` 快照），可选预览只含自己的草稿。
+- **合并与回滚**：`git merge-tree` 预检后隔离合成 merge commit，冲突在 MergeView 中逐文件求解；支持 Tag、单文件恢复（草稿 / 提交两种模式）与提交回滚，保护分支拒绝删除。
+- **版本审计**：`version_audit_logs` 记录检出、转派、撤销、强解、检入、分支、标签、合并、回滚与发布，只写 SQLite，不碰 XML 与 Git 元数据。
+- **Admin 强制解锁**：释放前先把草稿与当前内容备份为补丁，避免覆盖他人工作。
 
 ## 发布与严格校验
 

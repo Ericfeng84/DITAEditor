@@ -6,8 +6,16 @@ import {
   resolveDitaHref,
 } from '@dita/core';
 import type { IdentityService } from '../identity/identity-service.js';
+import type { GitManager } from '../git/git-manager.js';
+import type { DraftService } from '../locks/draft-service.js';
+import type { LockService } from '../locks/lock-service.js';
 import type { ManualContextResolver } from '../manuals/manual-context-resolver.js';
 import { handleWorkspaceError } from './routes.js';
+import {
+  fileExistsInOverlay,
+  readBinaryAssetWithOverlay,
+  type OverlayScope,
+} from './overlay-workspace.js';
 import { resolveSafeWorkspacePath, type WorkspaceManager } from './workspace-fs.js';
 
 const ALLOWED_IMAGE_EXTENSIONS = new Set([
@@ -31,6 +39,13 @@ const MIME_TYPES: Record<string, string> = {
   '.bmp': 'image/bmp',
 };
 
+/** Phase 13: optional draft-overlay collaborators for the asset routes. */
+export interface AssetRouteOptions {
+  drafts?: DraftService;
+  locks?: LockService;
+  git?: GitManager;
+}
+
 function sanitizeAssetFilename(rawName: string): string {
   const base = path.basename(rawName.trim());
   const ext = path.extname(base).toLowerCase();
@@ -46,15 +61,50 @@ export function registerAssetRoutes(
   workspace: WorkspaceManager,
   identity?: IdentityService,
   context?: ManualContextResolver,
+  options?: AssetRouteOptions,
 ): void {
   /** Phase 10: assets belong to the manual + branch session of the request. */
   const workspaceFor = async (req: FastifyRequest) =>
     context ? (await context.resolveRequest(req)).workspace : workspace;
 
+  /**
+   * Phase 13: the caller's draft overlay scope. `userId` travels in the header or the
+   * `?userId=` query so a draft image only renders for its owner.
+   */
+  const userIdFor = (req: FastifyRequest): string | undefined => {
+    const raw = req.headers['x-dita-user-id'];
+    const headerValue = Array.isArray(raw) ? raw[0] : raw;
+    if (typeof headerValue === 'string' && headerValue.trim()) {
+      return identity ? identity.resolve(headerValue).id : headerValue.trim();
+    }
+    const query = (req.query as { userId?: unknown } | undefined)?.userId;
+    if (typeof query === 'string' && query.trim()) return query.trim();
+    return identity ? identity.resolve(undefined).id : undefined;
+  };
+
+  const overlayScopeFor = async (req: FastifyRequest): Promise<OverlayScope | null> => {
+    if (!options?.drafts || !options.locks) return null;
+    const userId = userIdFor(req);
+    if (!userId) return null;
+    const session = context ? await context.resolveRequest(req) : null;
+    const ws = session?.workspace ?? workspace;
+    const projectRootDir = session?.projectRootDir ?? ws.getProjectRootDir();
+    const branch =
+      session?.branch ??
+      (options.git
+        ? await options.git.currentBranch(session?.workDir ?? ws.getRootDir())
+        : 'main');
+    return {
+      projectId: options.locks.ensureRepository(projectRootDir),
+      branch,
+      userId,
+    };
+  };
+
   app.post('/api/assets/upload', async (req, reply) => {
     try {
-      if (identity) {
-        const user = identity.resolve(req.headers['x-dita-user-id']);
+      const user = identity ? identity.resolve(req.headers['x-dita-user-id']) : undefined;
+      if (identity && user) {
         identity.requireRole(user, ['admin', 'writer']);
       }
       let targetDir = 'images';
@@ -95,7 +145,6 @@ export function registerAssetRoutes(
       const sessionWorkspace = await workspaceFor(req);
       const rootDir = sessionWorkspace.getRootDir();
       const safeDir = await resolveSafeWorkspacePath(rootDir, targetDir);
-      await fs.mkdir(safeDir.absPath, { recursive: true });
 
       const cleanName = sanitizeAssetFilename(uploadedFileName);
       const stem = cleanName.slice(0, cleanName.length - ext.length);
@@ -103,26 +152,75 @@ export function registerAssetRoutes(
       let candidatePosix = safeDir.posixPath ? `${safeDir.posixPath}/${finalName}` : finalName;
       let safeTarget = await resolveSafeWorkspacePath(rootDir, candidatePosix);
 
-      if (existsSync(safeTarget.absPath)) {
+      const overlay = await overlayScopeFor(req);
+      const drafts = options?.drafts;
+
+      const assetExists = async (posixPath: string): Promise<boolean> => {
+        if (overlay && drafts) {
+          const info = await fileExistsInOverlay(sessionWorkspace, drafts, overlay, posixPath);
+          return info.exists;
+        }
+        const safe = await resolveSafeWorkspacePath(rootDir, posixPath);
+        return existsSync(safe.absPath);
+      };
+
+      if (await assetExists(candidatePosix)) {
         finalName = `${stem}-${Date.now().toString(36).slice(-4)}${ext}`;
         candidatePosix = safeDir.posixPath ? `${safeDir.posixPath}/${finalName}` : finalName;
         safeTarget = await resolveSafeWorkspacePath(rootDir, candidatePosix);
       }
 
-      await fs.writeFile(safeTarget.absPath, fileBuffer);
-      await sessionWorkspace.notifyAssetAdded(safeTarget.posixPath);
+      let isDraft = false;
+      if (overlay && drafts) {
+        if (user) {
+          await options?.locks?.authorizeWrite({
+            workDir: sessionWorkspace.getRootDir(),
+            projectRootDir: sessionWorkspace.getProjectRootDir(),
+            filePath: candidatePosix,
+            user,
+            exists: false,
+          });
+        }
+        let baseCommit: string | null = null;
+        if (options?.git) {
+          try {
+            baseCommit = await options.git.headCommit(sessionWorkspace.getRootDir());
+          } catch {
+            baseCommit = null;
+          }
+        }
+        drafts.upsertBinaryDraft({
+          projectId: overlay.projectId,
+          branch: overlay.branch,
+          filePath: candidatePosix,
+          userId: overlay.userId,
+          op: 'create',
+          buffer: fileBuffer,
+          ext,
+          baseCommit,
+        });
+        isDraft = true;
+      } else {
+        await fs.mkdir(safeDir.absPath, { recursive: true });
+        await fs.writeFile(safeTarget.absPath, fileBuffer);
+        await sessionWorkspace.notifyAssetAdded(safeTarget.posixPath);
+      }
 
       const relativeHref = fromDocPath
         ? computeRelativeDitaHref(fromDocPath, safeTarget.posixPath)
         : safeTarget.posixPath;
 
+      const previewParams = new URLSearchParams({ path: safeTarget.posixPath });
+      if (isDraft && overlay) previewParams.set('userId', overlay.userId);
+
       return {
         path: safeTarget.posixPath,
         fileName: finalName,
         relativeHref,
-        previewUrl: `/api/assets/raw?path=${encodeURIComponent(safeTarget.posixPath)}`,
+        previewUrl: `/api/assets/raw?${previewParams.toString()}`,
         mimeType: MIME_TYPES[ext] ?? mimeType,
         size: fileBuffer.length,
+        ...(isDraft ? { isDraft: true } : {}),
       };
     } catch (err) {
       return handleWorkspaceError(err, req, reply);
@@ -135,7 +233,15 @@ export function registerAssetRoutes(
       return reply.status(400).send({ error: 'Missing required query parameter: path' });
     }
     try {
-      const asset = await (await workspaceFor(req)).readBinaryAsset(query.path);
+      const sessionWorkspace = await workspaceFor(req);
+      const overlay = await overlayScopeFor(req);
+      const drafts = options?.drafts;
+      const safePath = (await resolveSafeWorkspacePath(sessionWorkspace.getRootDir(), query.path))
+        .posixPath;
+      const asset =
+        overlay && drafts
+          ? await readBinaryAssetWithOverlay(sessionWorkspace, drafts, overlay, safePath)
+          : await sessionWorkspace.readBinaryAsset(query.path);
       const contentType = MIME_TYPES[asset.ext] ?? 'application/octet-stream';
       return reply
         .header('Content-Type', contentType)
@@ -159,7 +265,18 @@ export function registerAssetRoutes(
       });
     }
     try {
-      const asset = await (await workspaceFor(req)).readBinaryAsset(resolved.targetPath);
+      const sessionWorkspace = await workspaceFor(req);
+      const overlay = await overlayScopeFor(req);
+      const drafts = options?.drafts;
+      const asset =
+        overlay && drafts
+          ? await readBinaryAssetWithOverlay(
+              sessionWorkspace,
+              drafts,
+              overlay,
+              resolved.targetPath,
+            )
+          : await sessionWorkspace.readBinaryAsset(resolved.targetPath);
       const contentType = MIME_TYPES[asset.ext] ?? 'application/octet-stream';
       return reply
         .header('Content-Type', contentType)

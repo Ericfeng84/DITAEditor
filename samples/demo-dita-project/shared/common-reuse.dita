@@ -5,7 +5,7 @@
   <shortdesc>集中维护标准告警提示、SLA 服务声明与共用操作步骤，供各手册通过 conref / conkeyref 引用。</shortdesc>
   <body>
     <note id="backup_warning" type="caution">在执行生产环境升级前，请务必对 <keyword keyref="prod_name"/> 工作区执行快照备份，并确认无未检入的 Check-out 文件锁。</note>
-    <p id="sla_notice">本章节遵循 <keyword keyref="prod_name"/>（版本 <keyword keyref="api_version"/>）单源复用规范：所有部署参数与合规条款均从统一片段库自动同步。</p>
+    <p id="sla_notice">本章节遵循 <keyword keyref="prod_name"/>（版本 <keyword keyref="api_version"/>）单源复用规范：所有部署参34234数与合规条款均从统一片段库自动同步。</p>
     <p>技术支持联系邮箱：<ph id="support_email">docs-team@ditaeditor.dev</ph>。</p>
     <ul id="prereq_list">
       <li id="prereq_docker">已安装 Docker Engine 24+ 与 Docker Compose v2</li>

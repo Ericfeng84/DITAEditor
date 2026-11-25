@@ -19,7 +19,7 @@ import {
   type XmlParseError,
 } from '@dita/core';
 import { getCurrentLocale } from '../i18n/index.js';
-import { applyScopeHeaders } from './active-scope.js';
+import { applyScopeHeaders, getActiveScope } from './active-scope.js';
 import { apiUrl } from './api-base.js';
 import { getCurrentUserId } from './identity-api.js';
 
@@ -94,6 +94,45 @@ export interface FileContentResult {
   kind: DitaFileKind;
   wellFormed: boolean;
   xmlError?: XmlParseError;
+  /**
+   * Phase 13: hash of the bytes that were read. Sent back as `expectedHash` on save so two
+   * editors (two identities, or the same identity in two browsers) cannot silently overwrite
+   * each other's draft.
+   */
+  contentHash?: string;
+  /** Phase 13: true when this content came from the caller's personal draft overlay. */
+  isDraft?: boolean;
+  /** Phase 13: `edit` | `create` | `delete` | `rename` for a draft row. */
+  draftOp?: 'edit' | 'create' | 'delete' | 'rename';
+}
+
+/**
+ * Typed transport error for the JSON API.
+ *
+ * The API answers failures with `{ error, ...details }`; `code` carries the machine-readable
+ * reason (e.g. `files.staleContent`) so callers never have to match localized prose.
+ */
+export class ApiHttpError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+  readonly details: Record<string, unknown>;
+
+  constructor(status: number, message: string, code: string | null = null, details: Record<string, unknown> = {}) {
+    super(message);
+    this.name = 'ApiHttpError';
+    this.status = status;
+    this.code = code;
+    this.details = details;
+  }
+
+  /** Phase 13: another writer saved the same file first (`409 files.staleContent`). */
+  get isStaleContent(): boolean {
+    return this.status === 409 && this.code === 'files.staleContent';
+  }
+}
+
+export function isApiHttpError(error: unknown): error is ApiHttpError {
+  return error instanceof ApiHttpError;
 }
 
 export type WorkspaceDiagnostic = SemanticDiagnostic;
@@ -136,11 +175,11 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
   }
 
   if (!res.ok) {
-    const errMsg =
-      data && typeof data === 'object' && 'error' in data
-        ? String((data as { error: unknown }).error)
-        : `HTTP ${res.status}`;
-    throw new Error(errMsg);
+    const payload = data && typeof data === 'object' ? (data as Record<string, unknown>) : {};
+    const errMsg = 'error' in payload ? String(payload.error) : `HTTP ${res.status}`;
+    const { error: _error, ...details } = payload;
+    const code = typeof details.code === 'string' ? details.code : null;
+    throw new ApiHttpError(res.status, errMsg, code, details);
   }
   return data as T;
 }
@@ -206,11 +245,17 @@ export function saveFileContent(
   filePath: string,
   content: string,
   createDirs = true,
+  expectedHash?: string | null,
 ): Promise<FileContentResult> {
   return requestJson<FileContentResult>('/api/files/content', {
     method: 'PUT',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ path: filePath, content, createDirs }),
+    body: JSON.stringify({
+      path: filePath,
+      content,
+      createDirs,
+      ...(expectedHash ? { expectedHash } : {}),
+    }),
   });
 }
 
@@ -340,10 +385,13 @@ export async function uploadWorkspaceImage(
         : `Upload failed (${res.status})`;
     throw new Error(errMsg);
   }
-  const uploaded = data as UploadAssetResult;
-  return uploaded.previewUrl
-    ? { ...uploaded, previewUrl: apiUrl(uploaded.previewUrl) }
-    : uploaded;
+  const preview = data as UploadAssetResult;
+  // Phase 13: asset URLs cannot send the identity header, so manual/branch/user travel as query
+  // parameters — a draft image then renders only for the writer who owns it.
+  if (!preview.previewUrl) return preview;
+  const [base, search = ''] = preview.previewUrl.split('?');
+  const params = withAssetScope(new URLSearchParams(search));
+  return { ...preview, previewUrl: apiUrl(`${base}?${params.toString()}`) };
 }
 
 /**
@@ -367,7 +415,8 @@ export function resolveWorkspaceAssetUrl(
 
   if (mode === 'api') {
     if (trimmed.startsWith('/api/')) return apiUrl(trimmed);
-    return apiUrl(`/api/assets/resolve?from=${encodeURIComponent(docPath)}&href=${encodeURIComponent(trimmed)}`);
+    const params = withAssetScope(new URLSearchParams({ from: docPath, href: trimmed }));
+    return apiUrl(`/api/assets/resolve?${params.toString()}`);
   }
 
   const resolved = resolveDitaHref(docPath, trimmed);
@@ -375,6 +424,20 @@ export function resolveWorkspaceAssetUrl(
     return null;
   }
   return memoryAssets?.[resolved.targetPath] ?? null;
+}
+
+/**
+ * Phase 13: `<img src>` cannot carry request headers, so the manual/branch scope and the draft
+ * overlay owner are repeated as query parameters. Without `userId` a writer's uncommitted draft
+ * image would resolve against the clean baseline and 404.
+ */
+function withAssetScope(params: URLSearchParams): URLSearchParams {
+  const scope = getActiveScope();
+  if (scope.manualId && !params.has('manualId')) params.set('manualId', scope.manualId);
+  if (scope.branch && !params.has('branch')) params.set('branch', scope.branch);
+  const userId = getCurrentUserId();
+  if (userId && !params.has('userId')) params.set('userId', userId);
+  return params;
 }
 
 export interface InMemoryDemoWorkspace {

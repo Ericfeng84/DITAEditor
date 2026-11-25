@@ -34,7 +34,7 @@ export const en: typeof zh = {
     titleLead: 'Standard DITA XML as the only source of truth,',
     titleAccent: 'in a lightweight web workbench built for teams.',
     subtitle:
-      'Hand out topics and track due dates in the manual workbench, then write in ProseMirror with a CodeMirror 6 source view: single-sourced keys, conrefs and DITAVAL, exclusive locks on local Git worktrees, DITA-OT 4.x PDF output with Noto CJK, and fragment-scoped AI review all share one XML source — switch the whole interface between Chinese and English, with no Java business code and one container.',
+      'Hand out topics and track due dates in the manual workbench, then write in ProseMirror with a CodeMirror 6 source view: single-sourced keys, conrefs and DITAVAL, a clean baseline with per-user draft overlays, exclusive locks on local Git worktrees, DITA-OT 4.x PDF output with Noto CJK, and fragment-scoped AI review all share one XML source — switch the whole interface between Chinese and English, with no Java business code and one container.',
     primaryCta: 'Try it in the browser',
     desktopCta: 'Download desktop app',
     secondaryCta: 'Deploy with Docker',
@@ -43,7 +43,7 @@ export const en: typeof zh = {
     stats: [
       { value: '100%', label: 'Lossless XML round-trip' },
       { value: '10', label: 'Golden DITA 1.3 fixtures' },
-      { value: '231', label: 'Automated tests' },
+      { value: '521', label: 'Automated tests' },
       { value: '2', label: 'Bilingual UI' },
     ],
     showcaseLabel: 'The real workbench',

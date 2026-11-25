@@ -4,6 +4,8 @@ import {
 } from '@dita/core';
 import { t } from '../../../i18n/index.js';
 import {
+  ApiHttpError,
+  fetchFileContent,
   saveFileContent,
 } from '../../../services/workspace-api';
 import {
@@ -58,7 +60,10 @@ export function createTabsSlice(
 
       // Prefer unsaved mapBuffer if this map was edited via the Map Tree
       const mapBuf = state.mapBuffers[filePath];
-      let xml: string | null = mapBuf ? mapBuf.xml : await runtime.readTextFromActiveSource(filePath);
+      const read = mapBuf
+        ? { xml: mapBuf.xml as string | null, contentHash: mapBuf.contentHash ?? null }
+        : await runtime.readTextMetaFromActiveSource(filePath);
+      const xml: string | null = read.xml;
       if (xml === null) {
         set({ statusMessage: t('status.cannotOpen', { path: filePath }) });
         return;
@@ -85,6 +90,7 @@ export function createTabsSlice(
         xmlError: check.ok ? null : check.error,
         switchBlockedReason: null,
         visualReloadToken: 1,
+        contentHash: read.contentHash,
       };
 
       let jumpOffset = options.jumpOffset ?? null;
@@ -174,8 +180,15 @@ export function createTabsSlice(
       set((s) => ({ savingPaths: [...s.savingPaths, filePath] }));
 
       try {
+        let nextContentHash: string | null = null;
         if (state.workspaceMode === 'api') {
-          await saveFileContent(filePath, content, true);
+          // Phase 13: send the hash the buffer was read from (unless the user explicitly
+          // overwrites), so a concurrent save is reported instead of silently lost.
+          const expectedHash = options?.force
+            ? null
+            : (tab?.contentHash ?? mapBuf?.contentHash ?? null);
+          const saved = await saveFileContent(filePath, content, true, expectedHash);
+          nextContentHash = saved.contentHash ?? null;
         } else {
           set((s) => ({
             memoryFiles: { ...s.memoryFiles, [filePath]: content },
@@ -190,7 +203,12 @@ export function createTabsSlice(
         set((s) => ({
           openTabs: s.openTabs.map((t) =>
             t.path === filePath
-              ? { ...t, baselineXml: content, title: nextTitle }
+              ? {
+                  ...t,
+                  baselineXml: content,
+                  title: nextTitle,
+                  ...(nextContentHash ? { contentHash: nextContentHash } : {}),
+                }
               : t,
           ),
           mapBuffers: s.mapBuffers[filePath]
@@ -200,6 +218,7 @@ export function createTabsSlice(
                   ...s.mapBuffers[filePath]!,
                   baselineXml: content,
                   xml: content,
+                  ...(nextContentHash ? { contentHash: nextContentHash } : {}),
                 },
               }
             : s.mapBuffers,
@@ -209,6 +228,7 @@ export function createTabsSlice(
               : s.topicTitles,
           savingPaths: s.savingPaths.filter((p) => p !== filePath),
           statusMessage: t('status.savedFile', { path: filePath }),
+          contentConflict: s.contentConflict?.path === filePath ? null : s.contentConflict,
           lastSaveFailures: s.lastSaveFailures.filter((f) => f.path !== filePath),
           // Drop the alert once every file it wanted to save actually landed.
           alert:
@@ -236,6 +256,26 @@ export function createTabsSlice(
         return true;
       } catch (err) {
         const reason = err instanceof Error ? err.message : String(err);
+        if (err instanceof ApiHttpError && err.isStaleContent) {
+          // Someone else saved first: keep the buffer intact and offer the two safe choices.
+          const currentHash =
+            typeof err.details.currentHash === 'string' ? err.details.currentHash : null;
+          set((s) => ({
+            savingPaths: s.savingPaths.filter((p) => p !== filePath),
+            statusMessage: t('status.saveFailed', { path: filePath, message: reason }),
+            contentConflict: {
+              path: filePath,
+              message: t('contentConflict.message', { path: filePath }),
+              currentHash,
+              baseHash: tab?.contentHash ?? mapBuf?.contentHash ?? null,
+            },
+            lastSaveFailures: [
+              ...s.lastSaveFailures.filter((f) => f.path !== filePath),
+              { path: filePath, message: reason },
+            ],
+          }));
+          return false;
+        }
         const statusMessage = t('status.saveFailed', { path: filePath, message: reason });
         set((s) => ({
           savingPaths: s.savingPaths.filter((p) => p !== filePath),
@@ -328,6 +368,68 @@ export function createTabsSlice(
 
     dismissAlert() {
       set({ alert: null });
+    },
+
+    dismissContentConflict() {
+      set({ contentConflict: null });
+    },
+
+    async resolveContentConflict(strategy) {
+      const state = get();
+      const conflict = state.contentConflict;
+      if (!conflict) return false;
+      const { path } = conflict;
+      if (strategy === 'overwrite') {
+        const ok = await get().saveFile(path, { force: true });
+        if (ok) set({ contentConflict: null });
+        return ok;
+      }
+      if (state.workspaceMode === 'memory') {
+        set({ contentConflict: null });
+        return true;
+      }
+      try {
+        const fresh = await fetchFileContent(path);
+        const check = checkXmlWellFormed(fresh.content, { position: false });
+        const fileName = path.split('/').pop() ?? path;
+        const title = extractTitleFromCheck(check, fileName);
+        cancelOverlayRefresh(path);
+        set((s) => ({
+          contentConflict: null,
+          openTabs: s.openTabs.map((t) =>
+            t.path === path
+              ? {
+                  ...t,
+                  xml: fresh.content,
+                  baselineXml: fresh.content,
+                  title,
+                  xmlError: check.ok ? null : check.error,
+                  switchBlockedReason: null,
+                  visualReloadToken: t.visualReloadToken + 1,
+                  contentHash: fresh.contentHash ?? null,
+                }
+              : t,
+          ),
+          mapBuffers: s.mapBuffers[path]
+            ? {
+                ...s.mapBuffers,
+                [path]: {
+                  ...s.mapBuffers[path]!,
+                  xml: fresh.content,
+                  baselineXml: fresh.content,
+                  xmlError: check.ok ? null : check.error,
+                  contentHash: fresh.contentHash ?? null,
+                },
+              }
+            : s.mapBuffers,
+          statusMessage: t('contentConflict.reloaded', { path }),
+        }));
+        await get().refreshDocumentOverlay(path, fresh.content).catch(() => undefined);
+        return true;
+      } catch {
+        set({ statusMessage: t('contentConflict.reloadFailed', { path }) });
+        return false;
+      }
     },
 
     resetCurrentToBaseline() {

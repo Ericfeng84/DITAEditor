@@ -160,9 +160,11 @@ export function createWorkspaceSlice(
 
       for (const filePath of uniquePaths) {
         let content: string;
+        let contentHash: string | null = null;
         try {
           const res = await fetchFileContent(filePath);
           content = res.content;
+          contentHash = res.contentHash ?? null;
         } catch {
           continue;
         }
@@ -179,6 +181,7 @@ export function createWorkspaceSlice(
             switchBlockedReason: null,
             visualReloadToken: tab.visualReloadToken + 1,
             title: extractTitleFromCheck(check, tab.fileName),
+            contentHash,
           };
         }
         if (nextBuffers[filePath]) {
@@ -190,6 +193,7 @@ export function createWorkspaceSlice(
             undoStack: [],
             redoStack: [],
             xmlError,
+            contentHash,
           };
         }
       }
@@ -517,8 +521,10 @@ export function createWorkspaceSlice(
     async refreshDiagnostics() {
       const state = get();
       if (state.workspaceMode === 'memory') {
+        // Merge live map/tab buffers so a fix that is not saved yet clears its diagnostic,
+        // instead of re-reporting the last saved snapshot (mirrors `refreshSemantics`).
         const diags = computeMemoryDiagnostics(
-          state.memoryFiles,
+          collectMemoryIndexFiles(state),
           state.memoryAssets,
           state.activeRootMapPath,
         );

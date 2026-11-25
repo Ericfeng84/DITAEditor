@@ -1,7 +1,7 @@
 ---
 title: Architecture reference
 description: Package boundaries, the isomorphic kernel, the lossless pipeline, lock and worktree concurrency, the DITA-OT chain, and the deployment view.
-updated: '2026-11-22'
+updated: '2026-11-25'
 ---
 
 DITAEditor has one architectural goal: let standard DITA XML flow **losslessly** between the browser, the server, and publishing tools. Every module boundary serves that goal.
@@ -92,9 +92,11 @@ ProseMirror tx   ──┘
 ## Concurrency model
 
 - Lock key: `(project, branch, file_path)`.
-- Branch isolation: one `git worktree` per branch, avoiding checkout churn.
-- Expiry: `DITA_LOCK_TTL_HOURS`; expired locks can be reacquired.
-- Force-unlock: back up the file as a patch, then delete the lock record.
+- Clean baseline: one `git worktree` per branch whose `workDir` always equals Git `HEAD`, avoiding checkout churn.
+- Personal draft overlay: uncommitted edits, creates, deletes, renames and draft images live in SQLite `working_drafts`, visible only to the lock holder; diagnostics, strict validation, AI context and `my_drafts` previews read baseline plus your own drafts.
+- Expiry: `DITA_LOCK_TTL_HOURS`, with renewals and expiry judged by `updatedAt`; expired locks can be reacquired.
+- Force-unlock: back up the draft and the file as patches, then delete the lock record.
+- Merges complete in an isolated synthetic commit: `git merge-tree` preflight, per-file conflict resolution, and a shared `workDir` that never lingers in a `MERGING` state.
 - No CRDT. Conflicts are resolved at the lock layer, not by merging characters.
 
 ## Publishing chain

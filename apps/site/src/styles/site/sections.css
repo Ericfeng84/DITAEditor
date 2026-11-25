@@ -756,13 +756,6 @@
   font-size: 12.5px;
 }
 
-.platform__size {
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  opacity: 0.66;
-}
-
 .platform__alt {
   font-family: var(--font-mono);
   font-size: 10px;

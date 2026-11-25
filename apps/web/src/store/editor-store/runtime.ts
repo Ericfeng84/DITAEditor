@@ -72,25 +72,34 @@ export function createStoreRuntime(set: StoreSet, get: StoreGet) {
     return nextFileSet;
   };
 
-  const readTextFromActiveSource = async (filePath: string): Promise<string | null> => {
+  /**
+   * Phase 13: read a file plus the hash of the bytes it was read from. The hash travels back on
+   * save as `expectedHash`, which is how the API detects that another editor saved in between.
+   */
+  const readTextMetaFromActiveSource = async (
+    filePath: string,
+  ): Promise<{ xml: string | null; contentHash: string | null }> => {
     const state = get();
     // Prefer open tab or loaded map buffer if already in memory
     const openTab = state.openTabs.find((t) => t.path === filePath);
-    if (openTab) return openTab.xml;
+    if (openTab) return { xml: openTab.xml, contentHash: openTab.contentHash ?? null };
     const mapBuf = state.mapBuffers[filePath];
-    if (mapBuf) return mapBuf.xml;
+    if (mapBuf) return { xml: mapBuf.xml, contentHash: mapBuf.contentHash ?? null };
 
     if (state.workspaceMode === 'memory') {
-      return state.memoryFiles[filePath] ?? null;
+      return { xml: state.memoryFiles[filePath] ?? null, contentHash: null };
     }
 
     try {
       const res = await fetchFileContent(filePath);
-      return res.content;
+      return { xml: res.content, contentHash: res.contentHash ?? null };
     } catch {
-      return null;
+      return { xml: null, contentHash: null };
     }
   };
+
+  const readTextFromActiveSource = async (filePath: string): Promise<string | null> =>
+    (await readTextMetaFromActiveSource(filePath)).xml;
 
   const loadMapTreeBuffers = async (rootMapPath: string, forceReload = false) => {
     const visited = new Set<string>();
@@ -102,6 +111,7 @@ export function createStoreRuntime(set: StoreSet, get: StoreGet) {
 
       const existing = nextBuffers[mapPath];
       let xml: string | null = existing && !forceReload ? existing.xml : null;
+      let contentHash: string | null = existing?.contentHash ?? null;
 
       if (xml === null) {
         if (get().workspaceMode === 'memory') {
@@ -110,6 +120,7 @@ export function createStoreRuntime(set: StoreSet, get: StoreGet) {
           try {
             const res = await fetchFileContent(mapPath);
             xml = res.content;
+            contentHash = res.contentHash ?? null;
           } catch {
             xml = null;
           }
@@ -127,6 +138,7 @@ export function createStoreRuntime(set: StoreSet, get: StoreGet) {
           undoStack: existing?.undoStack ?? [],
           redoStack: existing?.redoStack ?? [],
           xmlError: check.ok ? null : check.error,
+          contentHash,
         };
       }
 
@@ -272,6 +284,7 @@ export function createStoreRuntime(set: StoreSet, get: StoreGet) {
     scheduleSemanticsRefresh,
     applySnapshotToState,
     readTextFromActiveSource,
+    readTextMetaFromActiveSource,
     loadMapTreeBuffers,
     findFirstTopicInWorkspace,
     adoptApiWorkspaceSnapshot,

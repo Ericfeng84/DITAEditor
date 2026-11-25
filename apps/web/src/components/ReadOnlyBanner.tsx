@@ -9,6 +9,8 @@ export interface ReadOnlyBannerProps {
   lock: FileLock | null;
   busy: boolean;
   onCheckout: () => void;
+  /** Admins only: Phase 13 forbids silent overwrites, so the forced unlock stays reachable. */
+  onForceUnlock?: () => void;
   /** Re-reads the lock list, e.g. after the holder released or checked in elsewhere. */
   onRefresh: () => void;
 }
@@ -36,6 +38,7 @@ export function ReadOnlyBanner({
   lock,
   busy,
   onCheckout,
+  onForceUnlock,
   onRefresh,
 }: ReadOnlyBannerProps) {
   const { t } = useI18n();
@@ -77,6 +80,19 @@ export function ReadOnlyBanner({
           >
             <Lock className="h-3 w-3" aria-hidden="true" />
             {busy ? t('lock.busy') : t('lock.checkout')}
+          </button>
+        ) : null}
+        {editability.canForceUnlock && onForceUnlock ? (
+          <button
+            type="button"
+            disabled={busy}
+            onClick={onForceUnlock}
+            title={t('git.forceUnlockTooltip')}
+            aria-label={t('git.forceUnlockAria', { path: editability.lock?.filePath ?? '' })}
+            className="inline-flex items-center gap-1 rounded border border-rose-300 bg-white px-1.5 py-0.5 font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-40"
+          >
+            <ShieldAlert className="h-3 w-3" aria-hidden="true" />
+            {t('lock.force')}
           </button>
         ) : null}
         <button

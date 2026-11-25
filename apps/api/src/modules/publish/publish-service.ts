@@ -14,6 +14,9 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
 import type { DitaDatabase } from '../../db/client.js';
 import { publishJobs, type PublishJobRow } from '../../db/schema.js';
+import type { VersionAuditService } from '../git/audit-service.js';
+import type { GitManager } from '../git/git-manager.js';
+import type { DraftService } from '../locks/draft-service.js';
 import { HttpError, httpError } from '../errors.js';
 import { apiT } from '../../i18n/messages.js';
 import type { ApiLocale } from '../../i18n/locale.js';
@@ -48,6 +51,8 @@ import { enhanceHtml5Output } from './theme-enhancer.js';
 
 export type PublishFormat = 'html5' | 'pdf';
 export type PublishStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+/** Phase 13: what a build reads from — the clean baseline by default, never other users' drafts. */
+export type PublishSourceMode = 'baseline' | 'tag' | 'commit' | 'my_drafts';
 
 export interface CreatePublishJobInput {
   user: IdentityUser;
@@ -64,6 +69,12 @@ export interface CreatePublishJobInput {
   themeId?: HtmlThemeId;
   /** Normalized portal theme options; ignored for PDF jobs. */
   themeOptions?: HtmlThemeOptions;
+  /** Phase 13: build source; omitted keeps the historical baseline behavior. */
+  sourceMode?: PublishSourceMode;
+  /** Phase 13: tag or commit for `tag` / `commit` source modes. */
+  sourceRef?: string | null;
+  /** Phase 13: repository root used for `git archive` (defaults to the work dir). */
+  projectRootDir?: string;
 }
 
 export interface PublishJobView {
@@ -92,6 +103,12 @@ export interface PublishJobView {
   /** `null` for PDF jobs and for HTML5 jobs published before Phase 12 themes. */
   themeId: HtmlThemeId | null;
   themeOptions: HtmlThemeOptions | null;
+  /** Phase 13 provenance: what was published and whether the work tree was dirty. */
+  sourceMode: PublishSourceMode;
+  sourceRef: string | null;
+  commitHash: string | null;
+  isDirty: boolean;
+  dirtyFiles: string[];
 }
 
 export interface PublishServiceOptions {
@@ -105,6 +122,12 @@ export interface PublishServiceOptions {
   logger?: (message: string, error?: unknown) => void;
   /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
   htmlThemesDir?: string;
+  /** Phase 13: enables `tag` / `commit` archive builds and baseline SHA stamping. */
+  git?: GitManager;
+  /** Phase 13: enables `my_drafts` builds that overlay only the requester's drafts. */
+  drafts?: DraftService;
+  /** Phase 13: records a `publish` entry in the version audit log. */
+  audit?: VersionAuditService;
 }
 
 const EXCLUDED_SNAPSHOT_ENTRIES = new Set([
@@ -176,6 +199,24 @@ function isInside(parent: string, child: string): boolean {
   return rel === '' || (!rel.startsWith('..') && !isAbsolute(rel));
 }
 
+const PUBLISH_SOURCE_MODES: PublishSourceMode[] = ['baseline', 'tag', 'commit', 'my_drafts'];
+
+function normalizeSourceMode(value: string | null | undefined): PublishSourceMode {
+  return PUBLISH_SOURCE_MODES.includes(value as PublishSourceMode)
+    ? (value as PublishSourceMode)
+    : 'baseline';
+}
+
+function parseDirtyFiles(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed.filter((entry): entry is string => typeof entry === 'string') : [];
+  } catch {
+    return [];
+  }
+}
+
 export class PublishService {
   private readonly db: DitaDatabase;
   private readonly workspace: WorkspaceManager;
@@ -185,6 +226,9 @@ export class PublishService {
   private readonly retentionDays: number;
   private readonly logger: (message: string, error?: unknown) => void;
   private readonly htmlThemesDirOverride: string | undefined;
+  private readonly git: GitManager | undefined;
+  private readonly drafts: DraftService | undefined;
+  private readonly audit: VersionAuditService | undefined;
   private readonly queue: PublishQueue;
   private cleanupTimer: NodeJS.Timeout | null = null;
 
@@ -201,6 +245,9 @@ export class PublishService {
     this.retentionDays = options.retentionDays ?? 14;
     this.logger = options.logger ?? (() => undefined);
     this.htmlThemesDirOverride = options.htmlThemesDir;
+    this.git = options.git;
+    this.drafts = options.drafts;
+    this.audit = options.audit;
     this.queue = new PublishQueue({
       concurrency: options.concurrency ?? Number(process.env.DITA_PUBLISH_CONCURRENCY ?? 1),
       run: (jobId, signal) => this.runJob(jobId, signal),
@@ -260,6 +307,7 @@ export class PublishService {
       if (runtime.error) throw new HttpError(503, runtime.error, { runtime });
       throw httpError(503, 'publish.noCli', undefined, { runtime });
     }
+    const provenance = await this.resolveProvenance(input);
     const id = `pub-${Date.now().toString(36)}-${randomUUID().slice(0, 8)}`;
     const now = Date.now();
     const jobDir = join(this.publishRootDir, 'jobs', id);
@@ -277,9 +325,19 @@ export class PublishService {
             timeoutMs: this.timeoutMs,
             locale,
             workDir: input.workDir,
+            projectRootDir: provenance.projectRootDir,
+            sourceMode: provenance.sourceMode,
+            sourceRef: provenance.sourceRef,
             htmlTheme: { themeId, options: themeOptions },
           }
-        : { timeoutMs: this.timeoutMs, locale, workDir: input.workDir },
+        : {
+            timeoutMs: this.timeoutMs,
+            locale,
+            workDir: input.workDir,
+            projectRootDir: provenance.projectRootDir,
+            sourceMode: provenance.sourceMode,
+            sourceRef: provenance.sourceRef,
+          },
     );
 
     this.db
@@ -300,8 +358,34 @@ export class PublishService {
         snapshotPath: join(jobDir, 'snapshot'),
         outputPath: join(jobDir, 'output'),
         cancelRequested: 0,
+        sourceMode: provenance.sourceMode,
+        sourceRef: provenance.sourceRef,
+        commitHash: provenance.commitHash,
+        isDirty: provenance.isDirty ? 1 : 0,
+        dirtyFilesJson:
+          provenance.dirtyFiles.length > 0 ? JSON.stringify(provenance.dirtyFiles) : null,
       })
       .run();
+
+    try {
+      this.audit?.record({
+        projectId: input.projectId,
+        branch: input.branch,
+        actorId: input.user.id,
+        action: 'publish',
+        targetPath: input.rootMap,
+        details: {
+          jobId: id,
+          sourceMode: provenance.sourceMode,
+          sourceRef: provenance.sourceRef,
+          commitHash: provenance.commitHash,
+          isDirty: provenance.isDirty,
+          dirtyFiles: provenance.dirtyFiles,
+        },
+      });
+    } catch (err) {
+      this.logger('failed to record publish audit entry', err);
+    }
 
     this.queue.enqueue(id);
     const view = this.getJob(id);
@@ -359,6 +443,56 @@ export class PublishService {
     return this.getJob(job.id) ?? this.toView(job);
   }
 
+  /**
+   * Phase 13: resolve what the build actually reads and stamp it on the job. `tag` / `commit`
+   * resolve to an immutable SHA; `baseline` records `HEAD`; `my_drafts` additionally records the
+   * requester's own draft paths so a preview build is auditable without leaking anyone else's.
+   */
+  private async resolveProvenance(input: CreatePublishJobInput): Promise<{
+    sourceMode: PublishSourceMode;
+    sourceRef: string | null;
+    commitHash: string | null;
+    isDirty: boolean;
+    dirtyFiles: string[];
+    projectRootDir: string;
+  }> {
+    const sourceMode: PublishSourceMode = input.sourceMode ?? 'baseline';
+    const sourceRef = input.sourceRef?.trim() || null;
+    const projectRootDir = input.projectRootDir ?? input.workDir;
+    const gitReady = Boolean(this.git?.isRepository(projectRootDir));
+
+    if (sourceMode === 'tag' || sourceMode === 'commit') {
+      if (!sourceRef) {
+        throw new HttpError(400, `Publishing from a ${sourceMode} requires a reference.`);
+      }
+      if (!this.git || !gitReady) {
+        throw new HttpError(400, 'Publishing from a Git reference requires a Git repository.');
+      }
+      const commitHash = await this.git.resolveCommit(projectRootDir, sourceRef);
+      return { sourceMode, sourceRef, commitHash, isDirty: false, dirtyFiles: [], projectRootDir };
+    }
+
+    if (sourceMode === 'my_drafts' && !this.drafts) {
+      throw new HttpError(400, 'Personal draft previews are not available.');
+    }
+
+    const commitHash = gitReady ? await this.git!.headCommit(input.workDir) : null;
+    const dirtyFiles =
+      sourceMode === 'my_drafts'
+        ? (this.drafts?.listUserDrafts(input.projectId, input.branch, input.user.id) ?? []).map(
+            (draft) => draft.filePath,
+          )
+        : [];
+    return {
+      sourceMode,
+      sourceRef,
+      commitHash,
+      isDirty: dirtyFiles.length > 0,
+      dirtyFiles,
+      projectRootDir,
+    };
+  }
+
   private toView(row: PublishJobRow): PublishJobView {
     const succeeded = row.status === 'succeeded';
     const theme = this.themeForRow(row);
@@ -393,6 +527,11 @@ export class PublishService {
       cancelRequested: row.cancelRequested === 1,
       themeId: theme?.themeId ?? null,
       themeOptions: theme?.options ?? null,
+      sourceMode: normalizeSourceMode(row.sourceMode),
+      sourceRef: row.sourceRef ?? null,
+      commitHash: row.commitHash ?? null,
+      isDirty: row.isDirty === 1,
+      dirtyFiles: parseDirtyFiles(row.dirtyFilesJson),
     };
   }
 
@@ -438,6 +577,19 @@ export class PublishService {
       }
     }
     return this.workspace.getRootDir();
+  }
+
+  /** Repository root persisted at job creation (`optionsJson.projectRootDir`). */
+  private projectRootDirForRow(row: PublishJobRow): string {
+    if (row.optionsJson) {
+      try {
+        const parsed = JSON.parse(row.optionsJson) as { projectRootDir?: string };
+        if (parsed.projectRootDir) return parsed.projectRootDir;
+      } catch {
+        // fall through to the work dir / legacy singleton path
+      }
+    }
+    return this.sourceDirForRow(row);
   }
 
   /** Locale persisted at job creation (`optionsJson.locale`), defaulting to zh-CN. */
@@ -494,24 +646,7 @@ export class PublishService {
       await rm(outputDir, { recursive: true, force: true });
       await mkdir(outputDir, { recursive: true });
 
-      const publishRoot = resolve(this.publishRootDir);
-      const sourceDir = this.sourceDirForRow(row);
-      await cp(sourceDir, snapshotDir, {
-        recursive: true,
-        force: true,
-        dereference: false,
-        filter: (source) => {
-          const absSource = resolve(source);
-          if (isInside(publishRoot, absSource)) {
-            return false;
-          }
-          const entry = basename(absSource);
-          if (absSource !== resolve(sourceDir) && EXCLUDED_SNAPSHOT_ENTRIES.has(entry)) {
-            return false;
-          }
-          return true;
-        },
-      });
+      await this.materializeSnapshot(row, snapshotDir, jobDir);
 
       const inputAbs = resolve(snapshotDir, row.rootMap);
       if (!isInside(snapshotDir, inputAbs) || !existsSync(inputAbs)) {
@@ -779,6 +914,83 @@ export class PublishService {
    * Applies the themed portal shell to a fresh DITA-OT HTML5 output. Assets are resolved lazily
    * so a server without the html-themes bundle can still publish PDF and vanilla HTML5 jobs.
    */
+  /**
+   * Phase 13: build the snapshot from an immutable commit/tag when possible, overlay only the
+   * requester's own drafts for `my_drafts`, and never fall back to a dirty shared work dir for a
+   * formal publish.
+   */
+  private async materializeSnapshot(
+    row: PublishJobRow,
+    snapshotDir: string,
+    jobDir: string,
+  ): Promise<void> {
+    const sourceMode = normalizeSourceMode(row.sourceMode);
+    const projectRootDir = this.projectRootDirForRow(row);
+    const gitReady = Boolean(this.git?.isRepository(projectRootDir));
+    const ref = row.commitHash ?? row.sourceRef ?? null;
+
+    if (sourceMode === 'tag' || sourceMode === 'commit') {
+      if (!this.git || !gitReady || !ref) {
+        throw new Error(`Git reference ${row.sourceRef ?? ''} is no longer available.`);
+      }
+      await this.git.archiveRef(projectRootDir, ref, snapshotDir);
+      return;
+    }
+
+    if (sourceMode === 'my_drafts') {
+      const baselineDir = join(jobDir, 'baseline');
+      await rm(baselineDir, { recursive: true, force: true });
+      await mkdir(baselineDir, { recursive: true });
+      try {
+        if (this.git && gitReady && ref) {
+          await this.git.archiveRef(projectRootDir, ref, baselineDir);
+        } else {
+          await this.copyWorkspace(this.sourceDirForRow(row), baselineDir);
+        }
+        if (this.drafts) {
+          await this.drafts.materializeOverlayDir({
+            baselineDir,
+            projectId: row.projectId,
+            branch: row.branch,
+            userId: row.userId,
+            destDir: snapshotDir,
+          });
+        } else {
+          await this.copyWorkspace(baselineDir, snapshotDir);
+        }
+      } finally {
+        await rm(baselineDir, { recursive: true, force: true });
+      }
+      return;
+    }
+
+    if (this.git && gitReady && ref) {
+      await this.git.archiveRef(projectRootDir, ref, snapshotDir);
+      return;
+    }
+    await this.copyWorkspace(this.sourceDirForRow(row), snapshotDir);
+  }
+
+  private async copyWorkspace(sourceDir: string, destDir: string): Promise<void> {
+    const publishRoot = resolve(this.publishRootDir);
+    await cp(sourceDir, destDir, {
+      recursive: true,
+      force: true,
+      dereference: false,
+      filter: (source) => {
+        const absSource = resolve(source);
+        if (isInside(publishRoot, absSource)) {
+          return false;
+        }
+        const entry = basename(absSource);
+        if (absSource !== resolve(sourceDir) && EXCLUDED_SNAPSHOT_ENTRIES.has(entry)) {
+          return false;
+        }
+        return true;
+      },
+    });
+  }
+
   private async enhanceThemeOutput(params: {
     jobId: string;
     themeId: HtmlThemeId;

@@ -163,6 +163,8 @@ describe('Phase 4 Git + check-out locks', () => {
     });
     expect(viewerSave.statusCode).toBe(403);
 
+    // Phase 13: "dirty" is per user — writer B sees only their own draft, and the
+    // shared baseline workDir stays clean at HEAD.
     const dirtyStatus = await app.inject({
       method: 'GET',
       url: '/api/git/status',
@@ -170,8 +172,24 @@ describe('Phase 4 Git + check-out locks', () => {
     });
     expect(dirtyStatus.statusCode).toBe(200);
     const dirtyPaths = dirtyStatus.json().dirtyFiles.map((file: { path: string }) => file.path);
-    expect(dirtyPaths).toContain(FILE_A);
     expect(dirtyPaths).toContain(FILE_B);
+    expect(dirtyPaths).not.toContain(FILE_A);
+    expect(dirtyStatus.json().isClean).toBe(false);
+    const dirtyStatusA = await app.inject({
+      method: 'GET',
+      url: '/api/git/status',
+      headers: WRITER_A,
+    });
+    const dirtyPathsA = dirtyStatusA
+      .json()
+      .dirtyFiles.map((file: { path: string }) => file.path);
+    expect(dirtyPathsA).toContain(FILE_A);
+    const worktreeStatus = await app.inject({
+      method: 'GET',
+      url: '/api/git/status',
+      headers: ADMIN,
+    });
+    expect(worktreeStatus.json().isClean).toBe(true);
 
     // Check-in commits only own files and releases the lock
     const checkin = await app.inject({

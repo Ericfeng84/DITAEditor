@@ -7,10 +7,22 @@ import { repositoryIdFor } from '../git/git-manager.js';
 import type { GitManager } from '../git/git-manager.js';
 import { WorkspaceManager } from '../files/workspace-fs.js';
 import { WorkspaceSemanticIndexer } from '../indexer/semantic-indexer.js';
+import type { DraftService } from '../locks/draft-service.js';
 import type { ManualRegistryService } from './manual-registry-service.js';
 
+/** Default max number of live `(manual, workDir)` sessions kept in memory (see ADR-0002). */
+export const DEFAULT_MAX_CACHED_SESSIONS = 16;
+
+/** Sessions untouched for this long are dropped lazily on the next resolve (Phase 13). */
+export const IDLE_SESSION_TTL_MS = 30 * 60 * 1000;
+
+function readMaxCachedSessions(): number {
+  const parsed = Number.parseInt(process.env['DITA_MAX_CACHED_SESSIONS'] ?? '', 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_MAX_CACHED_SESSIONS;
+}
+
 /** Max number of live `(manual, workDir)` sessions kept in memory (see ADR-0002). */
-export const MAX_CACHED_SESSIONS = 16;
+export const MAX_CACHED_SESSIONS = readMaxCachedSessions();
 
 /**
  * One resolved manual + branch working context. Each session owns an isolated
@@ -26,6 +38,10 @@ export interface ManualSession {
   isPrimaryBranch: boolean;
   workspace: WorkspaceManager;
   indexer: WorkspaceSemanticIndexer;
+  /** Phase 13: the semantic-index baseline revision this session was created against. */
+  baselineRev: number;
+  /** Phase 13: last time this session served a request (idle eviction). */
+  lastAccessedAt: number;
 }
 
 export interface ManualContextResolverOptions {
@@ -35,6 +51,8 @@ export interface ManualContextResolverOptions {
   registryPath: string;
   /** Bound once at startup so header-less legacy clients resolve to the sample manual. */
   defaultRootDir: string;
+  /** Phase 13: enables the personal draft overlay inside each session's semantic index. */
+  drafts?: DraftService;
 }
 
 function firstHeader(request: FastifyRequest, name: string): string | undefined {
@@ -62,8 +80,11 @@ export class ManualContextResolver {
   private readonly importsRootDir: string;
   private readonly registryPath: string;
   private readonly defaultRootDir: string;
+  private readonly drafts?: DraftService;
   private readonly sessions = new Map<string, ManualSession>();
   private readonly defaultBranchByManual = new Map<string, string>();
+  /** Phase 13: one in-flight creation per `(manual, branch)` so concurrent reads share it. */
+  private readonly inflightSessions = new Map<string, Promise<ManualSession>>();
   private activeManualId: string | null = null;
 
   constructor(options: ManualContextResolverOptions) {
@@ -72,6 +93,7 @@ export class ManualContextResolver {
     this.importsRootDir = path.resolve(options.importsRootDir);
     this.registryPath = path.resolve(options.registryPath);
     this.defaultRootDir = path.resolve(options.defaultRootDir);
+    this.drafts = options.drafts;
   }
 
   /** Reads the manual/branch from a request, no side effects other than session creation. */
@@ -95,6 +117,8 @@ export class ManualContextResolver {
   }
 
   async resolve(manualId?: string | null, branch?: string | null): Promise<ManualSession> {
+    this.evictIdleSessions();
+
     const manual = manualId
       ? await this.registry.requireRow(manualId)
       : await this.requireActiveManual();
@@ -105,6 +129,8 @@ export class ManualContextResolver {
       throw httpError(404, 'manuals.rootDirMissing', { path: manual.rootDir });
     }
 
+    // Phase 13 read/write boundary: resolving a session must never rewrite the process-wide
+    // default branch, otherwise an explicit `?branch=` read would leak into header-less calls.
     const fallbackBranch =
       this.defaultBranchByManual.get(manual.id) ?? (await this.git.currentBranch(projectRootDir));
     const targetBranch = (branch ?? fallbackBranch).trim() || fallbackBranch;
@@ -115,17 +141,31 @@ export class ManualContextResolver {
     // Re-insert to keep the Map ordered as an LRU (oldest first).
     const cached = this.sessions.get(cacheKey);
     if (cached) {
+      cached.lastAccessedAt = Date.now();
       this.sessions.delete(cacheKey);
       this.sessions.set(cacheKey, cached);
-      this.defaultBranchByManual.set(manual.id, targetBranch);
       return cached;
     }
 
-    const session = await this.createSession(manual, projectRootDir, workDir, targetBranch);
-    this.sessions.set(cacheKey, session);
-    this.defaultBranchByManual.set(manual.id, targetBranch);
-    this.evictIfNeeded();
-    return session;
+    // Single-flight: concurrent requests for the same `(manual, branch)` share one
+    // worktree probe + workspace + indexer creation instead of racing it.
+    const flightKey = `${manual.id}::${targetBranch}`;
+    const inflight = this.inflightSessions.get(flightKey);
+    if (inflight) return await inflight;
+
+    const creation = this.createSession(manual, projectRootDir, workDir, targetBranch).then(
+      (session) => {
+        this.sessions.set(cacheKey, session);
+        this.evictIfNeeded();
+        return session;
+      },
+    );
+    this.inflightSessions.set(flightKey, creation);
+    try {
+      return await creation;
+    } finally {
+      this.inflightSessions.delete(flightKey);
+    }
   }
 
   /** Marks the manual that header-less requests should resolve to (legacy compatibility). */
@@ -159,6 +199,32 @@ export class ManualContextResolver {
     return this.sessions.size;
   }
 
+  /**
+   * Phase 13: drops sessions that have not served a request for `maxIdleMs`.
+   * Called lazily from `resolve()` and after check-in / branch switches.
+   */
+  evictIdleSessions(maxIdleMs: number = IDLE_SESSION_TTL_MS): number {
+    const cutoff = Date.now() - Math.max(0, maxIdleMs);
+    let evicted = 0;
+    for (const [key, session] of this.sessions) {
+      if (session.lastAccessedAt <= cutoff) {
+        this.sessions.delete(key);
+        evicted += 1;
+      }
+    }
+    return evicted;
+  }
+
+  /** Drops the cached (and in-flight) sessions of one manual + branch pair. */
+  evictBranch(manualId: string, branch: string): void {
+    for (const [key, session] of this.sessions) {
+      if (session.manualId === manualId && session.branch === branch) {
+        this.sessions.delete(key);
+      }
+    }
+    this.inflightSessions.delete(`${manualId}::${branch}`);
+  }
+
   private async requireActiveManual(): Promise<ManualRow> {
     if (this.activeManualId) {
       try {
@@ -181,8 +247,9 @@ export class ManualContextResolver {
       return projectRootDir;
     }
     // `ensureWorktree` returns the project root itself for the primary branch, so its
-    // spelling (not a realpath) is what every response echoes back.
-    return this.git.ensureWorktree(projectRootDir, branch);
+    // spelling (not a realpath) is what every response echoes back. Phase 13: reads never
+    // create refs or worktrees — a missing branch is a 404, not a side effect.
+    return this.git.ensureWorktree(projectRootDir, branch, { createIfMissing: false });
   }
 
   private async createSession(
@@ -197,7 +264,10 @@ export class ManualContextResolver {
       registryPath: this.registryPath,
     });
     await workspace.bindRootDir(workDir, projectRootDir);
-    const indexer = new WorkspaceSemanticIndexer(workspace);
+    const indexer = new WorkspaceSemanticIndexer(workspace, branch, {
+      drafts: this.drafts,
+      projectId: manual.id,
+    });
     workspace.setMutationCallbacks({
       onFileWritten: (posixPath, content) => indexer.onFileWritten(posixPath, content),
       onAssetAdded: (posixPath) => indexer.onAssetAdded(posixPath),
@@ -215,6 +285,8 @@ export class ManualContextResolver {
       isPrimaryBranch: workDir === projectRootDir,
       workspace,
       indexer,
+      baselineRev: 1,
+      lastAccessedAt: Date.now(),
     };
   }
 

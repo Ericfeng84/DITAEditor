@@ -4,25 +4,42 @@ import {
   cancelCheckout,
   checkinFiles,
   checkoutFile,
+  commitExternalChanges,
   createGitBranch,
+  createGitTag,
+  deleteGitBranch,
+  deleteGitTag,
+  discardExternalChanges,
+  executeGitMerge,
   fetchBranches,
+  fetchGitAudit,
   fetchGitDiff,
   fetchGitLog,
   fetchGitStatus,
+  fetchGitTags,
   fetchIdentity,
   fetchLocks,
   forceUnlockFile,
+  handoffLock,
   initGitRepository,
   releaseLock,
+  restoreGitFile,
+  revertGitCommit,
   switchGitBranch,
   type CheckinOptions,
   type CheckinResponse,
+  type DraftView,
   type FileLock,
   type GitBranchInfo,
   type GitCommitInfo,
+  type GitFileChange,
   type GitFileDiff,
   type GitStatusResponse,
+  type GitTagInfo,
   type LockOperationResponse,
+  type MergeResult,
+  type RestoreFileInput,
+  type VersionAuditLogView,
 } from '../services/git-api';
 import {
   getCurrentUserId,
@@ -31,6 +48,7 @@ import {
   type IdentityUser,
 } from '../services/identity-api';
 import type { WorkspaceSnapshot } from '../services/workspace-api';
+import { ApiHttpError } from '../services/workspace-api';
 import { useAssignmentStore } from './assignment-store';
 import { useEditorStore } from './editor-store';
 
@@ -44,6 +62,13 @@ export interface GitWorkbenchState {
   projectRootDir: string | null;
   status: GitStatusResponse | null;
   branches: GitBranchInfo[];
+  /** Phase 13: the caller's own uncommitted drafts (what "dirty" means in this app). */
+  userDrafts: DraftView[];
+  /** Phase 13: files edited on disk outside the app (desktop editor, script). */
+  externalDirtyFiles: GitFileChange[];
+  /** Phase 13: immutable publish snapshots. */
+  tags: GitTagInfo[];
+  auditLogs: VersionAuditLogView[];
   history: GitCommitInfo[];
   historyPath: string | null;
   diff: GitFileDiff | null;
@@ -70,12 +95,38 @@ export interface GitWorkbenchState {
   ) => Promise<CheckinResponse | null>;
   forceUnlock: (path: string, reason?: string) => Promise<void>;
   initGit: () => Promise<boolean>;
-  createBranch: (name: string) => Promise<boolean>;
+  createBranch: (name: string, baseBranch?: string | null) => Promise<boolean>;
   switchBranch: (branch: string) => Promise<boolean>;
+  /** Phase 13: delete a branch (admins may force-delete a checked-out branch). */
+  deleteBranch: (branch: string, force?: boolean) => Promise<boolean>;
+  /** Phase 13: move a check-out (and its draft overlay) to another writer. */
+  handoff: (path: string, targetUserId: string) => Promise<boolean>;
+  loadTags: () => Promise<void>;
+  createTag: (input: { name: string; target?: string; message?: string }) => Promise<boolean>;
+  deleteTag: (name: string) => Promise<boolean>;
+  loadAudit: (options?: { branch?: string; action?: string; limit?: number }) => Promise<void>;
+  restoreFile: (input: RestoreFileInput) => Promise<boolean>;
+  revertCommit: (commitHash: string) => Promise<boolean>;
+  commitExternal: (message: string) => Promise<boolean>;
+  discardExternal: () => Promise<boolean>;
+  /** Phase 13: run a safe merge and refresh every view that can see the result. */
+  merge: (input: {
+    sourceBranch: string;
+    targetBranch: string;
+    message?: string;
+    resolutions?: Record<string, string>;
+  }) => Promise<MergeResult | null>;
   loadHistory: (path?: string | null) => Promise<void>;
   loadDiff: (options: { path: string; from?: string; to?: string }) => Promise<GitFileDiff | null>;
   clearDiff: () => void;
+  clearError: () => void;
   applyBranchSnapshot: (snapshot: WorkspaceSnapshot) => Promise<void>;
+}
+
+function shortCommitHash(commit: string | GitCommitInfo | null | undefined): string {
+  if (!commit) return '';
+  if (typeof commit === 'string') return commit.slice(0, 7);
+  return commit.shortHash || commit.hash.slice(0, 7);
 }
 
 function messageOf(err: unknown): string {
@@ -86,10 +137,24 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
   const applyLocks = (locks: FileLock[]) => set({ locks });
   const announce = (message: string) => useEditorStore.getState().announce(message);
 
+  /**
+   * Phase 13: a baseline mutation (merge / restore / revert / external commit) changes files
+   * behind the open tabs, so every derived view is re-read instead of trusting stale buffers.
+   */
+  const refreshBaselineDependents = async (paths: readonly string[]) => {
+    await refreshGit().catch(() => undefined);
+    const editor = useEditorStore.getState();
+    await editor.refreshWorkspaceTree().catch(() => undefined);
+    await editor.reloadFilesFromDisk([...paths]).catch(() => undefined);
+    await editor.refreshDiagnostics().catch(() => undefined);
+  };
+
   const applyStatus = (status: GitStatusResponse) => {
     set({
       status,
       locks: status.locks,
+      userDrafts: status.userDrafts ?? [],
+      externalDirtyFiles: status.externalDirtyFiles ?? [],
       branch: status.branch,
       projectId: status.projectId,
       workDir: status.workDir,
@@ -109,6 +174,7 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
     const response = await fetchLocks();
     set({
       locks: response.locks,
+      ...(response.drafts ? { userDrafts: response.drafts } : {}),
       branch: response.branch,
       projectId: response.projectId,
       workDir: response.workDir,
@@ -147,6 +213,10 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
     projectRootDir: null,
     status: null,
     branches: [],
+    userDrafts: [],
+    externalDirtyFiles: [],
+    tags: [],
+    auditLogs: [],
     history: [],
     historyPath: null,
     diff: null,
@@ -245,6 +315,14 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
         await refreshGit().catch(() => undefined);
         announce(t('gitStatus.released', { path }));
       } catch (err) {
+        // Phase 13: releasing never throws away a draft. The API answers 409 while the overlay
+        // still has changes, so point at the three paths forward instead of a bare message.
+        if (err instanceof ApiHttpError && err.status === 409) {
+          const guided = t('gitStatus.releaseDirtyGuided', { path });
+          set({ error: guided });
+          announce(guided);
+          return;
+        }
         set({ error: messageOf(err) });
         announce(t('gitStatus.releaseFailed', { message: messageOf(err) }));
       } finally {
@@ -356,17 +434,191 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
       }
     },
 
-    async createBranch(name) {
+    async createBranch(name, baseBranch) {
       set({ loading: true, error: null });
       try {
-        const response = await createGitBranch(name);
+        const response = await createGitBranch(name, baseBranch ?? undefined);
         await refreshGit();
-        announce(t('gitStatus.branchCreated', { branch: response.branch }));
+        announce(t('gitStatus.branchCreated', { branch: response.created }));
         return true;
       } catch (err) {
         set({ error: messageOf(err) });
         announce(t('gitStatus.branchCreateFailed', { message: messageOf(err) }));
         return false;
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async deleteBranch(branch, force = false) {
+      set({ loading: true, error: null });
+      try {
+        const response = await deleteGitBranch(branch, force);
+        await refreshGit();
+        announce(t('gitStatus.branchDeleted', { branch: response.deleted }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.branchDeleteFailed', { message: messageOf(err) }));
+        return false;
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async handoff(path, targetUserId) {
+      set({ busyPath: path, error: null });
+      try {
+        const response = await handoffLock(path, targetUserId);
+        set({ locks: response.locks });
+        if (response.drafts) set({ userDrafts: response.drafts });
+        await useEditorStore.getState().reloadFilesFromDisk([path]).catch(() => undefined);
+        await refreshGit().catch(() => undefined);
+        announce(t('gitStatus.handedOff', { path }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.handoffFailed', { message: messageOf(err) }));
+        return false;
+      } finally {
+        set({ busyPath: null });
+      }
+    },
+
+    async loadTags() {
+      try {
+        const response = await fetchGitTags();
+        set({ tags: response.tags });
+      } catch (err) {
+        set({ error: messageOf(err) });
+      }
+    },
+
+    async createTag(input) {
+      try {
+        const response = await createGitTag(input);
+        set({ tags: response.tags });
+        announce(t('gitStatus.tagCreated', { tag: response.tag.name }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.tagCreateFailed', { message: messageOf(err) }));
+        return false;
+      }
+    },
+
+    async deleteTag(name) {
+      try {
+        const response = await deleteGitTag(name);
+        set({ tags: response.tags });
+        announce(t('gitStatus.tagDeleted', { tag: response.deleted }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.tagDeleteFailed', { message: messageOf(err) }));
+        return false;
+      }
+    },
+
+    async loadAudit(options) {
+      try {
+        const response = await fetchGitAudit(options);
+        set({ auditLogs: response.logs });
+      } catch (err) {
+        set({ error: messageOf(err) });
+      }
+    },
+
+    async restoreFile(input) {
+      set({ busyPath: input.path, error: null });
+      try {
+        await restoreGitFile(input);
+        await refreshBaselineDependents([input.path]);
+        announce(t('gitStatus.restored', { path: input.path, revision: input.revision }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.restoreFailed', { message: messageOf(err) }));
+        return false;
+      } finally {
+        set({ busyPath: null });
+      }
+    },
+
+    async revertCommit(commitHash) {
+      set({ loading: true, error: null });
+      try {
+        const response = await revertGitCommit(commitHash);
+        await refreshBaselineDependents([]);
+        await get().loadHistory(get().historyPath);
+        announce(t('gitStatus.reverted', { hash: shortCommitHash(response.commit) }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.revertFailed', { message: messageOf(err) }));
+        return false;
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async commitExternal(message) {
+      set({ loading: true, error: null });
+      try {
+        const response = await commitExternalChanges(message);
+        await refreshBaselineDependents([]);
+        await get().loadHistory(get().historyPath);
+        announce(t('gitStatus.externalCommitted', { hash: shortCommitHash(response.commit) }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.externalCommitFailed', { message: messageOf(err) }));
+        return false;
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async discardExternal() {
+      set({ loading: true, error: null });
+      try {
+        const prevCount = get().externalDirtyFiles.length;
+        const response = await discardExternalChanges();
+        const discardedPaths = Array.isArray(response.paths)
+          ? response.paths
+          : Array.isArray(response.discarded)
+            ? response.discarded
+            : [];
+        await refreshBaselineDependents(discardedPaths);
+        announce(t('gitStatus.externalDiscarded', { count: discardedPaths.length || prevCount }));
+        return true;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.externalDiscardFailed', { message: messageOf(err) }));
+        return false;
+      } finally {
+        set({ loading: false });
+      }
+    },
+
+    async merge(input) {
+      set({ loading: true, error: null });
+      try {
+        const result = await executeGitMerge(input);
+        await refreshBaselineDependents(result.changedFiles ?? []);
+        await get().loadHistory(get().historyPath);
+        announce(
+          t('gitStatus.merged', {
+            source: result.sourceBranch,
+            target: result.targetBranch,
+            hash: shortCommitHash(result.commit),
+          }),
+        );
+        return result;
+      } catch (err) {
+        set({ error: messageOf(err) });
+        announce(t('gitStatus.mergeFailed', { message: messageOf(err) }));
+        return null;
       } finally {
         set({ loading: false });
       }
@@ -432,6 +684,10 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
       set({ diff: null });
     },
 
+    clearError() {
+      set({ error: null });
+    },
+
     async applyBranchSnapshot(snapshot) {
       await useEditorStore.getState().reloadWorkspaceFromSnapshot(snapshot);
     },
@@ -489,12 +745,24 @@ async function runLockGuard(path: string): Promise<LockGuardResult> {
     return { ok: true, reason: 'memory', lock: null, message: '' };
   }
   const holder = locks.find((lock) => lock.filePath === path) ?? null;
-  // Admins bypass the lock check server-side, so don't burn a check-out on them either.
-  if (currentUser.role === 'admin') {
-    return { ok: true, reason: 'admin', lock: holder, message: '' };
-  }
   if (holder && holder.userId === currentUser.id) {
     return { ok: true, reason: 'owned', lock: holder, message: '' };
+  }
+  // Phase 13: nobody silently overwrites somebody else's check-out, admins included — they
+  // must force-unlock first (which backs up the holder's content into the audit table).
+  if (holder) {
+    return {
+      ok: false,
+      reason: 'locked-by-other',
+      lock: holder,
+      message:
+        currentUser.role === 'admin'
+          ? t('lock.adminHeldByOther', { user: holder.userName || holder.userId })
+          : t('lock.checkedOutByOther', { user: holder.userName || holder.userId }),
+    };
+  }
+  if (currentUser.role === 'admin') {
+    return { ok: true, reason: 'admin', lock: null, message: '' };
   }
   if (currentUser.role === 'viewer') {
     return {
@@ -502,14 +770,6 @@ async function runLockGuard(path: string): Promise<LockGuardResult> {
       reason: 'viewer',
       lock: holder,
       message: t('lock.viewerReadOnly'),
-    };
-  }
-  if (holder) {
-    return {
-      ok: false,
-      reason: 'locked-by-other',
-      lock: holder,
-      message: t('lock.checkedOutByOther', { user: holder.userName || holder.userId }),
     };
   }
   const lock = await state.checkout(path);

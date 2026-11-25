@@ -1,7 +1,7 @@
 ---
 title: 架构参考
 description: 包边界、同构内核、无损往返流水线、锁与 worktree 并发模型、DITA-OT 调用链与部署视图。
-updated: '2026-11-22'
+updated: '2026-11-25'
 ---
 
 DITAEditor 的架构目标只有一个：让标准 DITA XML 在浏览器、服务端与发布工具之间**无损流动**。所有模块划分都服务于此。
@@ -92,9 +92,11 @@ ProseMirror tx   ──┘
 ## 并发模型
 
 - 锁键：`(project, branch, file_path)`。
-- 分支隔离：每个分支一个 `git worktree`，避免 checkout 抖动。
-- 锁过期：`DITA_LOCK_TTL_HOURS`；过期后可被重新获取。
-- 强制解锁：先备份文件为补丁，再删除锁记录。
+- 干净基线：每个分支一个 `git worktree`，其 `workDir` 永远等于 Git `HEAD`，避免 checkout 抖动。
+- 个人草稿层：未检入的编辑 / 新建 / 删除 / 重命名与草稿图片隔离在 SQLite `working_drafts`，仅持锁人可见；诊断、严格校验、AI 上下文与 `my_drafts` 预览读「基线 + 本人草稿」。
+- 锁过期：`DITA_LOCK_TTL_HOURS`，按 `updatedAt` 续期与判定；过期后可被重新获取。
+- 强制解锁：先备份草稿与文件为补丁，再删除锁记录。
+- 合并在隔离的合成提交中完成：`git merge-tree` 预检，冲突逐文件求解，共享 `workDir` 永不残留 `MERGING` 态。
 - 不做 CRDT；冲突在锁层解决，而不是在字符层合并。
 
 ## 发布链路

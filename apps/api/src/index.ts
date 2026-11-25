@@ -15,13 +15,16 @@ import { registerAssetRoutes } from './modules/files/asset-routes.js';
 import { registerWorkspaceFileRoutes } from './modules/files/routes.js';
 import { WorkspaceManager } from './modules/files/workspace-fs.js';
 import { GitManager } from './modules/git/git-manager.js';
+import { VersionAuditService } from './modules/git/audit-service.js';
+import { MergeService } from './modules/git/merge-service.js';
 import { registerGitRoutes } from './modules/git/routes.js';
 import { IdentityService } from './modules/identity/identity-service.js';
 import { registerIdentityRoutes } from './modules/identity/routes.js';
 import { registerSemanticIndexerRoutes } from './modules/indexer/routes.js';
 import { WorkspaceSemanticIndexer } from './modules/indexer/semantic-indexer.js';
+import { DraftService } from './modules/locks/draft-service.js';
 import { LockService } from './modules/locks/lock-service.js';
-import { registerLockRoutes } from './modules/locks/routes.js';
+import { registerLockRoutes, type BaselineChangeInfo, type Phase4Scope } from './modules/locks/routes.js';
 import { ManualContextResolver } from './modules/manuals/manual-context-resolver.js';
 import { ManualRegistryService } from './modules/manuals/manual-registry-service.js';
 import { registerManualRoutes } from './modules/manuals/routes.js';
@@ -46,6 +49,11 @@ export interface CreateServerOptions {
   publishRetentionDays?: number;
   /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
   htmlThemesDir?: string;
+  /**
+   * Phase 13: where user draft binary assets live. Defaults to
+   * `<data root>/draft-assets`, outside every shared Git worktree.
+   */
+  draftAssetsRootDir?: string;
   ditaRuntime?: DitaRuntimeOptions;
   webDistDir?: string;
   /** Optional reverse-proxy subpath prefix (e.g. `/dita`) stripped before routing. */
@@ -90,7 +98,15 @@ export function createServer(options: CreateServerOptions = {}) {
     worktreesRootDir:
       options.worktreesRootDir ?? path.join(workspace.importsRootDir, 'git-worktrees'),
   });
-  const locks = new LockService(database.db, git);
+  // Phase 13: user drafts are SQLite rows plus out-of-repo binary assets, so the shared
+  // branch worktree can stay permanently clean at HEAD.
+  const drafts = new DraftService({
+    db: database.db,
+    draftAssetsRootDir:
+      options.draftAssetsRootDir ?? path.join(workspace.importsRootDir, 'draft-assets'),
+  });
+  const audit = new VersionAuditService(database.db);
+  const locks = new LockService(database.db, git, drafts, audit);
   const publishProfiles = new PublishProfileService(database.db);
   const publish = new PublishService({
     db: database.db,
@@ -101,6 +117,9 @@ export function createServer(options: CreateServerOptions = {}) {
     retentionDays: options.publishRetentionDays,
     htmlThemesDir: options.htmlThemesDir,
     runtime: options.ditaRuntime,
+    git,
+    drafts,
+    audit,
     logger: (message, error) => {
       if (options.logger === false) return;
       app.log.warn({ err: error }, message);
@@ -111,6 +130,7 @@ export function createServer(options: CreateServerOptions = {}) {
     await publish.start();
   });
   app.addHook('onClose', async () => {
+    clearInterval(maintenanceTimer);
     await publish.stop();
     database.close();
   });
@@ -130,9 +150,11 @@ export function createServer(options: CreateServerOptions = {}) {
     importsRootDir: workspace.importsRootDir,
     registryPath: workspace.registryPath,
     defaultRootDir: workspace.defaultRootDir,
+    drafts,
   });
   const assignments = new AssignmentService({ db: database.db, identity, git });
 
+  const merge = new MergeService({ git, locks, drafts, audit, registry });
   const indexer = new WorkspaceSemanticIndexer(workspace);
   workspace.setMutationCallbacks({
     onFileWritten: (posixPath, content) => indexer.onFileWritten(posixPath, content),
@@ -141,6 +163,16 @@ export function createServer(options: CreateServerOptions = {}) {
     onFileRenamed: (fromPath, toPath) => indexer.onFileRenamed(fromPath, toPath),
     onWorkspaceChanged: (newRootDir) => indexer.onWorkspaceChanged(newRootDir),
   });
+
+  // Phase 13 housekeeping: orphan worktrees, orphan draft blobs and idle manual sessions.
+  // A single unref'd timer keeps the process free to exit and never blocks readiness.
+  const MAINTENANCE_INTERVAL_MS = 6 * 60 * 60 * 1000;
+  const maintenanceTimer = setInterval(() => {
+    void git.pruneOrphanWorktrees().catch(() => undefined);
+    void drafts.pruneOrphanDraftBlobs().catch(() => undefined);
+    context.evictIdleSessions();
+  }, MAINTENANCE_INTERVAL_MS);
+  maintenanceTimer.unref?.();
 
   app.register(cors, { origin: true });
   app.register(multipart, {
@@ -183,19 +215,42 @@ export function createServer(options: CreateServerOptions = {}) {
     locks,
     context,
     registry,
-    onFileRenamed: (input) => assignments.syncRename(input),
+    drafts,
+    git,
   });
-  registerAssetRoutes(app, workspace, identity, context);
-  registerSemanticIndexerRoutes(app, indexer, context);
+  registerAssetRoutes(app, workspace, identity, context, { drafts, locks, git });
+  registerSemanticIndexerRoutes(app, indexer, context, identity);
   const phase4 = {
     workspace,
     git,
     identity,
     locks,
     context,
+    drafts,
+    audit,
     onBranchChanged: async (workDir: string) => {
       await indexer.onWorkspaceChanged(workDir);
     },
+    // Check-in / merge / restore / revert advance the shared baseline: refresh only
+    // that manual's branch baseline index instead of rebuilding every cached session.
+    onBaselineChanged: async (scope: Phase4Scope, info?: BaselineChangeInfo) => {
+      try {
+        if (scope.session) {
+          await scope.session.indexer.refreshFromBaselineDisk(scope.branch, info);
+          return;
+        }
+        await indexer.onWorkspaceChanged(scope.workDir);
+      } catch {
+        // Indexing is advisory; a failed refresh must never fail the commit response.
+      }
+    },
+    // Phase 13: a draft rename only moves topic assignments once the baseline commits it.
+    onRenameCommitted: (input: {
+      manualId: string;
+      branch: string;
+      fromPath: string;
+      toPath: string;
+    }) => assignments.syncRename(input),
     // Soft assignment linkage: check-out starts the caller's assignment, check-in may close it.
     onCheckout: async ({
       scope,
@@ -235,11 +290,14 @@ export function createServer(options: CreateServerOptions = {}) {
     },
   };
   registerLockRoutes(app, phase4);
-  registerGitRoutes(app, phase4);
+  registerGitRoutes(app, { ...phase4, merge, registry });
   registerStrictValidationRoutes(app, {
     workspace,
     runtime: options.ditaRuntime,
     context,
+    identity,
+    drafts,
+    locks,
   });
   registerPublishRoutes(app, {
     ...phase4,
@@ -252,6 +310,7 @@ export function createServer(options: CreateServerOptions = {}) {
     indexer,
     context,
     identity,
+    drafts,
     settings: aiSettings,
     usage: aiUsage,
     modelFactory: options.aiModelFactory ?? createLangChainModelFactory(),

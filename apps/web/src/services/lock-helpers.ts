@@ -13,6 +13,11 @@ export interface FileEditability {
   state: 'admin' | 'viewer' | 'unlocked' | 'owned' | 'locked-by-other';
   reason: string;
   lock: LockLike | null;
+  /**
+   * Phase 13: admins no longer silently overwrite someone else's check-out. Their editing is
+   * blocked exactly like a writer's, but the UI keeps the explicit "force unlock" escape hatch.
+   */
+  canForceUnlock: boolean;
 }
 
 export interface ResolveEditabilityInput {
@@ -24,7 +29,8 @@ export interface ResolveEditabilityInput {
 
 /**
  * Pure client-side projection of the server check-out rules:
- * - admins may always edit and can force-unlock;
+ * - admins may edit anything they hold or that is free, but must force-unlock a file locked by
+ *   another identity (the API answers `409 locks.heldByOther` for a silent overwrite);
  * - viewers are read-only;
  * - writers may only edit files they have checked out.
  */
@@ -35,14 +41,25 @@ export function resolveFileEditability({
   locks,
 }: ResolveEditabilityInput): FileEditability {
   const lock = filePath ? (locks.find((item) => item.filePath === filePath) ?? null) : null;
+  const heldByOther = lock !== null && lock.userId !== userId;
   if (role === 'admin') {
+    if (lock && heldByOther) {
+      return {
+        editable: false,
+        state: 'locked-by-other',
+        reason: translate(getCurrentLocale(), 'lock.adminHeldByOther', {
+          user: lock.userName ?? lock.userId,
+        }),
+        lock,
+        canForceUnlock: true,
+      };
+    }
     return {
       editable: true,
       state: 'admin',
-      reason: lock
-        ? translate(getCurrentLocale(), 'lock.adminEditableLocked', { user: lock.userName ?? lock.userId })
-        : translate(getCurrentLocale(), 'lock.adminEditableAll'),
+      reason: translate(getCurrentLocale(), 'lock.adminEditableAll'),
       lock,
+      canForceUnlock: false,
     };
   }
   if (role === 'viewer') {
@@ -51,10 +68,17 @@ export function resolveFileEditability({
       state: 'viewer',
       reason: translate(getCurrentLocale(), 'lock.viewerReadOnly'),
       lock,
+      canForceUnlock: false,
     };
   }
   if (!filePath) {
-    return { editable: false, state: 'unlocked', reason: translate(getCurrentLocale(), 'lock.openToCheckout'), lock: null };
+    return {
+      editable: false,
+      state: 'unlocked',
+      reason: translate(getCurrentLocale(), 'lock.openToCheckout'),
+      lock: null,
+      canForceUnlock: false,
+    };
   }
   if (!lock) {
     return {
@@ -62,6 +86,7 @@ export function resolveFileEditability({
       state: 'unlocked',
       reason: translate(getCurrentLocale(), 'lock.notCheckedOut'),
       lock: null,
+      canForceUnlock: false,
     };
   }
   if (lock.userId === userId) {
@@ -70,6 +95,7 @@ export function resolveFileEditability({
       state: 'owned',
       reason: translate(getCurrentLocale(), 'lock.checkedOutByYou'),
       lock,
+      canForceUnlock: false,
     };
   }
   return {
@@ -77,6 +103,7 @@ export function resolveFileEditability({
     state: 'locked-by-other',
     reason: translate(getCurrentLocale(), 'lock.checkedOutByOther', { user: lock.userName ?? lock.userId }),
     lock,
+    canForceUnlock: false,
   };
 }
 
