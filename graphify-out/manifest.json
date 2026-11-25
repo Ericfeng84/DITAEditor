@@ -738,9 +738,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/CheckinDialog.tsx": {
-    "mtime": 1795614129.307197,
-    "seen": 1795614224.182548,
-    "ast_hash": "b8fc009a23be3c9b1e5bebba5d304f5b",
+    "mtime": 1795650615.8946793,
+    "seen": 1795650872.701324,
+    "ast_hash": "e8b2fecc735ac0e2dee27afc39c7cac9",
     "semantic_hash": ""
   },
   "apps/web/src/components/DiffDialog.tsx": {
@@ -780,9 +780,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/services/identity-api.ts": {
-    "mtime": 1795328884.8215518,
-    "seen": 1795331234.535947,
-    "ast_hash": "a1978ff5bf346312d19a4dbee0d83d14",
+    "mtime": 1795644604.2151797,
+    "seen": 1795644727.5699148,
+    "ast_hash": "af21cb4a53775c18a31b9d30001a94c0",
     "semantic_hash": ""
   },
   "apps/web/src/services/lock-helpers.ts": {
@@ -792,9 +792,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/git-store.ts": {
-    "mtime": 1795614121.292445,
-    "seen": 1795614224.182661,
-    "ast_hash": "843726da122d97e3dd546302f07544ce",
+    "mtime": 1795644627.8980274,
+    "seen": 1795644727.569929,
+    "ast_hash": "4b3ae8fe570f0b27d2b584dc62bd5ede",
     "semantic_hash": ""
   },
   "apps/web/test/lock-helpers.test.ts": {
@@ -2040,9 +2040,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/workspace.ts": {
-    "mtime": 1795612115.7046924,
-    "seen": 1795612233.879453,
-    "ast_hash": "d31bf56ed38cc6a8bd1ee55409e4067f",
+    "mtime": 1795644662.5191243,
+    "seen": 1795644727.569927,
+    "ast_hash": "3808462281551288809bc085fe5e4c08",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/types.ts": {
@@ -2784,9 +2784,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/MergeDialog.tsx": {
-    "mtime": 1795612178.5332828,
-    "seen": 1795612233.879349,
-    "ast_hash": "2b85da914029cc059263974063a7a951",
+    "mtime": 1795650613.8537736,
+    "seen": 1795650872.701337,
+    "ast_hash": "9bf0bdcc8cdfd8515e612463d3f5c6ed",
     "semantic_hash": ""
   },
   "apps/web/src/workbench/ContentConflictBanner.tsx": {
@@ -2796,9 +2796,9 @@
     "semantic_hash": ""
   },
   "apps/web/test/phase13-web-overlay.test.ts": {
-    "mtime": 1795612164.7002451,
-    "seen": 1795612233.879481,
-    "ast_hash": "f647d697c3b42fe82f8fa7f094303cdf",
+    "mtime": 1795644611.7449648,
+    "seen": 1795644727.569953,
+    "ast_hash": "061ecff2aa37289f7e2918cfab2ca263",
     "semantic_hash": ""
   },
   "apps/api/test/phase13-overlay-versioning.test.ts": {
@@ -2829,6 +2829,18 @@
     "mtime": 1795613654.657413,
     "seen": 1795614224.1827662,
     "ast_hash": "9918a4051db590bde5644c39db5194f4",
+    "semantic_hash": ""
+  },
+  "apps/web/test/phase13-ui-components.test.tsx": {
+    "mtime": 1795650790.957421,
+    "seen": 1795650872.701468,
+    "ast_hash": "aa0d5739cf875d116f5dff26821c7222",
+    "semantic_hash": ""
+  },
+  "apps/web/test/phase13-web-stores-and-ui.test.tsx": {
+    "mtime": 1795650789.140149,
+    "seen": 1795650872.701469,
+    "ast_hash": "0ed775afc0e359b9eb82084ebe44a7bb",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
