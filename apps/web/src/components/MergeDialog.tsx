@@ -132,10 +132,15 @@ export function MergeDialog({ open, onClose, onMerged }: MergeDialogProps) {
   const blockingLocks = preview?.blockingLocks ?? [];
   const conflicts = preview?.conflicts ?? [];
   const protectedTarget = preview?.protectedTarget === true && !isAdmin;
-  // Every conflicting file needs a real resolution before the merge can be committed.
-  const needsResolution = conflicts.some(
-    (conflict) => (resolutions[conflict.path] ?? '').trim() === '',
-  );
+  // Every conflicting file needs a real, well-formed resolution before the merge can be committed.
+  const needsResolution = conflicts.some((conflict) => {
+    const value = resolutions[conflict.path];
+    if ((value ?? '').trim() === '') return true;
+    if (/\.(dita|ditamap|bookmap|ditaval|xml)$/i.test(conflict.path)) {
+      return !checkResolutionXml(value!).ok;
+    }
+    return false;
+  });
   const canSubmit =
     Boolean(preview) &&
     !preview?.alreadyUpToDate &&

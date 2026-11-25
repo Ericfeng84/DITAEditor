@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiHttpError, requestJson, resolveWorkspaceAssetUrl } from '../src/services/workspace-api';
-import { CURRENT_USER_STORAGE_KEY } from '../src/services/identity-api';
+import {
+  CURRENT_USER_STORAGE_KEY,
+  getCurrentUserId,
+  setCurrentUserId,
+} from '../src/services/identity-api';
 import { clearActiveScope, setActiveScope } from '../src/services/active-scope';
 
 /**
@@ -95,5 +99,40 @@ describe('Phase 13 optimistic concurrency errors', () => {
       code: 'files.staleContent',
       message: 'The file changed elsewhere',
     });
+  });
+});
+
+describe('Phase 13 per-tab identity isolation', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it('keeps the current tab identity in sessionStorage when another tab updates localStorage', () => {
+    const local = new Map<string, string>([[CURRENT_USER_STORAGE_KEY, 'u-writer-lin']]);
+    const session = new Map<string, string>();
+    vi.stubGlobal('window', {
+      localStorage: {
+        getItem: (key: string) => local.get(key) ?? null,
+        setItem: (key: string, value: string) => local.set(key, value),
+        removeItem: (key: string) => local.delete(key),
+      },
+      sessionStorage: {
+        getItem: (key: string) => session.get(key) ?? null,
+        setItem: (key: string, value: string) => session.set(key, value),
+        removeItem: (key: string) => session.delete(key),
+      },
+    });
+
+    // Tab 1 boots and inherits user A from localStorage into its own sessionStorage.
+    expect(getCurrentUserId()).toBe('u-writer-lin');
+    // Tab 2 switches to user B and overwrites shared localStorage.
+    local.set(CURRENT_USER_STORAGE_KEY, 'u-writer-chen');
+    // Tab 1 must stay user A so two tabs can test draft isolation side by side.
+    expect(getCurrentUserId()).toBe('u-writer-lin');
+
+    // Explicitly switching inside Tab 1 updates both storages.
+    setCurrentUserId('u-viewer');
+    expect(getCurrentUserId()).toBe('u-viewer');
+    expect(local.get(CURRENT_USER_STORAGE_KEY)).toBe('u-viewer');
   });
 });

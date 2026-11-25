@@ -47,9 +47,13 @@ export function CheckinDialog({
   onStrictValidate,
 }: CheckinDialogProps) {
   const { t } = useI18n();
-  const [selected, setSelected] = useState<string[]>([]);
+  const [selected, setSelected] = useState<string[]>(() =>
+    open ? candidates.map((item) => item.path) : [],
+  );
   const [message, setMessage] = useState('');
-  const [previewPath, setPreviewPath] = useState<string | null>(null);
+  const [previewPath, setPreviewPath] = useState<string | null>(() =>
+    open ? (candidates[0]?.path ?? null) : null,
+  );
   const [submitting, setSubmitting] = useState(false);
   const [completeAssignments, setCompleteAssignments] = useState(true);
   const [externalAction, setExternalAction] = useState<'none' | 'commit' | 'discard'>('none');

@@ -47,7 +47,7 @@ import {
   type IdentityResponse,
   type IdentityUser,
 } from '../services/identity-api';
-import type { WorkspaceSnapshot } from '../services/workspace-api';
+import { fetchWorkspace, type WorkspaceSnapshot } from '../services/workspace-api';
 import { ApiHttpError } from '../services/workspace-api';
 import { useAssignmentStore } from './assignment-store';
 import { useEditorStore } from './editor-store';
@@ -257,12 +257,28 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
       if (!user) return;
       setCurrentUserId(user.id);
       set({ currentUser: user, error: null, diff: null });
-      announce(t('gitStatus.identitySwitched', { name: user.displayName, role: user.role }));
+      const switchedMessage = t('gitStatus.identitySwitched', {
+        name: user.displayName,
+        role: user.role,
+      });
+      announce(switchedMessage);
       set({ loading: true });
       try {
         const refreshed = await fetchIdentity();
         set({ identity: refreshed, currentUser: refreshed.currentUser });
         await refreshGit();
+        // Phase 13: drafts live in a per-user overlay. Switching identity must drop the
+        // previous author's in-memory tabs, map buffers, tree, semantics and diagnostics
+        // so the newly selected user immediately sees clean Baseline (+ their own drafts).
+        const editor = useEditorStore.getState();
+        if (
+          editor.workspaceMode === 'api' &&
+          (editor.openTabs.length > 0 || editor.fileTree.length > 0)
+        ) {
+          const snapshot = await fetchWorkspace();
+          await editor.reloadWorkspaceFromSnapshot(snapshot, switchedMessage);
+        }
+        await useAssignmentStore.getState().refreshLists().catch(() => undefined);
       } catch (err) {
         set({ error: messageOf(err) });
       } finally {

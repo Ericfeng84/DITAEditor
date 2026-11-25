@@ -35,7 +35,15 @@ export const CURRENT_USER_STORAGE_KEY = 'dita.currentUserId';
 export function getCurrentUserId(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return window.localStorage.getItem(CURRENT_USER_STORAGE_KEY);
+    // Prefer per-tab sessionStorage so two browser tabs can stay signed in as
+    // different authors side by side; seed from localStorage on a freshly opened tab.
+    const tabUser = window.sessionStorage?.getItem(CURRENT_USER_STORAGE_KEY);
+    if (tabUser) return tabUser;
+    const sharedUser = window.localStorage?.getItem(CURRENT_USER_STORAGE_KEY) ?? null;
+    if (sharedUser) {
+      window.sessionStorage?.setItem(CURRENT_USER_STORAGE_KEY, sharedUser);
+    }
+    return sharedUser;
   } catch {
     return null;
   }
@@ -44,7 +52,8 @@ export function getCurrentUserId(): string | null {
 export function setCurrentUserId(userId: string): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(CURRENT_USER_STORAGE_KEY, userId);
+    window.sessionStorage?.setItem(CURRENT_USER_STORAGE_KEY, userId);
+    window.localStorage?.setItem(CURRENT_USER_STORAGE_KEY, userId);
   } catch {
     // Privacy modes may reject storage; the in-memory store still tracks the identity.
   }
