@@ -8,6 +8,7 @@ import {
   normalizeCandidateXml,
   parseXml,
   spliceAndVerifyAiXml,
+  widenAiFixTarget,
   type AiFragmentExtraction,
   type AiSpliceFailure,
   type AiSpliceResult,
@@ -481,5 +482,67 @@ describe('buildDitaConstraintSummary — prompt constraints', () => {
     expect(buildDitaConstraintSummary('concept', 'unmodeled_xyz').length).toBeLessThanOrEqual(
       2500,
     );
+  });
+});
+
+describe('widenAiFixTarget — a reported line is not always the cause', () => {
+  // DITA-OT reports the duplicated `<cmd>` on the step's `</step>` (line 5); the cause is line 4.
+  const STEPS =
+    '<task id="t"><title>T</title><taskbody><steps>\n' +
+    '  <step>\n' +
+    '    <cmd>a</cmd>\n' +
+    '    <cmd>a</cmd>\n' +
+    '  </step>\n' +
+    '  <step><cmd>b</cmd></step>\n' +
+    '</steps></taskbody></task>';
+
+  it('expands the window to the enclosing element so the real cause is editable', () => {
+    const widened = widenAiFixTarget(STEPS, { mode: 'line-window', line: 5, column: 3, lineEnd: 5 });
+
+    expect(widened).toEqual({ mode: 'line-window', line: 2, column: 3, lineEnd: 5 });
+  });
+
+  it('lets the assistant delete the duplicated line the one-line window could never reach', () => {
+    const target = widenAiFixTarget(STEPS, { mode: 'line-window', line: 5, lineEnd: 5 });
+    const extraction = extractTargetFragment(STEPS, target);
+    const candidate = '  <step>\n    <cmd>a</cmd>\n  </step>';
+    const result = expectSuccess(spliceAndVerifyAiXml(STEPS, extraction, candidate, 'zh-CN'));
+
+    expect(result.patchedXml).toBe(
+      '<task id="t"><title>T</title><taskbody><steps>\n' +
+        '  <step>\n' +
+        '    <cmd>a</cmd>\n' +
+        '  </step>\n' +
+        '  <step><cmd>b</cmd></step>\n' +
+        '</steps></taskbody></task>',
+    );
+  });
+
+  it('falls back to the whole document when the enclosing element is too wide', () => {
+    expect(
+      widenAiFixTarget(STEPS, { mode: 'line-window', line: 5, lineEnd: 5 }, { maxLines: 3 }),
+    ).toEqual({ mode: 'full-document' });
+  });
+
+  it('keeps element and full-document targets untouched', () => {
+    const element = { mode: 'element' as const, elementPath: [1] };
+    expect(widenAiFixTarget(STEPS, element)).toBe(element);
+    const full = { mode: 'full-document' as const };
+    expect(widenAiFixTarget(STEPS, full)).toBe(full);
+  });
+
+  it('leaves line windows alone when the XML cannot be parsed', () => {
+    const broken = '<topic><title>T</title><body><p>oops</body></topic>';
+    const target = { mode: 'line-window' as const, line: 1, column: 1, lineEnd: 1 };
+    expect(widenAiFixTarget(broken, target)).toEqual(target);
+  });
+
+  it('keeps the reported line inside every widened window', () => {
+    for (const line of [1, 2, 3, 4, 5, 6, 7]) {
+      const widened = widenAiFixTarget(STEPS, { mode: 'line-window', line, lineEnd: line });
+      if (widened.mode === 'full-document') continue;
+      expect(widened.line).toBeLessThanOrEqual(line);
+      expect(widened.lineEnd).toBeGreaterThanOrEqual(line);
+    }
   });
 });

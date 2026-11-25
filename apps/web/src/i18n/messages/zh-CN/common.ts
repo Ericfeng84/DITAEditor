@@ -44,6 +44,8 @@ export const zhCNCommon = {
   'app.aiPreviewOnly': '当前身份或文件锁仅允许预览 AI 修改，未写入编辑缓冲区',
   'app.aiCheckoutFailed': '签出失败，AI 修改仅可预览',
   'app.aiApplied': '已应用 AI 修改到编辑缓冲区（尚未保存）',
+  'app.aiNoChanges': 'AI 补丁与当前正文相同，未产生实际改动，编辑窗口保持不变',
+  'app.aiStaleProposal': '编辑缓冲区已变更，该 AI 补丁基于旧内容生成，已丢弃，请重新生成',
   'app.conrefBound': '已为 <{tag}> 绑定 {attr}="{value}"',
   'app.conrefCannotInsert': '无法插入 <{tag}>：请先把光标放到正文段落中再试',
   'app.conrefInserted': '已插入复用节点 <{tag} {attr}="{value}"/>',

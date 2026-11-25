@@ -33,6 +33,7 @@ import {
   resolveScopeTarget,
   type AiTargetScope,
 } from '../ai/ai-target';
+import { hasAiProposalChanges } from '../ai/ai-proposal';
 import type {
   AiDiagnosticContext,
   AiHistoryTurn,
@@ -264,9 +265,23 @@ export function AiAssistantPanel({
     void runSend(taskType, draft, sendTarget);
   };
 
+  // A patch that echoes the target back would "apply" without touching the buffer, so say so
+  // instead of offering a button that silently changes nothing.
+  const proposalNoChange = proposal !== null && !hasAiProposalChanges(proposal);
+  const applyBlockedReason = !canApply
+    ? t('ai.proposal.applyLocked')
+    : readOnly
+      ? t('ai.proposal.applyReadOnly')
+      : proposalNoChange
+        ? t('ai.proposal.noChangeHint')
+        : t('ai.proposal.applyHint');
+
   const proposalBadges = useMemo(() => {
     if (!proposal) return [];
     return [
+      ...(hasAiProposalChanges(proposal)
+        ? []
+        : [{ ok: false, label: t('ai.badge.noChange') }]),
       {
         ok: proposal.verification.wellFormed,
         label: proposal.verification.wellFormed ? t('ai.badge.wellFormed') : t('ai.badge.notWellFormed'),
@@ -531,14 +546,8 @@ export function AiAssistantPanel({
                 ) : null}
                 <button
                   type="button"
-                  disabled={!canApply || readOnly}
-                  title={
-                    !canApply
-                      ? t('ai.proposal.applyLocked')
-                      : readOnly
-                        ? t('ai.proposal.applyReadOnly')
-                        : t('ai.proposal.applyHint')
-                  }
+                  disabled={!canApply || readOnly || proposalNoChange}
+                  title={applyBlockedReason}
                   onClick={() => {
                     if (onRequestApply) onRequestApply(proposal.targetMode);
                     else onApplyProposal(proposal.patchedXml);
@@ -562,6 +571,9 @@ export function AiAssistantPanel({
               <p className="mt-1 text-[9.5px] text-amber-700">
                 {t('ai.proposal.readOnlyHint')}
               </p>
+            ) : null}
+            {proposalNoChange && !applied ? (
+              <p className="mt-1 text-[9.5px] text-amber-700">{t('ai.proposal.noChangeHint')}</p>
             ) : null}
           </div>
         ) : null}

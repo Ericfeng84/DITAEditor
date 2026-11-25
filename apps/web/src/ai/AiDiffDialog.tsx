@@ -7,6 +7,7 @@ import {
   X,
 } from 'lucide-react';
 import type { AiProposal } from './ai-types';
+import { hasAiProposalChanges } from './ai-proposal';
 import { DiffViewer } from '../components/DiffViewer';
 import { useI18n } from '../i18n/index.js';
 
@@ -35,7 +36,8 @@ export function AiDiffDialog({
   if (!open || !proposal) return null;
 
   const verification = proposal.verification;
-  const blocked = !canApply || readOnly;
+  const noChange = !hasAiProposalChanges(proposal);
+  const blocked = !canApply || readOnly || noChange;
 
   return (
     <div
@@ -110,6 +112,11 @@ export function AiDiffDialog({
               {t('aiDiff.retries', { count: verification.retryCount })}
             </span>
           ) : null}
+          {noChange ? (
+            <span className="rounded-full bg-amber-100 px-1.5 py-0.5 font-medium text-amber-800">
+              {t('ai.badge.noChange')}
+            </span>
+          ) : null}
           {proposal.canRevalidateStrict ? (
             <span className="inline-flex items-center gap-1 rounded-full bg-blue-50 px-1.5 py-0.5 font-medium text-blue-700">
               <ShieldCheck className="h-3 w-3" aria-hidden="true" />
@@ -146,9 +153,11 @@ export function AiDiffDialog({
 
         <div className="flex shrink-0 items-center justify-between gap-2 border-t border-slate-200 bg-slate-50 px-4 py-2">
           <span className="text-[10px] text-slate-500">
-            {blocked
-              ? t('aiDiff.lockedHint')
-              : t('aiDiff.applyHint')}
+            {noChange
+              ? t('ai.proposal.noChangeHint')
+              : blocked
+                ? t('aiDiff.lockedHint')
+                : t('aiDiff.applyHint')}
           </span>
           <div className="flex items-center gap-2">
             <button

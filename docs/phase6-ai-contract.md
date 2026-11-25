@@ -82,8 +82,18 @@ export function spliceAndVerifyAiXml(
   candidateXml: string,
 ): AiSpliceResult;
 
-/** Strip markdown fences/prolog from a model reply. */
-export function normalizeCandidateXml(candidateXml: string): string;
+/** Strip markdown fences/prolog from a model reply (line windows keep their first-line indent). */
+export function normalizeCandidateXml(
+  candidateXml: string,
+  options?: { keepLeadingIndent?: boolean },
+): string;
+
+/** Widen a diagnostic line window to the innermost enclosing element (or the whole document). */
+export function widenAiFixTarget(
+  xml: string,
+  target: AiTargetSpec,
+  options?: { maxLines?: number },
+): AiTargetSpec;
 
 export function buildDitaConstraintSummary(rootTag: string | null, parentTag: string | null): string;
 ```
@@ -104,6 +114,17 @@ Rules:
   `extractXmlDeclaration` / `extractDoctype` unchanged, root tag unchanged, and for DITA topic roots
   `xmlToPmDoc(patchedXml)` succeeds (`prosemirrorCompatible`). `structureValid` uses
   `isChildAllowed(parentTag, candidateRootTag)` when a parent tag exists, otherwise `true`.
+- **A reported line is not always the cause**: validators point at the tag that tripped them (a
+  DITA-OT strict message on `</step>` for a duplicated `<cmd>` two lines above). Diagnostic entry
+  points (`handleAiFixXmlError`, `handleAiFixDiagnostic`, `handleAiFixStrictDiagnostic`) therefore go
+  through `buildDiagnosticFixTarget` → `widenAiFixTarget`, which expands the window to the innermost
+  element whose source range contains the reported line (falling back to `full-document` when that
+  element is the root or wider than `DEFAULT_AI_FIX_WINDOW_MAX_LINES = 80`) and pads
+  `AI_FIX_MALFORMED_CONTEXT_LINES = 12` lines when the XML cannot be parsed at all.
+- A patch identical to the buffer is a **no-op, never a success**: the panel/dialog disable 应用 and
+  show `ai.badge.noChange`, and `handleApplyAiProposal` refuses (a) a patch equal to the current
+  buffer and (b) a stale proposal whose `originalXml` no longer matches it. Line-window patches are
+  normalized with `keepLeadingIndent: true` so the replaced block keeps its indentation.
 - No Node-only imports.
 
 ## 2. DB (`apps/api/src/db`)

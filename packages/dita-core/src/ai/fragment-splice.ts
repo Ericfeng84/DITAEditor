@@ -35,14 +35,34 @@ const WRAPPER_PATTERN = /^\s*<(dita_patch|dita_document)\b[^>]*>([\s\S]*)<\/\1\s
  * The candidate's own indentation is kept verbatim — whitespace inside `codeblock`/`pre`/
  * `xml:space="preserve"` is document content, never reformatted here.
  */
-export function normalizeCandidateXml(candidateXml: string): string {
+export interface NormalizeCandidateOptions {
+  /**
+   * A line-window patch replaces whole lines including their indentation, so the leading
+   * whitespace of its first line is content rather than model noise: a global `trim()` would
+   * shift the entire block one level left. Blank lines above the patch are still dropped.
+   */
+  keepLeadingIndent?: boolean;
+}
+
+export function normalizeCandidateXml(
+  candidateXml: string,
+  options: NormalizeCandidateOptions = {},
+): string {
+  const finish = options.keepLeadingIndent
+    ? (text: string) =>
+        text
+          .replace(/^[ \t\r]*\n(?:[ \t\r]*\n)*/, '')
+          .replace(/[ \t\r\n]+$/, '')
+    : (text: string) => text.trim();
   let text = candidateXml;
   for (let pass = 0; pass < 3; pass += 1) {
     const before = text;
-    text = stripProlog(stripWrapperElement(stripCodeFence(text))).trim();
+    text = finish(
+      stripProlog(stripWrapperElement(stripCodeFence(text)), options.keepLeadingIndent),
+    );
     if (text === before) break;
   }
-  return text.trim();
+  return finish(text);
 }
 
 /**
@@ -58,7 +78,9 @@ export function spliceAndVerifyAiXml(
 ): AiSpliceResult {
   const t = (key: Parameters<typeof coreT>[1], params?: Parameters<typeof coreT>[2]) =>
     coreT(locale, key, params);
-  const normalized = normalizeCandidateXml(candidateXml);
+  const normalized = normalizeCandidateXml(candidateXml, {
+    keepLeadingIndent: extraction.mode === 'line-window',
+  });
   if (normalized.length === 0) {
     return failure(
       'candidate-empty',
@@ -287,8 +309,10 @@ function stripWrapperElement(text: string): string {
   return match ? match[2]! : text;
 }
 
-function stripProlog(text: string): string {
-  let body = text.replace(/^\uFEFF/, '').trimStart();
+function stripProlog(text: string, keepLeadingIndent = false): string {
+  // `trimStart()` here would delete the indentation that a line-window patch must reproduce.
+  let body = text.replace(/^\uFEFF/, '');
+  if (!keepLeadingIndent) body = body.trimStart();
   for (;;) {
     const declaration = extractXmlDeclaration(body);
     if (declaration) {

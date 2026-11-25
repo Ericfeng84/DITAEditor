@@ -376,3 +376,96 @@ function buildContextWindow(
 
   return { contextXml: xml.slice(contextStart, contextEnd), truncated };
 }
+
+/** An enclosing element wider than this makes the whole topic the fix scope instead. */
+export const DEFAULT_AI_FIX_WINDOW_MAX_LINES = 80;
+
+export interface AiFixWindowOptions {
+  /** Line cap for the widened window. Defaults to `DEFAULT_AI_FIX_WINDOW_MAX_LINES`. */
+  maxLines?: number;
+}
+
+/**
+ * Widen a diagnostic's one-line target to the element that encloses the reported line.
+ *
+ * Validators report the tag they detect, not the cause: a duplicated `<cmd>` is reported at the
+ * step's `</step>`, a missing required child at the parent's end tag, a bad `keyref` at the
+ * `topicref`'s closing line. A one-line window can never repair those causes, so the assistant
+ * can only echo the line back and the proposal becomes a no-op.
+ *
+ * The window stays honest about scope: the smallest enclosing element is used, and when that
+ * element is the root (or wider than `maxLines`) the whole document becomes the target. Malformed
+ * XML has no element tree at all, so the original target is returned untouched.
+ */
+export function widenAiFixTarget(
+  xml: string,
+  target: AiTargetSpec,
+  options: AiFixWindowOptions = {},
+): AiTargetSpec {
+  if (target.mode !== 'line-window') return target;
+  const maxLines = Math.max(1, Math.floor(options.maxLines ?? DEFAULT_AI_FIX_WINDOW_MAX_LINES));
+  const lines = buildLineIndex(xml);
+  const totalLines = Math.max(1, lines.length);
+  const startLine = Math.min(Math.max(Math.floor(target.line ?? 1), 1), totalLines);
+  const endLine = Math.min(Math.max(Math.floor(target.lineEnd ?? startLine), startLine), totalLines);
+  const column = Math.max(1, Math.floor(target.column ?? 1));
+  const anchorLine = lines[startLine - 1];
+  if (!anchorLine) return target;
+  const anchorOffset = Math.min(anchorLine.start + column - 1, Math.max(0, xml.length - 1));
+
+  let root: slimdom.Element;
+  try {
+    const documentElement = parseXml(xml, { position: true }).document.documentElement;
+    if (!documentElement) return target;
+    root = documentElement;
+  } catch {
+    return target;
+  }
+
+  // Walk down to the innermost element whose source range still covers the reported offset.
+  let current = root;
+  for (;;) {
+    const children = elementChildren(current);
+    let next: slimdom.Element | null = null;
+    for (const child of children) {
+      const bounds = resolveElementBounds(xml, child);
+      if (bounds && anchorOffset >= bounds.start && anchorOffset <= bounds.end) {
+        next = child;
+        break;
+      }
+    }
+    if (!next) break;
+    current = next;
+  }
+
+  const bounds = resolveElementBounds(xml, current);
+  if (!bounds) return target;
+  const wideStart = lineNumberAt(xml, bounds.start);
+  const wideEnd = lineNumberAt(xml, Math.max(bounds.start, bounds.end - 1));
+  if (wideStart === startLine && wideEnd === endLine) return target;
+  if (wideEnd - wideStart + 1 > maxLines) return { mode: 'full-document' };
+
+  return {
+    mode: 'line-window',
+    line: wideStart,
+    column,
+    lineEnd: wideEnd,
+    ...(target.selectedText !== undefined ? { selectedText: target.selectedText } : {}),
+  };
+}
+
+/** Byte-exact source span of an element, or `null` when its position is unusable. */
+function resolveElementBounds(
+  xml: string,
+  element: slimdom.Element,
+): { start: number; end: number } | null {
+  const range = getNodeSourceRange(element);
+  const reportedStart = range.open?.start;
+  if (reportedStart === undefined) return null;
+  const start = resolveElementStartOffset(xml, reportedStart, element.tagName);
+  if (!xml.startsWith(element.tagName, start + 1)) return null;
+  const openEnd = range.open?.end ?? start;
+  const closeEnd = range.close?.end;
+  const end = closeEnd !== undefined && closeEnd >= openEnd ? closeEnd : scanElementEndOffset(xml, start);
+  return { start, end };
+}

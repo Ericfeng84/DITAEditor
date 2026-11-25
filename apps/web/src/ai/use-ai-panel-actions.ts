@@ -7,7 +7,8 @@ import {
   type SetStateAction,
 } from 'react';
 import type { AiTargetSpec } from './ai-types';
-import { buildSourceAiTarget, buildVisualAiTarget } from './ai-target';
+import { hasAiProposalChanges, isAiProposalStale, isSameXmlBuffer } from './ai-proposal';
+import { buildDiagnosticFixTarget, buildSourceAiTarget, buildVisualAiTarget } from './ai-target';
 import { useAiStore, type AiPanelIntent } from './ai-store';
 import type { InspectorTab } from '../components/TopicInspector';
 import type { VisualEditorHandle } from '../editor/visual/VisualEditor';
@@ -174,12 +175,7 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
     openAiPanel({
       taskType: 'fix_error',
       subAction: 'fix_xml',
-      target: {
-        mode: 'line-window',
-        line: error.line,
-        column: error.column,
-        lineEnd: error.line,
-      },
+      target: buildDiagnosticFixTarget(activeTab.xml, error.line, error.column, error.line),
       diagnostics: [
         {
           source: 'xml',
@@ -195,20 +191,24 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
 
   const handleAiFixDiagnostic = useCallback(
     async (diagnostic: WorkspaceDiagnostic) => {
-      const targetTab = useEditorStore
-        .getState()
-        .openTabs.find((tab) => tab.path === diagnostic.filePath);
-      if (!targetTab || useEditorStore.getState().activeTabPath !== diagnostic.filePath) {
+      const store = useEditorStore.getState();
+      const targetTab = store.openTabs.find((tab) => tab.path === diagnostic.filePath);
+      if (!targetTab || store.activeTabPath !== diagnostic.filePath) {
         await openFileTab(diagnostic.filePath, { mode: 'source', jumpLine: diagnostic.line });
       }
+      const targetXml =
+        useEditorStore.getState().openTabs.find((tab) => tab.path === diagnostic.filePath)?.xml ??
+        targetTab?.xml ??
+        '';
       openAiPanel({
         taskType: 'fix_error',
         subAction: 'fix_diagnostic',
-        target: {
-          mode: 'line-window',
-          line: diagnostic.line,
-          lineEnd: diagnostic.line,
-        },
+        target: buildDiagnosticFixTarget(
+          targetXml,
+          diagnostic.line,
+          diagnostic.column,
+          diagnostic.line,
+        ),
         diagnostics: [
           {
             source: diagnostic.source,
@@ -229,15 +229,17 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
       setStrictOpen(false);
       setStrictAiApplied(false);
       await openFileTab(diagnostic.filePath, { mode: 'source', jumpLine: diagnostic.line });
+      const targetXml =
+        useEditorStore.getState().openTabs.find((tab) => tab.path === diagnostic.filePath)?.xml ?? '';
       openAiPanel({
         taskType: 'fix_error',
         subAction: 'fix_strict',
-        target: {
-          mode: 'line-window',
-          line: diagnostic.line,
-          column: diagnostic.column,
-          lineEnd: diagnostic.line,
-        },
+        target: buildDiagnosticFixTarget(
+          targetXml,
+          diagnostic.line,
+          diagnostic.column,
+          diagnostic.line,
+        ),
         diagnostics: [
           {
             source: 'xml',
@@ -261,6 +263,30 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
         announce(t('app.aiPreviewOnly'));
         return;
       }
+
+      // Guard both ends of the "it says applied but nothing changed" trap: a patch identical to the
+      // buffer is a no-op, and a patch generated from a different buffer would revert later edits.
+      const proposal = useAiStore.getState().proposal;
+      const currentXml = useEditorStore
+        .getState()
+        .openTabs.find((tab) => tab.path === filePath)?.xml;
+      if (currentXml !== undefined && isSameXmlBuffer(patchedXml, currentXml)) {
+        announce(t('app.aiNoChanges'));
+        setAiDiffOpen(false);
+        return;
+      }
+      if (proposal && currentXml !== undefined && isAiProposalStale(proposal, currentXml)) {
+        announce(t('app.aiStaleProposal'));
+        useAiStore.getState().dismissProposal();
+        setAiDiffOpen(false);
+        return;
+      }
+      if (proposal && !hasAiProposalChanges(proposal)) {
+        announce(t('app.aiNoChanges'));
+        setAiDiffOpen(false);
+        return;
+      }
+
       if (aiApplyMode === 'checkout-and-apply' && workspaceMode === 'api') {
         const lock = await checkoutFile(filePath);
         if (!lock) {

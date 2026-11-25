@@ -44,6 +44,8 @@ export const enCommon = {
   'app.aiPreviewOnly': 'Your role or the file lock only allows previewing AI changes; the buffer was not modified',
   'app.aiCheckoutFailed': 'Check-out failed — AI changes can only be previewed',
   'app.aiApplied': 'AI changes applied to the buffer (not saved yet)',
+  'app.aiNoChanges': 'The AI patch is identical to the current buffer — nothing was changed',
+  'app.aiStaleProposal': 'The buffer changed since this patch was generated; the proposal was discarded, please regenerate',
   'app.conrefBound': 'Bound {attr}="{value}" to <{tag}>',
   'app.conrefCannotInsert': 'Cannot insert <{tag}>: place the cursor inside a body paragraph first',
   'app.conrefInserted': 'Inserted reuse node <{tag} {attr}="{value}"/>',

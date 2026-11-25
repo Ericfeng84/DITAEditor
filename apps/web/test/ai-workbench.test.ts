@@ -11,12 +11,14 @@ import { DiffViewer } from '../src/components/DiffViewer';
 import {
   AI_SELECTED_TEXT_LIMIT,
   AI_TARGET_SCOPE_LABELS,
+  buildDiagnosticFixTarget,
   buildLineWindowAiTarget,
   buildSourceAiTarget,
   buildVisualAiTarget,
   resolveScopeTarget,
 } from '../src/ai/ai-target';
 import { resetAiStore, useAiStore } from '../src/ai/ai-store';
+import { hasAiProposalChanges, isAiProposalStale } from '../src/ai/ai-proposal';
 import { translate } from '../src/i18n/messages/index.js';
 import type { AiProposal, AiStreamRequest } from '../src/ai/ai-types';
 import {
@@ -130,6 +132,67 @@ describe('Phase 6 AI target extraction (web)', () => {
       column: 2,
       lineEnd: 4,
     });
+  });
+
+  // DITA-OT reports the duplicated `<cmd>` on the enclosing `</step>`; a one-line window there
+  // cannot reach the cause, so the assistant could only echo the line back and the "applied"
+  // patch left the buffer untouched.
+  it('widens a diagnostic fix window to the enclosing element that holds the cause', () => {
+    const steps =
+      '<task id="t"><title>T</title><taskbody><steps>\n' +
+      '  <step>\n' +
+      '    <cmd>重复的指令</cmd>\n' +
+      '    <cmd>重复的指令</cmd>\n' +
+      '  </step>\n' +
+      '</steps></taskbody></task>';
+    expect(buildDiagnosticFixTarget(steps, 5, 1, 5)).toEqual({
+      mode: 'line-window',
+      line: 2,
+      column: 1,
+      lineEnd: 5,
+    });
+  });
+
+  it('pads malformed XML diagnostics because the parse error line is far from the gap', () => {
+    const broken = '<topic><title>T</title>\n<body>\n  <p>oops</body></topic>';
+    expect(buildDiagnosticFixTarget(broken, 2, 3, 2)).toEqual({
+      mode: 'line-window',
+      line: 1,
+      column: 3,
+      lineEnd: 3,
+    });
+  });
+
+  it('keeps a single line when the diagnostic sits outside any element', () => {
+    expect(buildDiagnosticFixTarget('', 4, 1, 4)).toEqual({
+      mode: 'line-window',
+      line: 1,
+      column: 1,
+      lineEnd: 1,
+    });
+  });
+});
+
+describe('Phase 6 AI proposal guards', () => {
+  const proposal = {
+    originalXml: TOPIC_XML,
+    patchedXml: TOPIC_XML.replace('Hello', 'Hi'),
+  };
+
+  it('detects a patch that would not change the buffer', () => {
+    expect(hasAiProposalChanges(proposal)).toBe(true);
+    expect(hasAiProposalChanges({ originalXml: TOPIC_XML, patchedXml: TOPIC_XML })).toBe(false);
+    expect(
+      hasAiProposalChanges({
+        originalXml: TOPIC_XML,
+        patchedXml: `${TOPIC_XML}\n`,
+      }),
+    ).toBe(false);
+  });
+
+  it('detects a proposal generated from a buffer that has since changed', () => {
+    expect(isAiProposalStale(proposal, TOPIC_XML)).toBe(false);
+    expect(isAiProposalStale(proposal, TOPIC_XML.replace('Intro', 'Welcome'))).toBe(true);
   });
 });
 

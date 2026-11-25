@@ -2,6 +2,7 @@ import {
   checkXmlWellFormed,
   findElementPathAtOffset,
   resolvePmElementPath,
+  widenAiFixTarget,
   type AiTargetSpec,
 } from '@dita/core';
 import type { Node as PMNode } from 'prosemirror-model';
@@ -92,6 +93,46 @@ export function buildLineWindowAiTarget(
     line: startLine,
     column: column && column > 0 ? Math.floor(column) : 1,
     lineEnd: lineEnd && lineEnd >= startLine ? Math.floor(lineEnd) : startLine,
+  };
+}
+
+/** Line cap for a widened diagnostic fix window; wider enclosing elements use the whole topic. */
+export const AI_FIX_WINDOW_MAX_LINES = 80;
+
+/** Malformed XML has no element tree, so the fix scope is padded around the reported line. */
+export const AI_FIX_MALFORMED_CONTEXT_LINES = 12;
+
+/**
+ * Turn a validator's reported line into a window the assistant can actually repair.
+ *
+ * Diagnostics point at the tag that tripped the validator, not at the cause: a duplicated `<cmd>`
+ * is reported at the step's `</step>`, so a one-line window leaves the root cause uneditable and
+ * the model can only echo the line back (an "applied" patch that changes nothing). The window is
+ * therefore widened to the enclosing element — or to the whole topic when that element is the
+ * root — and, for malformed XML (no element tree), padded symmetrically around the line.
+ */
+export function buildDiagnosticFixTarget(
+  xml: string,
+  line: number | undefined,
+  column?: number,
+  lineEnd?: number,
+): AiTargetSpec {
+  const base = buildLineWindowAiTarget(line, column, lineEnd);
+  const widened = widenAiFixTarget(xml, base, { maxLines: AI_FIX_WINDOW_MAX_LINES });
+  const changed =
+    widened.mode !== base.mode ||
+    widened.line !== base.line ||
+    widened.lineEnd !== base.lineEnd;
+  if (changed) return widened;
+  if (checkXmlWellFormed(xml, { position: false }).ok) return base;
+
+  const totalLines = Math.max(1, xml.split('\n').length);
+  const anchorStart = base.line ?? 1;
+  const anchorEnd = base.lineEnd ?? anchorStart;
+  return {
+    ...base,
+    line: Math.max(1, anchorStart - AI_FIX_MALFORMED_CONTEXT_LINES),
+    lineEnd: Math.min(totalLines, anchorEnd + AI_FIX_MALFORMED_CONTEXT_LINES),
   };
 }
 
