@@ -1,0 +1,240 @@
+/*!
+ * DITAEditor theme: dev-dark
+ * ---------------------------------------------------------------------------
+ * Dark developer documentation: near-black canvas, slate surfaces, a cyan
+ * accent, monospace headings and chrome labels, slightly lifted code blocks and
+ * a low-glow focus ring. The dark palette is the theme default; setting
+ * data-de-mode="light" explicitly (or letting a user toggle it) flips to the
+ * light variant below. No prefers-color-scheme query is used anywhere, so an
+ * explicit data-de-mode always wins over the operating system preference.
+ */
+
+:root[data-de-theme="dev-dark"] {
+  --de-accent: #38bdf8;
+  --de-accent-hover: #7dd3fc;
+  --de-accent-soft: rgba(56, 189, 248, 0.16);
+  --de-accent-border: rgba(56, 189, 248, 0.42);
+  --de-accent-contrast: #04121c;
+}
+
+/* Intrinsic dark palette; also the value for data-de-mode="dark". */
+html[data-de-theme="dev-dark"],
+html[data-de-theme="dev-dark"][data-de-mode="dark"] {
+  color-scheme: dark;
+
+  --de-bg: #0b0f17;
+  --de-surface: #111827;
+  --de-surface-2: #172132;
+  --de-header-bg: rgba(11, 15, 23, 0.92);
+  --de-header-text: #e5e7eb;
+  --de-header-muted: #94a3b8;
+  --de-header-border: #1c2738;
+  --de-text: #e5e7eb;
+  --de-text-muted: #94a3b8;
+  --de-border: #1f2a3a;
+  --de-code-bg: #131c2b;
+  --de-code-text: #d7e3f4;
+  --de-radius: 8px;
+  --de-shadow: 0 1px 2px rgba(0, 0, 0, 0.6), 0 22px 44px -30px rgba(56, 189, 248, 0.35);
+  --de-content-width: 48rem;
+  --de-sidebar-width: 17rem;
+  --de-onpage-width: 14rem;
+  --de-line-height: 1.68;
+
+  --de-font-heading: var(--de-font-mono);
+
+  --de-link: #7dd3fc;
+  --de-link-hover: #bae6fd;
+  --de-focus-color: #7dd3fc;
+  --de-bar: #38bdf8;
+  --de-hover-bg: rgba(148, 163, 184, 0.1);
+  --de-active-bg: rgba(56, 189, 248, 0.12);
+  --de-table-stripe: rgba(148, 163, 184, 0.05);
+  --de-table-head-bg: rgba(148, 163, 184, 0.08);
+  --de-mark-bg: rgba(56, 189, 248, 0.28);
+  --de-mark-text: #e0f2fe;
+  --de-overlay: rgba(2, 6, 12, 0.75);
+
+  --de-note-bg: rgba(56, 189, 248, 0.1);
+  --de-note-border: rgba(56, 189, 248, 0.3);
+  --de-note-fg: #7dd3fc;
+  --de-tip-bg: rgba(52, 211, 153, 0.1);
+  --de-tip-border: rgba(52, 211, 153, 0.3);
+  --de-tip-fg: #6ee7b7;
+  --de-important-bg: rgba(167, 139, 250, 0.12);
+  --de-important-border: rgba(167, 139, 250, 0.32);
+  --de-important-fg: #c4b5fd;
+  --de-caution-bg: rgba(251, 191, 36, 0.12);
+  --de-caution-border: rgba(251, 191, 36, 0.32);
+  --de-caution-fg: #fcd34d;
+  --de-warning-bg: rgba(251, 146, 60, 0.12);
+  --de-warning-border: rgba(251, 146, 60, 0.32);
+  --de-warning-fg: #fdba74;
+  --de-danger-bg: rgba(248, 113, 113, 0.14);
+  --de-danger-border: rgba(248, 113, 113, 0.34);
+  --de-danger-fg: #fca5a5;
+}
+
+/* Explicit light mode wins over the dark default above. */
+html[data-de-theme="dev-dark"][data-de-mode="light"] {
+  color-scheme: light;
+
+  --de-bg: #f8fafc;
+  --de-surface: #ffffff;
+  --de-surface-2: #eef2f7;
+  --de-header-bg: rgba(255, 255, 255, 0.9);
+  --de-header-text: #0f172a;
+  --de-header-muted: #52606d;
+  --de-header-border: #e2e8f0;
+  --de-text: #0f172a;
+  --de-text-muted: #52606d;
+  --de-border: #dbe3ec;
+  --de-code-bg: #f1f5f9;
+  --de-code-text: #10233a;
+  --de-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 16px 34px -26px rgba(15, 23, 42, 0.4);
+
+  --de-link: #0369a1;
+  --de-link-hover: #075985;
+  --de-focus-color: #0284c7;
+  --de-bar: #0284c7;
+  --de-accent-soft: #e0f2fe;
+  --de-accent-border: #7dd3fc;
+  --de-hover-bg: rgba(2, 132, 199, 0.07);
+  --de-active-bg: #e6f4fd;
+  --de-table-stripe: rgba(15, 23, 42, 0.025);
+  --de-table-head-bg: #eef2f7;
+  --de-mark-bg: #fde68a;
+  --de-mark-text: #422006;
+  --de-overlay: rgba(15, 23, 42, 0.45);
+
+  /* the intrinsic dark palette above also owns the note tints: restate the
+     light ones so admonitions stay legible on paper-white surfaces */
+  --de-note-bg: #eff6ff;
+  --de-note-border: #bfdbfe;
+  --de-note-fg: #1d4ed8;
+  --de-note-bar: #3b82f6;
+  --de-tip-bg: #ecfdf5;
+  --de-tip-border: #a7f3d0;
+  --de-tip-fg: #047857;
+  --de-tip-bar: #10b981;
+  --de-important-bg: #f5f3ff;
+  --de-important-border: #ddd6fe;
+  --de-important-fg: #6d28d9;
+  --de-important-bar: #8b5cf6;
+  --de-caution-bg: #fffbeb;
+  --de-caution-border: #fde68a;
+  --de-caution-fg: #b45309;
+  --de-caution-bar: #f59e0b;
+  --de-warning-bg: #fff7ed;
+  --de-warning-border: #fed7aa;
+  --de-warning-fg: #c2410c;
+  --de-warning-bar: #f97316;
+  --de-danger-bg: #fef2f2;
+  --de-danger-border: #fecaca;
+  --de-danger-fg: #b91c1c;
+  --de-danger-bar: #ef4444;
+}
+
+/* Monospace headings and chrome: the theme's signature. */
+html[data-de-theme="dev-dark"] .de-main h1,
+html[data-de-theme="dev-dark"] .de-main h2,
+html[data-de-theme="dev-dark"] .de-main h3,
+html[data-de-theme="dev-dark"] .de-main h4,
+html[data-de-theme="dev-dark"] .de-brand,
+html[data-de-theme="dev-dark"] .de-sidebar-title,
+html[data-de-theme="dev-dark"] .de-onpage-title,
+html[data-de-theme="dev-dark"] .de-pager-label {
+  letter-spacing: -0.005em;
+}
+
+html[data-de-theme="dev-dark"] .de-brand,
+html[data-de-theme="dev-dark"] .de-sidebar-title,
+html[data-de-theme="dev-dark"] .de-onpage-title {
+  font-weight: 600;
+  text-transform: none;
+  font-size: 0.8125rem;
+}
+
+html[data-de-theme="dev-dark"] .de-main h1,
+html[data-de-theme="dev-dark"] .de-main h2 {
+  background: linear-gradient(92deg, #e5e7eb 0%, #bae6fd 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+html[data-de-theme="dev-dark"][data-de-mode="light"] .de-main h1,
+html[data-de-theme="dev-dark"][data-de-mode="light"] .de-main h2 {
+  background: none;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+  color: var(--de-text);
+}
+
+html[data-de-theme="dev-dark"] .de-main .topictitle1 {
+  font-size: 1.85rem;
+}
+
+/* Neon-lite focus ring: only the keyboard ring glows. */
+html[data-de-theme="dev-dark"] :focus-visible {
+  outline: 2px solid var(--de-focus-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 4px rgba(56, 189, 248, 0.18);
+}
+
+html[data-de-theme="dev-dark"] .de-main .note {
+  border-left-width: 3px;
+}
+
+html[data-de-theme="dev-dark"] .de-pager-link,
+html[data-de-theme="dev-dark"] .de-portal-card {
+  background: var(--de-surface);
+}
+
+html[data-de-theme="dev-dark"] a.de-portal-card:hover {
+  background: var(--de-surface-2);
+  border-color: var(--de-accent-border);
+}
+
+html[data-de-theme="dev-dark"] .de-portal-hero {
+  border-color: var(--de-border);
+  background: radial-gradient(120% 140% at 0% 0%, rgba(56, 189, 248, 0.16) 0%, rgba(11, 15, 23, 0) 62%),
+    var(--de-surface);
+}
+
+/* Tuned scrollbars (Firefox via the standard properties, WebKit below). */
+html[data-de-theme="dev-dark"] {
+  scrollbar-color: #2a3a52 #0b0f17;
+}
+
+html[data-de-theme="dev-dark"][data-de-mode="light"] {
+  scrollbar-color: #c3cede #f8fafc;
+}
+
+html[data-de-theme="dev-dark"] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+html[data-de-theme="dev-dark"] ::-webkit-scrollbar-track {
+  background: #0b0f17;
+}
+
+html[data-de-theme="dev-dark"] ::-webkit-scrollbar-thumb {
+  border: 2px solid #0b0f17;
+  border-radius: 8px;
+  background: #2a3a52;
+}
+
+html[data-de-theme="dev-dark"] ::-webkit-scrollbar-thumb:hover {
+  background: #3b5273;
+}
+
+html[data-de-theme="dev-dark"][data-de-mode="light"] ::-webkit-scrollbar-track {
+  background: #f8fafc;
+}
+
+html[data-de-theme="dev-dark"][data-de-mode="light"] ::-webkit-scrollbar-thumb {
+  border-color: #f8fafc;
+  background: #c3cede;
+}

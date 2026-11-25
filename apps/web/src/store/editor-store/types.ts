@@ -50,6 +50,29 @@ export interface SelectedMapNodeRef {
   elementPath: number[] | null; // null represents the Root Map element itself
 }
 
+/** One failed save attempt, kept so dialogs can show the server's real reason. */
+export interface SaveFailure {
+  path: string;
+  message: string;
+}
+
+/** Recovery offered from the alert banner (currently: take the check-out lock, then save). */
+export interface WorkbenchAlertAction {
+  kind: 'save-with-checkout';
+  paths: string[];
+}
+
+/**
+ * A blocking problem that must not be hidden in the screen-reader-only status line:
+ * a rejected save, or a map/structure edit that could not take its check-out lock.
+ */
+export interface WorkbenchAlert {
+  id: number;
+  tone: 'error' | 'warning';
+  message: string;
+  action?: WorkbenchAlertAction;
+}
+
 export interface EditorWorkbenchState {
   // Workspace
   workspaceMode: 'api' | 'memory';
@@ -96,6 +119,10 @@ export interface EditorWorkbenchState {
   /** Task content model preference: `auto` (per-document DOCTYPE) / `strict` (task.dtd) / `general`. */
   taskModelSetting: TaskContentModelSetting;
   statusMessage: string;
+  /** Unsolved, user-visible problem (rejected save / rejected map edit). */
+  alert: WorkbenchAlert | null;
+  /** Failures of the most recent save attempt, with the API's localized reason. */
+  lastSaveFailures: SaveFailure[];
   pendingSourceOffset: number | null;
   pendingVisualPmPos: number | null;
 
@@ -153,10 +180,24 @@ export interface EditorWorkbenchState {
   saveFile: (filePath: string, options?: { refresh?: boolean }) => Promise<boolean>;
   saveActiveFile: () => Promise<boolean>;
   /**
-   * Saves every dirty tab and map buffer.
+   * Saves one file, taking its check-out lock first when the API workspace requires one.
+   * On failure the reason is surfaced through `alert` (with a retry action).
+   */
+  saveFileEnsuringLock: (filePath: string, options?: { refresh?: boolean }) => Promise<boolean>;
+  /**
+   * Saves several files, taking each missing check-out lock first.
    * @returns the paths that failed to save (empty when everything landed).
    */
-  saveAllDirtyFiles: (options?: { refresh?: boolean }) => Promise<string[]>;
+  saveFilesEnsuringLocks: (filePaths: string[], options?: { refresh?: boolean }) => Promise<string[]>;
+  /** True when the file has edits that are not on disk yet (tab or map buffer). */
+  isPathDirty: (filePath: string) => boolean;
+  /**
+   * Saves every dirty tab and map buffer.
+   * `ensureLocks` takes the check-out lock for files the current user has not locked yet.
+   * @returns the paths that failed to save (empty when everything landed).
+   */
+  saveAllDirtyFiles: (options?: { refresh?: boolean; ensureLocks?: boolean }) => Promise<string[]>;
+  dismissAlert: () => void;
   resetCurrentToBaseline: () => void;
 
   // Editor mode & content sync
@@ -174,6 +215,12 @@ export interface EditorWorkbenchState {
 
   // Map Tree actions
   mutateMapXml: (mapPath: string, nextXml: string, announcement?: string) => void;
+  /**
+   * Makes sure the current user may write this map (memory mode, admin, or holds the lock;
+   * otherwise the check-out is taken first). Returns false when the edit must not proceed and
+   * already reported why through `alert`.
+   */
+  ensureMapEditable: (mapPath: string) => Promise<boolean>;
   undoMap: (mapPath: string) => void;
   redoMap: (mapPath: string) => void;
   selectMapNode: (ref: SelectedMapNodeRef | null, switchInspector?: boolean) => void;
@@ -181,7 +228,7 @@ export interface EditorWorkbenchState {
     dragNodes: CompositeMapTreeNode[],
     targetParent: CompositeMapTreeNode | null,
     index: number,
-  ) => void;
+  ) => Promise<void>;
   createTopicAndMountInMap: (options: {
     mapPath: string;
     parentPath: number[] | null;
@@ -198,7 +245,7 @@ export interface EditorWorkbenchState {
     targetFilePath: string;
     tagName: string;
     navtitle?: string;
-  }) => void;
+  }) => Promise<void>;
   insertMapStructureNode: (options: {
     mapPath: string;
     parentPath: number[] | null;
@@ -206,26 +253,28 @@ export interface EditorWorkbenchState {
     navtitle?: string;
     keys?: string;
     keydefKeyword?: string;
-  }) => void;
+  }) => Promise<void>;
   updateMapAttr: (
     mapPath: string,
     elementPath: number[] | null,
     attrName: string,
     value: string | null,
-  ) => void;
-  updateMapNavtitle: (mapPath: string, elementPath: number[], navtitle: string) => void;
+  ) => Promise<void>;
+  updateMapNavtitle: (mapPath: string, elementPath: number[], navtitle: string) => Promise<void>;
   /**
    * Rename the `keys` token of one Keyspace definition in its source map.
-   * Returns false when the definition is no longer present (map unloaded / key already renamed).
+   * Returns false when the definition is no longer present (map unloaded / key already renamed)
+   * or when the source map could not be checked out for editing.
    */
-  renameMapKey: (def: KeyDefinition, nextKey: string) => boolean;
+  renameMapKey: (def: KeyDefinition, nextKey: string) => Promise<boolean>;
   /**
    * Rewrite the displayed value of one Keyspace definition (keyword/linktext/navtitle text or `@href`)
-   * directly in its source map. Returns false when the value cannot be rewritten losslessly.
+   * directly in its source map. Returns false when the value cannot be rewritten losslessly
+   * or when the source map could not be checked out for editing.
    */
-  updateMapKeyValue: (def: KeyDefinition, nextValue: string) => boolean;
-  updateMapRootTitle: (mapPath: string, title: string) => void;
-  deleteMapTreeNode: (mapPath: string, elementPath: number[]) => void;
+  updateMapKeyValue: (def: KeyDefinition, nextValue: string) => Promise<boolean>;
+  updateMapRootTitle: (mapPath: string, title: string) => Promise<void>;
+  deleteMapTreeNode: (mapPath: string, elementPath: number[]) => Promise<void>;
   jumpToMapNodeSource: (mapPath: string, line?: number) => Promise<void>;
 
   // Standalone File / Folder / Import CRUD

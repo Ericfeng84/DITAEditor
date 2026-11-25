@@ -63,6 +63,6 @@ Root Map 的 `keydef` 会被 BFS 解析成键空间；`conref` / `conkeyref` 在
 
 ## 下一步
 
-- 想在浏览器里直接体验多文件工作台：[打开离线版工作台](../../workbench/)。
+- 想在浏览器里直接体验完整工作台：[打开在线工作台](https://www.cemplatformcvs.cloud/dita)。
 - 想直接部署：[快速开始与 Docker 部署](/docs/getting-started)。
 - 想读代码：[架构参考](/docs/architecture)。

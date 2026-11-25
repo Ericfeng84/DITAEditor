@@ -1,0 +1,21 @@
+# Cloud Build configuration for deploying DITAEditor to GCP Cloud Run
+# behind a subpath reverse proxy (e.g. https://www.cemplatformcvs.cloud/dita).
+steps:
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '--build-arg'
+      - 'VITE_BASE=${_VITE_BASE}'
+      - '--build-arg'
+      - 'DITA_BASE_PATH=${_DITA_BASE_PATH}'
+      - '-t'
+      - '${_IMAGE}'
+      - '.'
+images:
+  - '${_IMAGE}'
+substitutions:
+  _VITE_BASE: '/dita/'
+  _DITA_BASE_PATH: '/dita'
+options:
+  logging: CLOUD_LOGGING_ONLY
+timeout: '1200s'

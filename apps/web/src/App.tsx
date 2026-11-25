@@ -19,6 +19,7 @@ import { InsertKeyrefDialog } from './components/InsertKeyrefDialog';
 import { KeyspacePanel } from './components/KeyspacePanel';
 import { LeftSidebar } from './components/LeftSidebar';
 import { LockStatusBar } from './components/LockStatusBar';
+import { ReadOnlyBanner } from './components/ReadOnlyBanner';
 import { NewMapDialog } from './components/NewMapDialog';
 import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopicDialog';
 import { ProblemsPanel } from './components/ProblemsPanel';
@@ -34,6 +35,7 @@ import { ManualAssignmentsPanel } from './components/ManualAssignmentsPanel';
 import type { AssignmentBadge } from './components/FileExplorerPanel';
 import { TopicAssignmentBanner } from './components/TopicAssignmentBanner';
 import { SaveControls } from './components/SaveControls';
+import { WorkbenchAlertBanner } from './workbench/WorkbenchAlertBanner';
 import { TopicInspector, type InspectorTab } from './components/TopicInspector';
 import { WorkbenchHeader } from './components/WorkbenchHeader';
 import { WorkspaceDialog } from './components/WorkspaceDialog';
@@ -136,6 +138,9 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const taskModelSetting = useEditorStore((s) => s.taskModelSetting);
   const setTaskModelSetting = useEditorStore((s) => s.setTaskModelSetting);
   const statusMessage = useEditorStore((s) => s.statusMessage);
+  const alert = useEditorStore((s) => s.alert);
+  const dismissAlert = useEditorStore((s) => s.dismissAlert);
+  const saveFileEnsuringLock = useEditorStore((s) => s.saveFileEnsuringLock);
   const pendingSourceOffset = useEditorStore((s) => s.pendingSourceOffset);
   const pendingVisualPmPos = useEditorStore((s) => s.pendingVisualPmPos);
 
@@ -382,6 +387,16 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [gitStatus],
   );
   const activeLockDirty = Boolean(activeTabPath && dirtyPathSet.has(activeTabPath));
+  const dirtyPaths = useMemo(() => {
+    const dirty = new Set<string>();
+    for (const t of openTabs) {
+      if (t.xml !== t.baselineXml) dirty.add(t.path);
+    }
+    for (const [p, buf] of Object.entries(mapBuffers)) {
+      if (buf.xml !== buf.baselineXml) dirty.add(p);
+    }
+    return Array.from(dirty);
+  }, [openTabs, mapBuffers]);
   // Phase 10: assignment wiring for the currently open topic.
   const assignableUsers = useMemo(
     () => (identity?.users ?? []).filter((user) => user.role !== 'viewer'),
@@ -447,7 +462,13 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
       checkinPaths.length > 0
         ? checkinPaths
         : locks
-            .filter((lock) => lock.userId === currentUser?.id && dirtyPathSet.has(lock.filePath))
+            .filter(
+              (lock) =>
+                lock.userId === currentUser?.id &&
+                // Maps edited from the map tree are dirty in memory long before they are dirty on
+                // disk, and `checkin` saves them before committing.
+                (dirtyPathSet.has(lock.filePath) || dirtyPaths.includes(lock.filePath)),
+            )
             .map((lock) => lock.filePath);
     return paths
       .map((path) => {
@@ -455,7 +476,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         return lock ? { path, lock } : null;
       })
       .filter((item): item is CheckinCandidate => item !== null);
-  }, [checkinPaths, locks, currentUser?.id, dirtyPathSet]);
+  }, [checkinPaths, locks, currentUser?.id, dirtyPathSet, dirtyPaths]);
 
   const openGitDiff = useCallback(
     async (options: { path: string; from?: string; to?: string }) => {
@@ -475,16 +496,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     setCheckinOpen(true);
   }, []);
 
-  const dirtyPaths = useMemo(() => {
-    const dirty = new Set<string>();
-    for (const t of openTabs) {
-      if (t.xml !== t.baselineXml) dirty.add(t.path);
-    }
-    for (const [p, buf] of Object.entries(mapBuffers)) {
-      if (buf.xml !== buf.baselineXml) dirty.add(p);
-    }
-    return Array.from(dirty);
-  }, [openTabs, mapBuffers]);
   const dirtyCount = dirtyPaths.length;
   const reloadFilesFromDisk = useEditorStore((state) => state.reloadFilesFromDisk);
 
@@ -500,30 +511,52 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     setLeaveError(null);
     setLeaveOpen(true);
   }, [dirtyPaths.length, onLeaveSession]);
-  const handleSaveAndLeave = useCallback(async () => {
-    setLeaving(true);
-    setLeaveError(null);
-    try {
-      // `refresh: false` — leaving the session does not need the index/diagnostics round-trip; it
-      // previously left the button spinning forever when that refresh was slow.
-      const failed = await saveAllDirtyFiles({ refresh: false });
-      if (failed.length === 0) {
-        setLeaveOpen(false);
-        onLeaveSession();
-        return;
+  const attemptSaveAndLeave = useCallback(
+    async (ensureLocks: boolean) => {
+      setLeaving(true);
+      setLeaveError(null);
+      try {
+        // `refresh: false` — leaving the session does not need the index/diagnostics round-trip; it
+        // previously left the button spinning forever when that refresh was slow.
+        const failed = await saveAllDirtyFiles({ refresh: false, ensureLocks });
+        if (failed.length === 0) {
+          setLeaveOpen(false);
+          onLeaveSession();
+          return;
+        }
+        // A failed save (missing checkout lock, deleted file, network error) used to leave the
+        // dialog silently open — surface which files failed, with discard as the escape hatch.
+        // The API's own wording is the only reliable hint ("请先检出该文件再编辑保存"), so quote it.
+        const reason = useEditorStore
+          .getState()
+          .lastSaveFailures.filter((failure) => failed.includes(failure.path))
+          .map((failure) => failure.message)
+          .join('; ');
+        setLeaveError(
+          reason
+            ? t('workbench.leaveSaveFailedDetail', {
+                paths: failed.join('、'),
+                reason,
+              })
+            : t('workbench.leaveSaveFailed', { paths: failed.join('、') }),
+        );
+      } catch (err) {
+        setLeaveError(
+          t('workbench.leaveSaveFailed', { paths: dirtyPaths.join('、') }) +
+            (err instanceof Error ? ` ${err.message}` : ''),
+        );
+      } finally {
+        setLeaving(false);
       }
-      // A failed save (missing checkout lock, deleted file, network error) used to leave the
-      // dialog silently open — surface which files failed, with discard as the escape hatch.
-      setLeaveError(t('workbench.leaveSaveFailed', { paths: failed.join('、') }));
-    } catch (err) {
-      setLeaveError(
-        t('workbench.leaveSaveFailed', { paths: dirtyPaths.join('、') }) +
-          (err instanceof Error ? ` ${err.message}` : ''),
-      );
-    } finally {
-      setLeaving(false);
-    }
-  }, [saveAllDirtyFiles, onLeaveSession, t, dirtyPaths]);
+    },
+    [saveAllDirtyFiles, onLeaveSession, t, dirtyPaths],
+  );
+  const handleSaveAndLeave = useCallback(() => {
+    void attemptSaveAndLeave(false);
+  }, [attemptSaveAndLeave]);
+  const handleSaveWithCheckoutAndLeave = useCallback(() => {
+    void attemptSaveAndLeave(true);
+  }, [attemptSaveAndLeave]);
   const handleDiscardAndLeave = useCallback(async () => {
     setLeaving(true);
     setLeaveError(null);
@@ -892,23 +925,17 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     ? diagnostics.filter((d) => d.filePath === activeTab.path && d.source === 'structure').length
     : 0;
   const showGuideChip = activeTab?.kind === 'topic';
-  // The admin state is always editable and offers no action, so its chip would only add
-  // noise next to the assignment chip; the actionable states (unlocked / owned / others'
-  // lock / read-only) still get a home on the toolbar.
-  // A pending assignment that is mine already offers "检出并开始", so the unlocked chip
-  // would duplicate the same action right next to it.
-  const assignmentOwnsCheckout = Boolean(
-    activeAssignment &&
-      activeTab &&
-      activeAssignment.topicPath === activeTab.path &&
-      activeAssignment.status === 'pending' &&
-      editability.state === 'unlocked',
-  );
+  // The admin state is always editable and offers no action; the owned state keeps its chip so
+  // check-in / cancel / release stay on the document toolbar. Every read-only state is covered
+  // by the banner above the canvas instead of a chip.
+  // Read-only states (not checked out / held by somebody else / viewer) get a full-width
+  // banner above the canvas instead of the compact chip, so the canvas is never silently inert.
+  const showReadOnlyBanner = workspaceMode === 'api' && Boolean(activeTab) && !canEdit;
   const showLockStatus =
     workspaceMode === 'api' &&
     Boolean(activeTab) &&
-    editability.state !== 'admin' &&
-    !assignmentOwnsCheckout;
+    editability.editable &&
+    editability.state !== 'admin';
   /** Locks + guide toggle still need a home when the visual toolbar is hidden (source mode, read-only). */
   const showActionRow =
     (showTopicVisual && canEdit) || showGuideChip || showLockStatus || dirtyCount > 0;
@@ -1206,6 +1233,37 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                       onCloseOtherTabs={closeOtherTabs}
                       onCloseSavedTabs={closeSavedTabs}
                     />
+
+                    {/* Rejected saves and blocked map edits must be visible, not just announced
+                        to the screen-reader status line. */}
+                    {alert ? (
+                      <WorkbenchAlertBanner
+                        alert={alert}
+                        busy={savingPaths.length > 0}
+                        onDismiss={dismissAlert}
+                        onAction={
+                          alert.action
+                            ? () => {
+                                for (const path of alert.action!.paths) {
+                                  void saveFileEnsuringLock(path);
+                                }
+                              }
+                            : undefined
+                        }
+                      />
+                    ) : null}
+
+                    {showReadOnlyBanner ? (
+                      <ReadOnlyBanner
+                        editability={editability}
+                        lock={activeLock}
+                        busy={gitLoading}
+                        onCheckout={() => {
+                          if (activeTabPath) void checkoutFile(activeTabPath);
+                        }}
+                        onRefresh={() => void refreshLocksGit()}
+                      />
+                    ) : null}
 
                     {/* Source-only layouts have no visual sub-header to host the expanded guide card. */}
                     {showGuideChip && guideExpanded && !showVisualPane ? (
@@ -1683,7 +1741,8 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         dirtyCount={dirtyPaths.length}
         saving={leaving}
         error={leaveError}
-        onSaveAndLeave={() => void handleSaveAndLeave()}
+        onSaveAndLeave={handleSaveAndLeave}
+        onSaveWithCheckout={workspaceMode === 'api' ? handleSaveWithCheckoutAndLeave : undefined}
         onDiscardAndLeave={() => void handleDiscardAndLeave()}
         onCancel={() => {
           setLeaveError(null);

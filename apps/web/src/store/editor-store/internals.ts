@@ -8,7 +8,19 @@ import type { DitaFileKind, DitaProfilingAttrName } from '@dita/core';
 import { getCurrentLocale, onLocaleChange } from '../../i18n/index.js';
 import { createInMemoryDemoWorkspace } from '../../services/demo-workspace.js';
 import type { WorkspaceDiagnostic, WorkspaceFileNode } from '../../services/workspace-api';
-import type { EditorWorkbenchState, OpenEditorTab } from './types.js';
+import type { EditorWorkbenchState, OpenEditorTab, WorkbenchAlert } from './types.js';
+
+let alertSequence = 0;
+
+/**
+ * Build a `WorkbenchAlert` with a fresh id.
+ * The id is what lets the banner re-announce a repeated failure (e.g. two saves on the same
+ * file) instead of looking like nothing happened.
+ */
+export function nextWorkbenchAlert(alert: Omit<WorkbenchAlert, 'id'>): WorkbenchAlert {
+  alertSequence += 1;
+  return { id: alertSequence, ...alert };
+}
 
 export function collectFileSetFromTree(nodes: readonly WorkspaceFileNode[]): Set<string> {
   const set = new Set<string>();

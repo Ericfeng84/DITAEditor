@@ -36,7 +36,7 @@ export const zh = {
     desktopCta: '下载桌面版',
     secondaryCta: 'Docker 快速部署',
     browserNote:
-      '浏览器版是静态演示：编辑、Map 编排、Keys/Conref/DITAVAL 可用；发布、Git 与 AI 需桌面版或容器部署。',
+      '在线试用站为完整版：DITA-OT 4.2.1 校验、HTML5 多主题与 Noto CJK PDF 发布、Git 独占锁、语义索引与 AI 片段改写均已启用；首次访问约 3–5 秒冷启动。',
     stats: [
       { value: '100%', label: '无损 XML 往返' },
       { value: '10', label: '复杂 DITA 1.3 黄金样本' },
@@ -135,7 +135,7 @@ export const zh = {
     presets: { body: '正文', note: '提示', command: '命令' },
     hint: '试着修改「备份目录」，或把开头改成「归档工作区数据」',
     reset: '重置样本',
-    openFull: '打开三栏离线工作台 →',
+    openFull: '打开在线工作台 →',
     unchanged: '尚未改动：序列化结果与初始样本逐字节一致。',
     changed: '仅变动 {count} 行，其余 XML 逐字节一致。',
     preserve: ['DOCTYPE 保留', '注释保留', 'PI 保留', '属性顺序一致'],
@@ -215,7 +215,7 @@ export const zh = {
   },
   cta: {
     title: '先用十分钟，验证它是否真的无损。',
-    body: '浏览器内直接运行多文件离线工作台：支持 Map 树、可视化/源码双模编辑与 Keys/Conref/DITAVAL 单一信息源。',
+    body: '直接打开在线完整版：Map 树、可视化/源码双模编辑、Keys/Conref/DITAVAL 单一信息源，外加 DITA-OT 校验、HTML5/PDF 发布与 Git 独占锁。',
     playground: '打开在线工作台',
     docs: '阅读部署文档',
   },
@@ -231,7 +231,7 @@ export const zh = {
     samples: '演示项目',
     madeWith: '文档与站点同源构建',
     docs: '文档',
-    playground: '在线试玩',
+    playground: '在线试用',
     features: '核心能力',
     architecture: '架构说明',
     github: 'GitHub',
@@ -342,7 +342,7 @@ export const zh = {
   },
   notFound: {
     title: '页面不存在',
-    description: '链接可能已经迁移。回到首页，或直接打开在线离线工作台。',
+    description: '链接可能已经迁移。回到首页，或直接打开在线工作台。',
     home: '返回首页',
     switchLocale: 'English?',
     switchLocaleLink: '前往英文站点 →',

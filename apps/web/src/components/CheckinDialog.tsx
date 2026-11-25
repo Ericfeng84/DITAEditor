@@ -43,6 +43,7 @@ export function CheckinDialog({
   const [submitting, setSubmitting] = useState(false);
   const [completeAssignments, setCompleteAssignments] = useState(true);
   const diff = useGitStore((state) => state.diff);
+  const gitError = useGitStore((state) => state.error);
   const diffLoading = useGitStore((state) => state.diffLoading);
   const loadDiff = useGitStore((state) => state.loadDiff);
 
@@ -191,6 +192,17 @@ export function CheckinDialog({
                 />
                 {t('checkin.completeAssignments', { count: selectedAssignedCount })}
               </label>
+            ) : null}
+
+            {/* A check-in is rejected when one of the selected files cannot be saved first
+                (missing check-out lock). Without this the dialog just stayed open. */}
+            {gitError ? (
+              <p
+                role="alert"
+                className="shrink-0 rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[11px] font-medium text-rose-700"
+              >
+                {gitError}
+              </p>
             ) : null}
           </div>
         </div>

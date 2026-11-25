@@ -1,7 +1,7 @@
 ---
 import BaseLayout from '../layouts/BaseLayout.astro';
 import { getDictionary } from '../i18n/index.js';
-import { homePath, workbenchPath, type Locale } from '../i18n/locales.js';
+import { homePath, type Locale } from '../i18n/locales.js';
 import { SITE } from '../lib/site.js';
 
 interface Props {
@@ -35,7 +35,9 @@ const otherHref = `${SITE.base.replace(/\/$/, '')}/${otherLocale === 'en' ? 'en/
         </a>
         <a
           class="btn btn-secondary"
-          href={workbenchPath(SITE.base)}
+          href={SITE.trialUrl}
+          target="_blank"
+          rel="noreferrer noopener"
         >
           {dict.notFound.playground}
         </a>

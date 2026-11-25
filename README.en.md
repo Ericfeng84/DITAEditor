@@ -13,7 +13,8 @@ A lightweight **web-based DITA 1.3 structured authoring workbench** for technica
 > Current release **v1.3.0** (Phase 0–11: the workbench, marketing site & browser offline workbench, bilingual zh-CN/en UI, DITA 1.3 ordered content-model validation, multi-manual Workbench Hub & topic assignments, and the macOS/Windows lightweight desktop app). Changelog in [CHANGELOG.md](CHANGELOG.md), license in [LICENSE](LICENSE) (MIT).
 
 - **Website & Bilingual Docs (GitHub Pages)**: https://ericfeng84.github.io/DITAEditor/ (English: `/en/`)
-- **Online Workbench (Browser Offline Demo)**: https://ericfeng84.github.io/DITAEditor/workbench/ (runs the in-memory `demo-dita-project` with the 3-pane workbench, Map tree, dual-mode editing, and Keys/Conref/DITAVAL)
+- **Online Workbench (Full Trial)**: https://www.cemplatformcvs.cloud/dita (GCP Cloud Run behind a subpath proxy: DITA-OT 4.2.1 strict validation, HTML5 themes with Noto CJK PDF publishing, local Git check-out locks, and fragment-scoped AI; deployment guide in [docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md))
+- **Browser-only offline build (static demo, optional)**: https://ericfeng84.github.io/DITAEditor/workbench/ (in-memory `demo-dita-project`; no server-side Git, publishing, or AI)
 
 **English** · [简体中文](README.md)
 
@@ -162,6 +163,7 @@ AI only proposes fragments: the panel streams a proposal with transparent model,
 
 - **Two-layer strict validation**: day-to-day typing stays guarded by zero-latency frontend constraints and the TS semantic index. The toolbar, problems panel, and check-in dialog can call `POST /api/validate/strict`, which runs DITA-OT with `--validate=yes --processing-mode=strict`, parses `DOTJ` / `DOTX` codes, and jumps to the exact source line/column. Passing a Root Map validates the whole map in context so `keyref` / `conkeyref` / `conref` resolve; isolated topic validation downgrades context-free `DOTJ046E` to a warning.
 - **Zero-middleware publish pipeline**: SQLite `publish_jobs` persists tasks and an in-process `PublishQueue` limits concurrency (default 1). Each publish copies a branch working-tree snapshot for an isolated build, supports timeout kills, cancellation while queued or running, `build.log` plus SSE streaming (`GET /api/publish/jobs/:id/events`), restart recovery, and retention-based artifact pruning.
+- **HTML5 style themes**: non-`vanilla` HTML5 jobs append `--nav-toc=full`, then a deterministic Node post-processor injects one of the built-in themes (`dita-ot-plugins/html5-themes/`: Tech Docs, Editorial Paper, Enterprise Manual, Dev Dark, plus the untouched Vanilla fallback) with a collapsible sidebar tree, on-page outline, `Cmd/Ctrl+K` offline search, copy buttons, colour-mode toggle and a mobile drawer. Branding (accent, title, logo, footer, custom CSS, feature switches) is stored per manual in SQLite `manual_publish_profiles`, previewed live at multiple viewports inside the publish dialog, and stays intact when the ZIP is unzipped and opened over `file://`; the configuration never touches XML or Git.
 - **HTML5 and Chinese PDF delivery**: successful HTML5 builds are zipped and served under `/preview/*` with working relative assets. PDF uses the pure-XML `dita-ot-plugins/com.ditaeditor.pdf-cjk/` plugin (`plugin.xml` + XML Catalog + DITA-OT 4 `font-mappings.xml` + `fop.xconf`) to map Noto Sans / Serif / Mono CJK; publishing adds `--customization.dir` and `--args.fo.userconfig` and always enables `--validate=yes` so CJK fonts are embedded and text never turns into tofu.
 - **Single-container delivery**: the `Dockerfile` bundles Node 22, JRE 21, DITA-OT 4.2.1, Noto CJK fonts, and the font plugin. In production `@dita/api` serves the built `@dita/web` assets directly with zero Redis / PostgreSQL dependencies; the `/data` volume keeps workspaces, SQLite, branch worktrees, and publish artifacts.
 
@@ -277,15 +279,22 @@ DITAEditor/
 │       ├── scripts/            # build.mjs (esbuild) and stage.mjs (flat staging for native better-sqlite3 rebuild)
 │       ├── build/              # macOS .icns / Windows .ico icons and entitlements.mac.plist
 │       └── electron-builder.yml# macOS Apple Silicon (.dmg/.zip) and Windows x64 (NSIS .exe/.zip) packaging config
-├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / release-desktop.yml (dual-platform desktop release)
+├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / deploy-cloudrun.yml / release-desktop.yml
+├── deploy/                     # cloud hosting configs (huggingface/ and gcp/: cloudbuild.yaml, deploy-cloudrun.sh)
 ├── samples/
 │   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/bookmaps/reuse library/DITAVAL/SVG)
 ├── docs/
-│   ├── architecture-and-plan.md # full architecture baseline and Phase 0–7 roadmap
+│   ├── architecture-and-plan.md # full architecture baseline and phased roadmap
+│   ├── deploy-gcp-cloudrun.md  # low-cost GCP Cloud Run trial, subpath reverse proxy, and WIF auto-deploy guide
+│   ├── deploy-huggingface-spaces.md # Hugging Face Spaces single-container deployment guide
+│   ├── deploy-github-pages.md  # GitHub Pages static site and offline workbench guide
+│   ├── phase12-html-themes-plan.md # Phase 12 HTML5 publish themes blueprint
 │   ├── phase7-site-plan.md     # Phase 7 site / sandbox / docs blueprint
 │   ├── phase6-ai-contract.md   # Phase 6 AI API/SSE/DB/frontend integration contract
 │   └── pic/                    # workbench screenshots
-├── dita-ot-plugins/            # Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
+├── dita-ot-plugins/            # DITA-OT 4.x plugins and static publish themes (pure XML/CSS/JS)
+│   ├── com.ditaeditor.pdf-cjk/ # Noto CJK PDF font-mappings plugin
+│   └── html5-themes/           # 4 HTML5 publish themes + shared layout base and offline runtime
 ├── Dockerfile                  # single-container build (Node + JRE 21 + DITA-OT + Noto CJK)
 └── graphify-out/               # persistent codebase knowledge graph
 ```
@@ -383,7 +392,18 @@ CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # W
 
 **Automated releases**: publishing a GitHub Release triggers [`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml), which builds macOS `arm64` (on `macos-latest`) and Windows `x64` (on `windows-latest`) in parallel, syncs the installer version from the release tag, and attaches all artifacts directly to the GitHub Release (also runnable manually via `workflow_dispatch`).
 
-### Option 4: Editing and semantic authoring only (no DITA-OT)
+### Option 4: Low-cost cloud trial (GCP Cloud Run + subpath reverse proxy + auto-deploy on push)
+
+For live evaluation or team demos, deploy the single container to GCP Cloud Run (`asia-northeast1`) with **`min-instances=0` / `max-instances=1` (2 vCPU / 2 GiB)** behind a custom-domain subpath reverse proxy (such as Vercel `vercel.json` rewrites or a Cloudflare Worker), paired with keyless GitHub Actions **Workload Identity Federation (OIDC)** and Artifact Registry cleanup policies so every push to `main` builds and rolls out automatically:
+
+```bash
+# Initial build and Cloud Run deployment (defaults to /dita subpath proxy)
+GCP_PROJECT_ID="<your-gcp-project-id>" ./deploy/gcp/deploy-cloudrun.sh
+```
+
+See **[docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md)** for the full architecture, reverse-proxy setup, keyless WIF CI configuration, Artifact Registry cleanup policy, and one-command teardown (see also [Hugging Face Spaces](docs/deploy-huggingface-spaces.md) and [GitHub Pages](docs/deploy-github-pages.md)).
+
+### Option 5: Editing and semantic authoring only (no DITA-OT)
 
 For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, Java and DITA-OT are optional. Publishing and "DITA-OT strict validation" report that the runtime is not ready without affecting any other feature.
 
@@ -392,6 +412,7 @@ For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, J
 | Variable | Default | Description |
 | :--- | :--- | :--- |
 | `PORT` | `3001` | Fastify listen port |
+| `DITA_BASE_PATH` | empty | Optional reverse-proxy subpath prefix (e.g. `/dita`); Fastify strips it via `rewriteUrl` when paired with `VITE_BASE=/dita/` at build time |
 | `DITA_WORKSPACE_DIR` | `samples/demo-dita-project` | Local DITA project opened at startup |
 | `DITA_IMPORTS_DIR` | `.dita-workspaces` | Root for UI-imported projects, the SQLite database (`dita-editor.sqlite`), and branch `git worktree`s |
 | `DITA_LOCK_TTL_HOURS` | `72` | Lock age shown as stale in the UI (hours; locks are never auto-deleted) |
@@ -400,6 +421,7 @@ For editing, Map authoring, Keys / Conref / DITAVAL, Git, and check-out locks, J
 | `DITA_PUBLISH_DIR` | `.dita-workspaces/publish` | Root for publish snapshots, `build.log`, and artifacts |
 | `DITA_PUBLISH_CONCURRENCY` | `1` | In-process build concurrency; keep 1–2 for large queues |
 | `DITAEDITOR_PDF_PLUGIN_DIR` | repo `dita-ot-plugins/com.ditaeditor.pdf-cjk` | Chinese PDF font plugin directory, also used as `--customization.dir` |
+| `DITAEDITOR_HTML_THEMES_DIR` | repo `dita-ot-plugins/html5-themes` | HTML5 publish theme assets; packaged desktop passes it explicitly |
 | `DITAEDITOR_FOP_XCONF` | plugin `fop.xconf` | FOP font configuration template |
 | `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK font directory used to generate the per-job `fop.xconf` |
 | `DITA_WEB_DIST` | `apps/web/dist` | Production web assets; served by the API when `index.html` exists |

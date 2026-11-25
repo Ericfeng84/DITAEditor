@@ -36,6 +36,9 @@ describe('resolveDesktopPaths', () => {
         'com.ditaeditor.pdf-cjk',
       ),
     );
+    expect(resolved.htmlThemesDir).toBe(
+      path.join('/Applications/DITAEditor.app/Contents/Resources', 'dita-ot-plugins', 'html5-themes'),
+    );
     expect(resolved.dbPath).toBe(
       path.join('/Users/alice/Library/Application Support/DITAEditor', 'dita-editor.sqlite'),
     );
@@ -58,6 +61,7 @@ describe('resolveDesktopPaths', () => {
       path.join('/repo/DITAEditor', 'samples', 'demo-dita-project'),
     );
     expect(resolved.dataDir).toBe(path.resolve('/tmp/custom-data'));
+    expect(resolved.htmlThemesDir).toBe(path.join('/repo/DITAEditor', 'dita-ot-plugins', 'html5-themes'));
   });
 });
 

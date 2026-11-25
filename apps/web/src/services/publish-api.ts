@@ -1,10 +1,67 @@
 import { getActiveScope } from './active-scope.js';
+import { apiUrl } from './api-base.js';
 import { getCurrentUserId } from './identity-api.js';
 import { requestJson } from './workspace-api.js';
 
 import { getCurrentLocale, translate } from '../i18n/index.js';
 export type PublishFormat = 'html5' | 'pdf';
 export type PublishStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
+
+/** Phase 12 HTML5 publish themes (mirrors `apps/api/src/modules/publish/html-themes.ts`). */
+export type HtmlThemeId =
+  | 'tech-docs'
+  | 'editorial-paper'
+  | 'enterprise-manual'
+  | 'dev-dark'
+  | 'vanilla';
+
+export type HtmlThemeDefaultMode = 'light' | 'dark';
+
+export interface HtmlThemeFeatures {
+  search: boolean;
+  toc: boolean;
+  codeCopy: boolean;
+  colorModeToggle: boolean;
+}
+
+export interface HtmlThemeOptions {
+  /** `#RRGGBB`; the API accepts a bare `RRGGBB` too and normalizes it. */
+  accentColor?: string | null;
+  siteTitle?: string | null;
+  logoPath?: string | null;
+  footerText?: string | null;
+  customCssPath?: string | null;
+  features?: Partial<HtmlThemeFeatures>;
+}
+
+export interface HtmlThemePalette {
+  bg: string;
+  surface: string;
+  header: string;
+  text: string;
+  accent: string;
+  border: string;
+}
+
+export interface HtmlThemeDescriptor {
+  id: HtmlThemeId;
+  name: string;
+  description: string;
+  tags: string[];
+  defaultAccent: string;
+  defaultMode: HtmlThemeDefaultMode;
+  supportsCustomization: boolean;
+  previewPalette: HtmlThemePalette;
+  defaultFeatures: HtmlThemeFeatures;
+}
+
+export interface ManualPublishProfile {
+  manualId: string;
+  htmlThemeId: HtmlThemeId;
+  htmlThemeOptions: HtmlThemeOptions;
+  updatedBy: string | null;
+  updatedAt: string | null;
+}
 
 export interface PublishDiagnostic {
   id: string;
@@ -32,6 +89,9 @@ export interface PublishRuntimeInfo {
 
 export interface PublishJob {
   id: string;
+  /** Resolved HTML5 theme snapshot; `null` for PDF jobs and legacy rows. */
+  themeId: HtmlThemeId | null;
+  themeOptions: HtmlThemeOptions | null;
   projectId: string;
   branch: string;
   userId: string;
@@ -81,31 +141,116 @@ export async function fetchPublishRuntime(): Promise<{
   return requestJson('/api/publish/runtime', { cache: 'no-store' });
 }
 
+function normalizePublishJob(job: PublishJob): PublishJob {
+  return {
+    ...job,
+    previewUrl: job.previewUrl ? apiUrl(job.previewUrl) : null,
+    artifactUrl: job.artifactUrl ? apiUrl(job.artifactUrl) : null,
+    logUrl: apiUrl(job.logUrl),
+  };
+}
+
 export async function fetchPublishJobs(limit = 20): Promise<{ branch: string; jobs: PublishJob[] }> {
-  return requestJson(`/api/publish/jobs?limit=${encodeURIComponent(String(limit))}`, {
-    cache: 'no-store',
-  });
+  const result = await requestJson<{ branch: string; jobs: PublishJob[] }>(
+    `/api/publish/jobs?limit=${encodeURIComponent(String(limit))}`,
+    {
+      cache: 'no-store',
+    },
+  );
+  return { ...result, jobs: result.jobs.map(normalizePublishJob) };
 }
 
 export async function fetchPublishJob(id: string): Promise<PublishJob> {
   const result = await requestJson<{ job: PublishJob }>(`/api/publish/jobs/${encodeURIComponent(id)}`, {
     cache: 'no-store',
   });
-  return result.job;
+  return normalizePublishJob(result.job);
 }
 
-export async function createPublishJob(input: {
+export interface CreatePublishJobInput {
   rootMap: string;
   format: PublishFormat;
   ditaval?: string | null;
   title?: string;
-}): Promise<PublishJob> {
+  themeId?: HtmlThemeId;
+  themeOptions?: HtmlThemeOptions;
+  saveAsDefault?: boolean;
+}
+
+export async function createPublishJob(input: CreatePublishJobInput): Promise<PublishJob> {
+  const { themeOptions, ...rest } = input;
+  // The API names the request field `htmlThemeOptions` (it also merges the manual profile).
+  const body = themeOptions === undefined ? rest : { ...rest, htmlThemeOptions: themeOptions };
   const result = await requestJson<{ job: PublishJob }>('/api/publish/jobs', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  return normalizePublishJob(result.job);
+}
+
+export async function fetchHtmlThemes(): Promise<HtmlThemeDescriptor[]> {
+  const result = await requestJson<{ themes: HtmlThemeDescriptor[] }>('/api/publish/themes', {
+    cache: 'no-store',
+  });
+  return result.themes;
+}
+
+export async function fetchPublishProfile(): Promise<ManualPublishProfile> {
+  const result = await requestJson<{ profile: ManualPublishProfile }>('/api/publish/profile', {
+    cache: 'no-store',
+  });
+  return result.profile;
+}
+
+export async function savePublishProfile(input: {
+  themeId: HtmlThemeId;
+  themeOptions?: HtmlThemeOptions;
+}): Promise<ManualPublishProfile> {
+  const result = await requestJson<{ profile: ManualPublishProfile }>('/api/publish/profile', {
+    method: 'PUT',
+    headers: { 'content-type': 'application/json' },
     body: JSON.stringify(input),
   });
-  return result.job;
+  return result.profile;
+}
+
+export interface HtmlThemePreviewParams {
+  themeId: HtmlThemeId;
+  mode: HtmlThemeDefaultMode;
+  options: HtmlThemeOptions;
+  locale: string;
+  manualId?: string | null;
+  branch?: string | null;
+  /** Cache-busting token so a debounced iframe reload always re-requests the document. */
+  cacheBust?: string | number;
+}
+
+const ACCENT_PATTERN = /^#?[0-9a-fA-F]{6}$/;
+const PREVIEW_FEATURE_KEYS = ['search', 'toc', 'codeCopy', 'colorModeToggle'] as const;
+
+/**
+ * Same-origin preview URL for the iframe in `ThemePreviewModal`. Headers cannot be sent by an
+ * `<iframe src>`, so the manual/branch scope travels as query parameters (the API resolver reads
+ * both); features are encoded as `1`/`0` exactly like the preview route expects.
+ */
+export function htmlThemePreviewUrl(params: HtmlThemePreviewParams): string {
+  const query = new URLSearchParams();
+  const accent = params.options.accentColor?.trim().replace(/^#/, '') ?? '';
+  if (accent && ACCENT_PATTERN.test(accent)) query.set('accent', accent.toLowerCase());
+  if (params.options.siteTitle) query.set('title', params.options.siteTitle);
+  if (params.options.footerText) query.set('footer', params.options.footerText);
+  const features = params.options.features ?? {};
+  for (const key of PREVIEW_FEATURE_KEYS) {
+    const flag = features[key];
+    if (typeof flag === 'boolean') query.set(key, flag ? '1' : '0');
+  }
+  query.set('mode', params.mode);
+  query.set('locale', params.locale);
+  if (params.manualId) query.set('manualId', params.manualId);
+  if (params.branch) query.set('branch', params.branch);
+  if (params.cacheBust !== undefined) query.set('_', String(params.cacheBust));
+  return apiUrl(`/api/publish/themes/${encodeURIComponent(params.themeId)}/preview?${query.toString()}`);
 }
 
 export async function cancelPublishJob(id: string): Promise<PublishJob> {
@@ -113,7 +258,7 @@ export async function cancelPublishJob(id: string): Promise<PublishJob> {
     `/api/publish/jobs/${encodeURIComponent(id)}/cancel`,
     { method: 'POST' },
   );
-  return result.job;
+  return normalizePublishJob(result.job);
 }
 
 export async function runStrictValidation(
@@ -179,7 +324,7 @@ export async function streamPublishJobEvents(
   if (scope.manualId) headers['x-dita-manual-id'] = scope.manualId;
   if (scope.branch) headers['x-dita-branch'] = scope.branch;
   const response = await fetch(
-    `/api/publish/jobs/${encodeURIComponent(id)}/events`,
+    apiUrl(`/api/publish/jobs/${encodeURIComponent(id)}/events`),
     { headers, cache: 'no-store', signal },
   );
   if (!response.ok) {
@@ -205,7 +350,7 @@ export async function streamPublishJobEvents(
           if (data.content) handlers.onLog?.(data.content, data.offset ?? 0);
         } else if (parsed?.event === 'status') {
           const data = parsed.data as { job?: PublishJob };
-          if (data.job) handlers.onStatus?.(data.job);
+          if (data.job) handlers.onStatus?.(normalizePublishJob(data.job));
         } else if (parsed?.event === 'end') {
           handlers.onEnd?.(parsed.data);
         }

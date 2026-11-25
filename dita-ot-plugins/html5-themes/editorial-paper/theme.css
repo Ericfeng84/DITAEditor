@@ -1,0 +1,173 @@
+/*!
+ * DITAEditor theme: editorial-paper
+ * ---------------------------------------------------------------------------
+ * Long-form reading on warm paper: serif headings, 1.75 line height, hairline
+ * rules, square corners and no drop shadows. Suited to guides, policy manuals
+ * and any documentation that is read top-to-bottom rather than scanned.
+ */
+
+:root[data-de-theme="editorial-paper"] {
+  --de-accent: #b45309;
+  --de-accent-hover: #92400e;
+  --de-accent-soft: #fef3c7;
+  --de-accent-border: #fcd34d;
+  --de-accent-contrast: #ffffff;
+
+  --de-bg: #faf8f5;
+  --de-surface: #f5f1ea;
+  --de-surface-2: #efe9df;
+  --de-header-bg: rgba(250, 248, 245, 0.94);
+  --de-text: #1c1917;
+  --de-text-muted: #57534e;
+  --de-border: #e2dbd1;
+  --de-code-bg: #f2ede4;
+  --de-code-text: #2b2521;
+  --de-radius: 0;
+  --de-shadow: none;
+  --de-content-width: 44rem;
+  --de-sidebar-width: 16rem;
+  --de-onpage-width: 14rem;
+  --de-line-height: 1.75;
+
+  --de-font-heading: Georgia, "Noto Serif CJK SC", "Noto Serif CJK TC", "Noto Serif CJK JP", serif;
+
+  --de-link: #9a4b07;
+  --de-link-hover: #7c3a06;
+  --de-bar: #b45309;
+  --de-hover-bg: rgba(180, 83, 9, 0.06);
+  --de-active-bg: #f7efe2;
+  --de-table-stripe: transparent;
+  --de-table-head-bg: #f2ede4;
+}
+
+html[data-de-theme="editorial-paper"][data-de-mode="dark"] {
+  --de-bg: #17130f;
+  --de-surface: #1e1915;
+  --de-surface-2: #262019;
+  --de-header-bg: rgba(23, 19, 15, 0.94);
+  --de-text: #ece5da;
+  --de-text-muted: #b3a795;
+  --de-border: #332b23;
+  --de-code-bg: #221c16;
+  --de-code-text: #e8dfd2;
+
+  --de-link: #fbbf24;
+  --de-link-hover: #fcd34d;
+  --de-bar: #d97706;
+  --de-accent-soft: rgba(217, 119, 6, 0.18);
+  --de-accent-border: rgba(217, 119, 6, 0.42);
+  --de-hover-bg: rgba(236, 229, 218, 0.07);
+  --de-active-bg: rgba(217, 119, 6, 0.16);
+  --de-table-stripe: transparent;
+  --de-table-head-bg: #221c16;
+  --de-mark-bg: #78350f;
+  --de-mark-text: #fde68a;
+}
+
+/* Serif reading rhythm: headings get hairline rules instead of boxes. */
+html[data-de-theme="editorial-paper"] .de-main h2,
+html[data-de-theme="editorial-paper"] .de-main .topictitle2,
+html[data-de-theme="editorial-paper"] .de-main .sectiontitle {
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid var(--de-border);
+  letter-spacing: 0;
+}
+
+html[data-de-theme="editorial-paper"] .de-main h1,
+html[data-de-theme="editorial-paper"] .de-main .topictitle1 {
+  letter-spacing: -0.005em;
+}
+
+html[data-de-theme="editorial-paper"] .de-main .shortdesc {
+  font-family: var(--de-font-heading);
+  font-size: 1.125rem;
+  font-style: italic;
+  line-height: 1.65;
+}
+
+html[data-de-theme="editorial-paper"] .de-main p,
+html[data-de-theme="editorial-paper"] .de-main li {
+  font-size: 1rem;
+}
+
+/* Admonitions read as marginal notes: square, tinted paper, no shadow. */
+html[data-de-theme="editorial-paper"] .de-main .note {
+  border-width: 1px;
+  border-left-width: 3px;
+  border-radius: 0;
+}
+
+html[data-de-theme="editorial-paper"] .de-main .note .note__title {
+  font-family: var(--de-font-heading);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 0.875rem;
+}
+
+html[data-de-theme="editorial-paper"] .de-sidebar-title,
+html[data-de-theme="editorial-paper"] .de-onpage-title {
+  font-family: var(--de-font-heading);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0.01em;
+  font-size: 0.8125rem;
+}
+
+html[data-de-theme="editorial-paper"] .de-sidebar {
+  padding-right: 1rem;
+}
+
+html[data-de-theme="editorial-paper"] .de-portal-hero {
+  border: 0;
+  border-bottom: 1px solid var(--de-border);
+  background: none;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+html[data-de-theme="editorial-paper"] .de-portal-grid {
+  gap: 0;
+  border-top: 1px solid var(--de-border);
+}
+
+html[data-de-theme="editorial-paper"] .de-portal-card {
+  border: 0;
+  border-bottom: 1px solid var(--de-border);
+  background: none;
+  padding: 0.9rem 0;
+}
+
+html[data-de-theme="editorial-paper"] a.de-portal-card:hover {
+  background: none;
+  box-shadow: none;
+  color: var(--de-link);
+}
+
+html[data-de-theme="editorial-paper"] .de-pager-link,
+html[data-de-theme="editorial-paper"] .de-table-wrap,
+html[data-de-theme="editorial-paper"] .de-search-panel,
+html[data-de-theme="editorial-paper"] .de-code pre {
+  border-radius: 0;
+  box-shadow: none;
+}
+
+html[data-de-theme="editorial-paper"] .de-main .steps > .step::before {
+  border-radius: 0;
+  background: transparent;
+  border-color: var(--de-border);
+  color: var(--de-text-muted);
+  font-family: var(--de-font-heading);
+  font-weight: 400;
+}
+
+html[data-de-theme="editorial-paper"] .de-main .table {
+  font-size: 0.9375rem;
+}
+
+html[data-de-theme="editorial-paper"] .de-main .table--title-label {
+  font-family: var(--de-font-heading);
+  font-style: italic;
+  text-transform: none;
+  letter-spacing: 0;
+}

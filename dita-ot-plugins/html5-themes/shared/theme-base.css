@@ -1,0 +1,1815 @@
+/*!
+ * DITAEditor HTML5 theme base
+ * ---------------------------------------------------------------------------
+ * Structural + typographic foundation for every published DITA-OT HTML5 site.
+ * Everything is scoped to html[data-de-theme]; no network fonts, no @import,
+ * no url(...) and no absolute paths, so the output folder stays self
+ * contained and works straight from file://.
+ *
+ * Colour flow:
+ *   html[data-de-theme]                        (0,1,1) neutral light defaults
+ *   html[data-de-theme][data-de-mode="dark"]   (0,2,1) neutral dark defaults
+ *   :root[data-de-theme="<theme>"]             (0,2,0) theme tokens (theme.css)
+ *   :root[data-de-theme]                       (0,2,0) brand-vars.css, loaded
+ *                                                       last, wins the accents
+ * Themes therefore only restate variables (plus small flourishes); the
+ * generated brand-vars.css always outranks the stock accent palette.
+ */
+
+/* ==========================================================================
+   1. Design tokens
+   ========================================================================== */
+
+html[data-de-theme] {
+  color-scheme: light;
+
+  /* Brand accents: declared once here so a generated brand palette wins. */
+  --de-accent: #2563eb;
+  --de-accent-hover: #1d4ed8;
+  --de-accent-soft: #dbeafe;
+  --de-accent-border: #bfdbfe;
+  --de-accent-contrast: #ffffff;
+
+  --de-bg: #ffffff;
+  --de-surface: #f8fafc;
+  --de-surface-2: #f1f5f9;
+  --de-header-bg: #ffffff;
+  --de-text: #0f172a;
+  --de-text-muted: #52606d;
+  --de-border: #e2e8f0;
+  --de-code-bg: #f6f8fa;
+  --de-radius: 6px;
+  --de-shadow: 0 1px 2px rgba(15, 23, 42, 0.06), 0 10px 30px -20px rgba(15, 23, 42, 0.35);
+  --de-font-sans: ui-sans-serif, -apple-system, "Segoe UI", Roboto, "Noto Sans", "Noto Sans CJK SC",
+    "Noto Sans CJK TC", "Noto Sans CJK JP", sans-serif;
+  --de-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Noto Sans Mono CJK SC", monospace;
+  --de-content-width: 48rem;
+  --de-sidebar-width: 17rem;
+  --de-onpage-width: 15rem;
+
+  /* Internal tokens (themes may override, brand-vars.css does not need to). */
+  --de-header-height: 52px;
+  --de-gutter: 2rem;
+  --de-font-size: 16px;
+  --de-line-height: 1.7;
+  --de-font-heading: var(--de-font-sans);
+  --de-link: var(--de-accent);
+  --de-link-hover: var(--de-accent-hover);
+  --de-focus-color: var(--de-accent);
+  --de-hover-bg: rgba(15, 23, 42, 0.05);
+  --de-active-bg: var(--de-accent-soft);
+  --de-bar: var(--de-accent);
+  --de-mark-bg: #fde68a;
+  --de-mark-text: #422006;
+  --de-overlay: rgba(15, 23, 42, 0.45);
+  --de-code-text: #1f2933;
+  --de-header-text: var(--de-text);
+  --de-header-muted: var(--de-text-muted);
+  --de-header-border: var(--de-border);
+  --de-table-stripe: rgba(15, 23, 42, 0.025);
+  --de-table-head-bg: var(--de-surface-2);
+
+  /* Admonition palette (overridden per .note type below). */
+  --de-note-bg: #eff6ff;
+  --de-note-border: #bfdbfe;
+  --de-note-fg: #1d4ed8;
+  --de-note-bar: #3b82f6;
+  --de-tip-bg: #ecfdf5;
+  --de-tip-border: #a7f3d0;
+  --de-tip-fg: #047857;
+  --de-tip-bar: #10b981;
+  --de-important-bg: #f5f3ff;
+  --de-important-border: #ddd6fe;
+  --de-important-fg: #6d28d9;
+  --de-important-bar: #8b5cf6;
+  --de-caution-bg: #fffbeb;
+  --de-caution-border: #fde68a;
+  --de-caution-fg: #b45309;
+  --de-caution-bar: #f59e0b;
+  --de-warning-bg: #fff7ed;
+  --de-warning-border: #fed7aa;
+  --de-warning-fg: #c2410c;
+  --de-warning-bar: #f97316;
+  --de-danger-bg: #fef2f2;
+  --de-danger-border: #fecaca;
+  --de-danger-fg: #b91c1c;
+  --de-danger-bar: #ef4444;
+}
+
+/* Neutral dark palette: used by every theme that does not ship a dark design,
+   so data-de-mode="dark" always produces a readable page. */
+html[data-de-theme][data-de-mode="dark"] {
+  color-scheme: dark;
+
+  --de-bg: #0f141b;
+  --de-surface: #151b23;
+  --de-surface-2: #1b232d;
+  --de-header-bg: #111820;
+  --de-text: #e5e7eb;
+  --de-text-muted: #9aa6b2;
+  --de-border: #26303b;
+  --de-code-bg: #121922;
+  --de-code-text: #dbe3ec;
+  --de-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 18px 40px -28px rgba(0, 0, 0, 0.9);
+  --de-link: #93c5fd;
+  --de-link-hover: #bfdbfe;
+  --de-accent-soft: rgba(148, 163, 184, 0.16);
+  --de-accent-border: rgba(148, 163, 184, 0.32);
+  --de-hover-bg: rgba(148, 163, 184, 0.12);
+  --de-active-bg: rgba(148, 163, 184, 0.2);
+  --de-mark-bg: #78350f;
+  --de-mark-text: #fde68a;
+  --de-overlay: rgba(2, 6, 12, 0.72);
+  --de-header-text: #e5e7eb;
+  --de-header-muted: #9aa6b2;
+  --de-header-border: #26303b;
+  --de-table-stripe: rgba(148, 163, 184, 0.06);
+  --de-table-head-bg: rgba(148, 163, 184, 0.1);
+
+  --de-note-bg: rgba(59, 130, 246, 0.12);
+  --de-note-border: rgba(59, 130, 246, 0.32);
+  --de-note-fg: #93c5fd;
+  --de-tip-bg: rgba(16, 185, 129, 0.12);
+  --de-tip-border: rgba(16, 185, 129, 0.32);
+  --de-tip-fg: #6ee7b7;
+  --de-important-bg: rgba(139, 92, 246, 0.14);
+  --de-important-border: rgba(139, 92, 246, 0.34);
+  --de-important-fg: #c4b5fd;
+  --de-caution-bg: rgba(245, 158, 11, 0.13);
+  --de-caution-border: rgba(245, 158, 11, 0.34);
+  --de-caution-fg: #fcd34d;
+  --de-warning-bg: rgba(249, 115, 22, 0.13);
+  --de-warning-border: rgba(249, 115, 22, 0.34);
+  --de-warning-fg: #fdba74;
+  --de-danger-bg: rgba(239, 68, 68, 0.14);
+  --de-danger-border: rgba(239, 68, 68, 0.36);
+  --de-danger-fg: #fca5a5;
+}
+
+/* ==========================================================================
+   2. Document base
+   ========================================================================== */
+
+html[data-de-theme] {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  scroll-padding-top: calc(var(--de-header-height) + 1rem);
+  background: var(--de-bg);
+}
+
+html[data-de-theme] body {
+  margin: 0;
+  padding: 0;
+  background: var(--de-bg);
+  color: var(--de-text);
+  font-family: var(--de-font-sans);
+  font-size: var(--de-font-size);
+  line-height: var(--de-line-height);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+html[data-de-theme] [hidden] {
+  display: none !important;
+}
+
+html[data-de-theme] ::selection {
+  background: var(--de-accent-soft);
+  color: var(--de-text);
+}
+
+html[data-de-theme] img,
+html[data-de-theme] svg {
+  max-width: 100%;
+}
+
+html[data-de-theme] a {
+  color: var(--de-link);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+}
+
+html[data-de-theme] a:hover {
+  color: var(--de-link-hover);
+}
+
+html[data-de-theme] :focus-visible {
+  outline: 2px solid var(--de-focus-color);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+html[data-de-theme] :where(button, input, select, textarea) {
+  font: inherit;
+  color: inherit;
+}
+
+/* ==========================================================================
+   3. Skip link
+   ========================================================================== */
+
+html[data-de-theme] .de-skip {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 220;
+  max-width: 80vw;
+  padding: 0.55rem 0.85rem;
+  border-radius: var(--de-radius);
+  background: var(--de-accent);
+  color: var(--de-accent-contrast);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: var(--de-shadow);
+  transform: translateY(-160%);
+  transition: transform 0.15s ease;
+}
+
+html[data-de-theme] .de-skip:focus,
+html[data-de-theme] .de-skip:focus-visible {
+  transform: translateY(0);
+  color: var(--de-accent-contrast);
+}
+
+/* ==========================================================================
+   4. Header
+   ========================================================================== */
+
+html[data-de-theme] .de-header {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: var(--de-header-height);
+  padding: 0 clamp(1rem, 3vw, 1.75rem);
+  background: var(--de-header-bg);
+  border-bottom: 1px solid var(--de-header-border);
+  color: var(--de-header-text);
+  -webkit-backdrop-filter: saturate(140%) blur(10px);
+  backdrop-filter: saturate(140%) blur(10px);
+}
+
+html[data-de-theme] .de-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  color: var(--de-header-text);
+  font-family: var(--de-font-heading);
+  font-size: 0.9375rem;
+  font-weight: 650;
+  letter-spacing: -0.01em;
+  text-decoration: none;
+}
+
+html[data-de-theme] .de-brand:hover {
+  color: var(--de-header-text);
+}
+
+html[data-de-theme] .de-logo {
+  display: block;
+  height: 24px;
+  width: auto;
+  border-radius: 4px;
+}
+
+html[data-de-theme] .de-brand-title {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  max-width: min(60vw, 32rem);
+}
+
+html[data-de-theme] .de-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+  margin-left: auto;
+}
+
+html[data-de-theme] .de-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: 34px;
+  min-width: 34px;
+  padding: 0 0.5rem;
+  border: 1px solid transparent;
+  border-radius: calc(var(--de-radius) - 1px);
+  background: transparent;
+  color: var(--de-header-muted);
+  font-size: 0.8125rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+html[data-de-theme] .de-icon-btn:hover {
+  background: var(--de-hover-bg);
+  color: var(--de-header-text);
+}
+
+html[data-de-theme] .de-icon-btn svg {
+  display: block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+html[data-de-theme] .de-search-trigger {
+  padding-right: 0.4rem;
+}
+
+html[data-de-theme] .de-kbd {
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 0.375rem;
+  border: 1px solid var(--de-header-border);
+  border-radius: 4px;
+  background: var(--de-surface);
+  color: var(--de-header-muted);
+  font-family: var(--de-font-mono);
+  font-size: 0.6875rem;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+html[data-de-theme] .de-nav-toggle {
+  display: none;
+  order: -1;
+}
+
+/* ==========================================================================
+   5. Layout grid
+   ========================================================================== */
+
+html[data-de-theme] .de-layout {
+  display: grid;
+  grid-template-columns: var(--de-sidebar-width) minmax(0, 1fr) var(--de-onpage-width);
+  gap: var(--de-gutter);
+  align-items: start;
+  max-width: calc(var(--de-sidebar-width) + var(--de-content-width) + var(--de-onpage-width) + 6rem);
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 3vw, 1.75rem);
+}
+
+html[data-de-theme] .de-layout--no-sidebar {
+  grid-template-columns: minmax(0, 1fr) var(--de-onpage-width);
+}
+
+html[data-de-theme] .de-layout--no-onpage {
+  grid-template-columns: var(--de-sidebar-width) minmax(0, 1fr);
+}
+
+html[data-de-theme] .de-layout--solo {
+  display: block;
+  max-width: calc(var(--de-content-width) + 2rem);
+}
+
+html[data-de-theme] .de-main {
+  min-width: 0;
+  width: 100%;
+  max-width: var(--de-content-width);
+  justify-self: center;
+  padding: clamp(1.25rem, 3vw, 2.25rem) 0 3rem;
+  overflow-wrap: break-word;
+}
+
+html[data-de-theme] .de-main:focus {
+  outline: none;
+}
+
+html[data-de-theme] .de-main:focus-visible {
+  outline: 2px solid var(--de-focus-color);
+  outline-offset: 6px;
+}
+
+html[data-de-theme] .de-layout--solo .de-main {
+  max-width: none;
+}
+
+/* ==========================================================================
+   6. Sidebar
+   ========================================================================== */
+
+html[data-de-theme] .de-sidebar {
+  position: sticky;
+  top: var(--de-header-height);
+  align-self: start;
+  max-height: calc(100vh - var(--de-header-height));
+  overflow: hidden auto;
+  overscroll-behavior: contain;
+  padding: 1.25rem 0 2.5rem;
+  font-size: 0.875rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--de-border) transparent;
+}
+
+html[data-de-theme] .de-sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+html[data-de-theme] .de-sidebar::-webkit-scrollbar-thumb {
+  background: var(--de-border);
+  border-radius: 8px;
+}
+
+html[data-de-theme] .de-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-de-theme] .de-sidebar-title {
+  margin: 0 0 0.75rem;
+  padding: 0 0.5rem;
+  color: var(--de-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+/* DITA-OT emits nav.toc; neutralise its own layout rules. */
+html[data-de-theme] .de-sidebar nav.toc {
+  position: static;
+  width: auto;
+  max-height: none;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  background: none;
+  border: 0;
+  font-size: inherit;
+  line-height: 1.5;
+}
+
+html[data-de-theme] .de-sidebar nav.toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+html[data-de-theme] .de-sidebar nav.toc ul ul {
+  padding-left: 0.75rem;
+}
+
+html[data-de-theme] .de-tree-item {
+  position: relative;
+  margin: 0.0625rem 0;
+}
+
+html[data-de-theme] .de-tree-item > ul {
+  margin: 0.125rem 0 0.35rem;
+}
+
+html[data-de-theme] .de-tree-item--collapsed > ul {
+  display: none;
+}
+
+html[data-de-theme] .de-tree-item > a {
+  display: block;
+  margin-left: -1px;
+  padding: 0.3125rem 0.5rem 0.3125rem 0.625rem;
+  border-left: 2px solid transparent;
+  border-radius: 0 calc(var(--de-radius) - 2px) calc(var(--de-radius) - 2px) 0;
+  color: var(--de-text-muted);
+  text-decoration: none;
+  overflow-wrap: break-word;
+  transition: background-color 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+}
+
+html[data-de-theme] .de-tree-item > a:hover {
+  background: var(--de-hover-bg);
+  color: var(--de-text);
+}
+
+html[data-de-theme] .de-tree-item--active > a,
+html[data-de-theme] .de-tree-item > a[aria-current] {
+  border-left-color: var(--de-bar);
+  background: var(--de-active-bg);
+  color: var(--de-link);
+  font-weight: 650;
+}
+
+html[data-de-theme] .de-tree-item--has-children > a {
+  padding-left: 1.375rem;
+}
+
+html[data-de-theme] .de-tree-toggle {
+  position: absolute;
+  top: 0.1875rem;
+  left: -0.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.375rem;
+  height: 1.375rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--de-text-muted);
+  cursor: pointer;
+}
+
+html[data-de-theme] .de-tree-toggle:hover {
+  background: var(--de-hover-bg);
+  color: var(--de-text);
+}
+
+html[data-de-theme] .de-tree-chevron {
+  width: 12px;
+  height: 12px;
+  transform: rotate(90deg);
+  transition: transform 0.15s ease;
+}
+
+html[data-de-theme] .de-tree-item--collapsed > .de-tree-toggle .de-tree-chevron {
+  transform: rotate(0deg);
+}
+
+/* ==========================================================================
+   7. Content typography
+   ========================================================================== */
+
+html[data-de-theme] .de-main h1,
+html[data-de-theme] .de-main h2,
+html[data-de-theme] .de-main h3,
+html[data-de-theme] .de-main h4,
+html[data-de-theme] .de-main h5,
+html[data-de-theme] .de-main h6 {
+  margin: 0 0 0.625rem;
+  color: var(--de-text);
+  font-family: var(--de-font-heading);
+  font-weight: 650;
+  line-height: 1.28;
+  letter-spacing: -0.01em;
+  scroll-margin-top: calc(var(--de-header-height) + 1rem);
+}
+
+html[data-de-theme] .de-main h1,
+html[data-de-theme] .de-main .topictitle1 {
+  margin-bottom: 0.875rem;
+  font-size: clamp(1.6rem, 1.15rem + 1.1vw, 2rem);
+  letter-spacing: -0.02em;
+}
+
+html[data-de-theme] .de-main h2,
+html[data-de-theme] .de-main .topictitle2,
+html[data-de-theme] .de-main .sectiontitle {
+  margin-top: 2rem;
+  font-size: clamp(1.2rem, 1.05rem + 0.45vw, 1.4rem);
+}
+
+html[data-de-theme] .de-main h3,
+html[data-de-theme] .de-main .topictitle3 {
+  margin-top: 1.5rem;
+  font-size: 1.125rem;
+}
+
+html[data-de-theme] .de-main h4,
+html[data-de-theme] .de-main .topictitle4 {
+  margin-top: 1.25rem;
+  font-size: 1rem;
+}
+
+html[data-de-theme] .de-main .topic,
+html[data-de-theme] .de-main .body,
+html[data-de-theme] .de-main .conbody,
+html[data-de-theme] .de-main .taskbody,
+html[data-de-theme] .de-main .refbody {
+  margin: 0;
+  padding: 0;
+  max-width: none;
+}
+
+html[data-de-theme] .de-main .section {
+  margin: 0 0 1.75rem;
+}
+
+html[data-de-theme] .de-main .section > .sectiontitle {
+  margin-top: 0;
+}
+
+html[data-de-theme] .de-main p,
+html[data-de-theme] .de-main .p {
+  margin: 0 0 0.9rem;
+}
+
+html[data-de-theme] .de-main .shortdesc {
+  margin: 0 0 1.5rem;
+  color: var(--de-text);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+}
+
+html[data-de-theme] .de-main ul,
+html[data-de-theme] .de-main ol {
+  margin: 0 0 1rem;
+  padding-left: 1.375rem;
+}
+
+html[data-de-theme] .de-main li {
+  margin: 0.2rem 0;
+}
+
+html[data-de-theme] .de-main li > ul,
+html[data-de-theme] .de-main li > ol {
+  margin: 0.2rem 0 0.25rem;
+}
+
+html[data-de-theme] .de-main blockquote,
+html[data-de-theme] .de-main .lq {
+  margin: 0 0 1.25rem;
+  padding: 0.25rem 0 0.25rem 1rem;
+  border-left: 3px solid var(--de-border);
+  color: var(--de-text-muted);
+}
+
+html[data-de-theme] .de-main hr {
+  height: 1px;
+  margin: 1.75rem 0;
+  border: 0;
+  background: var(--de-border);
+}
+
+html[data-de-theme] .de-main .de-anchor {
+  margin-left: 0.375rem;
+  color: var(--de-text-muted);
+  font-weight: 400;
+  text-decoration: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+html[data-de-theme] .de-main :where(h1, h2, h3, h4, h5, h6):hover .de-anchor,
+html[data-de-theme] .de-main .de-anchor:focus-visible {
+  opacity: 1;
+}
+
+html[data-de-theme] .de-main .tasklabel {
+  display: inline-block;
+  margin: 0 0 0.5rem;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--de-accent-border);
+  border-radius: 999px;
+  background: var(--de-accent-soft);
+  color: var(--de-link);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+html[data-de-theme] .de-main .indexterm {
+  display: none;
+}
+
+/* Inline DITA phrasing */
+html[data-de-theme] .de-main .ph,
+html[data-de-theme] .de-main .keyword,
+html[data-de-theme] .de-main .term {
+  color: inherit;
+}
+
+html[data-de-theme] .de-main .keyword {
+  font-weight: 500;
+}
+
+html[data-de-theme] .de-main .term {
+  font-style: italic;
+}
+
+html[data-de-theme] .de-main .uicontrol {
+  font-weight: 600;
+}
+
+html[data-de-theme] .de-main .wintitle,
+html[data-de-theme] .de-main .msgnum,
+html[data-de-theme] .de-main .option {
+  font-family: var(--de-font-mono);
+  font-size: 0.9em;
+}
+
+html[data-de-theme] .de-main :not(pre) > code,
+html[data-de-theme] .de-main .codeph,
+html[data-de-theme] .de-main .filepath,
+html[data-de-theme] .de-main .userinput,
+html[data-de-theme] .de-main .systemoutput,
+html[data-de-theme] .de-main .option,
+html[data-de-theme] .de-main .msgph {
+  padding: 0.08em 0.32em;
+  border: 1px solid var(--de-border);
+  border-radius: 4px;
+  background: var(--de-code-bg);
+  color: var(--de-code-text);
+  font-family: var(--de-font-mono);
+  font-size: 0.875em;
+  overflow-wrap: anywhere;
+}
+
+html[data-de-theme] .de-main .filepath {
+  border-style: dashed;
+}
+
+html[data-de-theme] .de-main .userinput {
+  font-weight: 600;
+}
+
+html[data-de-theme] .de-main .menucascade .uicontrol + .uicontrol {
+  margin-left: 0.15em;
+}
+
+html[data-de-theme] .de-main .xref,
+html[data-de-theme] .de-main .link {
+  color: var(--de-link);
+}
+
+html[data-de-theme] .de-main .xref:visited,
+html[data-de-theme] .de-main .link:visited {
+  color: var(--de-link);
+}
+
+html[data-de-theme] .de-main a[href^="http"]::after {
+  content: "\2197";
+  margin-left: 0.15em;
+  font-size: 0.8em;
+  color: var(--de-text-muted);
+}
+
+/* ==========================================================================
+   8. Notes / admonitions
+   ========================================================================== */
+
+html[data-de-theme] .de-main .note,
+html[data-de-theme] .de-main .note__body {
+  display: block;
+}
+
+html[data-de-theme] .de-main .note {
+  --de-note-bg-current: var(--de-note-bg);
+  --de-note-border-current: var(--de-note-border);
+  --de-note-fg-current: var(--de-note-fg);
+  --de-note-bar-current: var(--de-note-bar);
+  position: relative;
+  margin: 0 0 1.25rem;
+  padding: 0.875rem 1rem 0.875rem 1.125rem;
+  border: 1px solid var(--de-note-border-current);
+  border-left: 4px solid var(--de-note-bar-current);
+  border-radius: var(--de-radius);
+  background: var(--de-note-bg-current);
+  color: var(--de-text);
+}
+
+html[data-de-theme] .de-main .note > *:last-child,
+html[data-de-theme] .de-main .note .note__body > *:last-child {
+  margin-bottom: 0;
+}
+
+html[data-de-theme] .de-main .note .note__title,
+html[data-de-theme] .de-main .note .notetitle {
+  display: block;
+  margin: 0 0 0.3rem;
+  color: var(--de-note-fg-current);
+  font-family: var(--de-font-sans);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+html[data-de-theme] .de-main .note .note__body {
+  display: block;
+}
+
+html[data-de-theme] .de-main .note.tip {
+  --de-note-bg-current: var(--de-tip-bg);
+  --de-note-border-current: var(--de-tip-border);
+  --de-note-fg-current: var(--de-tip-fg);
+  --de-note-bar-current: var(--de-tip-bar);
+}
+
+html[data-de-theme] .de-main .note.important {
+  --de-note-bg-current: var(--de-important-bg);
+  --de-note-border-current: var(--de-important-border);
+  --de-note-fg-current: var(--de-important-fg);
+  --de-note-bar-current: var(--de-important-bar);
+}
+
+html[data-de-theme] .de-main .note.caution {
+  --de-note-bg-current: var(--de-caution-bg);
+  --de-note-border-current: var(--de-caution-border);
+  --de-note-fg-current: var(--de-caution-fg);
+  --de-note-bar-current: var(--de-caution-bar);
+}
+
+html[data-de-theme] .de-main .note.warning {
+  --de-note-bg-current: var(--de-warning-bg);
+  --de-note-border-current: var(--de-warning-border);
+  --de-note-fg-current: var(--de-warning-fg);
+  --de-note-bar-current: var(--de-warning-bar);
+}
+
+html[data-de-theme] .de-main .note.danger {
+  --de-note-bg-current: var(--de-danger-bg);
+  --de-note-border-current: var(--de-danger-border);
+  --de-note-fg-current: var(--de-danger-fg);
+  --de-note-bar-current: var(--de-danger-bar);
+}
+
+/* ==========================================================================
+   9. Task steps
+   ========================================================================== */
+
+html[data-de-theme] .de-main .prereq,
+html[data-de-theme] .de-main .context,
+html[data-de-theme] .de-main .result,
+html[data-de-theme] .de-main .postreq {
+  margin: 0 0 1.25rem;
+}
+
+html[data-de-theme] .de-main .steps {
+  counter-reset: de-step;
+  margin: 0 0 1.5rem;
+  padding: 0;
+  list-style: none;
+}
+
+html[data-de-theme] .de-main .steps > .step {
+  position: relative;
+  margin: 0 0 1.125rem;
+  padding-left: 2.35rem;
+  list-style: none;
+}
+
+html[data-de-theme] .de-main .steps > .step::before {
+  counter-increment: de-step;
+  content: counter(de-step);
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 1px solid var(--de-accent-border);
+  border-radius: 50%;
+  background: var(--de-accent-soft);
+  color: var(--de-link);
+  font-family: var(--de-font-mono);
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+html[data-de-theme] .de-main .steps > .step > .cmd {
+  display: block;
+  margin-bottom: 0.2rem;
+  font-weight: 600;
+}
+
+html[data-de-theme] .de-main .substeps {
+  margin: 0.35rem 0 0.5rem;
+  padding-left: 1.25rem;
+  list-style: lower-alpha;
+}
+
+html[data-de-theme] .de-main .substeps .substep {
+  margin: 0.2rem 0;
+}
+
+html[data-de-theme] .de-main .stepresult,
+html[data-de-theme] .de-main .steptroubleshooting,
+html[data-de-theme] .de-main .trouble {
+  margin: 0.35rem 0;
+  color: var(--de-text-muted);
+  font-size: 0.9375rem;
+}
+
+html[data-de-theme] .de-main .info {
+  margin: 0.4rem 0 0;
+  padding-left: 0.75rem;
+  border-left: 2px solid var(--de-border);
+  color: var(--de-text-muted);
+  font-size: 0.9375rem;
+}
+
+/* ==========================================================================
+   10. Code
+   ========================================================================== */
+
+html[data-de-theme] .de-main pre,
+html[data-de-theme] .de-main .pre {
+  margin: 0 0 1.25rem;
+  padding: 0.9rem 1rem;
+  overflow: auto;
+  border: 1px solid var(--de-border);
+  border-radius: var(--de-radius);
+  background: var(--de-code-bg);
+  color: var(--de-code-text);
+  font-family: var(--de-font-mono);
+  font-size: 0.875rem;
+  line-height: 1.6;
+  tab-size: 2;
+  -moz-tab-size: 2;
+  scrollbar-width: thin;
+  scrollbar-color: var(--de-border) transparent;
+}
+
+html[data-de-theme] .de-main pre code {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  white-space: pre;
+}
+
+html[data-de-theme] .de-code {
+  position: relative;
+  margin: 0 0 1.25rem;
+}
+
+html[data-de-theme] .de-main .de-code pre {
+  margin: 0;
+  padding-top: 1.9rem;
+}
+
+html[data-de-theme] .de-code-lang {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.9rem;
+  color: var(--de-text-muted);
+  font-family: var(--de-font-mono);
+  font-size: 0.6875rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  pointer-events: none;
+}
+
+html[data-de-theme] .de-main .de-copy {
+  position: absolute;
+  top: 0.375rem;
+  right: 0.375rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  height: 26px;
+  padding: 0 0.5rem;
+  border: 1px solid var(--de-border);
+  border-radius: calc(var(--de-radius) - 2px);
+  background: var(--de-surface);
+  color: var(--de-text-muted);
+  font-family: var(--de-font-sans);
+  font-size: 0.75rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.85;
+  transition: opacity 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+html[data-de-theme] .de-main .de-copy:hover,
+html[data-de-theme] .de-main .de-copy:focus-visible {
+  opacity: 1;
+  border-color: var(--de-accent-border);
+  color: var(--de-text);
+}
+
+html[data-de-theme] .de-main .de-copy.is-copied {
+  border-color: var(--de-tip-border);
+  color: var(--de-tip-fg);
+}
+
+html[data-de-theme] .de-copy-icon {
+  width: 14px;
+  height: 14px;
+}
+
+html[data-de-theme] .de-copy-label {
+  white-space: nowrap;
+}
+
+/* ==========================================================================
+   11. Tables (DITA-OT CALS output)
+   ========================================================================== */
+
+html[data-de-theme] .de-table-wrap {
+  margin: 0 0 1.5rem;
+  overflow-x: auto;
+  border: 1px solid var(--de-border);
+  border-radius: var(--de-radius);
+  background: var(--de-bg);
+  scrollbar-width: thin;
+  scrollbar-color: var(--de-border) transparent;
+}
+
+html[data-de-theme] .de-main table,
+html[data-de-theme] .de-main .table {
+  width: 100%;
+  margin: 0;
+  border-collapse: collapse;
+  border-spacing: 0;
+  background: transparent;
+  color: var(--de-text);
+  font-size: 0.9375rem;
+  line-height: 1.55;
+}
+
+html[data-de-theme] .de-table-wrap > table {
+  min-width: 100%;
+}
+
+html[data-de-theme] .de-main caption {
+  padding: 0.7rem 0.9rem;
+  border-bottom: 1px solid var(--de-border);
+  background: var(--de-surface);
+  color: var(--de-text);
+  font-size: 0.875rem;
+  text-align: left;
+}
+
+html[data-de-theme] .de-main .table--title-label {
+  margin-right: 0.35rem;
+  color: var(--de-text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+html[data-de-theme] .de-main .tabledesc {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--de-text-muted);
+  font-size: 0.8125rem;
+  font-weight: 400;
+}
+
+html[data-de-theme] .de-main thead {
+  background: var(--de-table-head-bg);
+}
+
+html[data-de-theme] .de-main thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+html[data-de-theme] .de-main th,
+html[data-de-theme] .de-main td,
+html[data-de-theme] .de-main .entry {
+  padding: 0.55rem 0.8rem;
+  border: 1px solid var(--de-border);
+  text-align: left;
+  vertical-align: top;
+}
+
+html[data-de-theme] .de-main th {
+  background: var(--de-table-head-bg);
+  color: var(--de-text);
+  font-weight: 650;
+}
+
+html[data-de-theme] .de-main tbody tr:nth-child(even) > td {
+  background: var(--de-table-stripe);
+}
+
+html[data-de-theme] .de-main tbody tr:hover > td {
+  background: var(--de-hover-bg);
+}
+
+html[data-de-theme] .de-main .rowsep-0 > th,
+html[data-de-theme] .de-main .rowsep-0 > td {
+  border-bottom-color: transparent;
+}
+
+html[data-de-theme] .de-main .colsep-0 > th,
+html[data-de-theme] .de-main .colsep-0 > td {
+  border-right-color: transparent;
+}
+
+html[data-de-theme] .de-main .simpletable,
+html[data-de-theme] .de-main .simpletable > .sthead,
+html[data-de-theme] .de-main .simpletable .strow {
+  border: 1px solid var(--de-border);
+}
+
+/* ==========================================================================
+   12. Figures, links, definition lists, examples
+   ========================================================================== */
+
+html[data-de-theme] .de-main .fig,
+html[data-de-theme] .de-main .figgroup {
+  margin: 0 0 1.5rem;
+}
+
+html[data-de-theme] .de-main .image {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: calc(var(--de-radius) - 2px);
+}
+
+html[data-de-theme] .de-main .figcap {
+  margin-top: 0.5rem;
+  color: var(--de-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+html[data-de-theme] .de-main .related-links {
+  margin-top: 2.5rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--de-border);
+}
+
+html[data-de-theme] .de-main .related-links .linklist,
+html[data-de-theme] .de-main .related-links ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+html[data-de-theme] .de-main .related-links .linklist > li,
+html[data-de-theme] .de-main .related-links li {
+  margin: 0.3rem 0;
+}
+
+html[data-de-theme] .de-main .related-links .relheader,
+html[data-de-theme] .de-main .related-links .links {
+  display: block;
+}
+
+html[data-de-theme] .de-main .related-links .linklist > .linklist > .linklist,
+html[data-de-theme] .de-main .related-links .link {
+  text-decoration: none;
+}
+
+html[data-de-theme] .de-main .related-links .link:hover {
+  text-decoration: underline;
+}
+
+html[data-de-theme] .de-main .dl {
+  margin: 0 0 1.25rem;
+}
+
+html[data-de-theme] .de-main .dlentry {
+  margin: 0 0 0.7rem;
+}
+
+html[data-de-theme] .de-main .dt {
+  margin: 0;
+  color: var(--de-text);
+  font-weight: 650;
+}
+
+html[data-de-theme] .de-main .dd {
+  margin: 0.1rem 0 0;
+}
+
+html[data-de-theme] .de-main .dd > *:last-child {
+  margin-bottom: 0;
+}
+
+html[data-de-theme] .de-main .example {
+  margin: 0 0 1.5rem;
+  padding: 0.25rem 0 0.25rem 1rem;
+  border-left: 3px solid var(--de-border);
+}
+
+html[data-de-theme] .de-main .exampletitle {
+  margin: 0 0 0.4rem;
+  color: var(--de-text-muted);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+html[data-de-theme] .de-main .msgblock,
+html[data-de-theme] .de-main .screen,
+html[data-de-theme] .de-main .lines {
+  white-space: pre-wrap;
+}
+
+/* ==========================================================================
+   13. On-page rail
+   ========================================================================== */
+
+html[data-de-theme] .de-onpage {
+  position: sticky;
+  top: var(--de-header-height);
+  align-self: start;
+  max-height: calc(100vh - var(--de-header-height));
+  overflow: hidden auto;
+  padding: 1.5rem 0 2.5rem;
+  font-size: 0.8125rem;
+  scrollbar-width: thin;
+  scrollbar-color: var(--de-border) transparent;
+}
+
+html[data-de-theme] .de-onpage-title {
+  margin: 0 0 0.5rem;
+  padding-left: 0.625rem;
+  color: var(--de-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+html[data-de-theme] .de-onpage-list {
+  margin: 0;
+  padding: 0;
+  border-left: 1px solid var(--de-border);
+  list-style: none;
+}
+
+html[data-de-theme] .de-onpage-item {
+  margin: 0;
+}
+
+html[data-de-theme] .de-onpage-link {
+  display: block;
+  margin-left: -1px;
+  padding: 0.25rem 0.25rem 0.25rem 0.625rem;
+  border-left: 2px solid transparent;
+  color: var(--de-text-muted);
+  line-height: 1.45;
+  text-decoration: none;
+}
+
+html[data-de-theme] .de-onpage-link:hover {
+  color: var(--de-text);
+}
+
+html[data-de-theme] .de-onpage-link--sub {
+  padding-left: 1.375rem;
+  font-size: 0.78125rem;
+}
+
+html[data-de-theme] .de-onpage-link--active,
+html[data-de-theme] .de-onpage-link[aria-current] {
+  border-left-color: var(--de-bar);
+  color: var(--de-link);
+  font-weight: 650;
+}
+
+/* ==========================================================================
+   14. Prev / next pager
+   ========================================================================== */
+
+html[data-de-theme] .de-pager {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--de-border);
+}
+
+html[data-de-theme] .de-pager-link {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.9rem;
+  border: 1px solid var(--de-border);
+  border-radius: var(--de-radius);
+  background: var(--de-surface);
+  color: var(--de-text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+html[data-de-theme] .de-pager-link:hover {
+  border-color: var(--de-accent-border);
+  background: var(--de-surface-2);
+  color: var(--de-text);
+}
+
+html[data-de-theme] .de-pager-next {
+  align-items: flex-end;
+  text-align: right;
+}
+
+html[data-de-theme] .de-pager-label {
+  color: var(--de-text-muted);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+html[data-de-theme] .de-pager-title {
+  font-size: 0.875rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+/* ==========================================================================
+   15. Search overlay
+   ========================================================================== */
+
+html[data-de-theme].de-search-open {
+  overflow: hidden;
+}
+
+html[data-de-theme] .de-search {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: clamp(1rem, 8vh, 4.5rem) 1rem 1rem;
+  background: var(--de-overlay);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+
+html[data-de-theme] .de-search-panel {
+  display: flex;
+  flex-direction: column;
+  width: min(46rem, 100%);
+  max-height: min(80vh, 44rem);
+  overflow: hidden;
+  border: 1px solid var(--de-border);
+  border-radius: calc(var(--de-radius) + 2px);
+  background: var(--de-bg);
+  box-shadow: var(--de-shadow);
+}
+
+html[data-de-theme] .de-search-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.7rem 0.75rem 0.7rem 0.875rem;
+  border-bottom: 1px solid var(--de-border);
+  color: var(--de-text-muted);
+}
+
+html[data-de-theme] .de-search-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+}
+
+html[data-de-theme] .de-search-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--de-text);
+  font-family: var(--de-font-sans);
+  font-size: 1rem;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+html[data-de-theme] .de-search-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+html[data-de-theme] .de-search-input::placeholder {
+  color: var(--de-text-muted);
+}
+
+html[data-de-theme] .de-search-kbd {
+  flex: none;
+}
+
+html[data-de-theme] .de-search-close {
+  flex: none;
+  height: 30px;
+  min-width: 30px;
+  color: var(--de-text-muted);
+}
+
+html[data-de-theme] .de-search-results {
+  margin: 0;
+  padding: 0.375rem;
+  overflow-y: auto;
+  list-style: none;
+  overscroll-behavior: contain;
+}
+
+html[data-de-theme] .de-search-item {
+  margin: 0;
+  border-radius: calc(var(--de-radius) - 2px);
+}
+
+html[data-de-theme] .de-search-item--active {
+  background: var(--de-active-bg);
+}
+
+html[data-de-theme] .de-search-item--active .de-search-title {
+  color: var(--de-link);
+}
+
+html[data-de-theme] .de-search-link {
+  display: block;
+  padding: 0.5rem 0.625rem;
+  color: var(--de-text);
+  text-decoration: none;
+}
+
+html[data-de-theme] .de-search-title {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+html[data-de-theme] .de-search-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  margin-top: 0.15rem;
+  color: var(--de-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+html[data-de-theme] .de-search-path {
+  display: block;
+  margin-top: 0.2rem;
+  color: var(--de-text-muted);
+  font-family: var(--de-font-mono);
+  font-size: 0.6875rem;
+  opacity: 0.85;
+  overflow-wrap: anywhere;
+}
+
+html[data-de-theme] .de-search-empty {
+  padding: 1.75rem 1rem 2rem;
+  color: var(--de-text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+html[data-de-theme] mark {
+  padding: 0 0.1em;
+  border-radius: 2px;
+  background: var(--de-mark-bg);
+  color: var(--de-mark-text);
+}
+
+/* ==========================================================================
+   16. Backdrop + mobile drawer
+   ========================================================================== */
+
+html[data-de-theme] .de-backdrop {
+  position: fixed;
+  inset: var(--de-header-height) 0 0;
+  z-index: 55;
+  background: var(--de-overlay);
+}
+
+/* ==========================================================================
+   17. Portal landing page
+   ========================================================================== */
+
+html[data-de-theme] .de-portal {
+  padding: clamp(1.25rem, 3vw, 2.5rem) 0 3rem;
+}
+
+html[data-de-theme] .de-portal-hero {
+  margin: 0 0 clamp(1.5rem, 3vw, 2.5rem);
+  padding: clamp(1.25rem, 3vw, 2.25rem);
+  border: 1px solid var(--de-border);
+  border-radius: calc(var(--de-radius) * 1.5);
+  background: linear-gradient(160deg, var(--de-surface) 0%, var(--de-bg) 70%);
+}
+
+html[data-de-theme] .de-portal-title {
+  margin: 0;
+  color: var(--de-text);
+  font-family: var(--de-font-heading);
+  font-size: clamp(1.75rem, 1.2rem + 1.6vw, 2.5rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+html[data-de-theme] .de-portal-subtitle {
+  margin: 0.5rem 0 0;
+  color: var(--de-text-muted);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+html[data-de-theme] .de-portal-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.875rem;
+}
+
+html[data-de-theme] .de-portal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 1rem 1.1rem;
+  border: 1px solid var(--de-border);
+  border-radius: var(--de-radius);
+  background: var(--de-surface);
+  color: var(--de-text);
+  text-decoration: none;
+  transition: border-color 0.15s ease, background-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+html[data-de-theme] a.de-portal-card:hover {
+  border-color: var(--de-accent-border);
+  background: var(--de-surface-2);
+  box-shadow: var(--de-shadow);
+  color: var(--de-text);
+}
+
+html[data-de-theme] .de-portal-card-title {
+  font-size: 0.9375rem;
+  font-weight: 650;
+  line-height: 1.4;
+}
+
+html[data-de-theme] .de-portal-card-summary {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  color: var(--de-text-muted);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+}
+
+html[data-de-theme] .de-portal-card-meta {
+  align-self: flex-start;
+  margin-top: 0.15rem;
+  padding: 0.05rem 0.4rem;
+  border: 1px solid var(--de-border);
+  border-radius: 999px;
+  color: var(--de-text-muted);
+  font-family: var(--de-font-mono);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+html[data-de-theme] .de-portal-card--group {
+  background: transparent;
+  border-style: dashed;
+}
+
+html[data-de-theme] body.de-portal .de-main {
+  max-width: calc(var(--de-content-width) + 10rem);
+}
+
+html[data-de-theme] body.de-portal .de-layout--solo {
+  max-width: calc(var(--de-content-width) + 12rem);
+}
+
+/* The map root's own topic body is redundant next to the card grid: the hero
+   already carries the document title. The markup stays in the DOM. */
+html[data-de-theme] body.de-portal .de-main > article {
+  display: none;
+}
+
+/* ==========================================================================
+   18. Footer
+   ========================================================================== */
+
+html[data-de-theme] .de-footer {
+  max-width: calc(var(--de-sidebar-width) + var(--de-content-width) + var(--de-onpage-width) + 6rem);
+  margin: 0 auto;
+  padding: 1.25rem clamp(1rem, 3vw, 1.75rem) 2.5rem;
+  border-top: 1px solid var(--de-border);
+  color: var(--de-text-muted);
+  font-size: 0.8125rem;
+}
+
+html[data-de-theme] .de-footer p {
+  margin: 0;
+}
+
+html[data-de-theme] .de-layout--solo ~ .de-footer,
+html[data-de-theme] .de-layout--no-sidebar ~ .de-footer {
+  max-width: calc(var(--de-content-width) + 6rem);
+}
+
+/* ==========================================================================
+   19. Responsive
+   ========================================================================== */
+
+@media (max-width: 1199px) {
+  html[data-de-theme] .de-layout,
+  html[data-de-theme] .de-layout--no-sidebar {
+    grid-template-columns: var(--de-sidebar-width) minmax(0, 1fr);
+  }
+
+  html[data-de-theme] .de-onpage {
+    display: none;
+  }
+}
+
+@media (max-width: 1023px) {
+  html[data-de-theme] .de-layout,
+  html[data-de-theme] .de-layout--no-sidebar,
+  html[data-de-theme] .de-layout--no-onpage {
+    display: block;
+    padding: 0 clamp(0.875rem, 4vw, 1.5rem);
+  }
+
+  html[data-de-theme] .de-main,
+  html[data-de-theme] body.de-portal .de-main,
+  html[data-de-theme] .de-layout--solo .de-main {
+    max-width: var(--de-content-width);
+    margin-inline: auto;
+    padding-top: 1.25rem;
+  }
+
+  html[data-de-theme] .de-nav-toggle {
+    display: inline-flex;
+  }
+
+  html[data-de-theme] .de-sidebar {
+    position: fixed;
+    top: var(--de-header-height);
+    left: 0;
+    bottom: 0;
+    z-index: 60;
+    width: min(20rem, 86vw);
+    max-height: none;
+    padding: 1rem 0.75rem 2rem;
+    overflow-y: auto;
+    border-right: 1px solid var(--de-border);
+    background: var(--de-bg);
+    box-shadow: var(--de-shadow);
+    transform: translateX(-102%);
+    visibility: hidden;
+    transition: transform 0.2s ease, visibility 0.2s ease;
+  }
+
+  html[data-de-theme].de-nav-open .de-sidebar,
+  html[data-de-theme] body.de-nav-open .de-sidebar {
+    transform: translateX(0);
+    visibility: visible;
+  }
+
+  html[data-de-theme] .de-sidebar-title {
+    margin-top: 0.25rem;
+  }
+}
+
+@media (max-width: 640px) {
+  html[data-de-theme] {
+    --de-font-size: 15px;
+    --de-gutter: 1rem;
+    --de-header-height: 50px;
+  }
+
+  html[data-de-theme] .de-main {
+    padding-bottom: 2rem;
+  }
+
+  html[data-de-theme] .de-main .topictitle1 {
+    font-size: 1.5rem;
+  }
+
+  html[data-de-theme] .de-search {
+    padding: 0;
+  }
+
+  html[data-de-theme] .de-search-panel {
+    width: 100%;
+    max-height: 100vh;
+    min-height: 100vh;
+    border: 0;
+    border-radius: 0;
+  }
+
+  html[data-de-theme] .de-search-kbd {
+    display: none;
+  }
+
+  html[data-de-theme] .de-pager {
+    grid-template-columns: 1fr;
+  }
+
+  html[data-de-theme] .de-pager-next {
+    align-items: flex-start;
+    text-align: left;
+  }
+
+  html[data-de-theme] .de-main .steps > .step {
+    padding-left: 2.1rem;
+  }
+
+  html[data-de-theme] .de-brand-title {
+    max-width: 46vw;
+  }
+}
+
+/* ==========================================================================
+   20. Print
+   ========================================================================== */
+
+@media print {
+  /* attribute+mode keeps print tokens above the theme's own (0,2,0) block */
+  html[data-de-theme][data-de-mode] {
+    color-scheme: light;
+    --de-bg: #ffffff;
+    --de-text: #000000;
+    --de-text-muted: #333333;
+    --de-border: #999999;
+    --de-code-bg: #f4f4f4;
+    --de-code-text: #000000;
+  }
+
+  html[data-de-theme] body {
+    background: #ffffff;
+    color: #000000;
+    font-size: 11pt;
+  }
+
+  html[data-de-theme] .de-header,
+  html[data-de-theme] .de-sidebar,
+  html[data-de-theme] .de-onpage,
+  html[data-de-theme] .de-search,
+  html[data-de-theme] .de-backdrop,
+  html[data-de-theme] .de-footer,
+  html[data-de-theme] .de-skip,
+  html[data-de-theme] .de-nav-toggle,
+  html[data-de-theme] .de-pager,
+  html[data-de-theme] .de-copy,
+  html[data-de-theme] .de-code-lang,
+  html[data-de-theme] .de-tree-toggle {
+    display: none !important;
+  }
+
+  html[data-de-theme] .de-layout,
+  html[data-de-theme] .de-layout--solo {
+    display: block;
+    max-width: none;
+    padding: 0;
+  }
+
+  html[data-de-theme] .de-main {
+    max-width: none;
+    padding: 0;
+  }
+
+  /* the copy button and language chip are hidden above: reclaim their band */
+  html[data-de-theme] .de-main .de-code pre {
+    padding-top: 0.9rem;
+  }
+
+  html[data-de-theme] .de-main a[href]:not([href^="#"])::after {
+    content: " <" attr(href) ">";
+    color: #444444;
+    font-size: 0.85em;
+    word-break: break-all;
+  }
+
+  html[data-de-theme] .de-main .note,
+  html[data-de-theme] .de-main .fig,
+  html[data-de-theme] .de-main .example,
+  html[data-de-theme] .de-main .step,
+  html[data-de-theme] .de-main pre,
+  html[data-de-theme] .de-main tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  html[data-de-theme] .de-main thead {
+    display: table-header-group;
+  }
+
+  html[data-de-theme] .de-main h1,
+  html[data-de-theme] .de-main h2,
+  html[data-de-theme] .de-main h3 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+}
+
+/* ==========================================================================
+   21. Reduced motion
+   ========================================================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-de-theme] *,
+  html[data-de-theme] *::before,
+  html[data-de-theme] *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}

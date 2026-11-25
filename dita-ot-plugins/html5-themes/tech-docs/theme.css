@@ -1,0 +1,122 @@
+/*!
+ * DITAEditor theme: tech-docs
+ * ---------------------------------------------------------------------------
+ * The default product-documentation look: crisp white surfaces, a blue accent,
+ * a blurred sticky header and a left accent bar on the active navigation item.
+ * Only variables plus a handful of flourishes live here; all structure comes
+ * from shared/theme-base.css.
+ */
+
+:root[data-de-theme="tech-docs"] {
+  --de-accent: #2563eb;
+  --de-accent-hover: #1d4ed8;
+  --de-accent-soft: #dbeafe;
+  --de-accent-border: #bfdbfe;
+  --de-accent-contrast: #ffffff;
+
+  --de-bg: #ffffff;
+  --de-surface: #f8fafc;
+  --de-surface-2: #f1f5f9;
+  --de-header-bg: rgba(255, 255, 255, 0.86);
+  --de-text: #0f172a;
+  --de-text-muted: #475569;
+  --de-border: #e2e8f0;
+  --de-code-bg: #f6f8fa;
+  --de-code-text: #0f172a;
+  --de-radius: 8px;
+  --de-shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 14px 34px -24px rgba(15, 23, 42, 0.45);
+  --de-content-width: 48rem;
+  --de-sidebar-width: 17rem;
+  --de-onpage-width: 14rem;
+  --de-line-height: 1.7;
+
+  --de-link: #2563eb;
+  --de-link-hover: #1d4ed8;
+  --de-bar: #2563eb;
+  --de-hover-bg: rgba(37, 99, 235, 0.06);
+  --de-active-bg: #eff6ff;
+  --de-table-stripe: #fafbfc;
+  --de-table-head-bg: #f1f5f9;
+}
+
+html[data-de-theme="tech-docs"][data-de-mode="dark"] {
+  --de-bg: #0d1220;
+  --de-surface: #131a2a;
+  --de-surface-2: #1a2234;
+  --de-header-bg: rgba(13, 18, 32, 0.88);
+  --de-text: #e6edf7;
+  --de-text-muted: #94a3b8;
+  --de-border: #232c3d;
+  --de-code-bg: #101827;
+  --de-code-text: #dbe6f5;
+  --de-shadow: 0 1px 2px rgba(0, 0, 0, 0.5), 0 20px 44px -30px rgba(0, 0, 0, 0.9);
+
+  --de-link: #93c5fd;
+  --de-link-hover: #bfdbfe;
+  --de-bar: #60a5fa;
+  --de-accent-soft: rgba(96, 165, 250, 0.16);
+  --de-accent-border: rgba(96, 165, 250, 0.36);
+  --de-hover-bg: rgba(148, 163, 184, 0.1);
+  --de-active-bg: rgba(96, 165, 250, 0.13);
+  --de-table-stripe: rgba(148, 163, 184, 0.05);
+  --de-table-head-bg: rgba(148, 163, 184, 0.09);
+  --de-mark-bg: #1e3a8a;
+  --de-mark-text: #dbeafe;
+}
+
+/* Mono-ish chrome labels give the theme its "reference docs" feel. */
+html[data-de-theme="tech-docs"] .de-sidebar-title,
+html[data-de-theme="tech-docs"] .de-onpage-title {
+  font-family: var(--de-font-mono);
+  letter-spacing: 0.05em;
+}
+
+html[data-de-theme="tech-docs"] .de-sidebar-title {
+  color: var(--de-text);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+/* 3px marker bar on the active page. */
+html[data-de-theme="tech-docs"] .de-tree-item--active > a,
+html[data-de-theme="tech-docs"] .de-tree-item > a[aria-current] {
+  border-left-width: 3px;
+  border-radius: 0 calc(var(--de-radius) - 3px) calc(var(--de-radius) - 3px) 0;
+}
+
+html[data-de-theme="tech-docs"] .de-main .note {
+  border-left-width: 3px;
+}
+
+html[data-de-theme="tech-docs"] .de-main :not(pre) > code,
+html[data-de-theme="tech-docs"] .de-main .codeph,
+html[data-de-theme="tech-docs"] .de-main .filepath {
+  background: #f1f5f9;
+  border-color: #e2e8f0;
+}
+
+html[data-de-theme="tech-docs"][data-de-mode="dark"] .de-main :not(pre) > code,
+html[data-de-theme="tech-docs"][data-de-mode="dark"] .de-main .codeph,
+html[data-de-theme="tech-docs"][data-de-mode="dark"] .de-main .filepath {
+  background: #162032;
+  border-color: #2a3547;
+}
+
+html[data-de-theme="tech-docs"] .de-search-panel {
+  border-radius: 12px;
+}
+
+html[data-de-theme="tech-docs"] .de-header {
+  box-shadow: 0 1px 0 rgba(15, 23, 42, 0.02);
+}
+
+html[data-de-theme="tech-docs"] .de-portal-hero {
+  background: linear-gradient(150deg, #eff6ff 0%, #ffffff 62%);
+  border-color: #dbeafe;
+}
+
+html[data-de-theme="tech-docs"][data-de-mode="dark"] .de-portal-hero {
+  background: linear-gradient(150deg, rgba(37, 99, 235, 0.18) 0%, var(--de-bg) 68%);
+  border-color: var(--de-border);
+}

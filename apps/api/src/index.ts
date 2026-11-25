@@ -2,7 +2,7 @@ import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
-import Fastify from 'fastify';
+import Fastify, { type FastifyServerOptions } from 'fastify';
 import { DITA_CORE_VERSION } from '@dita/core';
 import { openDatabase } from './db/client.js';
 import { isHttpError, localizeErrorMessage } from './modules/errors.js';
@@ -28,6 +28,7 @@ import { registerManualRoutes } from './modules/manuals/routes.js';
 import { AssignmentService } from './modules/assignments/assignment-service.js';
 import { registerAssignmentRoutes } from './modules/assignments/routes.js';
 import { registerPublishRoutes } from './modules/publish/routes.js';
+import { PublishProfileService } from './modules/publish/publish-profiles.js';
 import { PublishService } from './modules/publish/publish-service.js';
 import { defaultWebDistDir, registerWebStaticRoutes } from './modules/static/web-static.js';
 import { registerStrictValidationRoutes } from './modules/validate/routes.js';
@@ -43,14 +44,37 @@ export interface CreateServerOptions {
   publishConcurrency?: number;
   publishTimeoutMs?: number;
   publishRetentionDays?: number;
+  /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
+  htmlThemesDir?: string;
   ditaRuntime?: DitaRuntimeOptions;
   webDistDir?: string;
+  /** Optional reverse-proxy subpath prefix (e.g. `/dita`) stripped before routing. */
+  basePath?: string;
   logger?: boolean;
   aiModelFactory?: AiModelFactory;
 }
 
 export function createServer(options: CreateServerOptions = {}) {
-  const app = Fastify({ logger: options.logger ?? true });
+  const normalizedBasePath = (options.basePath ?? process.env.DITA_BASE_PATH ?? '')
+    .trim()
+    .replace(/\/+$/, '');
+  const fastifyOptions: FastifyServerOptions = {
+    logger: options.logger ?? true,
+  };
+  if (normalizedBasePath && normalizedBasePath.startsWith('/')) {
+    fastifyOptions.rewriteUrl = (req) => {
+      const raw = req.url ?? '/';
+      if (raw === normalizedBasePath) return '/';
+      if (
+        raw.startsWith(`${normalizedBasePath}/`) ||
+        raw.startsWith(`${normalizedBasePath}?`)
+      ) {
+        return raw.slice(normalizedBasePath.length) || '/';
+      }
+      return raw;
+    };
+  }
+  const app = Fastify(fastifyOptions);
   const workspace = new WorkspaceManager({
     workspaceDir: options.workspaceDir,
     importsRootDir: options.importsRootDir,
@@ -67,6 +91,7 @@ export function createServer(options: CreateServerOptions = {}) {
       options.worktreesRootDir ?? path.join(workspace.importsRootDir, 'git-worktrees'),
   });
   const locks = new LockService(database.db, git);
+  const publishProfiles = new PublishProfileService(database.db);
   const publish = new PublishService({
     db: database.db,
     workspace,
@@ -74,6 +99,7 @@ export function createServer(options: CreateServerOptions = {}) {
     concurrency: options.publishConcurrency,
     timeoutMs: options.publishTimeoutMs,
     retentionDays: options.publishRetentionDays,
+    htmlThemesDir: options.htmlThemesDir,
     runtime: options.ditaRuntime,
     logger: (message, error) => {
       if (options.logger === false) return;
@@ -215,7 +241,12 @@ export function createServer(options: CreateServerOptions = {}) {
     runtime: options.ditaRuntime,
     context,
   });
-  registerPublishRoutes(app, { ...phase4, publish });
+  registerPublishRoutes(app, {
+    ...phase4,
+    publish,
+    profiles: publishProfiles,
+    htmlThemesDir: options.htmlThemesDir,
+  });
   registerAiRoutes(app, {
     workspace,
     indexer,

@@ -15,16 +15,41 @@ import {
 } from '../locks/routes.js';
 import type { PublishJobRow } from '../../db/schema.js';
 import type { PublishService } from './publish-service.js';
+import {
+  THEME_OPTION_LIMITS,
+  getHtmlTheme,
+  htmlThemeIdSchema,
+  htmlThemeOptionsSchema,
+  isValidAccent,
+  listHtmlThemes,
+  resolveHtmlThemesDir,
+  type HtmlThemeFeatures,
+  type HtmlThemeId,
+  type HtmlThemeOptions,
+} from './html-themes.js';
+import { HtmlThemePreviewError, renderHtmlThemePreview } from './theme-preview.js';
+import { mergeThemeOptions, type PublishProfileService } from './publish-profiles.js';
 
 const createJobSchema = z.object({
   rootMap: z.string().min(1),
   format: z.enum(['html5', 'pdf']),
   ditaval: z.string().min(1).nullable().optional(),
   title: z.string().trim().max(120).optional(),
+  themeId: htmlThemeIdSchema.optional(),
+  htmlThemeOptions: htmlThemeOptionsSchema.optional(),
+  saveAsDefault: z.boolean().optional(),
+});
+
+const saveProfileSchema = z.object({
+  themeId: htmlThemeIdSchema,
+  themeOptions: htmlThemeOptionsSchema.optional(),
 });
 
 export interface PublishRouteOptions extends LockRouteOptions {
   publish: PublishService;
+  profiles: PublishProfileService;
+  /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
+  htmlThemesDir?: string;
 }
 
 const MIME_TYPES: Record<string, string> = {
@@ -69,10 +94,68 @@ function requireJob(options: PublishRouteOptions, id: string, projectId: string)
   return job;
 }
 
+/**
+ * Published artifacts (`previewUrl`, `artifactUrl`) are opened by the browser itself — a new tab,
+ * an `<a download>`, or the relative CSS/JS/topic requests below the preview document — and a
+ * browser navigation cannot send `x-dita-manual-id` / `x-dita-branch`. Resolving the manual from
+ * headers would silently fall back to the most recently activated manual and answer 404 for any
+ * other manual in the workbench. The job id already pins the published manual, so these read-only
+ * routes look the job up directly instead of trusting the (absent) scope headers.
+ */
+function requirePublishedJob(options: PublishRouteOptions, id: string): PublishJobRow {
+  const job = options.publish.getJobRow(id);
+  if (!job) {
+    throw httpError(404, 'publish.jobNotFound');
+  }
+  return job;
+}
+
 function requirePublisher(user: IdentityUser): void {
   if (user.role === 'viewer') {
     throw httpError(403, 'publish.viewerForbidden');
   }
+}
+
+/** Profile rows are scoped per manual; legacy callers without a manual fall back to the project. */
+function profileManualId(scope: { manualId?: string; projectId: string }): string {
+  return scope.manualId ?? scope.projectId;
+}
+
+const PREVIEW_FEATURE_KEYS = ['search', 'toc', 'codeCopy', 'colorModeToggle'] as const;
+
+function previewFlag(raw: unknown): boolean | undefined {
+  if (raw === '1' || raw === 'true') return true;
+  if (raw === '0' || raw === 'false') return false;
+  return undefined;
+}
+
+function previewText(raw: unknown, limit: number): string | undefined {
+  if (typeof raw !== 'string') return undefined;
+  const trimmed = raw.trim();
+  return trimmed ? trimmed.slice(0, limit) : undefined;
+}
+
+/** Query-string theme options for the live preview; invalid accents are rejected, not coerced. */
+function previewOptions(query: Record<string, unknown>): HtmlThemeOptions {
+  const options: HtmlThemeOptions = {};
+  const accent = typeof query.accent === 'string' ? query.accent.trim() : '';
+  if (accent) {
+    if (!isValidAccent(accent)) {
+      throw httpError(400, 'publish.invalidThemeOptions', undefined, { accent });
+    }
+    options.accentColor = accent.startsWith('#') ? accent.toLowerCase() : `#${accent.toLowerCase()}`;
+  }
+  const siteTitle = previewText(query.title, THEME_OPTION_LIMITS.siteTitle);
+  if (siteTitle) options.siteTitle = siteTitle;
+  const footerText = previewText(query.footer, THEME_OPTION_LIMITS.footerText);
+  if (footerText) options.footerText = footerText;
+  const features: Partial<HtmlThemeFeatures> = {};
+  for (const key of PREVIEW_FEATURE_KEYS) {
+    const flag = previewFlag(query[key]);
+    if (flag !== undefined) features[key] = flag;
+  }
+  if (Object.keys(features).length > 0) options.features = features;
+  return options;
 }
 
 async function resolveWorkspacePath(
@@ -130,6 +213,84 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
     }
   });
 
+  app.get('/api/publish/themes', async (req, reply) => {
+    try {
+      const scope = await resolvePhase4Scope(req, options);
+      options.identity.requireRole(scope.user, ['admin', 'writer', 'viewer']);
+      // Descriptors are localized, so the response must not be reused across locales.
+      reply.header('cache-control', 'no-cache');
+      reply.header('vary', 'x-dita-locale');
+      return { themes: listHtmlThemes(resolveRequestLocale(req)) };
+    } catch (err) {
+      return handlePhase4Error(err, req, reply);
+    }
+  });
+
+  app.get('/api/publish/themes/:id/preview', async (req, reply) => {
+    const locale = resolveRequestLocale(req);
+    try {
+      await resolvePhase4Scope(req, options);
+      const { id } = req.params as { id: string };
+      const descriptor = getHtmlTheme(id, locale);
+      if (!descriptor) {
+        throw httpError(404, 'publish.themeNotFound', { id });
+      }
+      const previewThemeOptions = previewOptions((req.query ?? {}) as Record<string, unknown>);
+      let html: string;
+      try {
+        html = await renderHtmlThemePreview({
+          themeId: descriptor.id,
+          options: previewThemeOptions,
+          themesDir: resolveHtmlThemesDir(options.htmlThemesDir),
+          locale,
+        });
+      } catch (err) {
+        if (err instanceof HtmlThemePreviewError) {
+          throw httpError(404, 'publish.themeNotFound', { id });
+        }
+        const reason = err instanceof Error ? err.message : String(err);
+        throw httpError(500, 'publish.themePreviewFailed', undefined, { reason });
+      }
+      reply.header('cache-control', 'no-store');
+      reply.type('text/html; charset=utf-8');
+      return reply.send(html);
+    } catch (err) {
+      return handlePhase4Error(err, req, reply);
+    }
+  });
+
+  app.get('/api/publish/profile', async (req, reply) => {
+    try {
+      const scope = await resolvePhase4Scope(req, options);
+      options.identity.requireRole(scope.user, ['admin', 'writer', 'viewer']);
+      return { profile: options.profiles.get(profileManualId(scope)) };
+    } catch (err) {
+      return handlePhase4Error(err, req, reply);
+    }
+  });
+
+  app.put('/api/publish/profile', async (req, reply) => {
+    const locale = resolveRequestLocale(req);
+    const parsed = saveProfileSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return reply.status(400).send({ error: apiT(locale, 'publish.invalidThemeOptions') });
+    }
+    try {
+      const scope = await resolvePhase4Scope(req, options);
+      requirePublisher(scope.user);
+      const themeId = parsed.data.themeId;
+      const profile = options.profiles.save(
+        profileManualId(scope),
+        themeId,
+        themeId === 'vanilla' ? {} : parsed.data.themeOptions,
+        scope.user.id,
+      );
+      return { profile };
+    } catch (err) {
+      return handlePhase4Error(err, req, reply);
+    }
+  });
+
   app.get('/api/publish/jobs', async (req, reply) => {
     try {
       const scope = await resolvePhase4Scope(req, options);
@@ -167,6 +328,20 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const ditaval = parsed.data.ditaval
         ? await resolveWorkspacePath(scope.workDir, parsed.data.ditaval, ['.ditaval'], 'DITAVAL')
         : null;
+      const manualId = profileManualId(scope);
+      let themeId: HtmlThemeId | null = null;
+      let themeOptions: HtmlThemeOptions = {};
+      if (parsed.data.format === 'html5') {
+        const profile = options.profiles.get(manualId);
+        themeId = parsed.data.themeId ?? profile.htmlThemeId;
+        themeOptions =
+          themeId === 'vanilla'
+            ? {}
+            : mergeThemeOptions(profile.htmlThemeOptions, parsed.data.htmlThemeOptions);
+        if (parsed.data.saveAsDefault && themeId !== 'vanilla') {
+          options.profiles.save(manualId, themeId, themeOptions, scope.user.id);
+        }
+      }
       const job = await options.publish.createJob({
         user: scope.user,
         workDir: scope.workDir,
@@ -177,6 +352,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
         ditaval,
         title: parsed.data.title,
         locale: resolveRequestLocale(req),
+        ...(themeId ? { themeId, themeOptions } : {}),
       });
       return reply.status(202).send({ job });
     } catch (err) {
@@ -333,9 +509,8 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
 
   const previewHandler = async (req: FastifyRequest, reply: FastifyReply) => {
     try {
-      const scope = await resolvePhase4Scope(req, options);
       const { id } = req.params as { id: string };
-      const row = requireJob(options, id, scope.projectId);
+      const row = requirePublishedJob(options, id);
       if (row.format !== 'html5' || row.status !== 'succeeded' || !row.outputPath) {
         throw httpError(404, 'publish.noHtmlPreview');
       }
@@ -357,9 +532,8 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
 
   app.get('/api/publish/jobs/:id/artifact', async (req, reply) => {
     try {
-      const scope = await resolvePhase4Scope(req, options);
       const { id } = req.params as { id: string };
-      const row = requireJob(options, id, scope.projectId);
+      const row = requirePublishedJob(options, id);
       if (row.status !== 'succeeded' || !row.artifactPath) {
         throw httpError(404, 'publish.noArtifact');
       }

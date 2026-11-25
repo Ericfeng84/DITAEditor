@@ -98,4 +98,4 @@ AI only proposes fragments:
 
 ## Try it now
 
-[Open the offline workbench](../../../workbench/) to browse the demo map tree, edit topics, and test single sourcing. For model configuration, read [AI setup and security boundaries](/en/docs/ai-setup).
+[Open the online workbench](https://www.cemplatformcvs.cloud/dita) to browse the demo map tree, edit topics, test single sourcing, and validate or publish directly. For model configuration, read [AI setup and security boundaries](/en/docs/ai-setup).

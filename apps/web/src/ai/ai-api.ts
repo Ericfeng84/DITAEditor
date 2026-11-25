@@ -1,3 +1,4 @@
+import { apiUrl } from '../services/api-base';
 import { getCurrentUserId } from '../services/identity-api';
 import { getCurrentLocale, translate } from '../i18n/index.js';
 import { requestJson } from '../services/workspace-api';
@@ -72,7 +73,7 @@ export async function streamAiRequest(
   const userId = getCurrentUserId();
   if (userId) headers['x-dita-user-id'] = userId;
 
-  const response = await fetch('/api/ai/stream', {
+  const response = await fetch(apiUrl('/api/ai/stream'), {
     method: 'POST',
     headers,
     body: JSON.stringify(request),

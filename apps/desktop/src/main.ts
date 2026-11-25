@@ -121,6 +121,7 @@ async function startEmbeddedServer(): Promise<string> {
     ditaRuntime: {
       pluginDir: paths.pluginDir,
     },
+    htmlThemesDir: paths.htmlThemesDir,
     logger: !app.isPackaged,
   });
 

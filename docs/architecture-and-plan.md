@@ -21,8 +21,9 @@
 | **项目官网与在线离线版（Phase 7）** | 独立静态站 `apps/site`（**Astro 5 + React 19 Islands + Tailwind CSS 4**），中英双语（`zh-CN` / `en`），现代技术出版编辑风；GitHub Pages 合包发布 `/workbench/`（`@dita/web` `VITE_STATIC_DEMO=true` 离线模式） | 营销页与文档页零 JS 静态输出，首页内嵌 `@dita/core` 懒加载微演示，在线体验直接跳转 `/workbench/` 纯前端离线三栏工作台；与单容器工作台镜像完全解耦 |
 | **英文版界面与国际化（Phase 8）** | 零外部依赖的强类型全栈 i18n（`zh-CN` / `en`），浏览器语言自动探测 + 顶栏实时无刷新切换（`localStorage` 持久化） | 覆盖前端工作台 UI / CSS 伪元素 / ProseMirror 热刷新、`@dita/core` 规则与模板/语义诊断、`@dita/api` 报错与 AI 回复语言（`x-dita-locale` 请求头）；严格对齐 OASIS DITA 1.3 官方英文术语且不改动已有文档正文 |
 | **手册编辑工作台与 Topic 委派（Phase 10）** | 独立「手册编辑工作台（Workbench Hub）」首页（`/`）+ 三栏编辑器路由（`/manuals/:id`）；1 手册 = 1 独立工作区与 Git 仓库；轻量 Topic 编辑任务（`Assignment`）委派与软引导协作 | 后端按 `x-dita-manual-id` + `x-dita-branch` 请求级隔离多手册与多分支 worktree；任务仅落库 SQLite（零 XML/Git 污染），与 Check-out 锁解耦（不自动加锁、不做审批流），并支持 Check-out 自动推进与 Check-in 可选同步结单 |
+| **HTML5 发布样式主题与多套模板（Phase 12）** | 内置 **4 套专业 HTML5 文档主题（现代技术文档 / 出版极简纸白 / 企业标准手册 / 开发者暗夜风）+ 原生默认兜底**；DITA-OT 原生 `--nav-toc=full` 搭配确定性静态后处理增强（侧栏树、页内 TOC、`Cmd+K` 离线搜索、代码复制、明暗切换、移动端适配）；轻量品牌定制（主色 / Logo / 标题 / 页脚 / 自定义 CSS）按手册持久化 | 零 DITA-OT XSLT/Java 插件安装门槛（Docker / 本机 / 桌面端一致可用），零 CDN 外部依赖，ZIP 解压 `file://` 双击离线搜索同样可用；配置仅落库 SQLite，零 XML/Git 污染 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
-| **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑）+ 轻量桌面端（`apps/desktop`，macOS Apple Silicon & Windows x64） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖；桌面端主进程内嵌 `@dita/api`（`127.0.0.1:0`），数据目录隔离至 `app.getPath('userData')`，与 `Dockerfile` 完全解耦 |
+| **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑）+ **GCP Cloud Run 低成本试用部署**（`min=0`/`max=1`、子路径反向代理 `VITE_BASE` / `DITA_BASE_PATH` + GitHub Actions 无密钥 WIF `push` 自动发布）+ 轻量桌面端（`apps/desktop`，macOS Apple Silicon & Windows x64） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖；单容器支持根路径 `/` 与反代子路径（如 `/dita`）双形态运行；桌面端主进程内嵌 `@dita/api`（`127.0.0.1:0`），数据目录隔离至 `app.getPath('userData')`，与 `Dockerfile` 完全解耦 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
 
 ---
@@ -236,7 +237,8 @@ flowchart LR
 | **AI 辅助与模型接入 (Phase 6)** | **LangChain.js（`@langchain/core` + `@langchain/openai`，默认 DeepSeek `deepseek-flash`）+ SSE 流式 + SQLite 配置与轻量审计** | 仅引入轻量核心包即可统一 `ChatOpenAI`（兼容 DeepSeek 与内网代理）、Prompt 模板与消息历史，并天然预留 `BaseRetriever`/`Embeddings`/LangGraph 扩展位，平滑承接后续「基于手册发布后的 RAG AI 问答」 | 原生 `fetch` / `openai` SDK（若明确永远不做 RAG 知识库问答时可降级简化） |
 | **项目官网与文档站 (Phase 7)** | **Astro 5（Static）+ React 19 Islands + Tailwind CSS 4 + Content Collections / Shiki + Pagefind** | 首页与文档零 JS 静态生成、SEO/性能极佳；React Islands 按需水合首页 `@dita/core` 微演示，GitHub Pages CI 同步合包构建离线版 `@dita/web` 至 `/workbench/`；支持中英双语与纯静态托管 | VitePress（若不需要高度定制的出版风官网首页时可选） |
 | **全栈国际化 (Phase 8)** | **自研零依赖强类型 TS i18n 模块（`@dita/core/i18n` + `apps/web/src/i18n` + `apps/api/src/i18n`）+ `x-dita-locale` 请求头** | 零第三方运行包体积开销，TS 编译期校验键名与 `{param}` 占位符，配合 Vitest 双语对称与硬编码中文扫描门禁防止回退，支持 ProseMirror 元数据无损热切换 | `i18next` + `react-i18next`（若未来需扩展 3+ 语种与复杂复数/ICU 规则时可平滑迁移） |
-| **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管打包后的 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK）+ **轻量桌面端（Electron 35 + `electron-builder` + `esbuild`）** | 零外部数据库/队列中间件，一条 `docker run` 一键启动；桌面端复用同一 `@dita/api` + `@dita/web`，通过扁平 staging 目录按 Electron ABI 重编 `better-sqlite3`，GitHub Release 自动构建 macOS `arm64`（`.dmg`/`.zip`）与 Windows `x64`（NSIS `.exe`/`.zip`） | 全量离线桌面版（若需内网断网零配置出 PDF，可在 CI 中额外内置 `jlink` JRE 21 + DITA-OT + Noto CJK + Windows MinGit） |
+| **HTML5 发布主题引擎 (Phase 12)** | **DITA-OT 原生 `--nav-toc=full` + Node 确定性静态后处理增强器 + 纯静态主题包（`dita-ot-plugins/html5-themes/`）** | 零外部 CDN 与零 `dita install` 插件门槛，离线 ZIP 双击 `file://` 与静态托管体验一致；按目录深度自适应相对路径；与 Docker / 桌面端 / HF Space 天然兼容 | 独立 DITA-OT XSLT 自定义 `transtype` 插件（仅当需深度改写 DITA HTML DOM 结构时按需演进） |
+| **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK，支持 `VITE_BASE` / `DITA_BASE_PATH` 子路径反代）+ **GCP Cloud Run 试用部署**（`min=0/max=1`、2 vCPU / 2 GiB + GitHub Actions 无密钥 WIF 自动构建部署，见 [deploy-gcp-cloudrun.md](./deploy-gcp-cloudrun.md)）+ **轻量桌面端（Electron 35 + `electron-builder` + `esbuild`）** | 零外部数据库/队列中间件，一条 `docker run` 一键启动；云端试用借助 Cloud Run 缩容至 0 + 主域名子路径反代（如 Vercel + Cloudflare）兼顾近零成本与中国大陆直连，GitHub Actions 免费 Runner + GHA 层缓存 + AR 保留 2 版清理策略压低 CI/存储成本；桌面端复用同一 `@dita/api` + `@dita/web`，通过扁平 staging 目录按 Electron ABI 重编 `better-sqlite3` | 常驻 GCE 单机 VM（挂载本地 `/data` 持久化卷并按需开关机，适合需要长期保留在线数据的试用场景）或全量离线桌面版（内置 `jlink` JRE 21 + DITA-OT） |
 
 ---
 
@@ -286,7 +288,8 @@ DITAEditor/
 │       ├── build/              # icon.icns / icon.ico / icon.png 与 entitlements.mac.plist
 │       ├── electron-builder.yml# macOS arm64 (.dmg/.zip) 与 Windows x64 (NSIS .exe/.zip) 打包配置
 │       └── test/               # 路径解析、首次样本拷贝幂等性与 Release 版本号规范化单测
-├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / release-desktop.yml（双端桌面自动打包上传）
+├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / deploy-cloudrun.yml (WIF 自动部署) / release-desktop.yml
+├── deploy/                     # 云端托管配置（huggingface/ 与 gcp/：cloudbuild.yaml、deploy-cloudrun.sh）
 ├── packages/
 │   └── dita-core/              # @dita/core 前后端共享核心库
 │       ├── xml/                # slimdom 解析、位置追踪、确定性无损序列化
@@ -295,8 +298,9 @@ DITAEditor/
 │       ├── ditaval/            # .ditaval 解析与元素条件求值器
 │       ├── templates/          # concept / task / reference / topic / map 双语新建模板 (zh-CN / en)
 │       └── i18n/               # 同构 UiLocale / normalizeLocale / formatMessage 与核心诊断双语消息（Phase 8）
-├── dita-ot-plugins/            # 纯 XML DITA-OT 定制插件（零 Java 代码）
-│   └── com.ditaeditor.pdf-cjk/ # 内置中文 PDF 字体映射插件 (plugin.xml + fop.xconf + font-mappings.xml)
+├── dita-ot-plugins/            # 纯 XML DITA-OT 定制插件与静态发布主题（零 Java 代码）
+│   ├── com.ditaeditor.pdf-cjk/ # 内置中文 PDF 字体映射插件 (plugin.xml + fop.xconf + font-mappings.xml)
+│   └── html5-themes/           # 内置 HTML5 样式主题资产 (shared/ + 4 套专业主题 CSS，Phase 12)
 ├── Dockerfile                  # 单容器部署镜像（Node + JRE 21 + DITA-OT 4.x + Noto CJK + 前后端静态托管）
 └── docs/                       # 架构文档、ADR 与接口契约
 ```
@@ -445,6 +449,22 @@ DITAEditor/
   - 监听 `release: [published]`（与 HF Space 同步工作流一致）及 `workflow_dispatch` 手动试跑，在原生 `macos-latest`（`arm64` `.dmg` / `.zip`）与 `windows-latest`（`x64` NSIS `.exe` / 便携 `.zip`）并行构建，自动将 Release Tag 同步为安装包版本号并挂载到对应 GitHub Release；无证书时自动跳过签名发现，配置 `CSC_LINK` / `WIN_CSC_LINK` 等 Secrets 后即自动启用签名。
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含 `apps/api/test/dita-runtime.test.ts` 与 `apps/desktop/test/paths.test.ts`）；本机 `pnpm --filter @dita/desktop run dist:mac` 产出可运行的 Apple Silicon `.dmg`/`.zip`，实包启动能正常初始化 `better-sqlite3` 数据库、拷贝示例项目并快速优雅退出；`./scripts/sync-hf-space.sh --dry-run` 保持精简无桌面产物混入。
 
+### Phase 12：HTML5 发布样式主题与多套专业文档模板
+> **状态**：✅ 已实现（`dita-ot-plugins/html5-themes/`、`apps/api/src/modules/publish/{html-themes,theme-enhancer,theme-preview,publish-profiles}.ts`、`apps/web/src/components/publish/`、`apps/desktop/src/paths.ts`；蓝图与设计矩阵见 [phase12-html-themes-plan.md](./phase12-html-themes-plan.md)）。采用 **DITA-OT 原生 `--nav-toc=full` + Node 确定性静态后处理增强 + 纯静态主题资产（`dita-ot-plugins/html5-themes/`）** 方案，无需 `dita install`、零外部 CDN 依赖，在 Docker、本机与桌面端一致开箱可用；示例项目实测 `dev-dark` 发布 9 页 / 5 资源 / 9 条离线搜索索引，ZIP 解压 `file://` 双击搜索与在线预览均正常。
+>
+> **目标**：将默认的裸版 DITA-OT HTML5 产物升级为多风格可选的现代离线文档站，内置 **4 套定位鲜明的专业样式模板 + 原生默认兜底**，并支持轻量品牌微调、实时样本预览与按手册持久化默认配置。
+- **内置 4 套专业 HTML5 模板 + 原生兜底（`dita-ot-plugins/html5-themes/`）**：
+  - 沉淀统一排版与零依赖交互底座（`shared/theme-base.css` + `shared/theme-runtime.js`），提供可折叠左侧目录树与当前页定位、右侧页内大纲（Scroll-Spy）、上下篇跳转、`Cmd/Ctrl+K` 离线全文搜索、代码块一键复制、明暗模式切换、移动端抽屉导航及 `index.html` 门户封面增强。
+  - 交付 4 套风格鲜明的内置主题：**现代技术文档（`tech-docs`，默认）**、**出版极简纸白（`editorial-paper`）**、**企业标准手册（`enterprise-manual`）**、**开发者暗夜风（`dev-dark`）**，并保留 **原生纯净默认（`vanilla`）** 跳过一切后处理以兼容客户二次加工。
+- **确定性后处理增强、离线搜索与安全隔离（`apps/api/src/modules/publish/`）**：
+  - 非 `vanilla` HTML5 任务由 `PublishService` 自动向 `dita` CLI 追加 `--nav-toc=full` 与 `--args.gen.task.lbl=YES`，构建完成后由 `Html5ThemeEnhancer` 扫描全部 `.html` 按目录层级计算 `relRoot` 相对路径注入样式/页眉/页脚/脚本，并将离线搜索索引输出为 `_ditaeditor/search-index.js`（`window.__DITA_SEARCH_INDEX__`），确保 ZIP 解压双击 `file://` 与 HTTP 托管均零 CORS 报错。
+  - 严格消毒与路径校验：页眉标题/页脚版权转义防 XSS，主色强校验 `#RRGGBB` 并自动推导色阶变量，工作区 Logo 与自定义 CSS 覆盖文件须通过 `resolveSafeWorkspacePath()` 与后缀/体积白名单校验。
+- **轻量品牌定制、手册级默认配置与实时预览（SQLite + `@dita/web`）**：
+  - 新增 SQLite `manual_publish_profiles` 表按 `manual_id` 保存默认 HTML5 主题与品牌参数（主色、页眉标题、工作区 Logo、页脚版权、自定义 CSS 与 4 项功能开关），并在 `publish_jobs.options_json` 留存单次发布主题快照（零 XML / Git 污染）。
+  - 新增 `GET /api/publish/themes`、`GET /api/publish/themes/:id/preview`（免 DITA-OT 编译实时渲染含完整 DITA 语义元素的样本页）与 `GET/PUT /api/publish/profile`。
+  - 升级 `PublishDialog`：HTML5 模式下展示带迷你布局缩略图的主题卡片网格、可折叠品牌定制区、`ThemePreviewModal`（桌面/平板/手机多视口实时预览）及历史任务主题徽章，并纳入 Phase 8 中英双语词典与防退化门禁；同步接通 `apps/desktop` 打包资源路径。
+- **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含主题后处理、多级目录相对路径、离线搜索索引、XSS/路径穿越拦截、多手册 Profile 隔离与双语门禁测试）；使用示例项目分别发布 4 套主题与 `vanilla`，工作台在线预览与解压 ZIP 双击 `index.html`（`file://`）均样式完整、离线搜索与交互零报错。
+
 ---
 
 ## 七、主要工程风险与应对策略
@@ -461,3 +481,5 @@ DITAEditor/
 | **英文界面文案漏翻、布局溢出或切语言丢撤销栈** | 散落在 ProseMirror 装饰、CSS 伪元素、后端报错与 AI Prompt 的中文残留；英文词长导致窄屏顶栏/工具栏换行挤压；切换语言重挂载编辑器丢失光标与 Undo | 以 `DITA_DECORATIONS_KEY` 元数据事务实现编辑器无损热刷新；用 `:root[lang="en"]` 覆盖 CSS 伪元素；通过 `x-dita-locale` 打通后端报错与 AI 解释语言；以 Vitest 双语对称与硬编码中文扫描门禁持续防退化 |
 | **多手册/分支并发串台与任务目标漂移** | 多人或双标签页同时打开不同手册/分支时覆盖全局工作区，或已委派 Topic 被重命名/删除导致死链、未保存返回工作台丢失草稿 | 后端全部路由与图片端点通过 `ManualContextResolver` 按 `x-dita-manual-id` + `x-dita-branch` 隔离并用 LRU 缓存语义索引；文件重命名同步更新 `topic_assignments.topic_path`、删除标出缺失告警；路由切出前检测 `dirtyCount` 触发防丢确认 |
 | **桌面端原生模块 ABI、Windows 批处理与退出挂死** | pnpm symlink 导致 `electron-builder` 漏包、`better-sqlite3` ABI 不匹配、Windows Node 22 直接 `spawn('dita.bat')` 报 `EINVAL`，或 Chromium keep-alive 阻塞 Fastify 退出 | 用 `esbuild` 打包后端并经扁平 `stage/` 目录 + `asarUnpack` 由 `electron-builder` 在原生 macOS/Windows Runner 上重编 `better-sqlite3`；Windows `.bat` 通过 `cmd.exe /d /s /c` + 显式引号转义执行；退出前先关闭窗口再设 3 秒 drain 兜底；`Dockerfile`/官网 CI 设 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 严格隔离 |
+| **HTML5 主题多级子目录断链、离线 `file://` CORS 与品牌注入风险** | 嵌套目录 Topic 样式/Logo 路径错误、本地双击解压 ZIP 时 `fetch` 搜索索引报 CORS、或自定义标题/CSS 路径引入 XSS 与路径穿越 | 后处理增强器按每个 `.html` 相对深度自动计算 `relRoot`；搜索索引改以 `_ditaeditor/search-index.js` 脚本加载兼容 `file://`；标题/页脚严格 HTML 转义、主色强校验 `#RRGGBB`、Logo/CSS 强制走 `resolveSafeWorkspacePath()` 与后缀白名单；主题资产统一放在三端已覆盖的 `dita-ot-plugins/html5-themes/` |
+| **云端试用部署子路径断链、国内不可达与镜像存储膨胀** | Cloud Run 默认 `*.run.app` 域名国内不可达；反向代理挂载 `/dita` 子路径时 `/api/*` 请求打到主站；本地 `.tsbuildinfo` 混入容器导致 `tsc` 跳过产物输出；多次 push 导致 Artifact Registry 镜像堆积产生额外费用 | 前端统一经 `apiUrl()` 拼接 `VITE_BASE`、后端以 `DITA_BASE_PATH` + Fastify `rewriteUrl` 透明剥离前缀；复用主域名反代网关（Vercel + Cloudflare）免去 GCP LB 费用；`.dockerignore`/`.gcloudignore` 忽略 `**/*.tsbuildinfo`；GitHub Actions 用无密钥 WIF（锁死 `main`）+ 免费 Runner GHA 缓存构建，并在 AR 配置清理策略仅留最新 2 版（详见 [deploy-gcp-cloudrun.md](./deploy-gcp-cloudrun.md)） |

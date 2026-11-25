@@ -12,6 +12,7 @@ import {
   ShieldAlert,
 } from 'lucide-react';
 import { useGitStore } from '../store/git-store';
+import { useEditorStore } from '../store/editor-store';
 import { roleLabel } from '../services/identity-api';
 import type { MessageKey } from '../i18n/messages/index.js';
 import type { GitFileChange } from '../services/git-api';
@@ -69,10 +70,19 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin }: GitPanelProp
     () => locks.filter((lock) => lock.userId === currentUser?.id),
     [locks, currentUser?.id],
   );
-  const eligiblePaths = useMemo(
-    () => myLocks.filter((lock) => dirtySet.has(lock.filePath)).map((lock) => lock.filePath),
-    [myLocks, dirtySet],
+  /** Map buffers edited in memory but not saved yet — they are check-in candidates too. */
+  const memoryDirtyMaps = useEditorStore((state) =>
+    Object.entries(state.mapBuffers)
+      .filter(([, buffer]) => buffer.xml !== buffer.baselineXml)
+      .map(([mapPath]) => mapPath)
+      .join('|'),
   );
+  const eligiblePaths = useMemo(() => {
+    const unsaved = new Set(memoryDirtyMaps.split('|').filter(Boolean));
+    return myLocks
+      .filter((lock) => dirtySet.has(lock.filePath) || unsaved.has(lock.filePath))
+      .map((lock) => lock.filePath);
+  }, [myLocks, dirtySet, memoryDirtyMaps]);
 
   useEffect(() => {
     if (!initialized) return;

@@ -36,6 +36,15 @@ import {
 } from '../dita-ot/dita-log-parser.js';
 import { PublishQueue } from './publish-queue.js';
 import { createZipFromDirectory } from './zip-store.js';
+import {
+  DEFAULT_HTML_THEME_ID,
+  isHtmlThemeId,
+  resolveHtmlThemesDir,
+  resolveThemeOptions,
+  type HtmlThemeId,
+  type HtmlThemeOptions,
+} from './html-themes.js';
+import { enhanceHtml5Output } from './theme-enhancer.js';
 
 export type PublishFormat = 'html5' | 'pdf';
 export type PublishStatus = 'queued' | 'running' | 'succeeded' | 'failed' | 'cancelled';
@@ -51,6 +60,10 @@ export interface CreatePublishJobInput {
   title?: string;
   /** UI locale of the requesting client, persisted with the job so stored build errors match it. */
   locale?: ApiLocale;
+  /** HTML5 portal theme; ignored for PDF jobs. */
+  themeId?: HtmlThemeId;
+  /** Normalized portal theme options; ignored for PDF jobs. */
+  themeOptions?: HtmlThemeOptions;
 }
 
 export interface PublishJobView {
@@ -76,6 +89,9 @@ export interface PublishJobView {
   artifactUrl: string | null;
   logUrl: string;
   cancelRequested: boolean;
+  /** `null` for PDF jobs and for HTML5 jobs published before Phase 12 themes. */
+  themeId: HtmlThemeId | null;
+  themeOptions: HtmlThemeOptions | null;
 }
 
 export interface PublishServiceOptions {
@@ -87,6 +103,8 @@ export interface PublishServiceOptions {
   timeoutMs?: number;
   retentionDays?: number;
   logger?: (message: string, error?: unknown) => void;
+  /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
+  htmlThemesDir?: string;
 }
 
 const EXCLUDED_SNAPSHOT_ENTRIES = new Set([
@@ -166,6 +184,7 @@ export class PublishService {
   private readonly timeoutMs: number;
   private readonly retentionDays: number;
   private readonly logger: (message: string, error?: unknown) => void;
+  private readonly htmlThemesDirOverride: string | undefined;
   private readonly queue: PublishQueue;
   private cleanupTimer: NodeJS.Timeout | null = null;
 
@@ -181,6 +200,7 @@ export class PublishService {
     this.timeoutMs = options.timeoutMs ?? 15 * 60 * 1000;
     this.retentionDays = options.retentionDays ?? 14;
     this.logger = options.logger ?? (() => undefined);
+    this.htmlThemesDirOverride = options.htmlThemesDir;
     this.queue = new PublishQueue({
       concurrency: options.concurrency ?? Number(process.env.DITA_PUBLISH_CONCURRENCY ?? 1),
       run: (jobId, signal) => this.runJob(jobId, signal),
@@ -248,6 +268,19 @@ export class PublishService {
     const logPath = join(jobDir, 'build.log');
     const fallbackTitle = basename(input.rootMap, extname(input.rootMap));
     const title = input.title?.trim() || fallbackTitle;
+    const themeId = input.themeId ?? DEFAULT_HTML_THEME_ID;
+    const themeOptions =
+      themeId === 'vanilla' ? {} : resolveThemeOptions(input.themeOptions ?? {});
+    const optionsJson = JSON.stringify(
+      input.format === 'html5'
+        ? {
+            timeoutMs: this.timeoutMs,
+            locale,
+            workDir: input.workDir,
+            htmlTheme: { themeId, options: themeOptions },
+          }
+        : { timeoutMs: this.timeoutMs, locale, workDir: input.workDir },
+    );
 
     this.db
       .insert(publishJobs)
@@ -261,7 +294,7 @@ export class PublishService {
         ditaval: input.ditaval ?? null,
         title,
         status: 'queued',
-        optionsJson: JSON.stringify({ timeoutMs: this.timeoutMs, locale, workDir: input.workDir }),
+        optionsJson,
         createdAt: now,
         logPath,
         snapshotPath: join(jobDir, 'snapshot'),
@@ -328,6 +361,7 @@ export class PublishService {
 
   private toView(row: PublishJobRow): PublishJobView {
     const succeeded = row.status === 'succeeded';
+    const theme = this.themeForRow(row);
     return {
       id: row.id,
       projectId: row.projectId,
@@ -357,6 +391,36 @@ export class PublishService {
       artifactUrl: succeeded && row.artifactPath ? `/api/publish/jobs/${row.id}/artifact` : null,
       logUrl: `/api/publish/jobs/${row.id}/log`,
       cancelRequested: row.cancelRequested === 1,
+      themeId: theme?.themeId ?? null,
+      themeOptions: theme?.options ?? null,
+    };
+  }
+
+  /**
+   * HTML5 theme snapshot stored in `optionsJson.htmlTheme`. Legacy rows (and every PDF job) have
+   * no such key and resolve to `null`, so the view stays backwards compatible.
+   */
+  private themeForRow(
+    row: PublishJobRow,
+  ): { themeId: HtmlThemeId; options: HtmlThemeOptions } | null {
+    if (!row.optionsJson) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(row.optionsJson);
+    } catch {
+      return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const htmlTheme = (parsed as { htmlTheme?: unknown }).htmlTheme;
+    if (typeof htmlTheme !== 'object' || htmlTheme === null) return null;
+    const themeId = (htmlTheme as { themeId?: unknown }).themeId;
+    if (!isHtmlThemeId(themeId)) return null;
+    return {
+      themeId,
+      options:
+        themeId === 'vanilla'
+          ? {}
+          : resolveThemeOptions((htmlTheme as { options?: unknown }).options),
     };
   }
 
@@ -455,6 +519,7 @@ export class PublishService {
       }
 
       const format = row.format as PublishFormat;
+      const theme = format === 'html5' ? this.themeForRow(row) : null;
       const args = [
         `--input=${inputAbs}`,
         `--format=${format}`,
@@ -468,6 +533,11 @@ export class PublishService {
           throw new Error(apiT(locale, 'publish.ditavalMissing', { path: row.ditaval }));
         }
         args.push(`--filter=${ditavalAbs}`);
+      }
+      if (theme && theme.themeId !== 'vanilla') {
+        // The themed portal needs a full navigation TOC plus task labels, which the DITA-OT
+        // default HTML5 transform leaves out.
+        args.push('--nav-toc=full', '--args.gen.task.lbl=YES');
       }
       let fopConfig: string | null = null;
       if (format === 'pdf') {
@@ -596,6 +666,17 @@ export class PublishService {
         }
         artifactPath = join(jobDir, 'artifact.zip');
         artifactName = `${sanitizeFileStem(row.title)}-html5.zip`;
+        if (theme && theme.themeId !== 'vanilla') {
+          await this.enhanceThemeOutput({
+            jobId,
+            themeId: theme.themeId,
+            options: theme.options,
+            outputDir,
+            snapshotDir,
+            logPath,
+            locale,
+          });
+        }
         const zip = await createZipFromDirectory(outputDir, artifactPath);
         this.logger(`publish ${jobId}: zipped ${zip.entries} files (${zip.bytes} bytes)`);
       }
@@ -692,6 +773,59 @@ export class PublishService {
       this.db.delete(publishJobs).where(eq(publishJobs.id, row.id)).run();
     }
     return rows.length;
+  }
+
+  /**
+   * Applies the themed portal shell to a fresh DITA-OT HTML5 output. Assets are resolved lazily
+   * so a server without the html-themes bundle can still publish PDF and vanilla HTML5 jobs.
+   */
+  private async enhanceThemeOutput(params: {
+    jobId: string;
+    themeId: HtmlThemeId;
+    options: HtmlThemeOptions;
+    outputDir: string;
+    snapshotDir: string;
+    logPath: string;
+    locale: ApiLocale;
+  }): Promise<void> {
+    const { themeId, logPath, locale } = params;
+    let themesDir: string;
+    try {
+      themesDir = resolveHtmlThemesDir(this.htmlThemesDirOverride);
+    } catch (err) {
+      this.logger(`publish ${params.jobId}: html-themes assets missing`, err);
+      throw new Error(apiT(locale, 'publish.themeAssetsMissing'));
+    }
+    try {
+      const result = await enhanceHtml5Output({
+        outputDir: params.outputDir,
+        themeId,
+        options: params.options,
+        themesDir,
+        workspaceRoot: params.snapshotDir,
+        locale,
+        onWarn: (message) => void this.handleLog(logPath, `# theme warning: ${message}`),
+      });
+      await this.handleLog(
+        logPath,
+        `# theme ${themeId}: ${result.pages} pages, ${result.assets.length} assets, ` +
+          `${result.searchEntries.length} search entries, ${result.warnings.length} warnings`,
+      );
+    } catch (err) {
+      const detail = err instanceof Error ? err.message : String(err);
+      await this.handleLog(logPath, `# theme ${themeId} failed: ${detail}`);
+      this.logger(`publish ${params.jobId}: html theme enhancement failed`, err);
+      throw new Error(apiT(locale, 'publish.themeEnhanceFailed', { message: detail }));
+    }
+  }
+
+  /** Append a line to a job log after the build stream has been closed. */
+  private async handleLog(logPath: string, line: string): Promise<void> {
+    try {
+      await appendFile(logPath, `${line}\n`, 'utf8');
+    } catch {
+      // the log file may be gone (retention pruning); the job result does not depend on it
+    }
   }
 
   /** Append a line to a job log; used by routes for user actions such as cancellation. */

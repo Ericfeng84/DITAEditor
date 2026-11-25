@@ -91,6 +91,8 @@ export const enWorkbench = {
   'workbench.leaveSave': 'Save and go back',
   'workbench.leaveDiscard': 'Discard changes and go back',
   'workbench.leaveCancel': 'Keep editing',
+  'workbench.leaveSaveWithCheckout': 'Check out, save, and leave',
+  'workbench.leaveSaveFailedDetail': 'These files could not be saved: {paths}. {reason}',
   'workbench.leaveDiscardConfirm': 'Discarded changes cannot be restored. Discard them anyway?',
   'workbench.offlineDemoRootDir': '(offline demo folder)',
 } as const;

@@ -176,7 +176,39 @@ export const apiMessagesZh = {
   'assignments.invalidDueDate': '截止日期格式应为 YYYY-MM-DD：{value}',
   'assignments.sameAssignee': '该任务已委派给同一人',
   'assignments.assignerOrAssigneeOnly': '仅委派人或受托人可以修改该任务',
+
+  'publish.theme.tech-docs.name': '技术文档',
+  'publish.theme.tech-docs.description':
+    '现代三栏布局，内置离线搜索、页内目录与代码复制，适合 API 与产品手册。',
+  'publish.theme.editorial-paper.name': '编辑纸感',
+  'publish.theme.editorial-paper.description':
+    '暖色衬线排版与宽行距，接近印刷读物的阅读体验。',
+  'publish.theme.enterprise-manual.name': '企业手册',
+  'publish.theme.enterprise-manual.description':
+    '深色页头与紧凑表格，适合内部规范与流程文档。',
+  'publish.theme.dev-dark.name': '开发者深色',
+  'publish.theme.dev-dark.description':
+    '深色画布与高对比强调色，适合 SDK 与命令行文档。',
+  'publish.theme.vanilla.name': '原生输出',
+  'publish.theme.vanilla.description':
+    '仅使用 DITA-OT 默认 HTML5 样式，不注入任何主题资源。',
+  'publish.theme.tags.modern': '现代',
+  'publish.theme.tags.default': '默认',
+  'publish.theme.tags.minimal': '简约',
+  'publish.theme.tags.print': '印刷',
+  'publish.theme.tags.enterprise': '企业',
+  'publish.theme.tags.dark': '深色',
+  'publish.theme.tags.developer': '开发者',
+  'publish.theme.tags.native': '原生',
+  'publish.themeNotFound': '发布主题不存在：{id}',
+  'publish.invalidThemeOptions': '主题参数无效',
+  'publish.profileNotFound': '发布配置不存在',
+  'publish.profileSaved': '发布配置已保存',
+  'publish.themeAssetsMissing': '未找到 HTML 主题资源，请检查 dita-ot-plugins/html5-themes 或 DITAEDITOR_HTML_THEMES_DIR',
+  'publish.themeEnhanceFailed': 'HTML 主题增强失败：{message}',
+  'publish.themePreviewFailed': '主题预览渲染失败',
 } as const;
+
 
 export type ApiMessageKey = keyof typeof apiMessagesZh;
 
@@ -354,7 +386,40 @@ export const apiMessagesEn: Record<ApiMessageKey, string> = {
   'assignments.sameAssignee': 'This assignment is already delegated to that person',
   'assignments.assignerOrAssigneeOnly':
     'Only the assigner or the assignee can edit this assignment',
+
+  'publish.theme.tech-docs.name': 'Tech Docs',
+  'publish.theme.tech-docs.description':
+    'Modern three-column layout with offline search, page outline and code copy; suits API and product guides.',
+  'publish.theme.editorial-paper.name': 'Editorial Paper',
+  'publish.theme.editorial-paper.description':
+    'Warm serif typography and generous line height for a print-like reading experience.',
+  'publish.theme.enterprise-manual.name': 'Enterprise Manual',
+  'publish.theme.enterprise-manual.description':
+    'Dark header and compact tables for internal standards and process documents.',
+  'publish.theme.dev-dark.name': 'Developer Dark',
+  'publish.theme.dev-dark.description':
+    'Dark canvas with high-contrast accents for SDK and command-line documentation.',
+  'publish.theme.vanilla.name': 'Native Output',
+  'publish.theme.vanilla.description':
+    'DITA-OT default HTML5 styling; no theme assets are injected.',
+  'publish.theme.tags.modern': 'Modern',
+  'publish.theme.tags.default': 'Default',
+  'publish.theme.tags.minimal': 'Minimal',
+  'publish.theme.tags.print': 'Print',
+  'publish.theme.tags.enterprise': 'Enterprise',
+  'publish.theme.tags.dark': 'Dark',
+  'publish.theme.tags.developer': 'Developer',
+  'publish.theme.tags.native': 'Native',
+  'publish.themeNotFound': 'Publish theme not found: {id}',
+  'publish.invalidThemeOptions': 'Invalid theme options',
+  'publish.profileNotFound': 'Publish profile not found',
+  'publish.profileSaved': 'Publish profile saved',
+  'publish.themeAssetsMissing':
+    'HTML theme assets are missing; check dita-ot-plugins/html5-themes or DITAEDITOR_HTML_THEMES_DIR',
+  'publish.themeEnhanceFailed': 'HTML theme enhancement failed: {message}',
+  'publish.themePreviewFailed': 'Failed to render the theme preview',
 };
+
 
 const CATALOGUES: Record<UiLocale, Record<ApiMessageKey, string>> = {
   'zh-CN': apiMessagesZh,

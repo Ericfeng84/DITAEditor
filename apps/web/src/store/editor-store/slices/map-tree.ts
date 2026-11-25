@@ -19,7 +19,9 @@ import {
 } from '../../../services/workspace-api';
 import {
   extractTitleFromCheck,
+  nextWorkbenchAlert,
 } from '../internals.js';
+import { ensureFileCheckedOut } from '../../git-store';
 import type { EditorWorkbenchState, StoreGet, StoreSet } from '../types.js';
 import type { StoreRuntime } from '../runtime.js';
 
@@ -30,6 +32,20 @@ export function createMapTreeSlice(
   runtime: StoreRuntime,
 ) {
   return {
+    async ensureMapEditable(mapPath) {
+      // The in-browser demo workspace has neither locks nor users: every edit is allowed.
+      if (get().workspaceMode !== 'api') return true;
+      const guard = await ensureFileCheckedOut(mapPath);
+      if (guard.ok) return true;
+      set({
+        alert: nextWorkbenchAlert({
+          tone: 'error',
+          message: t('lock.mapBlocked', { path: mapPath, message: guard.message }),
+        }),
+      });
+      return false;
+    },
+
     mutateMapXml(mapPath, nextXml, announcement) {
       const state = get();
       const prevBuf = state.mapBuffers[mapPath];
@@ -157,7 +173,7 @@ export function createMapTreeSlice(
       }));
     },
 
-    moveMapTreeNodes(dragNodes, targetParent, index) {
+    async moveMapTreeNodes(dragNodes, targetParent, index) {
       const state = get();
       if (!state.activeRootMapPath) return;
 
@@ -172,6 +188,11 @@ export function createMapTreeSlice(
       if (!plan.ok) {
         if (plan.reason) set({ statusMessage: plan.reason });
         return;
+      }
+
+      // A drag can cross into a submap, so every touched map needs its own check-out.
+      for (const mapPath of new Set(plan.updates.map((upd) => upd.mapPath))) {
+        if (!(await get().ensureMapEditable(mapPath))) return;
       }
 
       for (const upd of plan.updates) {
@@ -189,6 +210,12 @@ export function createMapTreeSlice(
       lang,
       targetDir,
     }) {
+      const buffered = get().mapBuffers[mapPath];
+      if (!buffered) return;
+      // Check out the map BEFORE creating its topic, otherwise a rejected map write leaves an
+      // orphan topic file behind that no map references.
+      if (!(await get().ensureMapEditable(mapPath))) return;
+
       const state = get();
       const buf = state.mapBuffers[mapPath];
       if (!buf) return;
@@ -249,7 +276,8 @@ export function createMapTreeSlice(
       await get().refreshDiagnostics();
     },
 
-    mountExistingFileInMap({ mapPath, parentPath, targetFilePath, tagName, navtitle }) {
+    async mountExistingFileInMap({ mapPath, parentPath, targetFilePath, tagName, navtitle }) {
+      if (!(await get().ensureMapEditable(mapPath))) return;
       const state = get();
       const buf = state.mapBuffers[mapPath];
       if (!buf) return;
@@ -280,9 +308,9 @@ export function createMapTreeSlice(
       });
     },
 
-    insertMapStructureNode({ mapPath, parentPath, tagName, navtitle, keys, keydefKeyword }) {
-      const state = get();
-      const buf = state.mapBuffers[mapPath];
+    async insertMapStructureNode({ mapPath, parentPath, tagName, navtitle, keys, keydefKeyword }) {
+      if (!(await get().ensureMapEditable(mapPath))) return;
+      const buf = get().mapBuffers[mapPath];
       if (!buf) return;
 
       const attrs: XmlAttributeEntry[] = [];
@@ -314,23 +342,25 @@ export function createMapTreeSlice(
       });
     },
 
-    updateMapAttr(mapPath, elementPath, attrName, value) {
+    async updateMapAttr(mapPath, elementPath, attrName, value) {
+      if (!(await get().ensureMapEditable(mapPath))) return;
       const buf = get().mapBuffers[mapPath];
       if (!buf) return;
       const res = updateMapNodeAttr(buf.xml, elementPath, attrName, value);
       get().mutateMapXml(mapPath, res.xml, t('status.attrUpdated', { name: attrName }));
     },
 
-    updateMapNavtitle(mapPath, elementPath, navtitle) {
+    async updateMapNavtitle(mapPath, elementPath, navtitle) {
+      if (!(await get().ensureMapEditable(mapPath))) return;
       const buf = get().mapBuffers[mapPath];
       if (!buf) return;
       const res = updateMapNodeNavtitle(buf.xml, elementPath, navtitle);
       get().mutateMapXml(mapPath, res.xml, t('status.navtitleUpdated'));
     },
 
-    renameMapKey(def, nextKey) {
-      const state = get();
-      const buf = state.mapBuffers[def.sourceMapPath];
+    async renameMapKey(def, nextKey) {
+      if (!(await get().ensureMapEditable(def.sourceMapPath))) return false;
+      const buf = get().mapBuffers[def.sourceMapPath];
       if (!buf) return false;
 
       const res = renameMapNodeKeyToken(buf.xml, def.elementPath, def.key, nextKey);
@@ -344,13 +374,14 @@ export function createMapTreeSlice(
 
       // In API mode the keyspace is resolved server-side from the files on disk, so the rename must
       // be persisted before `refreshSemantics()` can report the new key name.
-      if (state.workspaceMode === 'api') {
-        void get().saveFile(def.sourceMapPath);
+      if (get().workspaceMode === 'api') {
+        await get().saveFile(def.sourceMapPath);
       }
       return true;
     },
 
-    updateMapKeyValue(def, nextValue) {
+    async updateMapKeyValue(def, nextValue) {
+      if (!(await get().ensureMapEditable(def.sourceMapPath))) return false;
       const state = get();
       const buf = state.mapBuffers[def.sourceMapPath];
       if (!buf) return false;
@@ -383,19 +414,21 @@ export function createMapTreeSlice(
 
       // Same reason as `renameMapKey`: the keyspace is re-indexed from persisted map files.
       if (state.workspaceMode === 'api') {
-        void get().saveFile(def.sourceMapPath);
+        await get().saveFile(def.sourceMapPath);
       }
       return true;
     },
 
-    updateMapRootTitle(mapPath, title) {
+    async updateMapRootTitle(mapPath, title) {
+      if (!(await get().ensureMapEditable(mapPath))) return;
       const buf = get().mapBuffers[mapPath];
       if (!buf) return;
       const res = updateMapTitle(buf.xml, title);
       get().mutateMapXml(mapPath, res.xml, t('status.mapTitleUpdated'));
     },
 
-    deleteMapTreeNode(mapPath, elementPath) {
+    async deleteMapTreeNode(mapPath, elementPath) {
+      if (!(await get().ensureMapEditable(mapPath))) return;
       const buf = get().mapBuffers[mapPath];
       if (!buf) return;
       const res = deleteMapNode(buf.xml, elementPath);

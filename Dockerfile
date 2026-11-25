@@ -25,6 +25,8 @@ COPY apps/desktop/package.json apps/desktop/
 RUN pnpm install --frozen-lockfile --filter @dita/core --filter @dita/web --filter @dita/api
 
 COPY . .
+ARG VITE_BASE=/
+ENV VITE_BASE=${VITE_BASE}
 # The marketing site is deployed separately (CDN): keep the workbench image lean.
 RUN pnpm --filter @dita/core --filter @dita/web --filter @dita/api build
 
@@ -39,10 +41,12 @@ FROM eclipse-temurin:21-jre AS jre
 FROM node:22-bookworm-slim AS runtime
 
 ARG DITA_OT_VERSION=4.2.1
+ARG DITA_BASE_PATH=
 
 ENV NODE_ENV=production \
     HOME=/home/node \
     PORT=3001 \
+    DITA_BASE_PATH=${DITA_BASE_PATH} \
     DITA_OT_VERSION=${DITA_OT_VERSION} \
     DITA_OT_HOME=/opt/dita-ot \
     DITAEDITOR_PDF_PLUGIN_DIR=/app/dita-ot-plugins/com.ditaeditor.pdf-cjk \

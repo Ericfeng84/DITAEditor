@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Ban,
   CheckCircle2,
+  ChevronDown,
   Clock,
   ExternalLink,
   FileDown,
@@ -11,18 +12,30 @@ import {
   History,
   Loader2,
   Package,
+  Palette,
   RefreshCw,
   Rocket,
+  Sparkles,
   X,
   XCircle,
 } from 'lucide-react';
 import type { IdentityUser } from '../../services/identity-api';
 import type { WorkspaceDitavalSummary, WorkspaceMapSummary } from '../../services/workspace-api';
-import type { PublishFormat, PublishJob, PublishStatus } from '../../services/publish-api';
+import type { HtmlThemeDescriptor, HtmlThemeId, PublishFormat, PublishJob, PublishStatus } from '../../services/publish-api';
 import { usePublishStore } from '../../store/publish-store';
+import { useEditorStore } from '../../store/editor-store';
 import { useI18n } from '../../i18n/index.js';
 import type { MessageKey } from '../../i18n/messages/index.js';
 import { JobLogViewer } from './JobLogViewer';
+import { HtmlThemeSelector } from './HtmlThemeSelector';
+import { ThemePreviewModal } from './ThemePreviewModal';
+import {
+  applyThemeSelection,
+  defaultThemeDraft,
+  themeDraftFromProfile,
+  themeOptionsFromDraft,
+} from './html-theme-model.js';
+import type { ThemeDraft } from './html-theme-model.js';
 
 export interface PublishDialogProps {
   open: boolean;
@@ -91,6 +104,18 @@ export function PublishDialog({
   const cancelling = usePublishStore((state) => state.cancelling);
   const loadRuntime = usePublishStore((state) => state.loadRuntime);
   const loadJobs = usePublishStore((state) => state.loadJobs);
+  const themes = usePublishStore((state) => state.themes);
+  const themesStatus = usePublishStore((state) => state.themesStatus);
+  const themesError = usePublishStore((state) => state.themesError);
+  const profile = usePublishStore((state) => state.profile);
+  const profileStatus = usePublishStore((state) => state.profileStatus);
+  const profileError = usePublishStore((state) => state.profileError);
+  const loadThemes = usePublishStore((state) => state.loadThemes);
+  const loadProfile = usePublishStore((state) => state.loadProfile);
+  const saveProfile = usePublishStore((state) => state.saveProfile);
+  const savingProfile = usePublishStore((state) => state.savingProfile);
+  const profileSaveError = usePublishStore((state) => state.profileSaveError);
+  const profileSaved = usePublishStore((state) => state.profileSaved);
   const createJob = usePublishStore((state) => state.createJob);
   const cancelJob = usePublishStore((state) => state.cancelJob);
   const selectJob = usePublishStore((state) => state.selectJob);
@@ -101,6 +126,12 @@ export function PublishDialog({
   const [format, setFormat] = useState<PublishFormat>('html5');
   const [ditaval, setDitaval] = useState('');
   const [title, setTitle] = useState('');
+  const [themeDraft, setThemeDraft] = useState<ThemeDraft | null>(null);
+  const [themeExpanded, setThemeExpanded] = useState(true);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const themeInitialized = useRef(false);
+  const fileTree = useEditorStore((state) => state.fileTree);
 
   useEffect(() => {
     if (!open) return;
@@ -112,10 +143,46 @@ export function PublishDialog({
     setDitaval(activeDitavalPath ?? '');
     setFormat('html5');
     setTitle('');
+    setThemeExpanded(true);
+    setSaveAsDefault(false);
+    setPreviewOpen(false);
+    themeInitialized.current = false;
     clearActionError();
     void loadRuntime();
     void loadJobs();
-  }, [open, activeRootMapPath, activeDitavalPath, rootMaps, loadRuntime, loadJobs, clearActionError]);
+    void loadThemes();
+    void loadProfile();
+  }, [
+    open,
+    activeRootMapPath,
+    activeDitavalPath,
+    rootMaps,
+    loadRuntime,
+    loadJobs,
+    loadThemes,
+    loadProfile,
+    clearActionError,
+  ]);
+
+  // Seed the dialog draft once the catalogue and the manual profile are both available, then
+  // leave it alone: later profile refreshes (after saving) must not clobber in-progress edits.
+  useEffect(() => {
+    if (!open || themeInitialized.current) return;
+    if (themesStatus !== 'ready') return;
+    if (profileStatus !== 'ready' && profileStatus !== 'error') return;
+    const preferredId = profile?.htmlThemeId ?? 'tech-docs';
+    const descriptor =
+      themes.find((candidate) => candidate.id === preferredId) ??
+      themes.find((candidate) => candidate.id === 'tech-docs') ??
+      themes[0];
+    if (!descriptor) return;
+    themeInitialized.current = true;
+    setThemeDraft(
+      profile
+        ? themeDraftFromProfile({ ...profile, htmlThemeId: descriptor.id }, descriptor)
+        : defaultThemeDraft(descriptor),
+    );
+  }, [open, themesStatus, profileStatus, themes, profile]);
 
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === activeJobId) ?? null,
@@ -133,17 +200,58 @@ export function PublishDialog({
 
   const selectedMap = rootMaps.find((map) => map.path === rootMap) ?? null;
   const defaultTitle = selectedMap?.title?.trim() || stemOf(rootMap) || t('publish.untitled');
+  const selectedTheme = themeDraft
+    ? (themes.find((theme) => theme.id === themeDraft.themeId) ?? null)
+    : null;
+  const themeIsDefault = Boolean(themeDraft && profile && profile.htmlThemeId === themeDraft.themeId);
   const canPublish =
     Boolean(runtime?.available) && Boolean(rootMap) && !submitting && role !== 'viewer';
+
+  const themeNameOf = (id: HtmlThemeId | null): string => {
+    if (!id) return t('publish.theme.badgeDefault');
+    return themes.find((theme) => theme.id === id)?.name ?? t('publish.theme.badgeDefault');
+  };
+
+  const changeThemeDraft = (next: ThemeDraft) => {
+    if (!themeDraft) {
+      setThemeDraft(next);
+      return;
+    }
+    if (next.themeId === themeDraft.themeId) {
+      setThemeDraft(next);
+      return;
+    }
+    const previous = themes.find((theme) => theme.id === themeDraft.themeId) ?? null;
+    const descriptor = themes.find((theme) => theme.id === next.themeId);
+    if (!descriptor) {
+      setThemeDraft(next);
+      return;
+    }
+    setThemeDraft(applyThemeSelection(themeDraft, previous, descriptor));
+  };
+
+  const saveThemeDefault = () => {
+    if (!themeDraft || !selectedTheme) return;
+    void saveProfile(themeDraft.themeId, themeOptionsFromDraft(themeDraft, selectedTheme));
+  };
 
   if (!open) return null;
 
   const submit = async () => {
+    const themeFields =
+      format === 'html5' && themeDraft && selectedTheme
+        ? {
+            themeId: themeDraft.themeId,
+            themeOptions: themeOptionsFromDraft(themeDraft, selectedTheme),
+            saveAsDefault,
+          }
+        : {};
     const job = await createJob({
       rootMap,
       format,
       ditaval: ditaval || null,
       title: title.trim() || defaultTitle,
+      ...themeFields,
     });
     if (job) setTitle('');
   };
@@ -358,6 +466,113 @@ export function PublishDialog({
           ) : null}
         </div>
 
+        {format === 'html5' ? (
+          <div className="shrink-0 border-b border-slate-200 bg-white">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-1.5">
+              <button
+                type="button"
+                aria-expanded={themeExpanded}
+                onClick={() => setThemeExpanded((expanded) => !expanded)}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+              >
+                <Palette className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                {t('publish.theme.sectionTitle')}
+                <ChevronDown
+                  className={`h-3 w-3 text-slate-400 transition-transform ${themeExpanded ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+              <span className="min-w-0 truncate text-[10.5px] text-slate-500">
+                {t('publish.theme.sectionHint')}
+              </span>
+              {themeIsDefault ? (
+                <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9.5px] font-medium text-emerald-700">
+                  {t('publish.theme.defaultBadge')}
+                </span>
+              ) : null}
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                {role !== 'viewer' && selectedTheme?.supportsCustomization ? (
+                  <label
+                    className="flex cursor-pointer items-center gap-1 text-[10.5px] text-slate-600"
+                    title={t('publish.theme.saveAsDefaultHint')}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={saveAsDefault}
+                      onChange={(event) => setSaveAsDefault(event.target.checked)}
+                      className="h-3 w-3 rounded border-slate-300 text-blue-600"
+                    />
+                    {t('publish.theme.saveAsDefault')}
+                  </label>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setPreviewOpen(true)}
+                  disabled={!themeDraft || !selectedTheme}
+                  className="dita-mini-btn bg-white px-2 py-0.5 disabled:opacity-50"
+                >
+                  <Sparkles className="h-3 w-3 text-slate-500" aria-hidden="true" />
+                  {t('publish.theme.previewButton')}
+                </button>
+              </div>
+            </div>
+            {profileStatus === 'error' ? (
+              <p className="mx-4 mb-1.5 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10.5px] text-amber-800">
+                <span className="min-w-0 flex-1">
+                  {t('publish.theme.profileLoadFailed', { message: profileError ?? '' })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void loadProfile()}
+                  className="dita-mini-btn bg-white px-1.5 py-0.5"
+                >
+                  {t('publish.theme.retry')}
+                </button>
+              </p>
+            ) : null}
+            {themeExpanded ? (
+              <div className="dita-scroller max-h-[40vh] overflow-y-auto px-4 pb-2">
+                {themeDraft ? (
+                  <HtmlThemeSelector
+                    descriptors={themes}
+                    status={themesStatus}
+                    error={themesError}
+                    draft={themeDraft}
+                    defaultThemeId={profile?.htmlThemeId ?? null}
+                    files={fileTree}
+                    disabled={role === 'viewer'}
+                    onChange={changeThemeDraft}
+                    onRetry={() => void loadThemes()}
+                    onPreview={() => setPreviewOpen(true)}
+                    onSaveDefault={saveThemeDefault}
+                    savingDefault={savingProfile}
+                    savedDefault={profileSaved}
+                    saveError={profileSaveError}
+                  />
+                ) : themesStatus === 'error' ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-800">
+                    <span className="min-w-0 flex-1">
+                      {t('publish.theme.themesLoadFailed', { message: themesError ?? '' })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void loadThemes()}
+                      className="dita-mini-btn bg-white px-2 py-1"
+                    >
+                      {t('publish.theme.retry')}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="flex items-center gap-1.5 px-1 py-4 text-[11px] text-slate-500">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    {t('publish.theme.loading')}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)]">
           <div className="flex min-h-0 flex-col border-r border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5">
@@ -409,6 +624,14 @@ export function PublishDialog({
                           />
                           {job.format}
                         </span>
+                        {job.themeId ? (
+                          <span
+                            className="max-w-[68px] shrink-0 truncate rounded bg-white px-1 py-0.5 text-[9px] text-slate-500"
+                            title={themeNameOf(job.themeId)}
+                          >
+                            {themeNameOf(job.themeId)}
+                          </span>
+                        ) : null}
                         <span className="min-w-0 flex-1 truncate font-medium text-slate-800">
                           {job.title}
                         </span>
@@ -449,6 +672,11 @@ export function PublishDialog({
                       <span className="font-mono">{selectedJob.rootMap}</span>
                       <span>·</span>
                       <span>{t('publish.meta.format', { value: selectedJob.format.toUpperCase() })}</span>
+                      {selectedJob.format === 'html5' ? (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600">
+                          {themeNameOf(selectedJob.themeId)}
+                        </span>
+                      ) : null}
                       {selectedJob.ditaval ? (
                         <>
                           <span>·</span>
@@ -574,6 +802,20 @@ export function PublishDialog({
           </div>
         </div>
       </div>
+      {previewOpen && themeDraft ? (
+        <ThemePreviewModal
+          open={previewOpen}
+          descriptor={selectedTheme}
+          draft={themeDraft}
+          descriptors={themes}
+          onSelectTheme={(descriptor) => setThemeDraft(applyThemeSelection(themeDraft, selectedTheme, descriptor))}
+          onClose={() => setPreviewOpen(false)}
+          onApply={(next) => {
+            setThemeDraft(next);
+            setPreviewOpen(false);
+          }}
+        />
+      ) : null}
     </div>
   );
 }

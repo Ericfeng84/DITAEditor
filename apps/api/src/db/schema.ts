@@ -53,6 +53,20 @@ export const manuals = sqliteTable(
 );
 
 /**
+ * Per-manual HTML5 theme preferences (Phase 12). `manualId` references `manuals.id` and
+ * `updatedBy` references `users.id`; the table declares no foreign keys because the rest of
+ * this schema keeps relations as plain text columns too. `updatedAt` is an ISO timestamp
+ * string rather than the epoch integers used by the older tables.
+ */
+export const manualPublishProfiles = sqliteTable('manual_publish_profiles', {
+  manualId: text('manual_id').primaryKey(),
+  htmlThemeId: text('html_theme_id').notNull().default('tech-docs'),
+  htmlThemeOptionsJson: text('html_theme_options_json').notNull().default('{}'),
+  updatedBy: text('updated_by'),
+  updatedAt: text('updated_at').notNull(),
+});
+
+/**
  * Topic editing assignments (Phase 10). Soft collaboration metadata only: nothing is ever
  * written into DITA XML or Git. The partial unique index keeps at most one active
  * (`pending` / `in_progress`) assignment per (manual, branch, topic).
@@ -205,3 +219,4 @@ export type AiSettingsRow = typeof aiSettings.$inferSelect;
 export type AiUsageLogRow = typeof aiUsageLogs.$inferSelect;
 export type ManualRow = typeof manuals.$inferSelect;
 export type TopicAssignmentRow = typeof topicAssignments.$inferSelect;
+export type ManualPublishProfileRow = typeof manualPublishProfiles.$inferSelect;

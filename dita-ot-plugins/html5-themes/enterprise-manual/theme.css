@@ -1,0 +1,181 @@
+/*!
+ * DITAEditor theme: enterprise-manual
+ * ---------------------------------------------------------------------------
+ * Dense corporate handbook: navy header, compact 13-14px body text, tight 4px
+ * radii, fully gridded tables, numbered section markers and strong left-bordered
+ * admonitions. Optimised for long reference manuals that are printed as well as
+ * browsed.
+ */
+
+:root[data-de-theme="enterprise-manual"] {
+  --de-accent: #1d4ed8;
+  --de-accent-hover: #1e40af;
+  --de-accent-soft: #dbeafe;
+  --de-accent-border: #93c5fd;
+  --de-accent-contrast: #ffffff;
+
+  --de-bg: #ffffff;
+  --de-surface: #f4f6f9;
+  --de-surface-2: #e9edf3;
+  --de-header-bg: #0f2942;
+  --de-header-text: #f8fafc;
+  --de-header-muted: #b8cadb;
+  --de-header-border: #0b1f33;
+  --de-text: #111827;
+  --de-text-muted: #4b5563;
+  --de-border: #cfd8e3;
+  --de-code-bg: #f4f6f9;
+  --de-code-text: #0f172a;
+  --de-radius: 4px;
+  --de-shadow: 0 1px 1px rgba(15, 41, 66, 0.06);
+  --de-font-size: 14px;
+  --de-line-height: 1.62;
+  --de-content-width: 50rem;
+  --de-sidebar-width: 17.5rem;
+  --de-onpage-width: 14rem;
+
+  --de-link: #1d4ed8;
+  --de-link-hover: #1e40af;
+  --de-bar: #1d4ed8;
+  --de-hover-bg: rgba(29, 78, 216, 0.06);
+  --de-active-bg: #e8effc;
+  --de-table-stripe: #f7f9fc;
+  --de-table-head-bg: #e9edf3;
+}
+
+html[data-de-theme="enterprise-manual"][data-de-mode="dark"] {
+  --de-bg: #0b1a2a;
+  --de-surface: #102338;
+  --de-surface-2: #162c44;
+  --de-header-bg: #081827;
+  --de-header-text: #eaf2fa;
+  --de-header-muted: #a7bdd3;
+  --de-header-border: #0b2135;
+  --de-text: #e6eef7;
+  --de-text-muted: #9fb3c8;
+  --de-border: #26405c;
+  --de-code-bg: #0f2439;
+  --de-code-text: #dbe8f6;
+
+  --de-link: #93c5fd;
+  --de-link-hover: #bfdbfe;
+  --de-bar: #60a5fa;
+  --de-accent-soft: rgba(96, 165, 250, 0.16);
+  --de-accent-border: rgba(96, 165, 250, 0.38);
+  --de-hover-bg: rgba(148, 163, 184, 0.1);
+  --de-active-bg: rgba(96, 165, 250, 0.14);
+  --de-table-stripe: rgba(148, 163, 184, 0.05);
+  --de-table-head-bg: rgba(148, 163, 184, 0.1);
+  --de-mark-bg: #1e3a8a;
+  --de-mark-text: #dbeafe;
+}
+
+/* Compact heading scale for handbook density. */
+html[data-de-theme="enterprise-manual"] .de-main .topictitle1 {
+  font-size: 1.55rem;
+  letter-spacing: -0.01em;
+}
+
+html[data-de-theme="enterprise-manual"] .de-main .topictitle2,
+html[data-de-theme="enterprise-manual"] .de-main .sectiontitle {
+  margin-top: 1.6rem;
+  font-size: 1.15rem;
+}
+
+html[data-de-theme="enterprise-manual"] .de-main .shortdesc {
+  font-size: 0.9375rem;
+}
+
+/* Numbered section markers: only explicit <section> blocks are counted. */
+html[data-de-theme="enterprise-manual"] .de-main .body,
+html[data-de-theme="enterprise-manual"] .de-main .conbody,
+html[data-de-theme="enterprise-manual"] .de-main .taskbody,
+html[data-de-theme="enterprise-manual"] .de-main .refbody {
+  counter-reset: de-section;
+}
+
+html[data-de-theme="enterprise-manual"] .de-main .section > .sectiontitle::before {
+  counter-increment: de-section;
+  content: counter(de-section) ".\00a0\00a0";
+  color: var(--de-link);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+}
+
+html[data-de-theme="enterprise-manual"] .de-main .section {
+  padding-top: 0.25rem;
+  border-top: 1px solid var(--de-border);
+}
+
+html[data-de-theme="enterprise-manual"] .de-main .section:first-child {
+  border-top: 0;
+}
+
+/* Fully gridded tables. */
+html[data-de-theme="enterprise-manual"] .de-main th,
+html[data-de-theme="enterprise-manual"] .de-main td {
+  padding: 0.4rem 0.6rem;
+  border-color: #c3cede;
+  font-size: 0.875rem;
+}
+
+html[data-de-theme="enterprise-manual"][data-de-mode="dark"] .de-main th,
+html[data-de-theme="enterprise-manual"][data-de-mode="dark"] .de-main td {
+  border-color: #2b4763;
+}
+
+html[data-de-theme="enterprise-manual"] .de-main thead th {
+  color: #0f2942;
+  font-weight: 700;
+}
+
+html[data-de-theme="enterprise-manual"][data-de-mode="dark"] .de-main thead th {
+  color: #e6eef7;
+}
+
+/* Strong admonition blocks. */
+html[data-de-theme="enterprise-manual"] .de-main .note {
+  border-width: 1px 1px 1px 5px;
+  border-radius: 2px;
+}
+
+html[data-de-theme="enterprise-manual"] .de-main .note .note__title {
+  margin-bottom: 0.35rem;
+}
+
+/* Dark chrome contrast fixes for the navy header. */
+html[data-de-theme="enterprise-manual"] .de-header .de-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+html[data-de-theme="enterprise-manual"][data-de-mode="dark"] .de-header .de-icon-btn:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+html[data-de-theme="enterprise-manual"] .de-header .de-kbd {
+  border-color: rgba(255, 255, 255, 0.24);
+  background: rgba(255, 255, 255, 0.12);
+  color: #e2e8f0;
+}
+
+html[data-de-theme="enterprise-manual"] .de-sidebar-title {
+  color: var(--de-text);
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+}
+
+html[data-de-theme="enterprise-manual"] .de-portal-hero {
+  border-color: #cfd8e3;
+  background: linear-gradient(150deg, #eef3fa 0%, #ffffff 70%);
+}
+
+html[data-de-theme="enterprise-manual"][data-de-mode="dark"] .de-portal-hero {
+  border-color: var(--de-border);
+  background: linear-gradient(150deg, rgba(29, 78, 216, 0.22) 0%, var(--de-surface) 72%);
+}
+
+html[data-de-theme="enterprise-manual"] .de-portal-card-title,
+html[data-de-theme="enterprise-manual"] .de-pager-title {
+  font-size: 0.875rem;
+}

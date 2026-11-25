@@ -46,6 +46,8 @@ export function createInitialEditorState(): EditorStateValues {
     tagDisplayMode: 'full',
     taskModelSetting: 'auto',
     statusMessage: '',
+    alert: null,
+    lastSaveFailures: [],
     pendingSourceOffset: null,
     pendingVisualPmPos: null,
   };

@@ -186,6 +186,8 @@ export default function MiniRoundTripDemo({ dict, playgroundHref }: Props) {
         <a
           className="mini-demo__link"
           href={playgroundHref}
+          target={playgroundHref.startsWith('http') ? '_blank' : undefined}
+          rel={playgroundHref.startsWith('http') ? 'noreferrer noopener' : undefined}
         >
           {copy.openFull}
         </a>

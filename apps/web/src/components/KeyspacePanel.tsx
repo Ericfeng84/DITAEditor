@@ -21,9 +21,9 @@ export interface KeyspacePanelProps {
   onInsertKeyref: (qualifiedKey: string) => void;
   onJumpToKeyDef: (def: KeyDefinition) => void;
   /** Rename the `keys` token behind one definition; returns false when the map could not be updated. */
-  onRenameKey?: (def: KeyDefinition, nextKey: string) => boolean;
+  onRenameKey?: (def: KeyDefinition, nextKey: string) => Promise<boolean>;
   /** Rewrite the definition's displayed value (keyword/linktext/navtitle text or `@href`). */
-  onUpdateKeyValue?: (def: KeyDefinition, nextValue: string) => boolean;
+  onUpdateKeyValue?: (def: KeyDefinition, nextValue: string) => Promise<boolean>;
 }
 
 /** DITA key names are NMTOKENs: whitespace separates keys, so a token cannot contain spaces. */
@@ -86,7 +86,7 @@ export function KeyspacePanel({
     setKeyError(null);
   };
 
-  const commitRename = (def: KeyDefinition) => {
+  const commitRename = async (def: KeyDefinition) => {
     const next = keyDraft.trim();
     if (next === def.key) {
       cancelRename();
@@ -102,7 +102,8 @@ export function KeyspacePanel({
       setKeyError(t('keyspace.renameDuplicate', { key: qualifiedNext }));
       return;
     }
-    const applied = onRenameKey?.(def, next) ?? false;
+    // The map has to be checked out before it can be rewritten, so this round-trips to the API.
+    const applied = (await onRenameKey?.(def, next)) ?? false;
     if (!applied) {
       setKeyError(t('keyspace.renameFailed'));
       return;
@@ -136,7 +137,7 @@ export function KeyspacePanel({
     setValueError(null);
   };
 
-  const commitValueEdit = (def: KeyDefinition) => {
+  const commitValueEdit = async (def: KeyDefinition) => {
     const next = valueDraft.trim();
     if (!next) {
       setValueError(t('keyspace.valueInvalid'));
@@ -146,7 +147,7 @@ export function KeyspacePanel({
       cancelValueEdit();
       return;
     }
-    const applied = onUpdateKeyValue?.(def, next) ?? false;
+    const applied = (await onUpdateKeyValue?.(def, next)) ?? false;
     if (!applied) {
       setValueError(t('keyspace.valueFailed'));
       return;
@@ -296,7 +297,7 @@ export function KeyspacePanel({
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
-                          commitRename(def);
+                          void commitRename(def);
                         } else if (e.key === 'Escape') {
                           e.preventDefault();
                           cancelRename();
@@ -340,7 +341,7 @@ export function KeyspacePanel({
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        commitValueEdit(def);
+                        void commitValueEdit(def);
                       } else if (e.key === 'Escape') {
                         e.preventDefault();
                         cancelValueEdit();
@@ -382,7 +383,7 @@ export function KeyspacePanel({
                       <>
                         <button
                           type="button"
-                          onClick={() => commitRename(def)}
+                          onClick={() => void commitRename(def)}
                           title={t('keyspace.renameSave')}
                           className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
                         >
@@ -403,7 +404,7 @@ export function KeyspacePanel({
                       <>
                         <button
                           type="button"
-                          onClick={() => commitValueEdit(def)}
+                          onClick={() => void commitValueEdit(def)}
                           title={t('keyspace.valueSave')}
                           className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
                         >

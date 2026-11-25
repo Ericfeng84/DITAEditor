@@ -11,9 +11,11 @@ import {
   extractTitleSafe,
   extractTitleFromCheck,
   lineNumberToOffset,
+  nextWorkbenchAlert,
   updateMemoryIndexFile,
   cancelOverlayRefresh,
 } from '../internals.js';
+import { ensureFileCheckedOut } from '../../git-store';
 import type { EditorViewMode, EditorWorkbenchState, OpenEditorTab, StoreGet, StoreSet } from '../types.js';
 import type { StoreRuntime } from '../runtime.js';
 
@@ -207,23 +209,83 @@ export function createTabsSlice(
               : s.topicTitles,
           savingPaths: s.savingPaths.filter((p) => p !== filePath),
           statusMessage: t('status.savedFile', { path: filePath }),
+          lastSaveFailures: s.lastSaveFailures.filter((f) => f.path !== filePath),
+          // Drop the alert once every file it wanted to save actually landed.
+          alert:
+            s.alert?.action &&
+            s.alert.action.paths.every(
+              (p) => p === filePath || !s.lastSaveFailures.some((f) => f.path === p),
+            )
+              ? null
+              : s.alert,
         }));
 
         // Leaving a session does not need the index/diagnostics round-trip, and awaiting it
         // made "save and go back" look dead when the semantic refresh was slow.
         if (options?.refresh !== false) {
-          await get().refreshWorkspaceTree();
-          await get().refreshSemantics();
-          await get().refreshDiagnostics();
+          // Refresh is best-effort: the bytes are already on disk, so a slow or failing
+          // index/diagnostics round-trip must not be reported as a failed save.
+          try {
+            await get().refreshWorkspaceTree();
+            await get().refreshSemantics();
+            await get().refreshDiagnostics();
+          } catch {
+            // ignored on purpose — see above
+          }
         }
         return true;
       } catch (err) {
+        const reason = err instanceof Error ? err.message : String(err);
+        const statusMessage = t('status.saveFailed', { path: filePath, message: reason });
         set((s) => ({
           savingPaths: s.savingPaths.filter((p) => p !== filePath),
-          statusMessage: t('status.saveFailed', { path: filePath, message: err instanceof Error ? err.message : String(err) }),
+          statusMessage,
+          // Keep the server's own wording: it is the only hint that the check-out lock is gone.
+          lastSaveFailures: [
+            ...s.lastSaveFailures.filter((f) => f.path !== filePath),
+            { path: filePath, message: reason },
+          ],
+          alert: nextWorkbenchAlert({
+            tone: 'error',
+            message: t('lock.saveFailed', { path: filePath, message: reason }),
+            action: s.workspaceMode === 'api' ? { kind: 'save-with-checkout', paths: [filePath] } : undefined,
+          }),
         }));
         return false;
       }
+    },
+
+    async saveFileEnsuringLock(filePath, options) {
+      if (get().workspaceMode === 'api') {
+        const guard = await ensureFileCheckedOut(filePath);
+        if (!guard.ok) {
+          set({
+            alert: nextWorkbenchAlert({
+              tone: 'error',
+              message: t('lock.saveNeedsCheckout', { path: filePath, message: guard.message }),
+            }),
+          });
+          return false;
+        }
+      }
+      return get().saveFile(filePath, options);
+    },
+
+    async saveFilesEnsuringLocks(filePaths, options) {
+      const failed: string[] = [];
+      for (const p of filePaths) {
+        const ok = await get().saveFileEnsuringLock(p, options);
+        if (!ok) failed.push(p);
+      }
+      return failed;
+    },
+
+    isPathDirty(filePath) {
+      const state = get();
+      const tab = state.openTabs.find((t) => t.path === filePath);
+      if (tab) return tab.xml !== tab.baselineXml;
+      const buffer = state.mapBuffers[filePath];
+      return Boolean(buffer && buffer.xml !== buffer.baselineXml);
     },
 
     async saveActiveFile() {
@@ -247,9 +309,12 @@ export function createTabsSlice(
       for (const [p, buf] of Object.entries(state.mapBuffers)) {
         if (buf.xml !== buf.baselineXml) dirtyPaths.add(p);
       }
+      set({ lastSaveFailures: [] });
       const failed: string[] = [];
       for (const p of dirtyPaths) {
-        const ok = await get().saveFile(p, options);
+        const ok = options?.ensureLocks
+          ? await get().saveFileEnsuringLock(p, options)
+          : await get().saveFile(p, options);
         if (!ok) failed.push(p);
       }
       set({
@@ -259,6 +324,10 @@ export function createTabsSlice(
             : t('status.saveFailedSome', { paths: failed.join(', ') }),
       });
       return failed;
+    },
+
+    dismissAlert() {
+      set({ alert: null });
     },
 
     resetCurrentToBaseline() {

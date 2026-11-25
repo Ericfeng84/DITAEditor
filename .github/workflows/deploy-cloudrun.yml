@@ -1,0 +1,132 @@
+name: Deploy to GCP Cloud Run
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+      - 'apps/web/**'
+      - 'packages/dita-core/**'
+      - 'dita-ot-plugins/**'
+      - 'samples/demo-dita-project/**'
+      - 'Dockerfile'
+      - 'docker-entrypoint.sh'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
+      - 'pnpm-workspace.yaml'
+      - 'tsconfig.base.json'
+      - 'deploy/gcp/**'
+      - '.github/workflows/deploy-cloudrun.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: gcp-cloudrun-deploy
+  cancel-in-progress: true
+
+env:
+  GCP_PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+  GCP_REGION: ${{ vars.GCP_REGION || 'asia-northeast1' }}
+  GCP_AR_REPO: ${{ vars.GCP_AR_REPO || 'ditaeditor' }}
+  GCP_SERVICE: ${{ vars.GCP_SERVICE || 'dita-editor' }}
+  GCP_BASE_PATH: ${{ vars.GCP_BASE_PATH || '/dita' }}
+  GCP_VITE_BASE: ${{ vars.GCP_VITE_BASE || '/dita/' }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check GCP Cloud Run configuration
+        id: config
+        env:
+          WIF_PROVIDER: ${{ vars.GCP_WIF_PROVIDER }}
+          SA_EMAIL: ${{ vars.GCP_SA_EMAIL }}
+        run: |
+          if [ -z "${GCP_PROJECT_ID}" ] || [ -z "${WIF_PROVIDER}" ] || [ -z "${SA_EMAIL}" ]; then
+            if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+              echo "::error::Missing GCP_PROJECT_ID, GCP_WIF_PROVIDER, or GCP_SA_EMAIL repository variable."
+              exit 1
+            fi
+            echo "Skipping Cloud Run deploy: GCP repository variables are not configured."
+            echo "enabled=false" >> "${GITHUB_OUTPUT}"
+            exit 0
+          fi
+          echo "enabled=true" >> "${GITHUB_OUTPUT}"
+          echo "image_repo=${GCP_REGION}-docker.pkg.dev/${GCP_PROJECT_ID}/${GCP_AR_REPO}/app" >> "${GITHUB_OUTPUT}"
+
+      - uses: actions/checkout@v4
+        if: steps.config.outputs.enabled == 'true'
+
+      - name: Authenticate to Google Cloud (Workload Identity Federation)
+        if: steps.config.outputs.enabled == 'true'
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SA_EMAIL }}
+
+      - name: Set up Cloud SDK
+        if: steps.config.outputs.enabled == 'true'
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker auth for Artifact Registry
+        if: steps.config.outputs.enabled == 'true'
+        run: gcloud auth configure-docker "${GCP_REGION}-docker.pkg.dev" --quiet
+
+      - name: Set up Docker Buildx
+        if: steps.config.outputs.enabled == 'true'
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push container image
+        if: steps.config.outputs.enabled == 'true'
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ steps.config.outputs.image_repo }}:${{ github.sha }}
+            ${{ steps.config.outputs.image_repo }}:latest
+          build-args: |
+            VITE_BASE=${{ env.GCP_VITE_BASE }}
+            DITA_BASE_PATH=${{ env.GCP_BASE_PATH }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Deploy to Cloud Run
+        if: steps.config.outputs.enabled == 'true'
+        env:
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          ENV_VARS="DITA_PUBLISH_CONCURRENCY=1,DITA_BASE_PATH=${GCP_BASE_PATH}"
+          if [ -n "${DEEPSEEK_API_KEY}" ]; then
+            ENV_VARS="${ENV_VARS},DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}"
+          fi
+
+          gcloud run deploy "${GCP_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --image="${{ steps.config.outputs.image_repo }}:${{ github.sha }}" \
+            --allow-unauthenticated \
+            --port=8080 \
+            --cpu=2 \
+            --memory=2Gi \
+            --min-instances=0 \
+            --max-instances=1 \
+            --concurrency=40 \
+            --timeout=900 \
+            --update-env-vars="${ENV_VARS}"
+
+      - name: Verify live health endpoint
+        if: steps.config.outputs.enabled == 'true'
+        run: |
+          SERVICE_URL="$(gcloud run services describe "${GCP_SERVICE}" \
+            --project="${GCP_PROJECT_ID}" \
+            --region="${GCP_REGION}" \
+            --format='value(status.url)')"
+          echo "Cloud Run URL: ${SERVICE_URL}"
+          curl -fsS --retry 5 --retry-delay 3 "${SERVICE_URL}/health"
+          echo ""

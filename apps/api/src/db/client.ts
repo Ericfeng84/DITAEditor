@@ -161,6 +161,14 @@ CREATE INDEX IF NOT EXISTS topic_assignments_assigner_idx
   ON topic_assignments (assigner_id, status, updated_at DESC);
 CREATE INDEX IF NOT EXISTS topic_assignments_manual_branch_idx
   ON topic_assignments (manual_id, branch, status);
+
+CREATE TABLE IF NOT EXISTS manual_publish_profiles (
+  manual_id TEXT PRIMARY KEY NOT NULL,
+  html_theme_id TEXT NOT NULL DEFAULT 'tech-docs',
+  html_theme_options_json TEXT NOT NULL DEFAULT '{}',
+  updated_by TEXT,
+  updated_at TEXT NOT NULL
+);
 `;
 
 /**

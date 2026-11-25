@@ -15,7 +15,7 @@ Guidance for AI coding agents working in the **DITAEditor** repository.
   - Core DITA 1.3 elements are finely modeled; unknown/specialized elements pass through losslessly via `unknown_block` / `unknown_inline`.
   - Concurrency model: **Check-out exclusive file lock** per `(project, branch, file_path)` with branch-isolated `git worktree` (no CRDT real-time co-editing).
   - License: **MIT** ([LICENSE](LICENSE)); UI screenshots live in `docs/pic/` (Chinese UI) and `docs/pic/en/` (English UI, used by `README.en.md`); both are referenced from `README.md` / `README.en.md`.
-  - Validation & Publishing: Frontend real-time constraints + TS semantic indexer + **DITA-OT 4.x CLI** invoked from `@dita/api` (built-in OASIS DITA 1.3 DTD/RNG validation & HTML5/PDF publishing with pure-XML Noto CJK font-mappings plugin; zero custom Java service code).
+  - Validation & Publishing: Frontend real-time constraints + TS semantic indexer + **DITA-OT 4.x CLI** invoked from `@dita/api` (built-in OASIS DITA 1.3 DTD/RNG validation & HTML5/PDF publishing with pure-XML Noto CJK font-mappings plugin; zero custom Java service code); HTML5 output is then post-processed by a deterministic Node enhancer that injects one of the static themes in `dita-ot-plugins/html5-themes/`).
 
 ## 2. Repository Layout
 
@@ -40,7 +40,9 @@ DITAEditor/
 │       │                   #   browser DITA sandbox (/playground) and bilingual docs (/docs, /en/docs)
 │       ├── src/{pages,layouts,components,lib,data,i18n,styles}/
 │       └── src/content/docs/{zh,en}/  # 6 mirrored docs each (Content Collections)
-├── dita-ot-plugins/        # Pure-XML DITA-OT 4.x Noto CJK PDF font-mappings plugin
+├── dita-ot-plugins/        # DITA-OT 4.x plugins and static HTML5 publish themes
+│   ├── com.ditaeditor.pdf-cjk/  # Pure-XML Noto CJK PDF font-mappings plugin
+│   └── html5-themes/      # shared/theme-base.css + theme-runtime.js + 4 theme CSS (Phase 12)
 ├── Dockerfile              # Single container: Node + JRE 21 + DITA-OT 4.2.1 + Noto CJK
 ├── docs/                   # Architecture baseline, ADRs, and contracts
 └── graphify-out/           # Persistent codebase knowledge graph (graph.json, GRAPH_REPORT.md, graph.html)
@@ -112,6 +114,14 @@ Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code chang
 - **Centralize sequence rules**: Put ordering/cardinality rules in `packages/dita-core/src/model/dita-structure.ts` (`DITA_SEQUENCE_MODEL`), not in `isChildAllowed()` or `apps/web/src/editor/visual/commands.ts`, and only model genuinely ordered containers.
 - **Guide, never block**: Never use `filterTransaction` or throw on structure violations; unknown/specialized elements stay lossless, and `conref`/`conkeyref` elements skip `missing-required-child`.
 - **Single message source**: Format structure diagnostics via `@dita/core`'s `formatStructureIssue()`.
+
+### 4.9 HTML5 Publish Themes (`Phase 12`)
+- **Static assets, not a DITA-OT plugin**: every theme lives in `dita-ot-plugins/html5-themes/` (`shared/theme-base.css` + `shared/theme-runtime.js` + one `theme.css` per theme) and is copied at publish time; never require `dita install` or Java/XSLT customization.
+- **Relative paths only**: `theme-enhancer.ts` must compute `relRoot` per output depth (`./`, `../`, …) and never emit root-absolute `/` URLs, so ZIPs opened over `file://` and `/preview/*` both work.
+- **`vanilla` is untouched**: skip enhancement entirely for the vanilla theme so existing customer post-processing keeps working.
+- **Config never touches documents**: theme choice/branding persist in SQLite `manual_publish_profiles` plus a snapshot in `publish_jobs.options_json`; no XML, map or Git changes.
+- **Escape and validate**: brand text is HTML-escaped, accents must match `#RRGGBB`, logo/CSS paths go through `resolveSafeWorkspacePath()` with extension/size allowlists.
+- **Offline search must stay script-based** (`_ditaeditor/search-index.js` → `window.__DITA_SEARCH_INDEX__`) because `fetch()` fails under `file://`.
 
 ## 5. TypeScript & Code Style
 

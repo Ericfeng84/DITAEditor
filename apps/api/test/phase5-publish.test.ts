@@ -398,6 +398,55 @@ describe('Phase 5 DITA-OT validation and publishing', () => {
     await app.close();
   }, 30_000);
 
+  it('serves previews and artifacts without scope headers (plain browser navigation)', async () => {
+    const fixture = createFixture();
+    const app = createApp(fixture);
+    await app.ready();
+    try {
+      const created = await app.inject({
+        method: 'POST',
+        url: '/api/publish/jobs',
+        headers: WRITER,
+        payload: { rootMap: ROOT_MAP, format: 'html5' },
+      });
+      expect(created.statusCode).toBe(202);
+      const job = await waitForJob(app, created.json().job.id, WRITER);
+      expect(job.status).toBe('succeeded');
+
+      // Attach a second manual and make it the most recently opened one, so a header-less
+      // request resolves away from the manual that produced the job.
+      const otherDir = path.join(fixture.root, 'other-manual');
+      cpSync(SAMPLE_ROOT, otherDir, { recursive: true });
+      rmSync(path.join(otherDir, '.git'), { recursive: true, force: true });
+      const attached = await app.inject({
+        method: 'POST',
+        url: '/api/manuals',
+        headers: ADMIN,
+        payload: { mode: 'attach', rootDir: otherDir },
+      });
+      expect(attached.statusCode).toBe(200);
+      const touched = await app.inject({
+        method: 'POST',
+        url: `/api/manuals/${attached.json().manual.id}/touch`,
+      });
+      expect(touched.statusCode).toBe(200);
+
+      // New tabs, ZIP downloads and relative CSS/topic requests never carry
+      // `x-dita-manual-id`; each one must still resolve the job by its own id.
+      const urls = [
+        `/api/publish/jobs/${job.id}/preview/`,
+        `/api/publish/jobs/${job.id}/preview/topic.html`,
+        `/api/publish/jobs/${job.id}/artifact`,
+      ];
+      for (const url of urls) {
+        const response = await app.inject({ method: 'GET', url });
+        expect(response.statusCode, url).toBe(200);
+      }
+    } finally {
+      await app.close();
+    }
+  }, 30_000);
+
   it('queues builds, streams log output and cancels a running job', async () => {
     const fixture = createFixture();
     process.env.FAKE_DITA_SLEEP = '3';

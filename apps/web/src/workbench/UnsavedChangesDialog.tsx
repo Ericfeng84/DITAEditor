@@ -1,4 +1,4 @@
-import { AlertTriangle, Loader2, Save, Trash2 } from 'lucide-react';
+import { AlertTriangle, Loader2, Lock, Save, Trash2 } from 'lucide-react';
 import { useEffect, useId, useRef } from 'react';
 import { useI18n } from '../i18n/index.js';
 
@@ -9,6 +9,8 @@ export interface UnsavedChangesDialogProps {
   /** Why the last save-and-leave attempt did not finish (missing lock, read-only, network). */
   error?: string | null;
   onSaveAndLeave: () => void;
+  /** Secondary recovery: take the missing check-out locks, save, then leave. */
+  onSaveWithCheckout?: () => void;
   onDiscardAndLeave: () => void;
   onCancel: () => void;
 }
@@ -23,6 +25,7 @@ export function UnsavedChangesDialog({
   saving,
   error = null,
   onSaveAndLeave,
+  onSaveWithCheckout = undefined,
   onDiscardAndLeave,
   onCancel,
 }: UnsavedChangesDialogProps) {
@@ -83,6 +86,18 @@ export function UnsavedChangesDialog({
             )}
             {t('workbench.leaveSave')}
           </button>
+          {onSaveWithCheckout ? (
+            <button
+              type="button"
+              onClick={onSaveWithCheckout}
+              disabled={saving}
+              title={t('lock.checkoutAndSaveHint')}
+              className="inline-flex items-center justify-center gap-1.5 rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-[11.5px] font-medium text-blue-700 hover:bg-blue-100 disabled:opacity-50"
+            >
+              <Lock className="h-3 w-3" aria-hidden="true" />
+              {t('workbench.leaveSaveWithCheckout')}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onDiscardAndLeave}

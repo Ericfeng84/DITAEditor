@@ -87,6 +87,8 @@ export const zhCNWorkbench = {
   'workbench.leaveSave': '保存并返回',
   'workbench.leaveDiscard': '放弃改动并返回',
   'workbench.leaveCancel': '继续编辑',
+  'workbench.leaveSaveWithCheckout': '检出并保存后返回',
+  'workbench.leaveSaveFailedDetail': '以下文件未能保存：{paths}。{reason}',
   'workbench.leaveDiscardConfirm': '放弃改动后无法恢复，确定要放弃吗？',
   'workbench.offlineDemoRootDir': '（离线演示目录）',
 } as const;

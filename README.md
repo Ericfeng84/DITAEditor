@@ -15,7 +15,8 @@
 > 当前版本 **v1.3.0**（覆盖 Phase 0–11：工作台 + 官网/离线三栏工作台/双语文档站 + 全栈中英双语 + DITA 1.3 顺序/基数校验 + 手册编辑工作台与 Topic 委派 + macOS/Windows 轻量桌面端），版本变更记录见 [CHANGELOG.md](CHANGELOG.md)，许可证见 [LICENSE](LICENSE)（MIT）。
 
 - **项目官网与双语文档（GitHub Pages）**：https://ericfeng84.github.io/DITAEditor/ （英文版：`/en/`）
-- **在线工作台（纯前端离线版）**：https://ericfeng84.github.io/DITAEditor/workbench/ （内置 `demo-dita-project` 内存工作区，免部署体验三栏工作台、Map 树、双模编辑与 Keys/Conref/DITAVAL）
+- **在线工作台（完整版试用）**：https://www.cemplatformcvs.cloud/dita （GCP Cloud Run + 子路径反代，含 DITA-OT 4.2.1 严格校验、HTML5 多套主题与 Noto CJK PDF 发布、本地 Git 独占锁与 AI 片段改写；部署指南见 [docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md)）
+- **纯前端离线版（可选，仅静态演示）**：https://ericfeng84.github.io/DITAEditor/workbench/ （内置 `demo-dita-project` 内存工作区，无服务端 Git、发布与 AI）
 
 ---
 
@@ -156,6 +157,7 @@ AI 只提交候选片段：面板流式输出提案，并透明展示模型、�
 - **双层严格校验**：日常编辑继续由前端约束 + TS 语义索引零延迟把关；工具栏、问题面板与签入对话框可按需调用 `POST /api/validate/strict`，由 `@dita/api` 以 `--validate=yes --processing-mode=strict` 调度 DITA-OT 官方 DITA 1.3 DTD/RNG 校验，解析 `DOTJ` / `DOTX` 错误码并统一跳转到源码行列。提供 Root Map 上下文时按整图校验，保证 `keyref` / `conkeyref` / `conref` 正常解析；独立主题校验会把缺少键上下文的 `DOTJ046E` 降级为警告。
 - **发布入口在 Map 树**：左侧「Map 树」面板操作区提供「发布」按钮，发布对象始终是当前 Root Map，切换 Root Map 即可切换交付范围。**零外部中间件发布流水线**：SQLite `publish_jobs` 表持久化任务，Node 进程内 `PublishQueue` 并发限流（默认 1）；每次发布复制当前分支工作区快照隔离构建，支持超时强杀、排队/运行中取消、`build.log` 落盘与 SSE 实时日志、`GET /api/publish/jobs/:id/events` 事件流、服务重启自动回收中断任务与按保留天数清理历史产物。
 - **HTML5 与中文 PDF 交付**：HTML5 构建完成后自动打包 ZIP，并提供 `/preview/*` 在线预览（相对图片/CSS 路径可直接访问）；PDF 通过纯 XML 插件 `dita-ot-plugins/com.ditaeditor.pdf-cjk/`（`plugin.xml` + XML Catalog + DITA-OT 4 新版 `font-mappings.xml` + `fop.xconf`）映射 Noto Sans / Serif / Mono CJK，发布时追加 `--customization.dir` 与 `--args.fo.userconfig`，并强制 `--validate=yes`，确保中文嵌入字体、无乱码。
+- **HTML5 多套样式主题**：非 `vanilla` 的 HTML5 任务自动追加 `--nav-toc=full`，构建后由 Node 确定性后处理器注入内置主题（`dita-ot-plugins/html5-themes/`：现代技术文档 / 出版极简纸白 / 企业标准手册 / 开发者暗夜风 + 原生兜底），提供可折叠目录树、页内大纲、`Cmd/Ctrl+K` 离线全文搜索、代码复制、明暗切换与移动端抽屉；品牌参数（主色 / 标题 / Logo / 页脚 / 自定义 CSS / 功能开关）按手册存入 SQLite `manual_publish_profiles`，发布弹窗内可实时多视口预览，ZIP 解压后双击 `index.html`（`file://`）离线搜索同样可用，配置零 XML/Git 污染。
 - **单容器交付**：`Dockerfile` 内置 Node 22、JRE 21、DITA-OT 4.2.1、Noto CJK 字体与字体插件；生产模式由 `@dita/api` 直接托管 `@dita/web` 构建产物，零 Redis / PostgreSQL 依赖，`/data` 数据卷持久化工作区、SQLite、分支 worktree 与发布产物。
 
 ### 8. AI 辅助写作、语义标签优化与错误修复（Phase 6）
@@ -279,15 +281,22 @@ DITAEditor/
 │       ├── scripts/            # build.mjs（esbuild）与 stage.mjs（扁平依赖打包）
 │       ├── build/              # macOS .icns / Windows .ico 图标与 entitlements.mac.plist
 │       └── electron-builder.yml# macOS Apple Silicon (.dmg/.zip) 与 Windows x64 (NSIS .exe/.zip) 打包配置
-├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / release-desktop.yml（Release 自动打双端桌面包）
+├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / deploy-cloudrun.yml / release-desktop.yml
+├── deploy/                     # 云端托管配置（huggingface/ 与 gcp/：cloudbuild.yaml、deploy-cloudrun.sh）
 ├── samples/
 │   └── demo-dita-project/      # 开箱即用的多变体 DITA 1.3 演示项目（Map/Bookmap/复用库/DITAVAL/SVG）
 ├── docs/
-│   ├── architecture-and-plan.md # 完整架构设计基线与 Phase 0–7 实施路线
+│   ├── architecture-and-plan.md # 完整架构设计基线与分阶段实施路线
+│   ├── deploy-gcp-cloudrun.md  # GCP Cloud Run 低成本试用部署、子路径反代与 WIF 自动发布指南
+│   ├── deploy-huggingface-spaces.md # Hugging Face Spaces 单容器部署指南
+│   ├── deploy-github-pages.md  # GitHub Pages 官网与离线工作台部署指南
+│   ├── phase12-html-themes-plan.md # Phase 12 HTML5 发布样式主题与模板蓝图
 │   ├── phase7-site-plan.md     # Phase 7 官网/沙箱/文档站蓝图
 │   ├── phase6-ai-contract.md   # Phase 6 AI 接口/SSE/DB/前端集成契约
 │   └── pic/                    # 工作台界面截图
-├── dita-ot-plugins/            # 纯 XML DITA-OT 4.x 中文 PDF 字体映射插件（Noto CJK）
+├── dita-ot-plugins/            # DITA-OT 4.x 插件与静态发布主题（纯 XML/CSS/JS，零 Java 代码）
+│   ├── com.ditaeditor.pdf-cjk/ # 中文 PDF 字体映射插件（Noto CJK）
+│   └── html5-themes/           # 4 套 HTML5 发布样式主题 + 共享排版底座与离线运行时
 ├── Dockerfile                  # 单容器构建（Node + JRE 21 + DITA-OT + Noto CJK）
 └── graphify-out/               # 项目代码库知识图谱
 ```
@@ -384,7 +393,18 @@ CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # W
 
 **自动发布**：在 GitHub 发布正式 Release 时，[`.github/workflows/release-desktop.yml`](.github/workflows/release-desktop.yml) 会自动在 `macos-latest`（`arm64`）与 `windows-latest`（`x64`）并行打包，将 Tag 同步为应用版本号并把双端安装包自动挂载到该 Release 下（也支持在 GitHub Actions 中通过 `workflow_dispatch` 手动试跑验证）。
 
-### 方式四：仅编辑 / 语义写作（不安装 DITA-OT）
+### 方式四：云端低成本试用部署（GCP Cloud Run + 子路径反代 + Push 自动部署）
+
+面向线上试用或团队外部演示场景，可将单容器镜像以 **`min-instances=0` / `max-instances=1`（2 vCPU / 2 GiB）** 部署到 GCP Cloud Run（`asia-northeast1`），并通过主域名子路径反向代理（如 Vercel `vercel.json` Rewrites 或 Cloudflare Worker）实现中国大陆直连，再结合 GitHub Actions **Workload Identity Federation（无密钥 OIDC）** 与 Artifact Registry 清理策略在每次 `push` 到 `main` 时自动构建发布：
+
+```bash
+# 首次手动初始化构建与部署（默认适配 /dita 子路径反代）
+GCP_PROJECT_ID="<你的GCP项目ID>" ./deploy/gcp/deploy-cloudrun.sh
+```
+
+完整架构说明、子路径反代配置、WIF 无密钥 CI 配置、Artifact Registry 清理策略与一键清零费用命令详见 **[docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md)**（另提供 [Hugging Face Spaces 部署指南](docs/deploy-huggingface-spaces.md) 与 [GitHub Pages 静态部署指南](docs/deploy-github-pages.md)）。
+
+### 方式五：仅编辑 / 语义写作（不安装 DITA-OT）
 
 只运行编辑、Map 编排、Keys / Conref / DITAVAL、Git 与检出锁时，可跳过 Java 与 DITA-OT；发布与「DITA-OT 严格校验」会显示运行时未就绪，不影响其它功能。
 
@@ -393,6 +413,7 @@ CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # W
 | 变量名 | 默认值 | 说明 |
 | :--- | :--- | :--- |
 | `PORT` | `3001` | Fastify 服务监听端口 |
+| `DITA_BASE_PATH` | 空 | 反向代理子路径前缀（如 `/dita`）；设置后 Fastify 通过 `rewriteUrl` 自动剥离前缀，配合构建期 `VITE_BASE=/dita/` 使用 |
 | `DITA_WORKSPACE_DIR` | `samples/demo-dita-project` | 启动时默认打开的本地 DITA 项目目录 |
 | `DITA_IMPORTS_DIR` | `.dita-workspaces` | 导入项目、SQLite 数据库（`dita-editor.sqlite`）与分支 `git worktree` 的存放根目录 |
 | `DITA_LOCK_TTL_HOURS` | `72` | 检出锁过期提示阈值（小时，仅用于界面提醒，不自动删除锁） |
@@ -401,6 +422,7 @@ CSC_IDENTITY_AUTO_DISCOVERY=false pnpm --filter @dita/desktop run dist:win   # W
 | `DITA_PUBLISH_DIR` | `.dita-workspaces/publish` | 发布任务快照、`build.log` 与产物的存储根目录 |
 | `DITA_PUBLISH_CONCURRENCY` | `1` | 进程内并发构建数；大队列建议保持 1–2 |
 | `DITAEDITOR_PDF_PLUGIN_DIR` | 仓库 `dita-ot-plugins/com.ditaeditor.pdf-cjk` | 中文 PDF 字体插件目录，同时作为 `--customization.dir` |
+| `DITAEDITOR_HTML_THEMES_DIR` | 仓库 `dita-ot-plugins/html5-themes` | HTML5 发布主题资源目录；打包版桌面端由主进程显式传入 |
 | `DITAEDITOR_FOP_XCONF` | 插件内 `fop.xconf` | FOP 字体配置模板 |
 | `DITAEDITOR_NOTO_CJK_DIR` | `/usr/share/fonts/opentype/noto` | Noto CJK 字体目录，用于生成本次构建的 `fop.xconf` |
 | `DITA_WEB_DIST` | `apps/web/dist` | 生产模式静态前端目录；存在 `index.html` 时由 API 托管 |

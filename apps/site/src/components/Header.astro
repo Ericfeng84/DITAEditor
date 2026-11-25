@@ -9,7 +9,6 @@ import {
   homePath,
   localePath,
   switchLocalePath,
-  workbenchPath,
 } from '../i18n/locales.js';
 import { SITE } from '../lib/site.js';
 
@@ -26,7 +25,7 @@ const isDocs = path.startsWith('/docs');
 const navItems = [
   { href: docsIndexPath(locale, SITE.base), label: dict.nav.docs, active: isDocs },
   {
-    href: workbenchPath(SITE.base),
+    href: SITE.trialUrl,
     label: dict.nav.playground,
     active: false,
   },
@@ -49,6 +48,8 @@ const navItems = [
             href={item.href}
             class="nav__link"
             aria-current={item.active ? 'page' : undefined}
+            target={item.href.startsWith('http') ? '_blank' : undefined}
+            rel={item.href.startsWith('http') ? 'noreferrer noopener' : undefined}
           >
             {item.label}
           </a>

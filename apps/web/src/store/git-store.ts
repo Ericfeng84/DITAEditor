@@ -275,6 +275,23 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
       }
       set({ busyPath: paths[0] ?? null, error: null });
       try {
+        // A check-in commits what is on disk. Files that are only changed in memory would be
+        // committed in their stale form (or not at all), so save them first — and stop here if
+        // a save is rejected instead of silently committing a partial change.
+        const editor = useEditorStore.getState();
+        const dirtySelected = paths.filter((path) => editor.isPathDirty(path));
+        if (dirtySelected.length > 0) {
+          const failed = await useEditorStore
+            .getState()
+            .saveFilesEnsuringLocks(dirtySelected, { refresh: false });
+          if (failed.length > 0) {
+            const reason = t('gitStatus.checkinBlockedByDirty', { paths: failed.join(', ') });
+            set({ error: reason });
+            announce(reason);
+            return null;
+          }
+          announce(t('gitStatus.savedBeforeCheckin', { count: dirtySelected.length }));
+        }
         const response = await checkinFiles(paths, message, options);
         set({ locks: response.locks });
         if ((response.completedAssignments ?? []).length > 0) {
@@ -424,4 +441,86 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
 export function selectCurrentLock(state: GitWorkbenchState, path: string | null): FileLock | null {
   if (!path) return null;
   return state.locks.find((lock) => lock.filePath === path) ?? null;
+}
+
+/** Why an edit was allowed or rejected — mirrors `authorizeWrite()` in the API lock service. */
+export type LockGuardReason =
+  | 'memory'
+  | 'admin'
+  | 'owned'
+  | 'locked-by-other'
+  | 'viewer'
+  | 'checkout-failed';
+
+export interface LockGuardResult {
+  ok: boolean;
+  reason: LockGuardReason;
+  lock: FileLock | null;
+  /** Localized explanation, safe to show in a visible alert. Empty when `ok`. */
+  message: string;
+}
+
+/**
+ * In-flight checkouts per path.
+ *
+ * Several mutations can fire from one user gesture (map structure insert refreshes the tree
+ * which can trigger a second write); the API rejects a duplicate check-out with 409, so the
+ * second call waits on the first instead of racing it.
+ */
+const pendingCheckouts = new Map<string, Promise<LockGuardResult>>();
+
+export async function ensureFileCheckedOut(path: string): Promise<LockGuardResult> {
+  const pending = pendingCheckouts.get(path);
+  if (pending) return pending;
+  const run = runLockGuard(path);
+  pendingCheckouts.set(path, run);
+  try {
+    return await run;
+  } finally {
+    pendingCheckouts.delete(path);
+  }
+}
+
+async function runLockGuard(path: string): Promise<LockGuardResult> {
+  const state = useGitStore.getState();
+  const { currentUser, projectId, locks } = state;
+  // Memory mode has no locks at all: the in-browser workspace is single-user.
+  if (!projectId || !currentUser) {
+    return { ok: true, reason: 'memory', lock: null, message: '' };
+  }
+  const holder = locks.find((lock) => lock.filePath === path) ?? null;
+  // Admins bypass the lock check server-side, so don't burn a check-out on them either.
+  if (currentUser.role === 'admin') {
+    return { ok: true, reason: 'admin', lock: holder, message: '' };
+  }
+  if (holder && holder.userId === currentUser.id) {
+    return { ok: true, reason: 'owned', lock: holder, message: '' };
+  }
+  if (currentUser.role === 'viewer') {
+    return {
+      ok: false,
+      reason: 'viewer',
+      lock: holder,
+      message: t('lock.viewerReadOnly'),
+    };
+  }
+  if (holder) {
+    return {
+      ok: false,
+      reason: 'locked-by-other',
+      lock: holder,
+      message: t('lock.checkedOutByOther', { user: holder.userName || holder.userId }),
+    };
+  }
+  const lock = await state.checkout(path);
+  if (!lock) {
+    const error = useGitStore.getState().error ?? '';
+    return {
+      ok: false,
+      reason: 'checkout-failed',
+      lock: null,
+      message: error || t('lock.guardCheckoutFailed', { path }),
+    };
+  }
+  return { ok: true, reason: 'owned', lock, message: '' };
 }

@@ -10,7 +10,6 @@ import {
   type Locale,
   docsIndexPath,
   docsPath,
-  workbenchPath,
 } from '../i18n/locales.js';
 import { CAPABILITIES } from '../data/features.js';
 import { versionedAsset } from '../lib/assets.js';
@@ -76,7 +75,9 @@ const jsonLd = {
         <div class="hero__actions">
           <a
             class="btn btn-blue btn-lg"
-            href={workbenchPath(base)}
+            href={SITE.trialUrl}
+            target="_blank"
+            rel="noreferrer noopener"
           >
             {dict.hero.primaryCta}
             <Icon name="arrow-right" size={14} />
@@ -187,7 +188,7 @@ const jsonLd = {
     <MiniRoundTripDemo
       client:visible
       dict={dict}
-      playgroundHref={workbenchPath(base)}
+      playgroundHref={SITE.trialUrl}
     />
   </section>
 
@@ -344,7 +345,9 @@ const jsonLd = {
       <div class="cta__actions">
         <a
           class="btn btn-blue btn-lg"
-          href={workbenchPath(base)}
+          href={SITE.trialUrl}
+          target="_blank"
+          rel="noreferrer noopener"
         >
           {dict.cta.playground}
           <Icon name="arrow-right" size={14} />

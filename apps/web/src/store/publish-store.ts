@@ -2,28 +2,40 @@ import { create } from 'zustand';
 import {
   cancelPublishJob,
   createPublishJob,
+  fetchHtmlThemes,
   fetchPublishJob,
   fetchPublishJobs,
+  fetchPublishProfile,
   fetchPublishRuntime,
   runStrictValidation as requestStrictValidation,
-  type PublishFormat,
+  savePublishProfile,
+  type CreatePublishJobInput,
+  type HtmlThemeDescriptor,
+  type HtmlThemeId,
+  type HtmlThemeOptions,
+  type ManualPublishProfile,
   type PublishJob,
   type PublishRuntimeInfo,
   type StrictValidationInput,
   type StrictValidationResult,
 } from '../services/publish-api.js';
 
-interface CreateJobInput {
-  rootMap: string;
-  format: PublishFormat;
-  ditaval?: string | null;
-  title?: string;
-}
+/** Async load state for the theme catalogue and the manual publish profile. */
+export type PublishLoadStatus = 'idle' | 'loading' | 'ready' | 'error';
 
 export interface PublishState {
   runtime: PublishRuntimeInfo | null;
   runtimeLoading: boolean;
   runtimeError: string | null;
+  themes: HtmlThemeDescriptor[];
+  themesStatus: PublishLoadStatus;
+  themesError: string | null;
+  profile: ManualPublishProfile | null;
+  profileStatus: PublishLoadStatus;
+  profileError: string | null;
+  savingProfile: boolean;
+  profileSaveError: string | null;
+  profileSaved: boolean;
   jobs: PublishJob[];
   jobsLoading: boolean;
   activeJobId: string | null;
@@ -35,8 +47,14 @@ export interface PublishState {
   strictError: string | null;
   strictTargets: string[];
   loadRuntime: () => Promise<void>;
+  loadThemes: () => Promise<void>;
+  loadProfile: () => Promise<void>;
+  saveProfile: (
+    themeId: HtmlThemeId,
+    themeOptions: HtmlThemeOptions,
+  ) => Promise<ManualPublishProfile | null>;
   loadJobs: () => Promise<void>;
-  createJob: (input: CreateJobInput) => Promise<PublishJob | null>;
+  createJob: (input: CreatePublishJobInput) => Promise<PublishJob | null>;
   cancelJob: (id: string) => Promise<void>;
   selectJob: (id: string | null) => void;
   refreshJob: (id: string) => Promise<void>;
@@ -53,6 +71,15 @@ export const usePublishStore = create<PublishState>((set, get) => ({
   runtime: null,
   runtimeLoading: false,
   runtimeError: null,
+  themes: [],
+  themesStatus: 'idle',
+  themesError: null,
+  profile: null,
+  profileStatus: 'idle',
+  profileError: null,
+  savingProfile: false,
+  profileSaveError: null,
+  profileSaved: false,
   jobs: [],
   jobsLoading: false,
   activeJobId: null,
@@ -71,6 +98,38 @@ export const usePublishStore = create<PublishState>((set, get) => ({
       set({ runtime, runtimeLoading: false });
     } catch (error) {
       set({ runtimeLoading: false, runtimeError: messageOf(error) });
+    }
+  },
+
+  loadThemes: async () => {
+    set({ themesStatus: 'loading', themesError: null });
+    try {
+      const themes = await fetchHtmlThemes();
+      set({ themes, themesStatus: 'ready' });
+    } catch (error) {
+      set({ themesStatus: 'error', themesError: messageOf(error) });
+    }
+  },
+
+  loadProfile: async () => {
+    set({ profileStatus: 'loading', profileError: null });
+    try {
+      const profile = await fetchPublishProfile();
+      set({ profile, profileStatus: 'ready' });
+    } catch (error) {
+      set({ profileStatus: 'error', profileError: messageOf(error) });
+    }
+  },
+
+  saveProfile: async (themeId, themeOptions) => {
+    set({ savingProfile: true, profileSaveError: null, profileSaved: false });
+    try {
+      const profile = await savePublishProfile({ themeId, themeOptions });
+      set({ profile, profileStatus: 'ready', savingProfile: false, profileSaved: true });
+      return profile;
+    } catch (error) {
+      set({ savingProfile: false, profileSaveError: messageOf(error) });
+      return null;
     }
   },
 
@@ -100,6 +159,11 @@ export const usePublishStore = create<PublishState>((set, get) => ({
         jobs: [job, ...state.jobs.filter((existing) => existing.id !== job.id)],
         activeJobId: job.id,
       }));
+      // The create request also persists the manual default; refresh so the "default theme"
+      // badge follows without a reload.
+      if (input.saveAsDefault && input.themeId && input.themeId !== 'vanilla') {
+        void get().loadProfile();
+      }
       return job;
     } catch (error) {
       set({ submitting: false, actionError: messageOf(error) });

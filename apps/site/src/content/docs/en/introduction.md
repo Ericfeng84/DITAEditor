@@ -63,6 +63,6 @@ Each `(project, branch, file_path)` permits exactly one exclusive check-out. Bra
 
 ## Next steps
 
-- Try the multi-file workbench directly in your browser: [open the offline workbench](../../../workbench/).
+- Try the full workbench directly in your browser: [open the online workbench](https://www.cemplatformcvs.cloud/dita).
 - Deploy it: [Getting started with Docker](/en/docs/getting-started).
 - Read the code: [Architecture reference](/en/docs/architecture).

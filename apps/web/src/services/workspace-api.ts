@@ -20,6 +20,7 @@ import {
 } from '@dita/core';
 import { getCurrentLocale } from '../i18n/index.js';
 import { applyScopeHeaders } from './active-scope.js';
+import { apiUrl } from './api-base.js';
 import { getCurrentUserId } from './identity-api.js';
 
 export interface WorkspaceFileNode {
@@ -125,7 +126,7 @@ export async function requestJson<T>(url: string, init?: RequestInit): Promise<T
   if (userId) headers.set('x-dita-user-id', userId);
   headers.set('x-dita-locale', getCurrentLocale());
   applyScopeHeaders(headers);
-  const res = await fetch(url, { ...init, headers });
+  const res = await fetch(apiUrl(url), { ...init, headers });
   const text = await res.text();
   let data: unknown = null;
   try {
@@ -321,7 +322,7 @@ export async function uploadWorkspaceImage(
   }
   form.append('file', file);
 
-  const res = await fetch('/api/assets/upload', {
+  const res = await fetch(apiUrl('/api/assets/upload'), {
     method: 'POST',
     body: form,
   });
@@ -339,7 +340,10 @@ export async function uploadWorkspaceImage(
         : `Upload failed (${res.status})`;
     throw new Error(errMsg);
   }
-  return data as UploadAssetResult;
+  const uploaded = data as UploadAssetResult;
+  return uploaded.previewUrl
+    ? { ...uploaded, previewUrl: apiUrl(uploaded.previewUrl) }
+    : uploaded;
 }
 
 /**
@@ -362,8 +366,8 @@ export function resolveWorkspaceAssetUrl(
   }
 
   if (mode === 'api') {
-    if (trimmed.startsWith('/api/')) return trimmed;
-    return `/api/assets/resolve?from=${encodeURIComponent(docPath)}&href=${encodeURIComponent(trimmed)}`;
+    if (trimmed.startsWith('/api/')) return apiUrl(trimmed);
+    return apiUrl(`/api/assets/resolve?from=${encodeURIComponent(docPath)}&href=${encodeURIComponent(trimmed)}`);
   }
 
   const resolved = resolveDitaHref(docPath, trimmed);

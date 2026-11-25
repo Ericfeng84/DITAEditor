@@ -45,6 +45,12 @@ export const SITE = {
   },
   repo,
   licenseUrl: `${repo}/blob/main/LICENSE`,
+  /**
+   * Hosted full-trial workbench (GCP Cloud Run + subpath reverse proxy: DITA-OT
+   * validation, HTML5 themes, Noto CJK PDF publishing, Git locks, AI proxy).
+   * Every "online workbench" CTA across the site points here.
+   */
+  trialUrl: 'https://www.cemplatformcvs.cloud/dita',
   base,
   url: site,
   /** Bumped by hand when the site copy changes; printed in the footer for traceability. */

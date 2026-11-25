@@ -39,7 +39,7 @@ export const en: typeof zh = {
     desktopCta: 'Download desktop app',
     secondaryCta: 'Deploy with Docker',
     browserNote:
-      'The browser build is a static demo: editing, map orchestration and keys/conref/DITAVAL work; publishing, Git and AI need the desktop app or a container deployment.',
+      'The hosted trial is the full build: DITA-OT 4.2.1 validation, HTML5 themes with Noto CJK PDF publishing, Git locks, the semantic index and fragment-scoped AI are all live; expect a 3–5 second cold start on the first visit.',
     stats: [
       { value: '100%', label: 'Lossless XML round-trip' },
       { value: '10', label: 'Golden DITA 1.3 fixtures' },
@@ -138,7 +138,7 @@ export const en: typeof zh = {
     presets: { body: 'Body', note: 'Note', command: 'Command' },
     hint: 'Try changing the backup path, or retitle it “Archive the workspace”',
     reset: 'Reset sample',
-    openFull: 'Open the 3-pane offline workbench →',
+    openFull: 'Open the online workbench →',
     unchanged: 'Untouched: the serialized XML is byte-identical to the original.',
     changed: 'Only {count} lines changed; everything else is byte-identical.',
     preserve: ['DOCTYPE kept', 'Comments kept', 'PI kept', 'Attribute order kept'],
@@ -218,8 +218,8 @@ export const en: typeof zh = {
   },
   cta: {
     title: 'Spend ten minutes proving it is actually lossless.',
-    body: 'Run the multi-file offline workbench in your browser: map tree, dual-mode editing, and single-sourced keys, conrefs, and DITAVAL.',
-    playground: 'Open offline workbench',
+    body: 'Open the full hosted trial: map tree, dual-mode editing and single-sourced keys, conrefs and DITAVAL, plus DITA-OT validation, HTML5/PDF publishing and Git locks.',
+    playground: 'Open the online workbench',
     docs: 'Read the docs',
   },
   footer: {
@@ -234,7 +234,7 @@ export const en: typeof zh = {
     samples: 'Demo project',
     madeWith: 'Docs and site build from one source',
     docs: 'Docs',
-    playground: 'Playground',
+    playground: 'Live trial',
     features: 'Capabilities',
     architecture: 'Architecture',
     github: 'GitHub',
@@ -345,11 +345,11 @@ export const en: typeof zh = {
   },
   notFound: {
     title: 'Page not found',
-    description: 'This link may have moved. Go back home, or open the offline browser workbench.',
+    description: 'This link may have moved. Go back home, or open the hosted workbench.',
     home: 'Back to home',
     switchLocale: '简体中文？',
     switchLocaleLink: '前往中文站点 →',
-    playground: 'Open workbench',
+    playground: 'Open the workbench',
   },
   common: {
     copy: 'Copy',
