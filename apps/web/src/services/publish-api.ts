@@ -142,9 +142,14 @@ export async function fetchPublishRuntime(): Promise<{
 }
 
 function normalizePublishJob(job: PublishJob): PublishJob {
+  const preview = job.previewUrl
+    ? job.previewUrl.endsWith('/preview/')
+      ? `${job.previewUrl}index.html`
+      : job.previewUrl
+    : null;
   return {
     ...job,
-    previewUrl: job.previewUrl ? apiUrl(job.previewUrl) : null,
+    previewUrl: preview ? apiUrl(preview) : null,
     artifactUrl: job.artifactUrl ? apiUrl(job.artifactUrl) : null,
     logUrl: apiUrl(job.logUrl),
   };

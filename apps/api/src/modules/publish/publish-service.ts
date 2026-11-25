@@ -386,7 +386,7 @@ export class PublishService {
       diagnostics: parseDiagnostics(row.diagnosticsJson),
       previewUrl:
         succeeded && row.format === 'html5' && row.outputPath
-          ? `/api/publish/jobs/${row.id}/preview/`
+          ? `/api/publish/jobs/${row.id}/preview/index.html`
           : null,
       artifactUrl: succeeded && row.artifactPath ? `/api/publish/jobs/${row.id}/artifact` : null,
       logUrl: `/api/publish/jobs/${row.id}/log`,

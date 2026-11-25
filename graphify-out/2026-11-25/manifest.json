@@ -828,9 +828,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/routes.ts": {
-    "mtime": 1795578359.3792658,
-    "seen": 1795580135.31819,
-    "ast_hash": "4e209c235ee05a6178064847f7116f5f",
+    "mtime": 1795584216.8862166,
+    "seen": 1795584356.532458,
+    "ast_hash": "9affe5d2bbb28a6f83a9bff493ae3917",
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/zip-store.ts": {
@@ -858,9 +858,9 @@
     "semantic_hash": ""
   },
   "apps/api/test/phase5-publish.test.ts": {
-    "mtime": 1795279552.991575,
-    "seen": 1795283599.185709,
-    "ast_hash": "8f04980f0a64b332beb0ab15a18439ce",
+    "mtime": 1795584243.7460108,
+    "seen": 1795584356.532471,
+    "ast_hash": "afd575c0e2f1f3da5553fae93010fa38",
     "semantic_hash": ""
   },
   "apps/web/src/components/publish/JobLogViewer.tsx": {
@@ -2721,6 +2721,12 @@
     "mtime": 1795582303.8736522,
     "seen": 1795582990.119914,
     "ast_hash": "6f30bf9b3109826354c76139a8d18ecf",
+    "semantic_hash": ""
+  },
+  ".github/workflows/deploy-cloudrun.yml": {
+    "mtime": 1795583986.6016023,
+    "seen": 1795584356.5324092,
+    "ast_hash": "5bcb60c9165c5ebbd3410337fc6dde66",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
