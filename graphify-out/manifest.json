@@ -6,9 +6,9 @@
     "semantic_hash": "3b541b9935fcf0831355da956f897645"
   },
   "apps/api/package.json": {
-    "mtime": 1795614824.6940825,
-    "seen": 1795615014.777397,
-    "ast_hash": "0c912c4af0bc3bb08f39565fca42796a",
+    "mtime": 1795701095.9252121,
+    "seen": 1795701183.199973,
+    "ast_hash": "9dcf349610771b4d430e12e7fbe6a5fa",
     "semantic_hash": ""
   },
   "apps/api/src/index.ts": {
@@ -24,15 +24,15 @@
     "semantic_hash": "e77677f8a878acd319e910b00f81dd02"
   },
   "apps/web/package.json": {
-    "mtime": 1795614824.6872354,
-    "seen": 1795615014.777499,
-    "ast_hash": "8dd248efa7f0a6d0e827af097521d3f6",
+    "mtime": 1795701097.4377327,
+    "seen": 1795701183.200075,
+    "ast_hash": "b298540e5e8db5ae4881e7162e0f0127",
     "semantic_hash": ""
   },
   "apps/web/src/App.tsx": {
-    "mtime": 1795674456.9812582,
-    "seen": 1795674659.169987,
-    "ast_hash": "a567226646ff305549f9337cd5e274cb",
+    "mtime": 1795700331.2392032,
+    "seen": 1795700374.554852,
+    "ast_hash": "1a8b0152019e9560497eaefd1a852dba",
     "semantic_hash": ""
   },
   "apps/web/src/main.tsx": {
@@ -54,15 +54,15 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1795614824.674093,
-    "seen": 1795615014.777664,
-    "ast_hash": "68a5301ddd6444e010cc6d3198f77c0a",
+    "mtime": 1795701092.137657,
+    "seen": 1795701183.2002509,
+    "ast_hash": "365a738574056df0cf28360b20c80cc7",
     "semantic_hash": ""
   },
   "packages/dita-core/package.json": {
-    "mtime": 1795614824.6808453,
-    "seen": 1795615014.7776651,
-    "ast_hash": "e498dfaf5aafe2a381096733dd11f4bf",
+    "mtime": 1795701094.2326157,
+    "seen": 1795701183.2002518,
+    "ast_hash": "f7976b30dea9147bce353d5884586c1b",
     "semantic_hash": ""
   },
   "packages/dita-core/src/cals/cals-table.ts": {
@@ -228,9 +228,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/source/SourceEditor.tsx": {
-    "mtime": 1795524726.2474518,
-    "seen": 1795526956.3880398,
-    "ast_hash": "41525573aa81943a8a03893d04331349",
+    "mtime": 1795699766.2430513,
+    "seen": 1795700112.735183,
+    "ast_hash": "f1f47efa2ee42364b722eb4e877bc85e",
     "semantic_hash": ""
   },
   "apps/web/src/editor/source/dita-completion.ts": {
@@ -270,9 +270,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/VisualEditor.tsx": {
-    "mtime": 1795513146.860161,
-    "seen": 1795513805.6414669,
-    "ast_hash": "f7a661dbc5c617f51d5a8ff928b11f64",
+    "mtime": 1795699754.5694504,
+    "seen": 1795700112.735193,
+    "ast_hash": "51872c23d3c981fc4bac6e1b05622203",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/keymap.ts": {
@@ -288,15 +288,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/selection-info.ts": {
-    "mtime": 1795478594.6207488,
-    "seen": 1795478884.3535628,
-    "ast_hash": "5edf42f23c7d65f32db81f0021a9cd9f",
+    "mtime": 1795697196.0283685,
+    "seen": 1795697692.8597639,
+    "ast_hash": "d329303413dd09d292ce7a4a3fccb96c",
     "semantic_hash": ""
   },
   "apps/web/test/dita-commands.test.ts": {
-    "mtime": 1795478817.8986118,
-    "seen": 1795478884.3536088,
-    "ast_hash": "6e1afacde376b15517d60b615ad69bb7",
+    "mtime": 1795697401.16235,
+    "seen": 1795697692.859835,
+    "ast_hash": "e45e42da85aa38aa41245a9bcc8e0d34",
     "semantic_hash": ""
   },
   "apps/web/test/dita-completion.test.ts": {
@@ -348,9 +348,9 @@
     "semantic_hash": ""
   },
   "apps/web/test/decorations-and-inserter.test.ts": {
-    "mtime": 1795223776.5421715,
-    "seen": 1795223791.517277,
-    "ast_hash": "c132622771d3b44cf2a808f9c53982fb",
+    "mtime": 1795697472.6401565,
+    "seen": 1795697692.8598342,
+    "ast_hash": "5bde65cf9425348a2ca604e282a6d3ce",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/InlineBubbleToolbar.tsx": {
@@ -456,9 +456,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapNodeContextMenu.tsx": {
-    "mtime": 1795480641.9196203,
-    "seen": 1795480990.164599,
-    "ast_hash": "3e82bd9493a9466135f69ff05fd2398c",
+    "mtime": 1795695466.443983,
+    "seen": 1795695656.267194,
+    "ast_hash": "7dc61f2acab0bd23fc17f78ba0e8771a",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapNodeInspector.tsx": {
@@ -474,15 +474,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapTreeNodeRenderer.tsx": {
-    "mtime": 1795671530.7072067,
-    "seen": 1795672409.379937,
-    "ast_hash": "a17e71289d586ebb63752c8e2498833d",
+    "mtime": 1795695466.441165,
+    "seen": 1795695656.267199,
+    "ast_hash": "817731fc6e6431a02b5009cf71cfd9f7",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapTreePanel.tsx": {
-    "mtime": 1795672239.2999659,
-    "seen": 1795672409.3799381,
-    "ast_hash": "669ed93a719f18eed8c350c46a294e55",
+    "mtime": 1795695763.3916159,
+    "seen": 1795695825.292151,
+    "ast_hash": "816319136ccdba3115a2a00f87604f5c",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MountExistingDialog.tsx": {
@@ -492,9 +492,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/map-tree-utils.ts": {
-    "mtime": 1795671519.2807424,
-    "seen": 1795672409.379939,
-    "ast_hash": "0622727de51729b46fb5c08804c6d521",
+    "mtime": 1795695460.6464431,
+    "seen": 1795695656.2672021,
+    "ast_hash": "55989c0166612233196608789845f8b2",
     "semantic_hash": ""
   },
   "apps/web/src/services/workspace-api.ts": {
@@ -504,9 +504,9 @@
     "semantic_hash": ""
   },
   "apps/web/test/map-tree-utils.test.ts": {
-    "mtime": 1795652545.5201335,
-    "seen": 1795653020.42175,
-    "ast_hash": "376c0a927ab24ad3e86a97ded2278e38",
+    "mtime": 1795695505.4213972,
+    "seen": 1795695656.267307,
+    "ast_hash": "b3a5d8af58b40b9b4b5f9a60e0e4a533",
     "semantic_hash": ""
   },
   "packages/dita-core/src/map/dita-map.ts": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795614831.6686811,
-    "seen": 1795615014.7777128,
-    "ast_hash": "6e863e0e82aeeb649c2e54ddd9c1be80",
+    "mtime": 1795701102.9987557,
+    "seen": 1795701183.200299,
+    "ast_hash": "1e6a0f241fa9688024cf211a858b7872",
     "semantic_hash": ""
   },
   "README.en.md": {
@@ -1098,9 +1098,9 @@
     "semantic_hash": ""
   },
   "apps/site/package.json": {
-    "mtime": 1795614824.699023,
-    "seen": 1795615014.777468,
-    "ast_hash": "8096f24dfcfe83b67df9dcba723daec8",
+    "mtime": 1795701099.1391375,
+    "seen": 1795701183.200044,
+    "ast_hash": "8ee7a9316ee37e1a1b1622dbf581b7e9",
     "semantic_hash": ""
   },
   "apps/site/src/components/DocsIndex.astro": {
@@ -1218,9 +1218,9 @@
     "semantic_hash": ""
   },
   "apps/site/src/lib/site.ts": {
-    "mtime": 1795614844.4005034,
-    "seen": 1795615014.7774878,
-    "ast_hash": "54d3bd8554117afec816a0403cb8421b",
+    "mtime": 1795701127.7851439,
+    "seen": 1795701183.200063,
+    "ast_hash": "7024b6741692c4188865bf88169f5ba3",
     "semantic_hash": ""
   },
   "apps/site/src/pages/404.astro": {
@@ -1758,15 +1758,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/VisualEditorSubHeader.tsx": {
-    "mtime": 1795513889.622251,
-    "seen": 1795513998.969307,
-    "ast_hash": "11aa861e2006eac45db09ac30060c25f",
+    "mtime": 1795700741.6898193,
+    "seen": 1795700786.264265,
+    "ast_hash": "3c1bcb1674261ad06b0407650de3f850",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/commands/block-commands.ts": {
-    "mtime": 1795450492.4678178,
-    "seen": 1795451270.19519,
-    "ast_hash": "92fc700c5bfafb2e3c58351f03485a40",
+    "mtime": 1795697190.0874646,
+    "seen": 1795697692.8597429,
+    "ast_hash": "6eb0e0d701bae56a4d62b9a72883eb9b",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/commands/element-skeleton.ts": {
@@ -1794,9 +1794,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/commands/node-edit-commands.ts": {
-    "mtime": 1795450476.7398841,
-    "seen": 1795451270.195194,
-    "ast_hash": "938e5c8d119d5d51a42abf21e19f5743",
+    "mtime": 1795698875.670178,
+    "seen": 1795699268.571472,
+    "ast_hash": "67a70e486dab4ee0da27820b4ba080a1",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/commands/node-helpers.ts": {
@@ -1806,9 +1806,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/decorations/collect.ts": {
-    "mtime": 1795451199.6763008,
-    "seen": 1795451270.195196,
-    "ast_hash": "738b0bd1cd3d80e7c8ca9d134235762c",
+    "mtime": 1795697456.497305,
+    "seen": 1795697692.859753,
+    "ast_hash": "4f8ace6660ae1a0330e53b9c778dc1de",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/decorations/conref-widget.ts": {
@@ -1818,9 +1818,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/decorations/gap-inserter.ts": {
-    "mtime": 1795451199.6777902,
-    "seen": 1795451270.1951969,
-    "ast_hash": "8d754f83b88c9e93c6ced404b4f4810f",
+    "mtime": 1795697169.5326989,
+    "seen": 1795697692.859754,
+    "ast_hash": "1faeddf16956548d2bd7e2a2199397fd",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/decorations/index.ts": {
@@ -1854,9 +1854,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/editor-handle.ts": {
-    "mtime": 1795484944.9310665,
-    "seen": 1795485898.499729,
-    "ast_hash": "6bb257cf7c4601025e65e99b7ef0f96b",
+    "mtime": 1795698881.7707229,
+    "seen": 1795699268.5714822,
+    "ast_hash": "a76dde2b910ea2b695733e98ec17d14a",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/insert-context.ts": {
@@ -1902,9 +1902,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/use-visual-editor-view.ts": {
-    "mtime": 1795485438.2631078,
-    "seen": 1795485898.49974,
-    "ast_hash": "5a1db7d0863eabd98d2e2ec079774a05",
+    "mtime": 1795699738.2876816,
+    "seen": 1795700112.735221,
+    "ast_hash": "f58f119d99eabe027fc0b58fa2202253",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/ai.ts": {
@@ -1926,9 +1926,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/editor.ts": {
-    "mtime": 1795513133.8365712,
-    "seen": 1795513805.641505,
-    "ast_hash": "491774df6543d315a95f9cfcd1a2862c",
+    "mtime": 1795699624.9582825,
+    "seen": 1795700112.735229,
+    "ast_hash": "e4cc2da65eb1d482592780a6da5704c1",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/guide.ts": {
@@ -1938,9 +1938,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/structure.ts": {
-    "mtime": 1795671657.9972281,
-    "seen": 1795672409.379922,
-    "ast_hash": "948d2403e02d6fd93a578a83c31017bc",
+    "mtime": 1795695785.722515,
+    "seen": 1795695825.292135,
+    "ast_hash": "d51794a2681c2802dd407f6452312fbe",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/ai.ts": {
@@ -1962,9 +1962,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/editor.ts": {
-    "mtime": 1795513133.8362458,
-    "seen": 1795513805.6415129,
-    "ast_hash": "f75ca73da6285999fe66e80f0a30d5fa",
+    "mtime": 1795699629.3479073,
+    "seen": 1795700112.7352371,
+    "ast_hash": "612bf703b513f0c3737d0fc21bda1466",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/guide.ts": {
@@ -1974,9 +1974,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/structure.ts": {
-    "mtime": 1795671657.9968402,
-    "seen": 1795672409.379931,
-    "ast_hash": "5465d08a661daeddc2c7c00a79835731",
+    "mtime": 1795695785.722222,
+    "seen": 1795695825.292144,
+    "ast_hash": "fbce31a6ac74809f7a88e68ad5c24420",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/index.ts": {
@@ -1986,9 +1986,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/initial-state.ts": {
-    "mtime": 1795671248.2556899,
-    "seen": 1795672409.379951,
-    "ast_hash": "7c1fb1f54391ec3f045b037d5524a190",
+    "mtime": 1795699708.9299946,
+    "seen": 1795700112.735258,
+    "ast_hash": "959d72fed3582d549f859c9212f14513",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/internals.ts": {
@@ -2034,9 +2034,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/ui.ts": {
-    "mtime": 1795671255.1863446,
-    "seen": 1795672409.379957,
-    "ast_hash": "205bd149bfc03a1a971321c5cb03dea1",
+    "mtime": 1795699713.1358297,
+    "seen": 1795700112.735264,
+    "ast_hash": "b4af19e26b74c8e43c7098a11e73a6a6",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/workspace.ts": {
@@ -2046,9 +2046,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/types.ts": {
-    "mtime": 1795671241.764068,
-    "seen": 1795672409.379959,
-    "ast_hash": "ae1228c8c0c4539b479da43106495275",
+    "mtime": 1795699705.063017,
+    "seen": 1795700112.735266,
+    "ast_hash": "36c351b55824f5b2e5fd2e25c3727108",
     "semantic_hash": ""
   },
   "apps/web/src/components/topicGuideTree.ts": {
@@ -2346,9 +2346,9 @@
     "semantic_hash": ""
   },
   "apps/desktop/package.json": {
-    "mtime": 1795614824.7025647,
-    "seen": 1795615014.777459,
-    "ast_hash": "bccd0a4a9d4bc6d2b7ac594280c835b3",
+    "mtime": 1795701101.1057153,
+    "seen": 1795701183.200037,
+    "ast_hash": "a3bfe1209e1eaad2116444017a5020cd",
     "semantic_hash": ""
   },
   "apps/desktop/scripts/build.mjs": {
@@ -2922,15 +2922,51 @@
     "semantic_hash": ""
   },
   "apps/web/test/key-management-integration.test.tsx": {
-    "mtime": 1795674501.8719947,
-    "seen": 1795674659.1701498,
-    "ast_hash": "60c6015979b745165f945c851490c3a0",
+    "mtime": 1795695494.1437397,
+    "seen": 1795695656.267273,
+    "ast_hash": "e401f99e5a1a4578fe217f34557df588",
+    "semantic_hash": ""
+  },
+  "apps/web/src/editor/outline/outline-dnd.ts": {
+    "mtime": 1795699132.18939,
+    "seen": 1795699268.5714529,
+    "ast_hash": "ced62b9196caa57cc835102a3fb6e380",
+    "semantic_hash": ""
+  },
+  "apps/web/src/editor/outline/outline-model.ts": {
+    "mtime": 1795699089.4450498,
+    "seen": 1795699268.571454,
+    "ast_hash": "dcbc916f60a80504378a47ec703ff40f",
+    "semantic_hash": ""
+  },
+  "apps/web/test/document-outline.test.ts": {
+    "mtime": 1795699242.804817,
+    "seen": 1795699268.571557,
+    "ast_hash": "95adb29729b0f65c2df31c2631bd0348",
+    "semantic_hash": ""
+  },
+  "apps/web/src/editor/outline/DocumentOutlinePanel.tsx": {
+    "mtime": 1795699688.966938,
+    "seen": 1795700112.735179,
+    "ast_hash": "9f4f32494aa83b377b080e7d4e221a40",
+    "semantic_hash": ""
+  },
+  "apps/web/src/editor/outline/use-outline-drag.ts": {
+    "mtime": 1795699685.200878,
+    "seen": 1795700112.735182,
+    "ast_hash": "086cb84a6ff69b8ade2ea3d9d02bad6f",
+    "semantic_hash": ""
+  },
+  "apps/web/test/document-outline-ui.test.tsx": {
+    "mtime": 1795700005.267856,
+    "seen": 1795700112.735285,
+    "ast_hash": "3c9900e706a46c06af572b7dd807e4e8",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
-    "mtime": 1795522176.4794648,
-    "seen": 1795522847.828332,
-    "ast_hash": "de0be511ba7ccdb1e5d01d147238fa7b",
+    "mtime": 1795699513.129632,
+    "seen": 1795700112.735439,
+    "ast_hash": "c691f58a77f3e6045506e750b45ace39",
     "semantic_hash": ""
   }
 }
