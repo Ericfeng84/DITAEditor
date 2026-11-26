@@ -75,6 +75,9 @@ importers:
       '@dita/api':
         specifier: workspace:*
         version: link:../api
+      better-sqlite3:
+        specifier: ^13.2.0
+        version: 13.2.0
     devDependencies:
       '@types/node':
         specifier: ^22.13.0
