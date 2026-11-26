@@ -72,9 +72,9 @@
     "semantic_hash": "c4870d86a96efbf3c9cffa0b3637a3c8"
   },
   "packages/dita-core/src/index.ts": {
-    "mtime": 1795442498.4281478,
-    "seen": 1795442990.411593,
-    "ast_hash": "1b1c569bd8f61e665e4099a5a5c4b2f5",
+    "mtime": 1795668115.3197324,
+    "seen": 1795668362.567447,
+    "ast_hash": "5a2ef36d7d7b973238452f6d32c1753a",
     "semantic_hash": ""
   },
   "packages/dita-core/src/model/dita-elements.ts": {
@@ -612,9 +612,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/src/semantics/semantic-engine.ts": {
-    "mtime": 1795611005.1943808,
-    "seen": 1795611424.976663,
-    "ast_hash": "b86e6027d7d5d1e3de07967baea771f5",
+    "mtime": 1795668118.786407,
+    "seen": 1795668362.567457,
+    "ast_hash": "3d8679af6dd973c5f0803741a9af905c",
     "semantic_hash": ""
   },
   "packages/dita-core/src/semantics/types.ts": {
@@ -696,15 +696,15 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/git/git-manager.ts": {
-    "mtime": 1795611005.1510127,
-    "seen": 1795611424.9764118,
-    "ast_hash": "902042a2dcf14144df346c18a88086b4",
+    "mtime": 1795653396.0464344,
+    "seen": 1795654097.007784,
+    "ast_hash": "8437f0f341a67b91a6aff25a462ef741",
     "semantic_hash": ""
   },
   "apps/api/src/modules/git/routes.ts": {
-    "mtime": 1795614036.5757058,
-    "seen": 1795614224.1824691,
-    "ast_hash": "fe425438b90dba6ed72b84b1b61aa18c",
+    "mtime": 1795653531.989606,
+    "seen": 1795654097.007787,
+    "ast_hash": "fb1912f08b468cdbd2ed687cbe868082",
     "semantic_hash": ""
   },
   "apps/api/src/modules/identity/identity-service.ts": {
@@ -756,9 +756,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/GitPanel.tsx": {
-    "mtime": 1795611904.4855938,
-    "seen": 1795612233.879342,
-    "ast_hash": "04e0e6d32f3223154436e3572890f5bc",
+    "mtime": 1795653953.3013132,
+    "seen": 1795654097.007873,
+    "ast_hash": "b018f94e18f59d2958dd7fe61debf7c5",
     "semantic_hash": ""
   },
   "apps/web/src/components/IdentitySwitcher.tsx": {
@@ -774,9 +774,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/services/git-api.ts": {
-    "mtime": 1795614040.4540322,
-    "seen": 1795614224.182646,
-    "ast_hash": "275b05387c860d35a57838c198c7164c",
+    "mtime": 1795653639.4652498,
+    "seen": 1795654097.0079648,
+    "ast_hash": "6d46f5e125377ab04c46483f832a48b6",
     "semantic_hash": ""
   },
   "apps/web/src/services/identity-api.ts": {
@@ -792,9 +792,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/git-store.ts": {
-    "mtime": 1795644627.8980274,
-    "seen": 1795644727.569929,
-    "ast_hash": "4b3ae8fe570f0b27d2b584dc62bd5ede",
+    "mtime": 1795653661.1453362,
+    "seen": 1795654097.007979,
+    "ast_hash": "6aa85832a461634c8374ef571c63b200",
     "semantic_hash": ""
   },
   "apps/web/test/lock-helpers.test.ts": {
@@ -1026,9 +1026,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/src/ai/fragment-locator.ts": {
-    "mtime": 1795595756.3680856,
-    "seen": 1795596068.696522,
-    "ast_hash": "11074ce4f5110e5de2fccc623c3ccd35",
+    "mtime": 1795668339.8730507,
+    "seen": 1795668362.5674381,
+    "ast_hash": "4f1501e460efc9cba8e8546859caa972",
     "semantic_hash": ""
   },
   "packages/dita-core/src/ai/fragment-splice.ts": {
@@ -1056,9 +1056,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/test/ai-fragment.test.ts": {
-    "mtime": 1795595831.094386,
-    "seen": 1795596068.696548,
-    "ast_hash": "78c88e33575b69de9d2aa227a0b7facf",
+    "mtime": 1795668228.8254607,
+    "seen": 1795668362.567466,
+    "ast_hash": "32685ec5afab482a16685ac7c87219c1",
     "semantic_hash": ""
   },
   "docs/phase6-ai-contract.md": {
@@ -1512,9 +1512,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/i18n/messages.ts": {
-    "mtime": 1795611911.0475585,
-    "seen": 1795612233.8792279,
-    "ast_hash": "4d400d3473bb5bc44df0030eb83b9159",
+    "mtime": 1795653396.0464532,
+    "seen": 1795654097.0077639,
+    "ast_hash": "6f6f42b031b1ee3fcc2edf166f43fc76",
     "semantic_hash": ""
   },
   "apps/api/test/phase8-i18n.test.ts": {
@@ -1914,9 +1914,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/collab.ts": {
-    "mtime": 1795614127.517488,
-    "seen": 1795614224.182623,
-    "ast_hash": "31ed3726c4e3e60643add85cf9e0d280",
+    "mtime": 1795653703.8127267,
+    "seen": 1795654097.007941,
+    "ast_hash": "fa311eaeef3826abbe465acba06e6f94",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/common.ts": {
@@ -1950,9 +1950,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/collab.ts": {
-    "mtime": 1795614125.406153,
-    "seen": 1795614224.182631,
-    "ast_hash": "9dac4fbb8bb93b33f07f574b99bb22c9",
+    "mtime": 1795653700.543306,
+    "seen": 1795654097.007949,
+    "ast_hash": "b8ddb2f54123d3c4c3b2f29eb6a746fd",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/common.ts": {
@@ -2040,9 +2040,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/workspace.ts": {
-    "mtime": 1795644662.5191243,
-    "seen": 1795644727.569927,
-    "ast_hash": "3808462281551288809bc085fe5e4c08",
+    "mtime": 1795653648.086211,
+    "seen": 1795654097.007978,
+    "ast_hash": "260c43168faa84da7708b52d4b0b370b",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/types.ts": {
@@ -2859,6 +2859,36 @@
     "mtime": 1795652945.561111,
     "seen": 1795653020.421844,
     "ast_hash": "87df8fd4407f72ba07ff2c6d43add829",
+    "semantic_hash": ""
+  },
+  "apps/api/test/git-restore-revert.test.ts": {
+    "mtime": 1795653615.3525617,
+    "seen": 1795654097.007807,
+    "ast_hash": "6d9781da0cef428c1dd59b836a86fffc",
+    "semantic_hash": ""
+  },
+  "apps/web/test/git-restore-revert.test.tsx": {
+    "mtime": 1795653898.6973565,
+    "seen": 1795654097.0079958,
+    "ast_hash": "8ef9ceb50eeba74cafbec654871993c4",
+    "semantic_hash": ""
+  },
+  "packages/dita-core/src/xml/checkin-validate.ts": {
+    "mtime": 1795668111.810965,
+    "seen": 1795668362.56746,
+    "ast_hash": "cf366727b355fd8cf6f552705e392d96",
+    "semantic_hash": ""
+  },
+  "packages/dita-core/test/checkin-validate.test.ts": {
+    "mtime": 1795668239.2653754,
+    "seen": 1795668362.567467,
+    "ast_hash": "faaec0ff65a7cab0b54c997d9fdcd92c",
+    "semantic_hash": ""
+  },
+  "docs/checkin-validation-ai-fix-plan.md": {
+    "mtime": 1795667846.2799106,
+    "seen": 1795668362.567508,
+    "ast_hash": "cacadc96d96b23ef88108f4725a4b84f",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
