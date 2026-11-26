@@ -1,16 +1,16 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.4.0-blue.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.5.0-blue.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
-[![Download macOS](https://img.shields.io/badge/download-macOS%20arm64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.4.0-mac-arm64.dmg)
-[![Download Windows](https://img.shields.io/badge/download-Windows%20x64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.4.0-win-x64.exe)
+[![Download macOS](https://img.shields.io/badge/download-macOS%20arm64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.5.0-mac-arm64.dmg)
+[![Download Windows](https://img.shields.io/badge/download-Windows%20x64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.5.0-win-x64.exe)
 
 **简体中文** · [English](README.en.md)
 
-面向技术文档团队的 **Web DITA 1.3 结构化写作工作台**：ProseMirror 可视化编辑与 CodeMirror 6 XML 源码双模，可视化 Map / Bookmap 编排，单一信息源语义引擎（Keys / Conref / DITAVAL），本地 Git 与检出锁、可视化 Diff，DITA-OT 4.x 权威校验与异步 HTML5 / 中文 PDF 发布，AI 片段级辅助，以及手册级 Topic 委派 —— 全部以标准 DITA XML 为唯一事实源，100% 无损往返、最小化 Git Diff。
+面向技术文档团队的 **Web DITA 1.3 结构化写作工作台**：ProseMirror 可视化编辑与 CodeMirror 6 XML 源码双模，可折叠**文档大纲视图**与受 DITA 1.3 内容模型约束的拖拽重排，可视化 Map / Bookmap 编排，单一信息源语义引擎（Keyspace 键管理 / Conref / DITAVAL），**干净基线 + 个人草稿叠加层**的本地 Git 版本管理、检出锁与可视化 Diff，DITA-OT 4.x 权威校验与带主题的 HTML5 / 中文 PDF 发布，AI 片段级辅助，以及手册级 Topic 委派 —— 全部以标准 DITA XML 为唯一事实源，100% 无损往返、最小化 Git Diff。
 
-> **v1.4.0**（Phase 0–13）· [更新日志](CHANGELOG.md) · [MIT 许可](LICENSE) · [架构基线与路线图](docs/architecture-and-plan.md) · [工程约定](AGENTS.md)
+> **v1.5.0**（Phase 0–13）· [更新日志](CHANGELOG.md) · [MIT 许可](LICENSE) · [架构基线与路线图](docs/architecture-and-plan.md) · [工程约定](AGENTS.md)
 
 | 在线体验 | 地址 | 说明 |
 | :--- | :--- | :--- |
@@ -118,7 +118,20 @@
 
 </details>
 
-### 3. 可视化 Map / Bookmap 树与多文件工作台
+### 3. 文档大纲视图与结构重排（v1.5.0）
+
+编辑器左侧独立大纲栏（`apps/web/src/editor/outline/`）把当前文档渲染成可折叠结构树：默认「结构骨架」只保留结构容器，「全部块级」展开所有块；支持按文本 / `<tag>` / `#id` 即时过滤、`+N` 隐藏子块徽标与结构告警圆点，`Cmd/Ctrl+Shift+O` 一键开合；展开、收起或切换视图不会重挂载编辑器，Undo 历史、选区与滚动位置完整保留。
+
+<details>
+<summary>实现细节</summary>
+
+- **双向定位**：大纲与 Visual / Split / Source 三模式双向联动 —— 点击大纲节点平滑滚动并高亮脉冲，光标移动同步高亮对应大纲行。
+- **受 DITA 1.3 约束的拖拽**：基于 `@dita/core` 的 `DITA_SEQUENCE_MODEL` 与 `isChildAllowed()` 计算合法落点，支持同容器排序与合法跨容器搬移（段落 / 提示拖入另一 `<section>`、`<li>` 拖入另一列表），非法落点实时提示原因；每次落点都是单个 ProseMirror 事务，一步 `Cmd/Ctrl+Z` 撤销且 100% 无损往返。
+- **键盘与只读保护**：`Alt+↑/↓` 同级键盘重排；只读身份或他人检出状态下自动禁用拖拽与键盘重排。
+
+</details>
+
+### 4. 可视化 Map / Bookmap 树与多文件工作台
 
 三栏可拖拽工作台 + 无损 Map / Bookmap DOM 引擎：拖拽调整 `topicref` / `mapref` / `topichead` / `chapter` / `keydef` 层级与顺序，同时原位保留 `<reltable>`、`<topicmeta>`、注释与 PI；配合多 Tab 编辑与项目级问题诊断面板。
 
@@ -131,20 +144,21 @@
 
 </details>
 
-### 4. 单一信息源语义引擎（Keys / Conref / DITAVAL）
+### 5. 单一信息源语义引擎（Keyspace / Conref / DITAVAL）
 
-Root Map 生效键空间按 BFS 与 **First Definition Wins** 裁决并支持 `keyscope` 隔离；`conref` / `conkeyref` / `conrefend` 跨文档复用由 DFS 环路检测守护；`.ditaval` 条件过滤提供实时三态投影 —— 全部零 XML 修改。
+Root Map 生效键空间按 BFS 与 **First Definition Wins** 裁决并支持 `keyscope` 隔离；Keyspace 面板内置键管理闭环（新建 `<keydef>` / 重命名 / 原位改值 / 绑定 `keyref`）；`conref` / `conkeyref` / `conrefend` 跨文档复用由 DFS 环路检测守护；`.ditaval` 条件过滤提供实时三态投影 —— 全部零 XML修改。
 
 <details>
 <summary>实现细节</summary>
 
 - **BFS 键空间（`keydef` / `keyref` / `keyscope`）**：按 DITA 1.3 规范做广度优先遍历与冲突裁决，`keyscope` 作用域隔离且同一子 Map 在多作用域下不误报；左侧 Keys 面板展示当前 Root Map 生效键与被覆盖计数，可一键插入 `<keyword keyref="..."/>` 或跳转到定义行，可视化区实时解析行内 `keyref` 文本与图片引用并支持一键溯源。
+- **键管理闭环（v1.5.0）**：`KeyspacePanel` + `NewKeyDialog` + `KeyrefAttrField` + `InsertKeyrefDialog` 覆盖「新建 Key → 在 Map 树与属性检查器中原位改值 → 一键绑定 `keyref`」全流程；Map 树过滤 `<keydef>` 噪音行并精简节点快捷操作，新建 / 改名写入标准 DITA `<keydef>` 而非私有索引。
 - **跨文档复用与 DFS 环路检测**：支持直接 `conref`、间接 `conkeyref`、同文档 `#./id`、`conrefend` 范围切片、嵌套 `keyref` 展开及 DITA 1.3 特化兼容校验；DFS `visitStack` 精准拦截自循环、双向 / 多跳循环与嵌套子节点循环（放行合法菱形 DAG）并展示完整环路链；被复用片段以只读内联卡片渲染（纯 DOM 构造，不改写底层 `Doc` 与 XML），检视区「复用」tab 可按 Key 或相对路径浏览目标元素、实时预览展开结果并新建复用元素或绑定当前元素。
 - **DITAVAL 三态投影**：完整解析 `.ditaval`（`<prop>`、`<revprop>`、`<startflag>` / `<endflag>`、`<style-conflict>`），遵循同属性多值全排斥、跨属性逻辑与 `props="group(val)"` 求值规则；一键切换 `.ditaval` 与「全部显示 / 置灰排除 / 隐藏排除」并实时同步 Map 树（隐藏模式锁定拖拽以防索引错位）与可视化区（Flag 配色与起止徽章），条件属性编辑器（`ProfilingAttrEditor`）内置项目全量词表与生效状态预览。
 
 </details>
 
-### 5. 本地工作区、增量语义索引与资产后端（`@dita/api`）
+### 6. 本地工作区、增量语义索引与资产后端（`@dita/api`）
 
 Fastify 5 + Zod 提供工作区扫描、文件 CRUD、批量导入与按分支缓存的增量语义索引器（`WorkspaceSemanticIndexer`）；保存 / 重命名 / 删除后自动刷新 Keyspace、Topic ID 索引与项目诊断，并内置路径安全防护与图片资产管线。
 
@@ -157,9 +171,9 @@ Fastify 5 + Zod 提供工作区扫描、文件 CRUD、批量导入与按分支�
 
 </details>
 
-### 6. 本地 Git 版本管理与 Check-out 独占锁（Phase 4）
+### 7. 干净基线 + 个人草稿叠加层与本地 Git（Phase 4 / Phase 13）
 
-基于 `simple-git` 在项目目录直接初始化本地仓库，零外部托管平台；按分支隔离 `git worktree`；默认只读，检出后按 `(project, branch, file_path)` 独占写入，签入即释放锁，并提供 MergeView 可视化 Diff 与提交历史。
+基于 `simple-git` 在项目目录直接初始化本地仓库，零外部托管平台；共享分支 `workDir` 永远等于 Git `HEAD`，未检入的编辑 / 新建 / 删除 / 重命名与草稿图片隔离在每人自己的 SQLite 草稿叠加层；检出后按 `(project, branch, file_path)` 独占写入，签入前执行 XML 良构与 DITA 结构预检，并提供 MergeView 可视化 Diff、无污染合并、Tag / 安全回滚与版本审计。
 
 <details>
 <summary>实现细节</summary>
@@ -168,10 +182,13 @@ Fastify 5 + Zod 提供工作区扫描、文件 CRUD、批量导入与按分支�
 - **轻量身份与角色**：SQLite + Drizzle ORM 持久化免密码作者身份（管理员 / 编辑者 / 只读），工具栏一键切换；写接口在服务端强制校验角色与锁归属，只读身份及他人检出的文件在可视化与源码编辑器均自动只读。
 - **独占锁与恢复**：不同文件、不同分支互不阻塞，仅能提交本人已检出且有改动的文件；支持撤销检出（回滚 `HEAD`）、释放锁保留草稿、管理员强制解锁并把内容与补丁写入 `lock_backups`。
 - **可视化 Diff 与历史**：左侧「版本」面板展示分支、检出锁、工作区改动与提交历史，CodeMirror 6 `MergeView` 对比工作区改动或任意两个版本，签入前先预览 Diff 并填写提交说明。
+- **干净基线 + 个人草稿叠加层（Phase 13）**：`apps/api/src/modules/locks/draft-service.ts`（SQLite `working_drafts` + 仓库外草稿资产）与 `apps/api/src/modules/files/overlay-workspace.ts` 提供与磁盘等价的叠加读取视图；跨文件诊断、严格校验与 AI 上下文读 `User Overlay`（`Baseline` + 本人草稿，`DitaSemanticIndex.cloneWithOverlay()`），正式发布默认走干净 `Baseline`（`HEAD` / `Tag` / `Commit`，经 `git archive` 快照），可选 `my_drafts` 预览只含请求者自己的草稿。
+- **无污染合并与版本审计**：`apps/api/src/modules/git/merge-service.ts` 用 `git merge-tree` 预检冲突并隔离合成 merge commit，`MergeDialog` 逐文件并排求解 XML 冲突；Tag、文件还原、提交回滚与 append-only `version_audit_logs`（`apps/api/src/modules/git/audit-service.ts`）覆盖检出 / 转派 / 检入 / 合并 / 回滚 / 发布全链路。
+- **检入校验门禁与 AI 修复闭环（v1.5.0）**：检入前对草稿执行 XML 良构与 DITA 结构预检，可从检入面板直接跳转问题行或呼起 AI 修复，修复完成后自动检出保存，校验不过不放行检入。
 
 </details>
 
-### 7. DITA-OT 4.x 权威校验与异步发布（Phase 5）
+### 8. DITA-OT 4.x 权威校验与异步发布（Phase 5 / Phase 12）
 
 双层校验：前端约束与 TS 语义索引负责零延迟把关，按需再调 DITA-OT `--validate=yes --processing-mode=strict` 做官方 DTD/RNG 校验；发布走 SQLite 任务表 + 进程内限流队列，产出带主题的 HTML5 ZIP 与嵌入 Noto CJK 的中文 PDF。
 
@@ -186,7 +203,7 @@ Fastify 5 + Zod 提供工作区扫描、文件 CRUD、批量导入与按分支�
 
 </details>
 
-### 8. AI 辅助写作与错误修复（Phase 6）
+### 9. AI 辅助写作与错误修复（Phase 6）
 
 AI 只输出被替换区间的 XML，由 `@dita/core` 按源码偏移无损拼回并强制校验（良构 / ProseMirror 可转换 / DOCTYPE 与 XML 声明保留），失败自动带原因重试，写入前必须经 Diff 确认与 Check-out 锁守卫。
 
@@ -200,7 +217,7 @@ AI 只输出被替换区间的 XML，由 `@dita/core` 按源码偏移无损拼�
 
 </details>
 
-### 9. 全栈中英双语界面（Phase 8）
+### 10. 全栈中英双语界面（Phase 8）
 
 `@dita/core` 提供强类型 `UiLocale` 与 `formatMessage`，`@dita/web` 以「单一文案源 + `Record<MessageKey, string>`」让缺失键在 typecheck 阶段失败；切换语言不刷新页面、不重建编辑器实例，未保存缓冲区与撤销栈完整保留；`@dita/api` 按请求语言返回锁冲突、校验、发布与 AI 提示。
 
@@ -214,7 +231,7 @@ AI 只输出被替换区间的 XML，由 `@dita/core` 按源码偏移无损拼�
 
 </details>
 
-### 10. 手册工作台与 Topic 委派（Phase 10）
+### 11. 手册工作台与 Topic 委派（Phase 10）
 
 工作台入口即手册列表，支持接入已有目录、新建、归档与恢复；每个任务绑定 `(手册, 分支, Topic, 负责人, 截止日期, 备注)`，逾期高亮、一键打开 Topic 或标记完成 —— 元数据只写 SQLite，从不污染 XML 与 Git 历史。
 
@@ -236,11 +253,11 @@ AI 只输出被替换区间的 XML，由 `@dita/core` 按源码偏移无损拼�
 
 ```mermaid
 flowchart LR
-    Web["@dita/web (React 19 + Vite)<br/>ProseMirror 可视化 / CodeMirror 6 / Map 树 / Keys & DITAVAL"]
-    API["@dita/api (Fastify 5 + Zod)<br/>工作区 CRUD / 增量语义索引 / 资产 / 身份 / Git / 检出锁"]
+    Web["@dita/web (React 19 + Vite)<br/>ProseMirror 可视化 / CodeMirror 6 / 文档大纲 / Map 树 / Keys & DITAVAL"]
+    API["@dita/api (Fastify 5 + Zod)<br/>工作区 CRUD / 增量语义索引 / 资产 / 身份 / Git / 检出锁 / 草稿叠加层"]
     Core["@dita/core (Isomorphic Kernel)<br/>slimdom + fontoxpath / PM Schema / CALS / Map / Keyspace / Conref / DITAVAL"]
     FS[("本地 DITA 工作区<br/>默认 samples/demo-dita-project")]
-    DB[("SQLite + Drizzle<br/>身份 / 仓库 / 检出锁 / 发布任务")]
+    DB[("SQLite + Drizzle<br/>身份 / 检出锁 / 草稿叠加层 / 发布任务")]
     GIT[("本地 Git 仓库 + 分支 worktree<br/>无外部托管平台")]
     CLI["DITA-OT 4.x CLI<br/>DITA 1.3 严格校验 + HTML5/PDF + Noto CJK 插件"]
 
@@ -259,12 +276,13 @@ flowchart LR
 | **Monorepo 工程** | pnpm 11 + Turborepo | 统一管理 `@dita/core`、`@dita/web`、`@dita/api` 构建、类型检查与测试 |
 | **前端工作台** | React 19 + TypeScript 5.8 + Vite 6 + Tailwind CSS 4 | 响应式三栏工作台与高精度编辑界面 |
 | **可视化编辑** | 原生 ProseMirror | 贴合 DITA DTD 结构约束，自定义 NodeView 与块/行内操作体验 |
+| **文档大纲** | 原生 React 结构树 + `DITA_SEQUENCE_MODEL` | 可折叠大纲、双向定位与受内容模型约束的拖拽 / 键盘重排 |
 | **XML 源码编辑** | CodeMirror 6 | XML 语法高亮、DITA 1.3 智能补全与实时良构 Lint |
 | **Map 树与状态** | `react-arborist` + `react-resizable-panels` + Zustand | 虚拟化结构树、拖拽调层级、分栏布局与多 Tab 状态管理 |
 | **XML 无损内核** | `slimdom` + `slimdom-sax-parser` + `fontoxpath` | 无损 DOM 表示、节点位置追踪与 XPath 3.1 查询 |
 | **后端 API** | Fastify 5 + `@fastify/multipart` + Zod | 本地磁盘工作区管理、资产上传预览与项目诊断接口 |
 | **持久化与协作** | SQLite + Drizzle ORM + `better-sqlite3` | 轻量身份/角色、检出锁与管理员解锁补丁备份，零外部数据库依赖 |
-| **版本管理** | `simple-git` + `git worktree` | 本地仓库初始化、分支隔离工作区、提交历史与工作区/历史 Diff |
+| **版本管理** | `simple-git` + `git worktree` + SQLite 草稿叠加层 | 干净基线 + 个人草稿层、分支隔离工作区、无污染合并、Tag / 回滚与版本审计 |
 | **校验与发布** | DITA-OT 4.2.x CLI + JRE 21 | 官方 DITA 1.3 DTD/RNG 严格校验、HTML5 / PDF2 发布、纯 XML Noto CJK 字体插件 |
 | **桌面客户端** | Electron 35 + `electron-builder` + `esbuild` | 轻量桌面版（macOS Apple Silicon `arm64` & Windows `x64`），主进程内嵌 `@dita/api`，数据隔离至 `userData` |
 | **测试框架** | Vitest 3 | 覆盖核心 round-trip 黄金样本、编辑器交互命令、工作区 API、Git/锁全链路与桌面路径/Windows 启动单测 |
@@ -290,7 +308,7 @@ DITAEditor/
 │   ├── web/                    # @dita/web — React 19 + Vite 双模结构化写作工作台
 │   │   └── src/
 │   │       ├── components/     # 顶栏、Tab 栏、文件浏览、Keys 面板、属性/复用检视区、条件编辑器、问题面板
-│   │       ├── editor/         # visual/ (ProseMirror + 语义装饰/Conref 渲染)、source/ (CodeMirror 6)
+│   │       ├── editor/         # visual/ (ProseMirror + 语义装饰/Conref 渲染)、outline/ (大纲模型、拖拽与定位)、source/ (CodeMirror 6)
 │   │       ├── map-tree/       # react-arborist Map 树、DITAVAL 投影、节点检查器、右键菜单、概览面板
 │   │       ├── components/publish/ # 发布对话框、构建日志流与严格校验结果
 │   │       ├── ai/             # AI 面板/设置/用量/Diff 对话框、SSE 客户端、目标构建与会话状态
@@ -298,8 +316,11 @@ DITAEditor/
 │   │       └── store/          # Zustand 工作台、多 Tab 与语义上下文状态管理
 │   ├── api/                    # @dita/api — Fastify 5 本地工作区、增量语义索引与资产服务
 │       └── src/modules/
-│           ├── files/          # 安全路径校验、工作区扫描、文件 CRUD、Multipart 上传、诊断
+│           ├── files/          # 安全路径校验、工作区扫描、文件 CRUD、Multipart 上传、诊断与叠加读取视图
 │           ├── indexer/        # WorkspaceSemanticIndexer 与 /api/semantics/* 语义路由
+│           ├── locks/          # 检出锁、草稿叠加层（working_drafts）与检入校验门禁
+│           ├── git/            # 本地仓库、worktree、无污染合并、Tag / 回滚与版本审计
+│           ├── identity/       # 免密码作者身份与三档角色
 │           ├── validate/       # /api/validate/strict DITA-OT 严格校验
 │           ├── publish/        # SQLite 发布任务、快照构建、SSE 日志与产物下载
 │           ├── ai/             # AI 配置/用量、Prompt 构建、LangChain 模型工厂、SSE 编排与重试
@@ -326,6 +347,10 @@ DITAEditor/
 │   ├── deploy-huggingface-spaces.md # Hugging Face Spaces 单容器部署指南
 │   ├── deploy-github-pages.md  # GitHub Pages 官网与离线工作台部署指南
 │   ├── phase12-html-themes-plan.md # Phase 12 HTML5 发布样式主题与模板蓝图
+│   ├── phase13-versioning-overlay-plan.md # Phase 13 干净基线与个人草稿叠加层方案
+│   ├── key-management-integration-plan.md # Keyspace 键管理与新建 Key 工作流方案
+│   ├── checkin-validation-ai-fix-plan.md  # 检入校验门禁与 AI 修复闭环方案
+│   ├── adr/                    # 架构决策记录（手册工作区、请求隔离、软委派、草稿叠加层）
 │   ├── phase7-site-plan.md     # Phase 7 官网/沙箱/文档站蓝图
 │   ├── phase6-ai-contract.md   # Phase 6 AI 接口/SSE/DB/前端集成契约
 │   └── pic/                    # 工作台界面截图
@@ -471,7 +496,7 @@ GCP_PROJECT_ID="<你的GCP项目ID>" ./deploy/gcp/deploy-cloudrun.sh
 
 | 入口 | 内容 |
 | :--- | :--- |
-| `/` · `/en/` | 中英双语官网首页：Hero、真实工作台多 Tab 展台（手册工作台 / 三栏编辑 / 双模 / 单一信息源 / 发布 / AI）、CCMS / Markdown 对照表、「改一字仅变一行 XML」微演示、八大能力深度展台、单容器架构全景、Docker / pnpm / AI 三条快速启动路径 |
+| `/` · `/en/` | 中英双语官网首页：Hero、真实工作台多 Tab 展台（手册工作台 / 三栏编辑 / 双模 / 单一信息源 / 发布 / AI）、CCMS / Markdown 对照表、「改一字仅变一行 XML」微演示、九大能力深度展台（含文档大纲视图）、单容器架构全景、Docker / pnpm / AI 三条快速启动路径 |
 | `/workbench/` | **纯浏览器三栏离线工作台**：由 `@dita/web` 以 `VITE_STATIC_DEMO=true` 构建并合包发布，运行多文件示例项目、Map 树、可视化/源码双模编辑与 Keys/Conref/DITAVAL（不含服务端 Git、DITA-OT 发布与 AI 代理） |
 | `/docs/*` · `/en/docs/*` | 六篇对称文档（简介、Docker 快速开始、本地开发与字体配置、功能导览、AI 配置、架构参考），带页内 TOC、代码一键复制与中英静态全文检索（`Cmd/Ctrl+K`，Pagefind） |
 
@@ -494,14 +519,14 @@ pnpm -r build && pnpm -r typecheck && pnpm -r test   # 全量
 pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚本
 ```
 
-当前测试覆盖 **411/411 Vitest 全部通过**：
+当前测试覆盖 **719/719 Vitest 全部通过**：
 
 <details>
 <summary>展开各包测试明细</summary>
 
-- `@dita/core`（158 项）：10 份复杂 DITA 1.3 黄金往返、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Phase 9 顺序/基数内容模型校验、Map/Bookmap 无损操作、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因。
-- `@dita/web`（174 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、顺序引导与结构装饰、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装、Phase 4 身份/锁只读投影、Phase 8 双语目录对称与源码硬编码中文扫描，以及 Phase 10 手册工作台路由与防丢逻辑。
-- `@dita/api`（45 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断、Phase 4 身份/Git/锁/跨分支隔离/强解备份、Phase 5 运行时探测（含 Windows `dita.bat` 调度封装 `resolveDitaSpawn`）、DOTJ/DOTX 日志归一化、严格校验与 HTML5/PDF 发布流水线、Phase 6 AI 配置/掩码/用量/SSE 回归、Phase 8 `x-dita-locale` 双语响应，以及 Phase 10 多手册隔离与任务委派全链路。
+- `@dita/core`（208 项）：10 份复杂 DITA 1.3 黄金往返、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Phase 9 顺序/基数内容模型校验、Map/Bookmap 无损操作（含 `<keydef>` 增删改与降噪）、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因。
+- `@dita/web`（353 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、顺序引导与结构装饰、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装、Phase 4 身份/锁只读投影、Phase 8 双语目录对称与源码硬编码中文扫描、Phase 10 手册工作台路由与防丢逻辑，以及文档大纲模型/拖拽重排（`document-outline*.test`、`document-outline-ui.test.tsx`）、Keyspace 键管理与新建 Key 工作流、检入校验门禁界面。
+- `@dita/api`（124 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断、Phase 4 身份/Git/锁/跨分支隔离/强解备份、Phase 5 运行时探测（含 Windows `dita.bat` 调度封装 `resolveDitaSpawn`）、DOTJ/DOTX 日志归一化、严格校验与 HTML5/PDF 发布流水线、Phase 6 AI 配置/掩码/用量/SSE 回归、Phase 8 `x-dita-locale` 双语响应、Phase 10 多手册隔离与任务委派全链路，以及 Phase 13 草稿叠加层、无污染合并、Tag/回滚/审计与检入结构预检。
 - `@dita/site`（30 项）：中英双语字典键对称、文档 slug 对称、子路径（`SITE_BASE`）与离线工作台路由辅助，以及 `@dita/core` 预设无损往返。
 - `@dita/desktop`（4 项）：打包态/开发态资源与 `userData` 路径隔离、首次样本拷贝幂等性（跳过 `.git`、不覆盖用户修改）与 Release Tag 版本号规范化。
 
@@ -520,6 +545,11 @@ pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚�
 | `GET /api/workspace` | 扫描工作区：文件树、Map 与 `.ditaval` 列表、Topic 标题索引与统计 |
 | `POST /api/workspace/open` | 切换本地工作区目录（或 `{ useDefault: true }` 重置回内置示例项目） |
 | `POST /api/workspace/import` | 批量导入项目文件（UTF-8 文本与 Base64 二进制图片） |
+| `GET` / `POST /api/workspaces/create` | 手册（工作区）列表 / 新建并挂载目录 |
+| `POST /api/workspaces/forget` | 从手册列表移除（不删磁盘目录） |
+| `GET` / `POST /api/manuals` · `PATCH` / `DELETE /api/manuals/:id` | 手册元数据（分支、最近打开时间）读写 |
+| `GET` / `POST /api/assignments` · `PATCH` / `DELETE /api/assignments/:id` | Topic 编辑任务列表与建 / 改 / 删（只写 SQLite） |
+| `GET /api/assignments/summary` | 「我收到的 / 我委派的」任务汇总与逾期计数 |
 | `GET /api/files/tree` | 工作区文件树、Map 摘要与 Topic 标题映射 |
 | `GET /api/files/content?path=...` | 读取文件内容并附带 XML 良构性检查结果 |
 | `PUT /api/files/content` | 保存内容至磁盘并触发增量语义索引更新 |
@@ -547,15 +577,23 @@ pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚�
 | `POST /api/locks/release` / `cancel` | 释放锁保留草稿 / 撤销检出并回滚到 `HEAD` |
 | `POST /api/locks/checkin` | 提交本人已检出且有改动的文件，创建本地 Commit 后释放锁 |
 | `POST /api/locks/force-unlock` | 管理员强制解锁，内容与补丁写入 `lock_backups` |
+| `POST /api/locks/handoff` | 将本人检出的文件与锁转派给其他作者 |
 | `GET /api/git/status` | 仓库初始化状态、当前分支、`git status` 改动与锁列表 |
 | `POST /api/git/init` | 初始化本地仓库、`.gitignore` 与首个提交（管理员/编辑者） |
 | `GET` / `POST /api/git/branches` | 分支列表（含 worktree 路径）/ 新建分支 |
 | `POST /api/git/switch-branch` | 切换到主工作区或分支隔离 worktree 并返回新快照 |
 | `GET /api/git/log` / `diff` / `file` | 提交历史、任意两版本差异与指定版本文件内容 |
 | `POST /api/git/commit` / `discard` | 本地提交（校验锁归属）/ 丢弃单文件改动 |
+| `POST /api/git/external-commit` / `external-discard` | 处理基线外（他人或脚本）改动：收录为新提交 / 丢弃回 `HEAD` |
+| `GET` / `POST /api/git/tags` · `DELETE /api/git/tags/:name` | 标签列表 / 打标签 / 删除标签（发布可基于 Tag 快照） |
+| `GET /api/git/merge-preview` / `merge-conflict` · `POST /api/git/merge` | `git merge-tree` 预检、冲突文件内容与隔离合成合并 |
+| `POST /api/git/restore-file` / `revert-commit` | 单文件还原（`draft` / `commit`）与提交安全回滚 |
+| `GET /api/git/audit` | append-only 版本审计台账（检出 / 转派 / 检入 / 合并 / 回滚 / 发布） |
 | `GET /api/validate/runtime` | DITA-OT 版本、中文 PDF 插件与 Noto CJK 字体就绪状态 |
 | `POST /api/validate/strict` | 按文件或 Root Map 执行 `--validate=yes --processing-mode=strict`，返回归一化 DOTJ/DOTX 诊断 |
 | `GET /api/publish/runtime` | 发布运行时状态与发布根目录 |
+| `GET /api/publish/themes` / `themes/:id/preview` | 内置 HTML5 发布主题列表与预览页 |
+| `GET` / `PUT /api/publish/profile` | 按手册读取 / 保存主题与品牌参数（`manual_publish_profiles`） |
 | `GET` / `POST /api/publish/jobs` | 当前分支发布历史 / 创建 HTML5 或 PDF 任务（只读角色 403） |
 | `GET /api/publish/jobs/:id` | 任务状态、诊断、产物与日志/预览/下载 URL |
 | `POST /api/publish/jobs/:id/cancel` | 取消排队或运行中的任务（作者或管理员） |
@@ -571,7 +609,7 @@ pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚�
 ## 实施路线图
 
 <details>
-<summary>展开 Phase 0–11 已完成条目</summary>
+<summary>展开 Phase 0–13 与 v1.5.0 已完成条目</summary>
 
 - [x] **Phase 0**：Monorepo 底座、`@dita/core`（`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS 适配器）与 10 份黄金往返测试。
 - [x] **Phase 1**：双模式 Topic 编辑器 MVP（ProseMirror 可视化编辑 + NodeView + CALS/simpletable 编辑 + `/` 上下文插入 + 属性面板 + 面包屑 + CodeMirror 6 源码补全/Lint 与切换保护）。
@@ -585,6 +623,9 @@ pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚�
 - [x] **Phase 9**：DITA 1.3 顺序/基数内容模型校验（`@dita/core` 纯规则内核、`getInsertionSlot()` 引导式插入，以及可视化装饰 / 源码 Lint / 问题面板三处同源结构诊断）。
 - [x] **Phase 10**：手册编辑工作台（Workbench Hub）与轻量 Topic 编辑任务（`Assignment`）委派闭环，多手册/多分支并发隔离与 Check-out/Check-in/Rename 联动（规划见 [docs/phase10-workbench-assignments-plan.md](docs/phase10-workbench-assignments-plan.md)）。
 - [x] **Phase 11**：轻量桌面端 `@dita/desktop`（Electron 35 + `electron-builder`，内嵌 `@dita/api` 与 `userData` 隔离、Windows `dita.bat` 兼容修复）与 GitHub Release 自动构建（macOS `arm64` `.dmg`/`.zip` + Windows `x64` NSIS `.exe`/`.zip`）。
+- [x] **Phase 12**：HTML5 发布样式主题（`dita-ot-plugins/html5-themes/` 四套静态主题 + 共享排版底座与离线运行时、确定性 Node 后处理器、`/api/publish/themes` 与多视口预览、按手册保存品牌参数于 `manual_publish_profiles`；`vanilla` 主题保持原样）与 GCP Cloud Run 子路径部署（规划见 [docs/phase12-html-themes-plan.md](docs/phase12-html-themes-plan.md)）。
+- [x] **Phase 13**：干净基线 + 个人草稿叠加层（`working_drafts` 与仓库外草稿资产、`User Overlay` 读取视图、无污染合并、Tag / 安全回滚、`version_audit_logs` 版本审计，以及多 Tab 身份隔离与 `my_drafts` 发布快照；见 [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) 与 [Phase 13 方案](docs/phase13-versioning-overlay-plan.md)）。
+- [x] **v1.5.0 增强**：编辑器文档大纲视图（`apps/web/src/editor/outline/`，结构骨架 / 全部块级、双向定位与受 DITA 1.3 约束的拖拽 / `Alt+↑/↓` 重排）、Keyspace 键管理与新建 Key 工作流（`NewKeyDialog` / `KeyrefAttrField` / `InsertKeyrefDialog`）、检入校验门禁与 AI 修复闭环（见 [docs/key-management-integration-plan.md](docs/key-management-integration-plan.md)、[docs/checkin-validation-ai-fix-plan.md](docs/checkin-validation-ai-fix-plan.md)）。
 
 </details>
 

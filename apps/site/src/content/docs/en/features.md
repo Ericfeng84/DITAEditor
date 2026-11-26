@@ -1,7 +1,7 @@
 ---
 title: Feature tour
-description: Dual-mode editing, lossless round-trip, CALS tables, keyspaces and conref, DITAVAL projection, map trees, check-out locks, DITA-OT publishing, and AI review.
-updated: '2026-11-25'
+description: Manual workbench and task assignment, dual-mode editing, document outline and reordering, lossless round-trip, CALS tables, keyspaces and conref, DITAVAL projection, map trees, check-out locks, DITA-OT publishing, and AI review.
+updated: '2026-11-26'
 ---
 
 DITAEditor's features follow one chain: **distribute → edit → semantics → organization → collaboration → publish → AI assistance**. Every link operates on the same standard DITA XML, and both the UI and the docs ship in Chinese and English.
@@ -26,6 +26,16 @@ Manuals and tasks make "who writes which topic, and by when" visible while the d
 - **Structure guidance**: `DITA_SEQUENCE_MODEL` centralises child ordering and cardinality for genuinely ordered containers; the editor hints instead of blocking, and `conref` / `conkeyref` elements skip required-child checks.
 
 Mixed content is never wrapped in synthetic `<p>` tags: bare text inside `<li>`, `<dd>`, or `<entry>` maps to `xml_text_block` and unwraps on serialization.
+
+## Document outline and structural reordering
+
+A collapsible outline (`DocumentOutlinePanel`) sits beside the editor with two densities — structure skeleton and all blocks — plus instant filtering by text, tag or ID.
+
+- **Bidirectional locating**: clicking an outline entry jumps to the matching block in the visual, split or source view, and the entry highlights as the caret moves.
+- **Drag to reorder**: every move is checked against `DITA_SEQUENCE_MODEL`; cross-container moves (a paragraph into another `section`, a list item into another list) are allowed only where the content model permits, and illegal targets explain why.
+- **Keyboard and undo**: `Alt+↑/↓` matches dragging; a reorder lands as a single ProseMirror transaction and one undo reverts it.
+- **Safety bounds**: read-only roles, files checked out by someone else, and multi-`tgroup` tables stay undraggable; a rejected drag always explains itself instead of blocking the document.
+- **Shortcut and layout**: `Cmd/Ctrl+Shift+O` toggles the panel; its width is draggable and remembered (240px default, 180px minimum).
 
 ## Lossless round-trip and minimal diffs
 
