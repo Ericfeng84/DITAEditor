@@ -10,6 +10,7 @@ import {
 import { history, redo, undo } from 'prosemirror-history';
 import { EditorState, Selection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import type { Node as PMNode } from 'prosemirror-model';
 import {
   checkChildRemoval,
   getPmChildTags,
@@ -77,6 +78,8 @@ export interface VisualEditorProps {
   pendingJumpPos: number | null;
   onJumpHandled: () => void;
   onXmlChange: (nextXml: string, nextTitle: string | null) => void;
+  /** Called once when the view initializes and on every transaction that changes the doc. */
+  onDocChange?: (doc: PMNode) => void;
   onSnapshotChange: (
     snapshot: EditorSelectionSnapshot,
     historyFlags: { canUndo: boolean; canRedo: boolean },
@@ -99,6 +102,8 @@ export interface VisualEditorProps {
   onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
   /** Only `<task>` topics expose the strict / general switch. */
   showTaskModelSwitch?: boolean;
+  /** Collapsible document outline toggle, pinned to the far left of the sub-header. */
+  outlineSlot?: ReactNode;
   /** Authoring-guide toggle, placed at the end of the sub-header toolbar. */
   guideSlot?: ReactNode;
   /** Save affordance, placed on the sub-header toolbar next to the guide toggle. */
@@ -124,6 +129,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       pendingJumpPos,
       onJumpHandled,
       onXmlChange,
+      onDocChange,
       onSnapshotChange,
       onOpenXrefDialog,
       onAiRequest,
@@ -134,6 +140,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       resolvedTaskModel = 'strict',
       onChangeTaskModelSetting,
       showTaskModelSwitch = false,
+      outlineSlot,
       guideSlot,
       saveSlot,
       contextSlot,
@@ -166,11 +173,13 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     onJumpToSourceRef.current = onJumpToSource;
 
     const onXmlChangeRef = useRef(onXmlChange);
+    const onDocChangeRef = useRef(onDocChange);
     const onSnapshotRef = useRef(onSnapshotChange);
     const onXrefRef = useRef(onOpenXrefDialog);
     const onAnnounceRef = useRef(onAnnounce);
     const resolveImageSrcRef = useRef(resolveImageSrc);
     onXmlChangeRef.current = onXmlChange;
+    onDocChangeRef.current = onDocChange;
     onSnapshotRef.current = onSnapshotChange;
     onXrefRef.current = onOpenXrefDialog;
     onAnnounceRef.current = onAnnounce;
@@ -612,6 +621,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onJumpToSourceRef,
       onXrefRef,
       onXmlChangeRef,
+      onDocChangeRef,
       onAnnounceRef,
       resolveImageSrcRef,
       semanticRegistryRef,
@@ -864,6 +874,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           resolvedTaskModel={resolvedTaskModel}
           onChangeTaskModelSetting={onChangeTaskModelSetting}
           guideSlot={guideSlot}
+          outlineSlot={outlineSlot}
           saveSlot={saveSlot}
           contextSlot={contextSlot}
         />

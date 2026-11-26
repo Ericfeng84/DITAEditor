@@ -1,5 +1,29 @@
 import { initialFileSet, initialMemoryDemo, memorySemanticIndex } from './internals.js';
 import type { EditorStateValues } from './types.js';
+import type { OutlineDensity } from '../../editor/outline/outline-model.js';
+
+const OUTLINE_OPEN_STORAGE_KEY = 'ditaeditor.outlineOpen';
+const OUTLINE_DENSITY_STORAGE_KEY = 'ditaeditor.outlineDensity';
+
+/** localStorage is unavailable in tests/private modes — never let hydration break the boot. */
+function readOutlineOpen(): boolean {
+  try {
+    if (typeof localStorage === 'undefined') return false;
+    return localStorage.getItem(OUTLINE_OPEN_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function readOutlineDensity(): OutlineDensity {
+  try {
+    if (typeof localStorage === 'undefined') return 'structure';
+    const raw = localStorage.getItem(OUTLINE_DENSITY_STORAGE_KEY);
+    return raw === 'all' || raw === 'structure' ? raw : 'structure';
+  } catch {
+    return 'structure';
+  }
+}
 
 /** Fresh workbench state for the offline demo workspace. */
 export function createInitialEditorState(): EditorStateValues {
@@ -44,6 +68,8 @@ export function createInitialEditorState(): EditorStateValues {
     inspectorTarget: 'topic',
     selectedMapNode: null,
     problemsOpen: false,
+    outlineOpen: readOutlineOpen(),
+    outlineDensity: readOutlineDensity(),
     tagDisplayMode: 'full',
     taskModelSetting: 'auto',
     statusMessage: '',

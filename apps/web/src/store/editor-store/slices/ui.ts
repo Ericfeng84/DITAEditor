@@ -33,6 +33,24 @@ export function createUiSlice(
       set({ problemsOpen: open });
     },
 
+    setOutlineOpen(open) {
+      set({ outlineOpen: open });
+      try {
+        localStorage.setItem('ditaeditor.outlineOpen', String(open));
+      } catch {
+        // Private mode / storage disabled: the in-memory value still works.
+      }
+    },
+
+    setOutlineDensity(density) {
+      set({ outlineDensity: density });
+      try {
+        localStorage.setItem('ditaeditor.outlineDensity', density);
+      } catch {
+        // Private mode / storage disabled: the in-memory value still works.
+      }
+    },
+
     announce(msg) {
       set({ statusMessage: msg });
     },

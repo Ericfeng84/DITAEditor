@@ -12,7 +12,6 @@ import {
   Filter,
   FolderPlus,
   Heading,
-  KeyRound,
   Layers,
   Link2,
   Network,
@@ -24,6 +23,7 @@ import {
 import type { WorkspaceDitavalSummary } from '../services/workspace-api';
 import {
   buildCompositeMapTree,
+  stripKeydefNodes,
   type CompositeMapTreeNode,
   type MapBufferState,
 } from './map-tree-utils';
@@ -72,8 +72,6 @@ export interface MapTreePanelProps {
   keyCount: number;
   /** The keyspace panel, hosted here so keys live next to the map that defines them. */
   keyspaceSlot: ReactNode;
-  canEditKeys?: boolean;
-  onOpenNewKey: (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => void;
 }
 
 function useContainerDimensions(ref: React.RefObject<HTMLDivElement | null>) {
@@ -127,8 +125,6 @@ export function MapTreePanel({
   onChangeViewMode,
   keyCount,
   keyspaceSlot,
-  canEditKeys = false,
-  onOpenNewKey,
 }: MapTreePanelProps) {
   const { t } = useI18n();
   const treeHostRef = useRef<HTMLDivElement | null>(null);
@@ -168,6 +164,9 @@ export function MapTreePanel({
       }),
     [rootMapPath, mapBuffers, fileSet, topicTitles, activeDitaval, ditavalDisplayMode, topicTypes],
   );
+
+  // Keys live in the Keyspace tab, never as structure rows.
+  const treeNodes = useMemo(() => stripKeydefNodes(treeResult.nodes), [treeResult.nodes]);
 
   const dragDisabled = Boolean(
     activeDitaval && ditavalDisplayMode === 'hide-excluded' && treeResult.hiddenCount > 0,
@@ -380,22 +379,6 @@ export function MapTreePanel({
           )}
           <button
             type="button"
-            onClick={() =>
-              onOpenNewKey({
-                mapPath: rootMapPath,
-                parentPath: null,
-                parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
-              })
-            }
-            title={t('keyspace.newKeyTooltip')}
-            className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
-            hidden={!canEditKeys}
-          >
-            <KeyRound className="h-3 w-3" aria-hidden="true" />
-            <span>{t('keyspace.newKeyShort')}</span>
-          </button>
-          <button
-            type="button"
             onClick={onOpenPublish}
             title={t('mapTree.publishTooltip')}
             className="dita-mini-btn px-1.5 py-0.5 text-rose-700"
@@ -488,9 +471,9 @@ export function MapTreePanel({
         <div className="min-h-0 flex-1 overflow-hidden">{keyspaceSlot}</div>
       ) : (
         <>
-      {/* DITAVAL Condition Projection Control */}
+      {/* DITAVAL Condition Projection Control — the display-mode toggle shares the filter row. */}
       <div className="border-b border-slate-100 px-2.5 py-1.5">
-        <div className="flex min-w-0 items-center gap-1">
+        <div className="flex min-w-0 items-center gap-1.5">
           <Filter
             className={`h-3 w-3 shrink-0 ${activeDitaval ? 'text-teal-600' : 'text-slate-400'}`}
             aria-hidden="true"
@@ -520,13 +503,11 @@ export function MapTreePanel({
               </option>
             ))}
           </select>
-        </div>
 
-        <div className="mt-1 flex min-w-0 items-center justify-between gap-1">
           <div
             role="group"
             aria-label={t('mapTree.ditavalModeAria')}
-            className="flex items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
+            className="flex shrink-0 items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
           >
             {(
               [
@@ -545,7 +526,7 @@ export function MapTreePanel({
                   disabled={disabled}
                   onClick={() => onChangeDitavalDisplayMode(opt.id)}
                   title={disabled ? t('mapTree.ditavalPickFirst') : opt.title}
-                  className={`rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors disabled:opacity-40 ${
+                  className={`rounded px-1 py-0.5 text-[10px] font-medium transition-colors disabled:opacity-40 ${
                     active ? 'bg-white text-teal-800 shadow-xs' : 'text-slate-600 hover:text-slate-900'
                   }`}
                 >
@@ -554,21 +535,21 @@ export function MapTreePanel({
               );
             })}
           </div>
-
-          {activeDitaval ? (
-            <span
-              className="min-w-0 truncate font-mono text-[10px] text-teal-800"
-              title={t('mapTree.ditavalCurrent', { path: activeDitavalPath ?? '' })}
-            >
-              {treeResult.hiddenCount > 0
-                ? t('mapTree.hiddenCount', { count: treeResult.hiddenCount })
-                : treeResult.excludedCount > 0
-                  ? t('mapTree.excludedCount', { count: treeResult.excludedCount })
-                  : t('mapTree.allPass')}
-              {treeResult.flaggedCount > 0 ? t('mapTree.flaggedCount', { count: treeResult.flaggedCount }) : ''}
-            </span>
-          ) : null}
         </div>
+
+        {activeDitaval ? (
+          <span
+            className="mt-1 block min-w-0 truncate font-mono text-[10px] text-teal-800"
+            title={t('mapTree.ditavalCurrent', { path: activeDitavalPath ?? '' })}
+          >
+            {treeResult.hiddenCount > 0
+              ? t('mapTree.hiddenCount', { count: treeResult.hiddenCount })
+              : treeResult.excludedCount > 0
+                ? t('mapTree.excludedCount', { count: treeResult.excludedCount })
+                : t('mapTree.allPass')}
+            {treeResult.flaggedCount > 0 ? t('mapTree.flaggedCount', { count: treeResult.flaggedCount }) : ''}
+          </span>
+        ) : null}
       </div>
 
       {/* Filter Input */}
@@ -615,7 +596,7 @@ export function MapTreePanel({
         ref={treeHostRef}
         className="dita-map-tree-host min-h-0 flex-1 overflow-hidden px-1 py-1"
       >
-        {!treeResult.parseError && treeResult.nodes.length === 0 ? (
+        {!treeResult.parseError && treeNodes.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400">
             <p>{t('mapTree.empty')}</p>
             <p className="mt-1">{t('mapTree.emptyHint')}</p>
@@ -623,7 +604,7 @@ export function MapTreePanel({
         ) : (
           <Tree<CompositeMapTreeNode>
             ref={treeApiRef}
-            data={treeResult.nodes}
+            data={treeNodes}
             width={width}
             height={height}
             rowHeight={30}
@@ -691,12 +672,6 @@ export function MapTreePanel({
         onMountExisting={(node) => onOpenMountExisting(getMountParentForNode(node))}
         onInsertStructure={(node, tagName) => {
           const parent = getMountParentForNode(node);
-          // A `<keydef>` needs a key name, an href and a text value, so route it through the
-          // key dialog instead of inserting a bare skeleton element.
-          if (tagName === 'keydef') {
-            onOpenNewKey(parent);
-            return;
-          }
           onInsertStructure(parent.mapPath, parent.parentPath, tagName);
         }}
         onInspectNode={(node) =>

@@ -1,15 +1,22 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react';
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import {
+  checkXmlWellFormed,
   detectTaskContentModel,
   dirnamePosix,
+  findDomElementByPath,
+  findElementPathAtOffset,
+  getNodeSourceRange,
   getPmDocTitle,
+  getPmNodeTagName,
+  pmDocToXml,
+  slimdomToPmDoc,
   type DitaTopicTemplateType,
   type RawAttrs,
   type XmlDeclaration,
   type XmlPrologItem,
 } from '@dita/core';
-import { FilePlus2, FolderOpen, Network, PanelRightClose, Sparkles } from 'lucide-react';
+import { FilePlus2, FolderOpen, ListTree, Network, PanelRightClose, Sparkles } from 'lucide-react';
 import {
   CheckinDialog,
   collectCheckinIssues,
@@ -52,15 +59,31 @@ import { AiDiffDialog } from './ai/AiDiffDialog';
 import { AiSettingsDialog } from './ai/AiSettingsDialog';
 import { applyDocumentLocale, useI18n } from './i18n/index.js';
 import type { AiTargetSpec } from './ai/ai-types';
+import { EditorState } from 'prosemirror-state';
+import type { Node as PMNode } from 'prosemirror-model';
 import { useAiStore } from './ai/ai-store';
 import { useAiPanelActions } from './ai/use-ai-panel-actions';
 import { syncSourceToVisual, syncVisualToSource } from './editor/bridge/xml-bridge';
+import { DocumentOutlinePanel } from './editor/outline/DocumentOutlinePanel';
+import {
+  evaluateOutlineDrop,
+  type OutlineDropEvaluation,
+  type OutlineDropPlacement,
+} from './editor/outline/outline-dnd';
+import {
+  buildDocumentOutline,
+  indexOutlineNodes,
+  resolveActiveOutlineId,
+  resolveActiveOutlineIdByPath,
+  type OutlineNode,
+} from './editor/outline/outline-model';
 import { SourceEditor } from './editor/source/SourceEditor';
 import { AttributesPanel } from './editor/visual/AttributesPanel';
 import { BreadcrumbBar } from './editor/visual/BreadcrumbBar';
 import { EditorToolbar } from './editor/visual/EditorToolbar';
 import type { BreadcrumbItem, EditorSelectionSnapshot } from './editor/visual/selection-info';
 import { VisualEditor, type VisualEditorHandle } from './editor/visual/VisualEditor';
+import { moveDitaNodeByOutline } from './editor/visual/commands';
 import { MapNodeInspector } from './map-tree/MapNodeInspector';
 import { MapOverviewPane } from './map-tree/MapOverviewPane';
 import { MapTreePanel } from './map-tree/MapTreePanel';
@@ -104,6 +127,11 @@ export interface AppProps {
   /** Leaves the session back to the workbench hub; the shell owns the actual navigation. */
   onLeaveSession: () => void;
 }
+
+/** Outline column width: clamped so the panel stays usable without starving the editors. */
+const OUTLINE_MIN_WIDTH = 180;
+const OUTLINE_MAX_WIDTH = 420;
+const OUTLINE_DEFAULT_WIDTH = 240;
 
 export function App({ manualId, manualName, branch, topicPath, assignmentId, onLeaveSession }: AppProps) {
   const { t, locale } = useI18n();
@@ -213,6 +241,10 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const setInspectorOpen = useEditorStore((s) => s.setInspectorOpen);
   const setInspectorTarget = useEditorStore((s) => s.setInspectorTarget);
   const setProblemsOpen = useEditorStore((s) => s.setProblemsOpen);
+  const outlineOpen = useEditorStore((s) => s.outlineOpen);
+  const outlineDensity = useEditorStore((s) => s.outlineDensity);
+  const setOutlineOpen = useEditorStore((s) => s.setOutlineOpen);
+  const setOutlineDensity = useEditorStore((s) => s.setOutlineDensity);
   const announce = useEditorStore((s) => s.announce);
   useEffect(() => {
     applyDocumentLocale(locale);
@@ -342,6 +374,19 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   useEffect(() => {
     setDetectedTaskContentModel(detectedTaskModel);
   }, [detectedTaskModel]);
+
+  // Global Cmd/Ctrl+Shift+O toggles the document outline of the open topic.
+  useEffect(() => {
+    const onKeyDown = (ev: KeyboardEvent) => {
+      if (!(ev.metaKey || ev.ctrlKey) || !ev.shiftKey) return;
+      if (ev.key.toLowerCase() !== 'o') return;
+      if (!activeTab || activeTab.kind !== 'topic') return;
+      ev.preventDefault();
+      setOutlineOpen(!outlineOpen);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [activeTab, outlineOpen, setOutlineOpen]);
   const [diffDialogOpen, setDiffDialogOpen] = useState(false);
   const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
@@ -355,6 +400,49 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const [aiDiffOpen, setAiDiffOpen] = useState(false);
   const [aiTarget, setAiTarget] = useState<AiTargetSpec | null>(null);
   const [sourceReplacementXml, setSourceReplacementXml] = useState<string | null>(null);
+  /** Live ProseMirror document behind the outline; refreshed only when the doc really changes. */
+  const [visualDoc, setVisualDoc] = useState<PMNode | null>(null);
+  /** Width of the outline column; it lives outside the resizable `<Group>` so toggling it never
+   * remounts the editors (which would wipe undo history, selection and scroll position). */
+  const [outlineWidth, setOutlineWidth] = useState(OUTLINE_DEFAULT_WIDTH);
+
+  /**
+   * Pointer-resize for the outline column. The column sits outside the editor `<Group>`, so a drag
+   * only moves the panel and lets the editors reflow — no ProseMirror state is touched.
+   */
+  const handleOutlineResizeStart = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      if (event.button !== 0) return;
+      event.preventDefault();
+      const startX = event.clientX;
+      const startWidth = outlineWidth;
+      const onMove = (moveEvent: PointerEvent) => {
+        setOutlineWidth(
+          Math.min(
+            OUTLINE_MAX_WIDTH,
+            Math.max(OUTLINE_MIN_WIDTH, startWidth + (moveEvent.clientX - startX)),
+          ),
+        );
+      };
+      const stop = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', stop);
+        window.removeEventListener('pointercancel', stop);
+      };
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', stop);
+      window.addEventListener('pointercancel', stop);
+    },
+    [outlineWidth],
+  );
+  /** Caret offset mirrored into the outline, only tracked while it is open in Source-only mode. */
+  const [outlineSourceCursorOffset, setOutlineSourceCursorOffset] = useState(0);
+
+  // A tab switch always invalidates the previous document's outline snapshot.
+  useEffect(() => {
+    setVisualDoc(null);
+    setOutlineSourceCursorOffset(0);
+  }, [activeTabPath, activeTab?.kind]);
 
   const openStrictValidation = useCallback((input: StrictValidationInput, label: string) => {
     setStrictInput(input);
@@ -1038,6 +1126,149 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     (mode === 'visual' || mode === 'split');
   const showVisualPane = showTopicVisual || showMapOverview;
   const showSourcePane = Boolean(activeTab) && (mode === 'source' || mode === 'split');
+
+  /* --------------------------------------------------------------------------
+   * Document outline (topic tabs only): a ProseMirror-derived tree in Visual /
+   * Split mode and a memoized XML parse in Source-only mode. Nothing here runs
+   * while the panel is closed, so the workbench keeps its previous behaviour.
+   * -------------------------------------------------------------------------- */
+  const showOutlinePane = Boolean(activeTab && activeTab.kind === 'topic' && outlineOpen);
+  const outlineSourceXml = showOutlinePane && !showTopicVisual ? (activeTab?.xml ?? null) : null;
+
+  const sourceOutlineParse = useMemo(() => {
+    if (outlineSourceXml === null) return null;
+    const check = checkXmlWellFormed(outlineSourceXml, { position: true });
+    if (!check.ok) return null;
+    return { pmDoc: slimdomToPmDoc(check.parsed), domDoc: check.parsed.document };
+  }, [outlineSourceXml]);
+
+  const outlinePmDoc: PMNode | null = showOutlinePane
+    ? showTopicVisual
+      ? (visualDoc ?? visualRef.current?.getCurrentPmState()?.doc ?? null)
+      : (sourceOutlineParse?.pmDoc ?? null)
+    : null;
+
+  const outlineNodes = useMemo(
+    () =>
+      outlinePmDoc
+        ? buildDocumentOutline(outlinePmDoc, {
+            density: outlineDensity,
+            taskModel: resolvedTaskModel,
+            locale,
+          })
+        : [],
+    [outlinePmDoc, outlineDensity, resolvedTaskModel, locale],
+  );
+  const outlineNodeMap = useMemo(() => indexOutlineNodes(outlineNodes), [outlineNodes]);
+
+  const activeOutlineId = useMemo(() => {
+    if (!showOutlinePane) return null;
+    if (showTopicVisual) return resolveActiveOutlineId(snapshot?.breadcrumbs ?? [], outlineNodeMap);
+    if (!sourceOutlineParse) return null;
+    const path = findElementPathAtOffset(sourceOutlineParse.domDoc, outlineSourceCursorOffset);
+    return resolveActiveOutlineIdByPath(path, outlineNodeMap);
+  }, [
+    showOutlinePane,
+    showTopicVisual,
+    snapshot?.breadcrumbs,
+    outlineNodeMap,
+    sourceOutlineParse,
+    outlineSourceCursorOffset,
+  ]);
+
+  const handleLocateOutlineNode = useCallback(
+    (node: OutlineNode) => {
+      if (!activeTab) return;
+      if (showTopicVisual) {
+        visualRef.current?.locateNode(node.pmPos);
+        // Split mode keeps the Source pane on the same element instead of leaving it behind.
+        if (showSourcePane) {
+          const check = checkXmlWellFormed(activeTab.xml, { position: true });
+          if (!check.ok) return;
+          const element = findDomElementByPath(check.parsed.document, node.elementPath);
+          if (!element) return;
+          const range = getNodeSourceRange(element);
+          if (range.open) requestSourceJump(range.open.start);
+        }
+        return;
+      }
+      const domDoc = sourceOutlineParse?.domDoc;
+      if (!domDoc) return;
+      const element = findDomElementByPath(domDoc, node.elementPath);
+      if (!element) return;
+      const range = getNodeSourceRange(element);
+      if (range.open) requestSourceJump(range.open.start);
+    },
+    [activeTab, showTopicVisual, showSourcePane, sourceOutlineParse, requestSourceJump],
+  );
+
+  const handleEvaluateOutlineDrop = useCallback(
+    (sourcePos: number, targetPos: number, placement: OutlineDropPlacement): OutlineDropEvaluation => {
+      if (!outlinePmDoc) {
+        return { ok: false, placement, sourcePos, targetPos, reason: 'target-not-container' };
+      }
+      return evaluateOutlineDrop(outlinePmDoc, sourcePos, targetPos, placement, resolvedTaskModel);
+    },
+    [outlinePmDoc, resolvedTaskModel],
+  );
+
+  const handleMoveOutlineNode = useCallback(
+    (sourcePos: number, targetPos: number, placement: OutlineDropPlacement): boolean => {
+      if (!canEdit) return false;
+      if (showTopicVisual) {
+        return visualRef.current?.moveOutlineNode(sourcePos, targetPos, placement) ?? false;
+      }
+      const doc = outlinePmDoc;
+      if (!doc) return false;
+      // Read the moved element's tag up front: re-evaluating the drop afterwards is both wasteful
+      // and wrong, because positions have already shifted inside the new document.
+      const sourceNode = doc.nodeAt(sourcePos);
+      const sourceTag = sourceNode ? (getPmNodeTagName(sourceNode) ?? '') : '';
+      const state = EditorState.create({ doc });
+      let nextState = state;
+      const moved = moveDitaNodeByOutline(sourcePos, targetPos, placement)(state, (tr) => {
+        nextState = state.apply(tr);
+      });
+      if (!moved) return false;
+      const nextXml = pmDocToXml(nextState.doc);
+      setSourceReplacementXml(nextXml);
+      updateXmlFromSource(nextXml);
+      announce(t('outline.announce.moved', { tag: sourceTag }));
+      return true;
+    },
+    [
+      canEdit,
+      showTopicVisual,
+      outlinePmDoc,
+      updateXmlFromSource,
+      announce,
+      t,
+    ],
+  );
+
+  /* Two button skins: the visual sub-header sits on a light bar, the source toolbar is slate-900. */
+  const renderOutlineToggle = (variant: 'light' | 'dark') =>
+    activeTab?.kind === 'topic' ? (
+      <button
+        type="button"
+        aria-pressed={outlineOpen}
+        aria-label={t('outline.toggle')}
+        title={t('outline.toggleTitle')}
+        onClick={() => setOutlineOpen(!outlineOpen)}
+        className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
+          variant === 'dark'
+            ? outlineOpen
+              ? 'border-sky-500/60 bg-sky-500/15 text-sky-300'
+              : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'
+            : outlineOpen
+              ? 'border-blue-300 bg-blue-50 text-blue-700'
+              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
+        }`}
+      >
+        <ListTree className="h-3 w-3" aria-hidden="true" />
+        <span>{t('outline.toggle')}</span>
+      </button>
+    ) : null;
   /**
    * The inspector is reachable for any open topic tab — including source-only mode, where the
    * AI tab still works on the raw buffer — so collapsing and expanding never dead-ends on a
@@ -1209,8 +1440,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                     viewMode={mapPanelView}
                     onChangeViewMode={setMapPanelView}
                     keyCount={keyCount}
-                    canEditKeys={canManageKeys}
-                    onOpenNewKey={(parent) => openNewKey(parent)}
                     keyspaceSlot={
                       <KeyspacePanel
                         embedded
@@ -1486,130 +1715,177 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                 </div>
                               </div>
                             ) : (
-                              <Group
-                                key={`editor-${activeTab.path}-${mode}-${showVisualPane ? 'V' : 'noV'}-${showSourcePane ? 'S' : 'noS'}`}
-                                orientation="horizontal"
-                                className="h-full w-full"
-                              >
-                                {showVisualPane ? (
-                                  <Panel
-                                    id="visual-pane"
-                                    defaultSize={showSourcePane ? '52%' : '100%'}
-                                    minSize="25%"
-                                  >
-                                    {showMapOverview ? (
-                                      <MapOverviewPane
-                                        mapPath={activeTab.path}
-                                        xml={activeTab.xml}
-                                        fileSet={fileSet}
-                                        onUpdateRootTitle={updateMapRootTitle}
-                                        onActivateRootMap={(p) => void selectRootMap(p)}
-                                        onOpenSourceMode={() => handleChangeMode('source')}
-                                        onOpenTopic={(p) => void openFileTab(p)}
-                                        onCreateAndMount={(mapPath, title) =>
-                                          handleOpenCreateAndMount({
-                                            mapPath,
-                                            parentPath: null,
-                                            parentLabel: title,
-                                          })
-                                        }
-                                        canEditKeys={canManageKeys}
-                                        onOpenNewKey={(mapPath, title) =>
-                                          openNewKey({ mapPath, parentPath: null, parentLabel: title })
-                                        }
-                                        onInspectNode={(mapPath, elementPath) =>
-                                          selectMapNode({ mapPath, elementPath }, true)
-                                        }
-                                      />
-                                    ) : (
-                                      <VisualEditor
-                                        ref={visualRef}
-                                        xml={activeTab.xml}
-                                        reloadToken={activeTab.visualReloadToken}
-                                        tagDisplayMode={tagDisplayMode}
-                                        onChangeTagDisplayMode={setTagDisplayMode}
-                                        taskModelSetting={taskModelSetting}
-                                        resolvedTaskModel={resolvedTaskModel}
-                                        onChangeTaskModelSetting={setTaskModelSetting}
-                                        showTaskModelSwitch={showTaskModelSwitch}
-                                        pendingJumpPos={pendingVisualPmPos}
-                                        onJumpHandled={clearPendingVisualPmPos}
-                                        onXmlChange={updateXmlFromVisual}
-                                        onSnapshotChange={handleSnapshotChange}
-                                        onAiRequest={handleVisualAiRequest}
-                                        onOpenXrefDialog={() => setRefDialogMode('xref')}
-                                        onAnnounce={announce}
-                                        resolveImageSrc={resolveImageSrcForActiveTab}
-                                        semanticOverlay={documentOverlays[activeTab.path] ?? null}
-                                        activeDitaval={activeDitaval}
-                                        activeDitavalPath={activeDitavalPath}
-                                        ditavalDisplayMode={ditavalDisplayMode}
-                                        onJumpToSource={(filePath, line, elementId) =>
-                                          void jumpToSemanticLocation(filePath, { line, elementId })
-                                        }
+                              <div className="flex h-full w-full overflow-hidden">
+                                {showOutlinePane && activeTab ? (
+                                  <>
+                                    <div className="h-full shrink-0 overflow-hidden" style={{ width: outlineWidth }}>
+                                      <DocumentOutlinePanel
+                                        nodes={outlineNodes}
+                                        activeNodeId={activeOutlineId}
+                                        density={outlineDensity}
+                                        onChangeDensity={setOutlineDensity}
                                         readOnly={!canEdit}
-                                        guideSlot={
-                                          showGuideChip && activeTab ? (
-                                            <TopicGuideChip
-                                              docType={activeTab.docType}
-                                              expanded={guideExpanded}
-                                              onToggle={toggleGuideExpanded}
-                                              structureIssueCount={activeStructureIssueCount}
-                                              onOpenProblems={() => setProblemsOpen(true)}
-                                            />
-                                          ) : null
-                                        }
-                                        saveSlot={saveControlsNode}
-                                        contextSlot={topicContextNode}
-                                        guidePanel={
-                                          activeTab?.kind === 'topic' && guideExpanded ? (
-                                            <TopicAuthoringGuide docType={activeTab.docType} />
-                                          ) : null
-                                        }
+                                        xmlError={showTopicVisual ? null : (activeTab.xmlError ?? null)}
+                                        onJumpToXmlError={() => {
+                                          void openFileTab(activeTab.path, {
+                                            mode: 'source',
+                                            jumpLine: activeTab.xmlError?.line ?? 1,
+                                          });
+                                        }}
+                                        onLocateNode={handleLocateOutlineNode}
+                                        onEvaluateDrop={handleEvaluateOutlineDrop}
+                                        onMoveNode={handleMoveOutlineNode}
+                                        onCollapse={() => setOutlineOpen(false)}
                                       />
-                                    )}
-                                  </Panel>
-                                ) : null}
-
-                                {showVisualPane && showSourcePane ? (
-                                  <Separator
-                                    className="dita-resize-handle"
-                                    aria-label={t('app.resizeSplit')}
-                                  />
-                                ) : null}
-
-                                {showSourcePane ? (
-                                  <Panel
-                                    id="source-pane"
-                                    defaultSize={showVisualPane ? '48%' : '100%'}
-                                    minSize="24%"
-                                  >
-                                    <SourceEditor
-                                      xml={activeTab.xml}
-                                      xmlError={activeTab.xmlError}
-                                      switchBlockedReason={activeTab.switchBlockedReason}
-                                      pendingJumpOffset={pendingSourceOffset}
-                                      onJumpHandled={clearPendingSourceOffset}
-                                      onChange={updateXmlFromSource}
-                                      onCursorOffsetChange={(offset) => {
-                                        sourceCursorOffsetRef.current = offset;
-                                      }}
-                                      replacementXml={sourceReplacementXml}
-                                      onReplacementApplied={handleSourceReplacementApplied}
-                                      onAiFixXmlError={handleAiFixXmlError}
-                                      onAnnounce={announce}
-                                      keyspace={keyspace}
-                                      topicIndices={topicIndices}
-                                      profilingCatalog={profilingCatalog}
-                                      taskModelSetting={taskModelSetting}
-                                      resolvedTaskModel={resolvedTaskModel}
-                                      onChangeTaskModelSetting={setTaskModelSetting}
-                                      showTaskModelSwitch={showTaskModelSwitch}
-                                      readOnly={!canEdit}
+                                    </div>
+                                    <div
+                                      role="separator"
+                                      aria-orientation="vertical"
+                                      aria-label={t('outline.resizeAria')}
+                                      title={t('outline.resizeAria')}
+                                      className="dita-resize-handle w-1 shrink-0 cursor-col-resize"
+                                      onPointerDown={handleOutlineResizeStart}
                                     />
-                                  </Panel>
+                                  </>
                                 ) : null}
-                              </Group>
+                                <div className="min-w-0 flex-1 overflow-hidden">
+                                  <Group
+                                    key={`editor-${activeTab.path}-${mode}-${showVisualPane ? 'V' : 'noV'}-${showSourcePane ? 'S' : 'noS'}`}
+                                    orientation="horizontal"
+                                    className="h-full w-full"
+                                  >
+                                    {showVisualPane ? (
+                                      <Panel
+                                        id="visual-pane"
+                                        defaultSize={showSourcePane ? '52%' : '100%'}
+                                        minSize="25%"
+                                      >
+                                        {showMapOverview ? (
+                                          <MapOverviewPane
+                                            mapPath={activeTab.path}
+                                            xml={activeTab.xml}
+                                            fileSet={fileSet}
+                                            onUpdateRootTitle={updateMapRootTitle}
+                                            onActivateRootMap={(p) => void selectRootMap(p)}
+                                            onOpenSourceMode={() => handleChangeMode('source')}
+                                            onOpenTopic={(p) => void openFileTab(p)}
+                                            onCreateAndMount={(mapPath, title) =>
+                                              handleOpenCreateAndMount({
+                                                mapPath,
+                                                parentPath: null,
+                                                parentLabel: title,
+                                              })
+                                            }
+                                            canEditKeys={canManageKeys}
+                                            onOpenNewKey={(mapPath, title) =>
+                                              openNewKey({ mapPath, parentPath: null, parentLabel: title })
+                                            }
+                                            onInspectNode={(mapPath, elementPath) =>
+                                              selectMapNode({ mapPath, elementPath }, true)
+                                            }
+                                          />
+                                        ) : (
+                                          <VisualEditor
+                                            ref={visualRef}
+                                            xml={activeTab.xml}
+                                            reloadToken={activeTab.visualReloadToken}
+                                            tagDisplayMode={tagDisplayMode}
+                                            onChangeTagDisplayMode={setTagDisplayMode}
+                                            taskModelSetting={taskModelSetting}
+                                            resolvedTaskModel={resolvedTaskModel}
+                                            onChangeTaskModelSetting={setTaskModelSetting}
+                                            showTaskModelSwitch={showTaskModelSwitch}
+                                            pendingJumpPos={pendingVisualPmPos}
+                                            onJumpHandled={clearPendingVisualPmPos}
+                                            onXmlChange={updateXmlFromVisual}
+                                            onSnapshotChange={handleSnapshotChange}
+                                            onDocChange={setVisualDoc}
+                                            onAiRequest={handleVisualAiRequest}
+                                            onOpenXrefDialog={() => setRefDialogMode('xref')}
+                                            onAnnounce={announce}
+                                            resolveImageSrc={resolveImageSrcForActiveTab}
+                                            semanticOverlay={documentOverlays[activeTab.path] ?? null}
+                                            activeDitaval={activeDitaval}
+                                            activeDitavalPath={activeDitavalPath}
+                                            ditavalDisplayMode={ditavalDisplayMode}
+                                            onJumpToSource={(filePath, line, elementId) =>
+                                              void jumpToSemanticLocation(filePath, { line, elementId })
+                                            }
+                                            readOnly={!canEdit}
+                                            guideSlot={
+                                              showGuideChip && activeTab ? (
+                                                <TopicGuideChip
+                                                  docType={activeTab.docType}
+                                                  expanded={guideExpanded}
+                                                  onToggle={toggleGuideExpanded}
+                                                  structureIssueCount={activeStructureIssueCount}
+                                                  onOpenProblems={() => setProblemsOpen(true)}
+                                                />
+                                              ) : null
+                                            }
+                                            saveSlot={saveControlsNode}
+                                            contextSlot={topicContextNode}
+                                            guidePanel={
+                                              activeTab?.kind === 'topic' && guideExpanded ? (
+                                                <TopicAuthoringGuide docType={activeTab.docType} />
+                                              ) : null
+                                            }
+                                            outlineSlot={renderOutlineToggle('light')}
+                                          />
+                                        )}
+                                      </Panel>
+                                    ) : null}
+
+                                    {showVisualPane && showSourcePane ? (
+                                      <Separator
+                                        className="dita-resize-handle"
+                                        aria-label={t('app.resizeSplit')}
+                                      />
+                                    ) : null}
+
+                                    {showSourcePane ? (
+                                      <Panel
+                                        id="source-pane"
+                                        defaultSize={showVisualPane ? '48%' : '100%'}
+                                        minSize="24%"
+                                      >
+                                        <SourceEditor
+                                          xml={activeTab.xml}
+                                          xmlError={activeTab.xmlError}
+                                          switchBlockedReason={activeTab.switchBlockedReason}
+                                          pendingJumpOffset={pendingSourceOffset}
+                                          onJumpHandled={clearPendingSourceOffset}
+                                          onChange={updateXmlFromSource}
+                                          onCursorOffsetChange={(offset) => {
+                                            sourceCursorOffsetRef.current = offset;
+                                            // Only mirror the caret while the outline can use it.
+                                            if (outlineOpen && !showTopicVisual) {
+                                              setOutlineSourceCursorOffset(offset);
+                                            }
+                                          }}
+                                          outlineSlot={
+                                            !showVisualPane && activeTab?.kind === 'topic'
+                                              ? renderOutlineToggle('dark')
+                                              : null
+                                          }
+                                          replacementXml={sourceReplacementXml}
+                                          onReplacementApplied={handleSourceReplacementApplied}
+                                          onAiFixXmlError={handleAiFixXmlError}
+                                          onAnnounce={announce}
+                                          keyspace={keyspace}
+                                          topicIndices={topicIndices}
+                                          profilingCatalog={profilingCatalog}
+                                          taskModelSetting={taskModelSetting}
+                                          resolvedTaskModel={resolvedTaskModel}
+                                          onChangeTaskModelSetting={setTaskModelSetting}
+                                          showTaskModelSwitch={showTaskModelSwitch}
+                                          readOnly={!canEdit}
+                                        />
+                                      </Panel>
+                                    ) : null}
+                                  </Group>
+                                </div>
+                              </div>
                             )}
                             {activeTab?.kind === 'topic' && !aiPanelVisible ? (
                               <button

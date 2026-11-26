@@ -271,3 +271,116 @@
   height: 28px;
   margin-block: 1px;
 }
+
+/* ---------------------------------------------------------------------------
+ * Document outline — drag & drop feedback
+ * `useOutlineDrag` sets `data-outline-drop` rows and floats `.dita-outline-ghost`
+ * under the pointer; every rule stays relative to the outline row so the map
+ * tree and the other panels are untouched.
+ * ------------------------------------------------------------------------- */
+
+.dita-outline-row {
+  position: relative;
+}
+
+/* “Insert as sibling”: a crisp 2px line with a leading dot. */
+.dita-outline-drop-before::before,
+.dita-outline-drop-after::after {
+  content: "";
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  height: 2px;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.18);
+  pointer-events: none;
+  z-index: 2;
+}
+
+.dita-outline-drop-before::before {
+  top: -1px;
+}
+
+.dita-outline-drop-after::after {
+  bottom: -1px;
+}
+
+.dita-outline-drop-before::after,
+.dita-outline-drop-after::before {
+  content: "";
+  position: absolute;
+  left: 2px;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: #2563eb;
+  box-shadow: 0 0 0 2px #ffffff;
+  pointer-events: none;
+  z-index: 3;
+}
+
+/* The dot rides the 2px insertion line (top: -1px / bottom: -1px), not the row centre. */
+.dita-outline-drop-before::after {
+  top: -3px;
+}
+
+.dita-outline-drop-after::before {
+  bottom: -3px;
+}
+
+/* “Move inside”: tint plus ring, so the drop container reads as a target. */
+.dita-outline-drop-inside {
+  background: rgba(37, 99, 235, 0.08);
+  box-shadow: inset 0 0 0 1.5px #2563eb;
+  border-radius: 4px;
+}
+
+/* Refused target: same shapes, rose instead of blue. */
+.dita-outline-drop-invalid.dita-outline-drop-inside {
+  background: rgba(225, 29, 72, 0.07);
+  box-shadow: inset 0 0 0 1.5px #e11d48;
+}
+
+.dita-outline-drop-invalid.dita-outline-drop-before::before,
+.dita-outline-drop-invalid.dita-outline-drop-after::after,
+.dita-outline-drop-invalid.dita-outline-drop-before::after,
+.dita-outline-drop-invalid.dita-outline-drop-after::before {
+  background: #e11d48;
+  box-shadow: 0 0 0 1px rgba(225, 29, 72, 0.18);
+}
+
+/* While a drag is live, hovering inside the tree must never start text selection. */
+body.dita-outline-dragging,
+body.dita-outline-dragging * {
+  cursor: grabbing !important;
+  user-select: none;
+}
+
+.dita-outline-ghost {
+  position: fixed;
+  z-index: 80;
+  max-inline-size: 280px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  background: rgba(255, 255, 255, 0.97);
+  box-shadow:
+    0 8px 24px rgba(15, 23, 42, 0.16),
+    0 1px 2px rgba(15, 23, 42, 0.08);
+  font-size: 11px;
+  line-height: 1.35;
+  color: #0f172a;
+  pointer-events: none;
+}
+
+.dita-outline-ghost-tag {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: #2563eb;
+}
+
+.dita-outline-ghost-reason {
+  margin-top: 2px;
+  font-size: 10px;
+  color: #be123c;
+}

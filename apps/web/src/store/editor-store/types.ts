@@ -14,6 +14,7 @@ import type {
   XmlParseError,
 } from '@dita/core';
 import type { CompositeMapTreeNode, MapBufferState } from '../../map-tree/map-tree-utils';
+import type { OutlineDensity } from '../../editor/outline/outline-model.js';
 import type {
   WorkspaceDiagnostic,
   WorkspaceDitavalSummary,
@@ -155,6 +156,10 @@ export interface EditorWorkbenchState {
   selectedMapNode: SelectedMapNodeRef | null;
   problemsOpen: boolean;
   tagDisplayMode: TagDisplayMode;
+  /** Collapsible document outline panel (persisted per browser in localStorage). */
+  outlineOpen: boolean;
+  /** Outline detail level: document skeleton (`structure`) or every block element (`all`). */
+  outlineDensity: OutlineDensity;
   /** Task content model preference: `auto` (per-document DOCTYPE) / `strict` (task.dtd) / `general`. */
   taskModelSetting: TaskContentModelSetting;
   statusMessage: string;
@@ -392,6 +397,8 @@ export interface EditorWorkbenchState {
   setInspectorOpen: (open: boolean) => void;
   setInspectorTarget: (target: InspectorTarget) => void;
   setProblemsOpen: (open: boolean) => void;
+  setOutlineOpen: (open: boolean) => void;
+  setOutlineDensity: (density: OutlineDensity) => void;
   announce: (msg: string) => void;
   clearPendingSourceOffset: () => void;
   clearPendingVisualPmPos: () => void;

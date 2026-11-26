@@ -1,6 +1,6 @@
 {
   "name": "@dita/desktop",
-  "version": "1.4.0",
+  "version": "1.5.0",
   "private": true,
   "description": "DITAEditor Desktop — Lightweight DITA 1.3 structured authoring workbench for macOS and Windows",
   "license": "MIT",

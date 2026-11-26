@@ -14,7 +14,12 @@ import {
   setRawAttr,
 } from '@dita/core';
 import { resolveTaskModelForDocument } from '../../structure-options';
+import {
+  evaluateOutlineDrop,
+  type OutlineDropPlacement,
+} from '../../outline/outline-dnd.js';
 import { buildConvertedBlock, isBlockMoveOrderSafe, planBlockMove } from '../block-transforms';
+import { DITA_DECORATIONS_KEY } from '../decorations/types.js';
 import { makeNode } from './node-helpers.js';
 /**
  * Guard Backspace so structural anchors (`<title>` of topic root, root element, body) are never accidentally destroyed.
@@ -297,6 +302,54 @@ export function selectNodeAtPos(nodePos: number): Command {
     } else {
       tr.setSelection(Selection.near(state.doc.resolve(nodePos + 1), 1));
     }
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
+/**
+ * Move a node from the document outline: `before` / `after` the target element, or `inside` it.
+ *
+ * DITA 1.3 content-model rules are enforced by `evaluateOutlineDrop` (membership, sequence,
+ * cardinality, required-child removal, ProseMirror schema fit), so an illegal drop is a no-op.
+ * A legal move is applied as ONE transaction, keeping `undo()` a single step.
+ */
+export function moveDitaNodeByOutline(
+  sourcePos: number,
+  targetPos: number,
+  placement: OutlineDropPlacement,
+): Command {
+  return (state, dispatch) => {
+    const evaluation = evaluateOutlineDrop(
+      state.doc,
+      sourcePos,
+      targetPos,
+      placement,
+      resolveTaskModelForDocument(state.doc),
+    );
+    const insertGapPos = evaluation.insertGapPos;
+    if (!evaluation.ok || insertGapPos === undefined) return false;
+
+    const sourceNode = state.doc.nodeAt(sourcePos);
+    if (!sourceNode) return false;
+    if (!dispatch) return true;
+
+    const adjustedInsertPos =
+      insertGapPos > sourcePos ? insertGapPos - sourceNode.nodeSize : insertGapPos;
+
+    const tr = state.tr;
+    tr.delete(sourcePos, sourcePos + sourceNode.nodeSize);
+    tr.insert(adjustedInsertPos, sourceNode);
+
+    const docSize = tr.doc.content.size;
+    const safePos = Math.max(0, Math.min(adjustedInsertPos, docSize));
+    if (sourceNode.isAtom && !sourceNode.isInline) {
+      tr.setSelection(NodeSelection.create(tr.doc, safePos));
+    } else {
+      tr.setSelection(Selection.near(tr.doc.resolve(Math.min(safePos + 1, docSize)), 1));
+    }
+    tr.setMeta(DITA_DECORATIONS_KEY, { activeNodePos: adjustedInsertPos });
+
     dispatch(tr.scrollIntoView());
     return true;
   };

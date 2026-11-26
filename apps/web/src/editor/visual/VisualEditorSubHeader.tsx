@@ -20,6 +20,8 @@ export interface VisualEditorSubHeaderProps {
   taskModelSetting: TaskContentModelSetting;
   resolvedTaskModel: TaskContentModel;
   onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
+  /** Collapsible document outline toggle, pinned to the far left before the guide chip. */
+  outlineSlot?: ReactNode;
   /** Authoring-guide toggle (topic type badge + expand/collapse) at the end of the toolbar. */
   guideSlot?: ReactNode;
   /** Save affordance, rendered right before the guide toggle so it stays on the document toolbar. */
@@ -42,6 +44,7 @@ export function VisualEditorSubHeader({
   taskModelSetting,
   resolvedTaskModel,
   onChangeTaskModelSetting,
+  outlineSlot,
   guideSlot,
   saveSlot,
   contextSlot,
@@ -50,8 +53,9 @@ export function VisualEditorSubHeader({
   return (
     <div className="@container flex shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-slate-50/95 px-3 py-1.5 text-xs">
       <div className="flex min-w-0 shrink items-center gap-2.5 overflow-hidden">
-        {/* Document identity first, then the controls that are scoped to it: the task
-            content-model switch (task topics only) and the tag-display mode. */}
+        {/* Document identity first, then the control scoped to it: the task content-model
+            switch (task topics only). View options such as tag disclosure live on the right. */}
+        {outlineSlot}
         {guideSlot}
         {showTaskModelSwitch && onChangeTaskModelSetting ? (
           <TaskModelSwitch
@@ -60,6 +64,11 @@ export function VisualEditorSubHeader({
             onChange={onChangeTaskModelSetting}
           />
         ) : null}
+      </div>
+
+      <div className="flex shrink-0 items-center justify-end gap-2">
+        {/* View options live on the right: tag disclosure mode, then topic context, DITAVAL badge
+            and the save affordance. */}
         <div
           role="group"
           aria-label={t('visual.tagModeGroupAria')}
@@ -96,9 +105,6 @@ export function VisualEditorSubHeader({
           })}
         </div>
 
-      </div>
-
-      <div className="flex shrink-0 items-center justify-end gap-2">
         {contextSlot ? (
           <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">{contextSlot}</div>
         ) : null}

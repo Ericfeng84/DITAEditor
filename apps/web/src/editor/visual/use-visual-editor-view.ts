@@ -1,6 +1,7 @@
 import { useEffect, type Dispatch, type RefObject, type SetStateAction } from 'react';
 import { EditorState, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
+import type { Node as PMNode } from 'prosemirror-model';
 import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { history } from 'prosemirror-history';
@@ -79,6 +80,8 @@ export interface VisualEditorViewDeps {
   handleGapQuickInsert: (tagName: string, insertPos: number) => void;
   handleOpenGapInsertMenu: (payload: BlockGapOpenMenuPayload) => void;
   emitSnapshot: (state: EditorState) => void;
+  /** Reports the document only when it actually changed (outline rebuild trigger). */
+  onDocChangeRef: RefObject<((doc: PMNode) => void) | undefined>;
   syncInlineBubble: (view: EditorView) => void;
   syncBlockHandle: (view: EditorView) => void;
 }
@@ -126,6 +129,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
     handleGapQuickInsert,
     handleOpenGapInsertMenu,
     emitSnapshot,
+    onDocChangeRef,
     syncInlineBubble,
     syncBlockHandle,
   } = deps;
@@ -315,6 +319,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
           if (tr.docChanged) {
             const serialized = pmDocToXml(nextState.doc);
             onXmlChangeRef.current(serialized, getPmDocTitle(nextState.doc));
+            onDocChangeRef.current?.(nextState.doc);
           }
 
           emitSnapshot(nextState);
@@ -325,6 +330,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
 
       viewRef.current = view;
       emitSnapshot(state);
+      onDocChangeRef.current?.(state.doc);
       syncInlineBubble(view);
       syncBlockHandle(view);
 

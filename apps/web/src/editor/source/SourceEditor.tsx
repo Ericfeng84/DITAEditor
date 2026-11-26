@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { autocompletion } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { xml as xmlLang } from '@codemirror/lang-xml';
@@ -75,6 +75,8 @@ export interface SourceEditorProps {
   onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
   /** Only `<task>` topics expose the strict / general switch. */
   showTaskModelSwitch?: boolean;
+  /** Collapsible document outline toggle, pinned to the left of the Source toolbar. */
+  outlineSlot?: ReactNode;
 }
 
 const sourceEditorTheme = EditorView.theme({
@@ -157,6 +159,7 @@ export function SourceEditor({
   resolvedTaskModel = 'strict',
   onChangeTaskModelSetting,
   showTaskModelSwitch = false,
+  outlineSlot,
 }: SourceEditorProps) {
   const { t, locale } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -421,6 +424,7 @@ export function SourceEditor({
       {/* Compact Source Toolbar */}
       <div className="@container flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-800 bg-slate-900/95 px-3 py-1.5 text-xs">
         <div className="flex min-w-0 flex-1 items-center gap-2">
+          {outlineSlot}
           <span className="shrink-0 font-mono font-medium text-sky-400">{t('source.title')}</span>
           <span className="hidden shrink-0 text-slate-500 @[560px]:inline">·</span>
           <span className="hidden truncate text-slate-400 @[560px]:inline">{t('source.completionReady')}</span>

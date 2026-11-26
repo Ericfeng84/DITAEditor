@@ -4,6 +4,7 @@ import {
   buildCompositeMapTree,
   planMapNodeMove,
   resolveMapTargetStatus,
+  stripKeydefNodes,
 } from '../src/map-tree/map-tree-utils';
 
 const ROOT_MAP = `<?xml version="1.0" encoding="UTF-8"?>
@@ -157,6 +158,34 @@ describe('Phase 2 Composite Map Tree & Cross-Map Move Utilities', () => {
       { topicTypes: { 'concepts/overview.dita': 'reference' } },
     );
     expect(typed.nodes[0]!.children?.[0]?.topicType).toBe('concept');
+  });
+
+  it('strips <keydef> rows from the structure tree while keeping order and the rest intact', () => {
+    const keyedMap = `<?xml version="1.0" encoding="UTF-8"?>
+<map id="root_manual" xml:lang="zh-CN">
+  <title>Root Manual</title>
+  <keydef keys="prod_name"><topicmeta><keywords><keyword>DITAEditor Enterprise</keyword></keywords></topicmeta></keydef>
+  <topichead navtitle="Concepts">
+    <topicref href="concepts/overview.dita" type="concept"/>
+  </topichead>
+  <mapref href="maps/tasks.ditamap" format="ditamap" navtitle="Tasks Submap"/>
+  <keydef keys="endpoint_url" href="https://example.com" scope="external" format="html"/>
+</map>
+`;
+    const mapBuffers = {
+      'root.ditamap': { xml: keyedMap },
+      'maps/tasks.ditamap': { xml: SUB_MAP },
+    };
+
+    const raw = buildCompositeMapTree('root.ditamap', mapBuffers, fileSet, topicTitles);
+    expect(raw.nodes.map((n) => n.tagName)).toEqual(['keydef', 'topichead', 'mapref', 'keydef']);
+
+    const stripped = stripKeydefNodes(raw.nodes);
+    expect(stripped.map((n) => n.tagName)).toEqual(['topichead', 'mapref']);
+    expect(stripped[0]!.children?.[0]?.label).toBe('Architecture Overview');
+    expect(stripped[1]!.children).toHaveLength(2);
+    // Key definitions stay in the parsed tree for the keyspace; only the view is filtered.
+    expect(raw.nodes).toHaveLength(4);
   });
 
   it('plans same-map moves and cross-map subtree moves with automatic POSIX href rewriting', () => {

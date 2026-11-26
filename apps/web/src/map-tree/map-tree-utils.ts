@@ -347,6 +347,20 @@ export function buildCompositeMapTree(
   };
 }
 
+/**
+ * The structure tree shows authoring order (topics and containers) only: every `<keydef>` is
+ * owned by the Keyspace tab, so strip those rows — recursively, keeping the remaining order and
+ * node identities intact for drag & drop.
+ */
+export function stripKeydefNodes(nodes: CompositeMapTreeNode[]): CompositeMapTreeNode[] {
+  const out: CompositeMapTreeNode[] = [];
+  for (const node of nodes) {
+    if (node.tagName === 'keydef') continue;
+    out.push(node.children ? { ...node, children: stripKeydefNodes(node.children) } : node);
+  }
+  return out;
+}
+
 function isSameOrDescendantPath(ancestor: readonly number[], candidate: readonly number[]): boolean {
   if (ancestor.length > candidate.length) return false;
   for (let i = 0; i < ancestor.length; i++) {

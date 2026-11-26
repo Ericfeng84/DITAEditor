@@ -3,6 +3,24 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.5.0] — 2026-11-26
+
+新增**编辑器文档大纲视图（Document Outline View）**（支持「结构骨架 / 全部块级」粒度切换、双向定位平滑滚动与 DITA 1.3 约束校验下的同级/跨容器无损拖拽重排），整合 **Keyspace 管理与新建 Key 工作流**，完善**检入校验门禁与 AI 修复闭环**，并修复可视化 `+` 插入拆段及多项版本管理体验问题。全仓测试 719 项全绿（`@dita/core` 208 / `@dita/web` 353 / `@dita/api` 124 / `@dita/site` 30 / `@dita/desktop` 4）。
+
+### Added
+
+- **编辑器文档大纲视图（Document Outline View）**：
+  - 编辑器左侧可折叠、可调宽独立大纲栏（`DocumentOutlinePanel` + `useOutlineDrag` + `outline-model` + `outline-dnd`），支持 `Cmd/Ctrl+Shift+O` 快捷键与 Visual/Source 双主题工具栏一键切换，展开/收起不重挂载编辑器，完整保留 Undo 历史、选区与滚动位置。
+  - 支持「**结构骨架**（默认）」与「**全部块级**」一键切换、`+N` 隐藏子块徽标、按文本 / `<tag>` / `#id` 即时过滤、结构告警圆点提示，以及覆盖 Visual / Split / Source 三模式的双向定位与平滑高亮脉冲。
+  - 基于 `@dita/core` DITA 1.3 内容模型、顺序与基数规则实现**同容器排序 + 合法跨容器拖入**（如将段落/提示拖入另一 `<section>`、将 `<li>` 拖入另一列表），非法落点实时给出原因提示；单事务执行支持一步撤销与 100% 无损 XML 往返，并支持 `Alt+↑/↓` 键盘排序与只读态保护。
+- **Keyspace 管理与新建 Key 工作流**：整合 Map 树与属性检查器的 Key 管理能力（`NewKeyDialog` / `KeyrefAttrField` / `InsertKeyrefDialog` / `KeyspacePanel`），支持新建、重命名、原位改值与绑定 `keyref`，Map 树过滤 `<keydef>` 噪音行并精简节点快捷操作。
+- **检入校验门禁与 AI 修复闭环**：检入前对草稿执行 XML 良构与 DITA 结构预检，支持从检入面板直接跳转问题行或呼起 AI 修复并完成自动检出保存。
+
+### Fixed
+
+- **可视化间隙 `+` 插入保护**：防止在段落或行内文本处触发 `+` 块插入时拆分既有 `<p>` / `<cmd>` 元素，自动回锚至最近的合法块容器。
+- **版本管理与 Map 树体验加固**：修复 Phase 13 多 Tab 身份隔离、还原/回滚 UI 刷新、锁/草稿保护及 Map 缺失目标一键修复弹窗（`MapTargetFixPopover`）。
+
 ## [1.4.0] — 2026-11-25
 
 Phase 13 交付：**Git 干净基线 + 个人草稿叠加层**（版本管理重构与合并闭环）。未检入的编辑/新建/删除/重命名全部离开共享 `workDir`，隔离进 SQLite `working_drafts`；同分支多人共编同一 Map 不再互相污染校验、AI 上下文与发布快照，并补齐 Tag、安全回滚、无污染合并、乐观锁与版本审计。全仓测试 521 项全绿（`@dita/core` 175 / `@dita/web` 210 / `@dita/api` 102 / `@dita/site` 30 / `@dita/desktop` 4）。设计见 [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) 与 [Phase 13 方案](docs/phase13-versioning-overlay-plan.md)。

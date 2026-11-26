@@ -2,13 +2,15 @@ import type { RefObject } from 'react';
 import type { Command, EditorState } from 'prosemirror-state';
 import { undo, redo } from 'prosemirror-history';
 import type { EditorView } from 'prosemirror-view';
-import { xmlToPmDoc, type RawAttrs } from '@dita/core';
+import { xmlToPmDoc, getPmNodeTagName, type RawAttrs } from '@dita/core';
 import { getCurrentLocale, translate } from '../../i18n/index.js';
+import type { OutlineDropPlacement } from '../outline/outline-dnd.js';
 import {
   deleteDitaNodeAtPos,
   insertBlockDitaElement,
   insertBlockDitaElementAtPos,
   insertReuseElementAtPos,
+  moveDitaNodeByOutline,
   moveDitaNodeSibling,
   selectNodeAtPos,
   toggleInlineDitaElement,
@@ -57,6 +59,14 @@ export interface VisualEditorHandle {
   updateAttr: (nodePos: number, attrName: string, value: string | null) => void;
   deleteNode: (nodePos: number) => void;
   moveNode: (nodePos: number, direction: 'up' | 'down') => void;
+  /** Select + scroll a node into view (document outline click), with a short highlight flash. */
+  locateNode: (nodePos: number) => void;
+  /** Move a node from the document outline. Returns false when DITA 1.3 forbids the drop. */
+  moveOutlineNode: (
+    sourcePos: number,
+    targetPos: number,
+    placement: OutlineDropPlacement,
+  ) => boolean;
   selectNode: (nodePos: number, pinInspector?: boolean) => void;
   runTableAction: (action: TableAction) => boolean;
   openInsertMenuAtElement: (anchorEl: HTMLElement) => void;
@@ -222,6 +232,45 @@ export function createVisualEditorHandle(deps: VisualEditorHandleDeps): VisualEd
       });
       view.focus();
       emitSnapshot(view.state);
+    },
+    locateNode(nodePos) {
+      const view = viewRef.current;
+      if (!view) return;
+      if (!view.state.doc.nodeAt(nodePos)) return;
+
+      pinnedPosRef.current = nodePos;
+      selectNodeAtPos(nodePos)(view.state, (tr) => {
+        tr.setMeta('keepPinnedCrumb', true);
+        tr.setMeta(DITA_DECORATIONS_KEY, { activeNodePos: nodePos });
+        view.dispatch(tr);
+      });
+      view.focus();
+      emitSnapshot(view.state);
+
+      const dom = view.nodeDOM(nodePos);
+      if (!(dom instanceof HTMLElement)) return;
+      dom.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      dom.classList.add('dita-outline-locate-flash');
+      window.setTimeout(() => {
+        dom.classList.remove('dita-outline-locate-flash');
+      }, 900);
+    },
+    moveOutlineNode(sourcePos, targetPos, placement) {
+      const view = viewRef.current;
+      if (!view) return false;
+      const node = view.state.doc.nodeAt(sourcePos);
+      const tag = node ? (getPmNodeTagName(node) ?? '') : '';
+      const ok = moveDitaNodeByOutline(sourcePos, targetPos, placement)(
+        view.state,
+        view.dispatch,
+        view,
+      );
+      if (ok) {
+        view.focus();
+        emitSnapshot(view.state);
+        announce(deps, 'visual.announce.movedBlock', { tag });
+      }
+      return ok;
     },
     runTableAction(action) {
       const view = viewRef.current;

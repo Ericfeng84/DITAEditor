@@ -10,7 +10,6 @@ import {
   FilePlus2,
   FileText,
   Folder,
-  KeyRound,
   Layers,
   ListChecks,
   MoreVertical,
@@ -48,9 +47,6 @@ function NodeKindIcon({ data }: { data: CompositeMapTreeNode }) {
   if (data.isSubmapRef) {
     return <Network className="h-3.5 w-3.5 shrink-0 text-sky-600" aria-hidden="true" />;
   }
-  if (data.tagName === 'keydef') {
-    return <KeyRound className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
-  }
   if (data.tagName === 'topichead' || data.tagName === 'part') {
     return <Folder className="h-3.5 w-3.5 shrink-0 text-slate-500" aria-hidden="true" />;
   }
@@ -80,7 +76,6 @@ const TAG_PILL_STYLES: Record<string, string> = {
   chapter: 'bg-blue-100 text-blue-800',
   part: 'bg-slate-200 text-slate-700',
   appendix: 'bg-blue-100 text-blue-800',
-  keydef: 'bg-blue-100 text-blue-800',
   topichead: 'bg-slate-200 text-slate-700',
   topicgroup: 'bg-slate-100 text-slate-500',
 };
@@ -206,24 +201,6 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
           {rowLabel}
         </span>
 
-        {/* `<keydef>` rows preview their bound value so keys are readable at a glance */}
-        {data.tagName === 'keydef' ? (
-          (() => {
-            const keyPreview = data.inlineText ?? data.href;
-            if (!keyPreview) return null;
-            return (
-              <span
-                className="max-w-[45%] shrink-0 truncate rounded bg-slate-100 px-1 py-0.2 font-mono text-[9px] font-medium text-slate-600"
-                title={keyPreview}
-              >
-                {data.inlineText
-                  ? t('mapNode.keyTextPreview', { text: data.inlineText })
-                  : keyPreview}
-              </span>
-            );
-          })()
-        ) : null}
-
         {/* DITAVAL Flag / Excluded / Profiling pills */}
         {isExcluded ? (
           <span className="shrink-0 rounded bg-rose-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-rose-700">
@@ -293,21 +270,19 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
 
         {/* Hover Actions */}
         <div className="hidden shrink-0 items-center gap-0.5 group-hover:flex">
-          {data.tagName !== 'keydef' ? (
-            <button
-              type="button"
-              tabIndex={-1}
-              onClick={(ev) => {
-                ev.stopPropagation();
-                actions.onQuickAddChildTopic(data);
-              }}
-              title={t('mapNode.createChildTitle')}
-              aria-label={t('mapNode.createChildAria')}
-              className="rounded p-0.5 text-slate-400 hover:bg-blue-100 hover:text-blue-700"
-            >
-              <FilePlus2 className="h-3 w-3" aria-hidden="true" />
-            </button>
-          ) : null}
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              actions.onQuickAddChildTopic(data);
+            }}
+            title={t('mapNode.createChildTitle')}
+            aria-label={t('mapNode.createChildAria')}
+            className="rounded p-0.5 text-slate-400 hover:bg-blue-100 hover:text-blue-700"
+          >
+            <FilePlus2 className="h-3 w-3" aria-hidden="true" />
+          </button>
           <button
             type="button"
             tabIndex={-1}

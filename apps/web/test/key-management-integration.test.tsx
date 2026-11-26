@@ -181,8 +181,6 @@ function mapTreeProps(overrides: Partial<React.ComponentProps<typeof MapTreePane
     onChangeViewMode: () => {},
     keyCount: 1,
     keyspaceSlot: <p id="keyspace-slot">keyspace slot</p>,
-    canEditKeys: true,
-    onOpenNewKey: () => {},
     ...overrides,
   };
 }
@@ -305,7 +303,8 @@ describe('map panel hosts the keyspace behind a two-segment toggle', () => {
     expect(html.match(/role="tab"/g) ?? []).toHaveLength(2);
     expect(html).toContain('aria-selected="true"');
     expect(html).not.toContain('keyspace-slot');
-    expect(html).toContain(t('keyspace.newKeyShort'));
+    // Keys are created from the Keyspace tab only — the structure chrome has no key entry point.
+    expect(html).not.toContain(t('keyspace.newKeyTooltip'));
   });
 
   it('renders the keyspace slot instead of the tree chrome in keys mode', () => {

@@ -4,7 +4,6 @@ import {
   Code2,
   FilePlus2,
   FolderPlus,
-  KeyRound,
   Layers,
   Link2,
   SlidersHorizontal,
@@ -320,15 +319,6 @@ export function MapNodeContextMenu({
           >
             <Layers className="dita-ctx-icon text-slate-600" aria-hidden="true" />
             <span>{t('mapMenu.insertTopicgroup')}</span>
-          </button>
-          <button
-            type="button"
-            disabled={!canNestChildren}
-            onPointerMove={handlePointerMoveItem}
-            onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, 'keydef'))}
-          >
-            <KeyRound className="dita-ctx-icon text-blue-600" aria-hidden="true" />
-            <span>{t('mapMenu.insertKeydef')}</span>
           </button>
 
           <hr />
