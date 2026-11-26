@@ -1,4 +1,4 @@
-import { FolderPlus, Loader2, Plus, Search } from 'lucide-react';
+import { FileUp, FolderPlus, Loader2, Plus, Search } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 import type { Manual } from '../services/manuals-api.js';
 import { ManualCard } from './ManualCard';
@@ -15,6 +15,7 @@ export interface ManualListSectionProps {
   onToggleArchived: (include: boolean) => void;
   onCreate: () => void;
   onAttach: () => void;
+  onImport: () => void;
   onOpen: (manual: Manual) => void;
   onEdit: (manual: Manual) => void;
   onToggleArchive: (manual: Manual) => void;
@@ -33,6 +34,7 @@ export function ManualListSection({
   onToggleArchived,
   onCreate,
   onAttach,
+  onImport,
   onOpen,
   onEdit,
   onToggleArchive,
@@ -73,6 +75,16 @@ export function ManualListSection({
           <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
+              onClick={onImport}
+              title={t('ingest.entry.hubTooltip')}
+              aria-label={t('ingest.entry.hubAria')}
+              className="inline-flex items-center gap-1 rounded-md border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-[11.5px] font-medium text-blue-700 transition-colors hover:bg-blue-100"
+            >
+              <FileUp className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('ingest.entry.hubButton')}
+            </button>
+            <button
+              type="button"
               onClick={onAttach}
               className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-slate-700 transition-colors hover:bg-slate-50"
             >
@@ -107,14 +119,26 @@ export function ManualListSection({
                 {t('workbench.emptyDescription')}
               </p>
               {canManage ? (
-                <button
-                  type="button"
-                  onClick={onCreate}
-                  className="mt-3 inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-[11.5px] font-medium text-white hover:bg-blue-700"
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                  {t('workbench.emptyAction')}
-                </button>
+                <div className="mt-3 flex items-center justify-center gap-2">
+                  <button
+                    type="button"
+                    onClick={onCreate}
+                    className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1.5 text-[11.5px] font-medium text-white hover:bg-blue-700"
+                  >
+                    <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                    {t('workbench.emptyAction')}
+                  </button>
+                  {offline ? null : (
+                    <button
+                      type="button"
+                      onClick={onImport}
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-3 py-1.5 text-[11.5px] font-medium text-slate-700 hover:bg-slate-50"
+                    >
+                      <FileUp className="h-3.5 w-3.5" aria-hidden="true" />
+                      {t('ingest.entry.emptyState')}
+                    </button>
+                  )}
+                </div>
               ) : null}
             </>
           )}

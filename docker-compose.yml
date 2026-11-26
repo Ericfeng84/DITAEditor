@@ -1,0 +1,91 @@
+# ---------------------------------------------------------------------------
+# DITAEditor — Phase 14 one-command stack
+#
+#   docker compose up -d --build        # DITAEditor + Docling sidecar
+#   docker compose logs -f ditaeditor
+#
+# What you get:
+#   - ditaeditor  : Node 22 + JRE 21 + DITA-OT 4.x + Noto CJK, MarkItDown CLI
+#                   installed into an isolated venv (INSTALL_MARKITDOWN=true).
+#                   Web workbench + REST/SSE API on http://localhost:3001
+#                   (default admin role switch is passwordless, see docs/).
+#   - docling-serve : Docling HTTP API/UI on http://localhost:5001 for OCR-heavy
+#                   scanned PDFs, multi-column layout reconstruction and complex
+#                   table / figure extraction.
+#
+# Document ingest routing (Phase 14): Markdown/TXT pass through untouched;
+# PDF/images/AsciiDoc prefer Docling (`DOCLING_MODE=serve`); Office/EPUB/CSV/HTML
+# prefer MarkItDown (admin-overridable in the ingest wizard / admin settings).
+#
+# Volumes:
+#   - dita_data     : /data — workspaces (Git repos), publish output, ingest staging
+#   - docling_cache : /root/.cache — Docling models, warmed once and reused
+#
+# LLM credentials come from the host environment or a local `.env` file
+# (compose reads `.env` in this directory automatically):
+#   DEEPSEEK_API_KEY=sk-...
+# ---------------------------------------------------------------------------
+services:
+  ditaeditor:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Opt-in lightweight Python + `markitdown[all]` venv at /opt/markitdown-venv.
+        INSTALL_MARKITDOWN: "true"
+    image: ditaeditor:latest
+    container_name: ditaeditor
+    ports:
+      - "3001:3001"
+    volumes:
+      - dita_data:/data
+    environment:
+      # --- Phase 14 ingest: Docling + MarkItDown -----------------------------
+      # `serve` = HTTP-only (no local `docling` CLI in this image); the sidecar
+      # below is addressed by its service name on the compose network.
+      DOCLING_MODE: "serve"
+      DOCLING_SERVE_URL: "http://docling-serve:5001"
+      MARKITDOWN_ENABLED: "true"
+      # `auto` = per-extension routing described above; also selectable per upload.
+      INGEST_DEFAULT_ENGINE: "auto"
+      # Staging directory for uploaded source files, converted Markdown and
+      # extracted images (inside the persistent dita_data volume).
+      DITA_INGEST_DIR: "/data/ingest"
+      # --- LLM (Phase 6 AI assist + Phase 14 ingest agents) ------------------
+      DEEPSEEK_API_KEY: "${DEEPSEEK_API_KEY:-}"
+      DEEPSEEK_BASE_URL: "${DEEPSEEK_BASE_URL:-https://api.deepseek.com/v1}"
+      DEEPSEEK_MODEL: "${DEEPSEEK_MODEL:-deepseek-flash}"
+    depends_on:
+      - docling-serve
+    restart: unless-stopped
+
+  docling-serve:
+    # Official CPU image. CUDA hosts: swap for
+    #   image: quay.io/docling-project/docling-serve-cu128:latest
+    # and add a GPU reservation, e.g.
+    #   deploy:
+    #     resources:
+    #       reservations:
+    #         devices:
+    #           - driver: nvidia
+    #             count: 1
+    #             capabilities: [gpu]
+    # (requires nvidia-container-toolkit on the Docker host). For air-gapped or
+    # long-lived deployments pin a concrete tag instead of `latest`.
+    image: "${DOCLING_SERVE_IMAGE:-quay.io/docling-project/docling-serve:latest}"
+    container_name: docling-serve
+    ports:
+      - "5001:5001"
+    environment:
+      # Web UI at http://localhost:5001/ui for manual conversion smoke tests.
+      DOCLING_SERVE_ENABLE_UI: "true"
+      # Large PDFs need well over the 120s default: give synchronous conversions
+      # up to 10 minutes before the request times out.
+      DOCLING_SERVE_MAX_SYNC_WAIT: "600"
+    volumes:
+      - docling_cache:/root/.cache
+    restart: unless-stopped
+
+volumes:
+  dita_data:
+  docling_cache:

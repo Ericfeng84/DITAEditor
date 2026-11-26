@@ -270,7 +270,15 @@ export const aiUsageLogs = sqliteTable(
     userId: text('user_id').notNull(),
     userDisplayName: text('user_display_name').notNull(),
     taskType: text('task_type', {
-      enum: ['ask', 'authoring', 'optimize_tags', 'fix_error'],
+      enum: [
+        'ask',
+        'authoring',
+        'optimize_tags',
+        'fix_error',
+        'ingest_plan',
+        'ingest_write',
+        'ingest_repair',
+      ],
     }).notNull(),
     subAction: text('sub_action').notNull(),
     filePath: text('file_path'),
@@ -291,12 +299,105 @@ export const aiUsageLogs = sqliteTable(
   ],
 );
 
+/**
+ * Phase 14 ingest parser configuration — one singleton row (`id = 'default'`). Values chosen
+ * here override the `INGEST_*` / `DOCLING_*` / `MARKITDOWN_*` environment fallbacks; an empty
+ * column means "keep using the environment / built-in default".
+ */
+export const ingestParserSettings = sqliteTable('ingest_parser_settings', {
+  id: text('id').primaryKey(),
+  defaultEngine: text('default_engine', { enum: ['auto', 'docling', 'markitdown'] })
+    .notNull()
+    .default('auto'),
+  preferMarkitdownForOffice: integer('prefer_markitdown_for_office').notNull().default(1),
+  doclingMode: text('docling_mode', { enum: ['auto', 'serve', 'cli', 'off'] })
+    .notNull()
+    .default('auto'),
+  doclingServeUrl: text('docling_serve_url'),
+  doclingApiKey: text('docling_api_key'),
+  doclingCliCommand: text('docling_cli_command').notNull().default('docling'),
+  doclingDoOcr: integer('docling_do_ocr').notNull().default(1),
+  doclingTableMode: text('docling_table_mode', { enum: ['fast', 'accurate'] })
+    .notNull()
+    .default('accurate'),
+  markitdownEnabled: integer('markitdown_enabled').notNull().default(1),
+  markitdownCliCommand: text('markitdown_cli_command').notNull().default('markitdown'),
+  markitdownKeepDataUris: integer('markitdown_keep_data_uris').notNull().default(1),
+  timeoutMs: integer('timeout_ms').notNull().default(180000),
+  maxFileMb: integer('max_file_mb').notNull().default(80),
+  updatedBy: text('updated_by').notNull(),
+  updatedAt: integer('updated_at').notNull(),
+});
+
+/**
+ * Phase 14 document ingest jobs: one row per uploaded source document, from queued parsing
+ * through Planner/Writer completion. Binary assets live on disk (`assetsJson` indexes them);
+ * the resulting manual/topic paths are recorded in `resultJson` so a job is fully auditable.
+ */
+export const ingestJobs = sqliteTable(
+  'ingest_jobs',
+  {
+    id: text('id').primaryKey(),
+    targetMode: text('target_mode', {
+      enum: ['new_manual', 'single_topic', 'multi_topic'],
+    }).notNull(),
+    projectId: text('project_id'),
+    branch: text('branch'),
+    userId: text('user_id').notNull(),
+    sourceFilename: text('source_filename').notNull(),
+    sourceExt: text('source_ext').notNull(),
+    sourceSize: integer('source_size').notNull().default(0),
+    requestedEngine: text('requested_engine', { enum: ['auto', 'docling', 'markitdown'] })
+      .notNull()
+      .default('auto'),
+    engineUsed: text('engine_used', {
+      enum: ['direct', 'docling-serve', 'docling-cli', 'markitdown-cli'],
+    }),
+    status: text('status', {
+      enum: [
+        'queued',
+        'parsing',
+        'planning',
+        'awaiting_plan_approval',
+        'writing',
+        'validating',
+        'repairing',
+        'materializing',
+        'succeeded',
+        'failed',
+        'cancelled',
+      ],
+    }).notNull(),
+    autoApprove: integer('auto_approve').notNull().default(0),
+    optionsJson: text('options_json').notNull().default('{}'),
+    markdownPath: text('markdown_path'),
+    assetsJson: text('assets_json'),
+    planJson: text('plan_json'),
+    progressJson: text('progress_json'),
+    validationJson: text('validation_json'),
+    resultJson: text('result_json'),    createdManualId: text('created_manual_id'),
+    error: text('error'),
+    cancelRequested: integer('cancel_requested').notNull().default(0),
+    createdAt: integer('created_at').notNull(),
+    startedAt: integer('started_at'),
+    finishedAt: integer('finished_at'),
+  },
+  (table) => [
+    index('ingest_jobs_created_idx').on(table.createdAt),
+    index('ingest_jobs_status_idx').on(table.status, table.createdAt),
+    index('ingest_jobs_user_idx').on(table.userId, table.createdAt),
+    index('ingest_jobs_project_idx').on(table.projectId, table.branch),
+  ],
+);
+
 export type UserRow = typeof users.$inferSelect;
 export type FileLockRow = typeof fileLocks.$inferSelect;
 export type LockBackupRow = typeof lockBackups.$inferSelect;
 export type PublishJobRow = typeof publishJobs.$inferSelect;
 export type AiSettingsRow = typeof aiSettings.$inferSelect;
 export type AiUsageLogRow = typeof aiUsageLogs.$inferSelect;
+export type IngestParserSettingsRow = typeof ingestParserSettings.$inferSelect;
+export type IngestJobRow = typeof ingestJobs.$inferSelect;
 /**
  * `protectedBranchesJson` is optional on the select type: rows inserted through Drizzle
  * get the SQL default `["main"]`, and callers that construct a row literal (the manual

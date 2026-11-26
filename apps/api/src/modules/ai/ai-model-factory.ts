@@ -1,4 +1,5 @@
 import type { AIMessage, AIMessageChunk, BaseMessage } from '@langchain/core/messages';
+import type { StructuredToolInterface } from '@langchain/core/tools';
 import { ChatOpenAI } from '@langchain/openai';
 import type { ResolvedAiConfig } from './ai-settings-service.js';
 
@@ -8,7 +9,14 @@ export interface AiChatModel {
     messages: BaseMessage[],
     options: { signal?: AbortSignal },
   ): AsyncIterable<AIMessageChunk>;
-  invoke(messages: BaseMessage[]): Promise<AIMessage>;
+  invoke(messages: BaseMessage[], options?: { signal?: AbortSignal }): Promise<AIMessage>;
+  /**
+   * Optional tool-calling support. Kept optional so scripted test stubs stay valid; agents that
+   * need tools must degrade gracefully when a model does not implement it.
+   */
+  bindTools?(tools: StructuredToolInterface[]): {
+    invoke(messages: BaseMessage[], options?: { signal?: AbortSignal }): Promise<AIMessage>;
+  };
 }
 
 export type AiModelFactory = (config: ResolvedAiConfig) => AiChatModel;
@@ -37,8 +45,16 @@ export function createLangChainModelFactory(): AiModelFactory {
           yield chunk;
         }
       },
-      async invoke(messages) {
-        return (await chat.invoke(messages)) as AIMessage;
+      async invoke(messages, options) {
+        return (await chat.invoke(messages, options)) as AIMessage;
+      },
+      bindTools(tools) {
+        const bound = chat.bindTools(tools);
+        return {
+          async invoke(messages, options) {
+            return (await bound.invoke(messages, options)) as AIMessage;
+          },
+        };
       },
     };
   };

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { DitaTopicTemplateType } from '@dita/core';
-import { BookOpen, FileCode, ListChecks, Network, TableProperties, X } from 'lucide-react';
+import { BookOpen, FileCode, FileUp, ListChecks, Network, TableProperties, X } from 'lucide-react';
 import { useI18n, type MessageKey } from '../i18n/index.js';
 import { TopicStructurePreview } from './TopicAuthoringGuide';
 
@@ -17,6 +17,8 @@ export interface NewTopicDialogProps {
   mountContext?: NewTopicMountContext | null;
   directories?: string[];
   onClose: () => void;
+  /** Phase 14 — escape hatch: close this dialog and import a whole document instead. */
+  onImportFromDocument?: () => void;
   onCreate: (
     type: DitaTopicTemplateType,
     id: string,
@@ -76,6 +78,7 @@ export function NewTopicDialog({
   mountContext,
   directories = ['', 'concepts', 'tasks', 'references', 'topics'],
   onClose,
+  onImportFromDocument,
   onCreate,
 }: NewTopicDialogProps) {
   const { t, locale } = useI18n();
@@ -340,6 +343,19 @@ export function NewTopicDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-slate-100 pt-3">
+          {onImportFromDocument ? (
+            <button
+              type="button"
+              onClick={() => {
+                dialogRef.current?.close();
+                onImportFromDocument();
+              }}
+              className="mr-auto inline-flex items-center gap-1 rounded-lg border border-violet-200 bg-violet-50 px-3 py-1.5 text-xs font-medium text-violet-700 hover:bg-violet-100"
+            >
+              <FileUp className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('ingest.entry.newTopic')}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => dialogRef.current?.close()}

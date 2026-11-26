@@ -209,6 +209,57 @@ CREATE INDEX IF NOT EXISTS version_audit_project_time_idx
   ON version_audit_logs (project_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS version_audit_branch_idx
   ON version_audit_logs (project_id, branch, created_at DESC);
+
+CREATE TABLE IF NOT EXISTS ingest_parser_settings (
+  id TEXT PRIMARY KEY NOT NULL,
+  default_engine TEXT NOT NULL DEFAULT 'auto',
+  prefer_markitdown_for_office INTEGER NOT NULL DEFAULT 1,
+  docling_mode TEXT NOT NULL DEFAULT 'auto',
+  docling_serve_url TEXT,
+  docling_api_key TEXT,
+  docling_cli_command TEXT NOT NULL DEFAULT 'docling',
+  docling_do_ocr INTEGER NOT NULL DEFAULT 1,
+  docling_table_mode TEXT NOT NULL DEFAULT 'accurate',
+  markitdown_enabled INTEGER NOT NULL DEFAULT 1,
+  markitdown_cli_command TEXT NOT NULL DEFAULT 'markitdown',
+  markitdown_keep_data_uris INTEGER NOT NULL DEFAULT 1,
+  timeout_ms INTEGER NOT NULL DEFAULT 180000,
+  max_file_mb INTEGER NOT NULL DEFAULT 80,
+  updated_by TEXT NOT NULL,
+  updated_at INTEGER NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS ingest_jobs (
+  id TEXT PRIMARY KEY NOT NULL,
+  target_mode TEXT NOT NULL,
+  project_id TEXT,
+  branch TEXT,
+  user_id TEXT NOT NULL,
+  source_filename TEXT NOT NULL,
+  source_ext TEXT NOT NULL,
+  source_size INTEGER NOT NULL DEFAULT 0,
+  requested_engine TEXT NOT NULL DEFAULT 'auto',
+  engine_used TEXT,
+  status TEXT NOT NULL,
+  auto_approve INTEGER NOT NULL DEFAULT 0,
+  options_json TEXT NOT NULL DEFAULT '{}',
+  markdown_path TEXT,
+  assets_json TEXT,
+  plan_json TEXT,
+  progress_json TEXT,
+  validation_json TEXT,
+  result_json TEXT,
+  created_manual_id TEXT,
+  error TEXT,
+  cancel_requested INTEGER NOT NULL DEFAULT 0,
+  created_at INTEGER NOT NULL,
+  started_at INTEGER,
+  finished_at INTEGER
+);
+CREATE INDEX IF NOT EXISTS ingest_jobs_created_idx ON ingest_jobs (created_at DESC);
+CREATE INDEX IF NOT EXISTS ingest_jobs_status_idx ON ingest_jobs (status, created_at DESC);
+CREATE INDEX IF NOT EXISTS ingest_jobs_user_idx ON ingest_jobs (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS ingest_jobs_project_idx ON ingest_jobs (project_id, branch);
 `;
 
 /**

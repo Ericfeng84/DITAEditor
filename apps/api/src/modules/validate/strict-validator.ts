@@ -32,6 +32,12 @@ export interface StrictValidationInput {
   signal?: AbortSignal;
   /** UI locale of the requesting client; diagnostics fall back messages follow it. */
   locale?: ApiLocale;
+  /**
+   * DITA-OT processing mode. `strict` (default) aborts on the first validation error, which is the
+   * right default for a single confirmatory run; `lax` keeps going and reports every broken file in
+   * one JVM call, so a multi-topic repair pass can see all failures at once.
+   */
+  processingMode?: 'strict' | 'lax';
 }
 
 export interface StrictValidationResult {
@@ -225,7 +231,7 @@ export async function validateStrict(input: StrictValidationInput): Promise<Stri
         '--format=html5',
         `--output=${outputDir}`,
         '--validate=yes',
-        '--processing-mode=strict',
+        `--processing-mode=${input.processingMode ?? 'strict'}`,
       ];
       if (filterAbs) args.push(`--filter=${filterAbs}`);
       try {

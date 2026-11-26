@@ -6,7 +6,7 @@ Guidance for AI coding agents working in the **DITAEditor** repository.
 
 **DITAEditor** is a team-oriented lightweight Web DITA 1.3 structured authoring workbench.
 
-- **Architecture & Roadmap Baseline**: See `docs/architecture-and-plan.md` for full design decisions, system architecture, and phased vertical slices (Phase 0–13 implemented; Phase 13 spec in `docs/phase13-versioning-overlay-plan.md`).
+- **Architecture & Roadmap Baseline**: See `docs/architecture-and-plan.md` for full design decisions, system architecture, and phased vertical slices (Phase 0–14 implemented; Phase 13 spec in `docs/phase13-versioning-overlay-plan.md`, Phase 14 spec in `docs/phase14-docling-agent-plan.md`).
 - **DITA 1.3 Specification Reference**: [OASIS DITA Version 1.3 Part 2: Technical Content Edition](https://docs.oasis-open.org/dita/dita/v1.3/dita-v1.3-part2-tech-content.html) — authoritative reference for DITA 1.3 element content models, attributes, and semantics.
 - **Local DITA 1.3 Element References**: See [`docs/dita/`](docs/dita/) (`dita_concept.md`, `dita_reference.md`, `dita_task.md`) for local DITA topic type references.
 - **Core Product Decisions**:
@@ -28,6 +28,7 @@ DITAEditor/
 │       │   ├── model/      # DITA 1.3 element registry (block/inline/structural/whitespace-preserve)
 │       │   ├── cals/       # OASIS CALS table <-> colspan/rowspan & occupancy grid adapter
 │       │   ├── ai/         # AI target-fragment locator, candidate normalizer, lossless splice+verify
+│       │   ├── ingest/     # Markdown outline slicing, data-URI image extraction, plan/map builder (Phase 14)
 │       │   └── prosemirror/# Native ProseMirror Schema & lossless slimdom <-> PM Doc converter
 │       └── test/
 │           ├── fixtures/   # 10 complex DITA 1.3 golden round-trip fixtures
@@ -35,7 +36,7 @@ DITAEditor/
 ├── apps/
 │   ├── web/                # @dita/web — React 19 + TypeScript + Vite frontend workbench
 │   ├── api/                # @dita/api — Fastify + Zod API, SQLite/Drizzle identities & locks, simple-git
-│   │   └── src/modules/{git,identity,locks,files,indexer,validate,publish,dita-ot,static}/
+│   │   └── src/modules/{git,identity,locks,files,indexer,validate,publish,dita-ot,ai,ingest,static}/
 │   └── site/               # @dita/site — Astro 5 + React 19 islands + Tailwind 4 marketing site,
 │       │                   #   browser DITA sandbox (/playground) and bilingual docs (/docs, /en/docs)
 │       ├── src/{pages,layouts,components,lib,data,i18n,styles}/
@@ -43,14 +44,15 @@ DITAEditor/
 ├── dita-ot-plugins/        # DITA-OT 4.x plugins and static HTML5 publish themes
 │   ├── com.ditaeditor.pdf-cjk/  # Pure-XML Noto CJK PDF font-mappings plugin
 │   └── html5-themes/      # shared/theme-base.css + theme-runtime.js + 4 theme CSS (Phase 12)
-├── Dockerfile              # Single container: Node + JRE 21 + DITA-OT 4.2.1 + Noto CJK
+├── Dockerfile              # Single container: Node + JRE 21 + DITA-OT 4.2.1 + Noto CJK (opt-in INSTALL_MARKITDOWN)
+├── docker-compose.yml      # Full stack: ditaeditor + docling-serve sidecar (Phase 14)
 ├── docs/                   # Architecture baseline, ADRs, and contracts
 └── graphify-out/           # Persistent codebase knowledge graph (graph.json, GRAPH_REPORT.md, graph.html)
 ```
 
 ## 3. Build, Typecheck & Test Commands
 
-Package manager is **pnpm** (`packageManager: pnpm@11.5.2`). Note `pnpm-workspace.yaml` declares `allowBuilds: { esbuild: true }`.
+Package manager is **pnpm** (`packageManager: pnpm@11.5.2`). Note `pnpm-workspace.yaml` declares `allowBuilds` for `esbuild`, `better-sqlite3`, `electron` and `sharp` (and explicitly disables `electron-winstaller`).
 
 ```bash
 # Workspace-wide build, typecheck, and tests (works in sandboxed environments too)
@@ -70,9 +72,16 @@ pnpm --filter @dita/web dev
 pnpm --filter @dita/api dev
 pnpm --filter @dita/site dev      # http://localhost:4321 (static site + sandbox + docs)
 pnpm --filter @dita/site build    # astro build + Pagefind index over dist/
+pnpm --filter @dita/desktop dev   # Electron shell + in-process @dita/api (self-heals the Electron binary first)
 ```
 
 Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code changes before finishing a task.
+
+### 3.1 Desktop (`@dita/desktop`) runtime gotchas
+
+- **Never trust `electron`'s postinstall**: electron 35's `install.js` unpacks the cached zip with `extract-zip@2`, which on some environments (reproduced on macOS arm64 + Node 24.16.0) stalls on the second zip entry and — with nothing keeping the event loop alive — exits `0` after writing only `dist/LICENSES.chromium.html` with no `path.txt`. The visible symptom is `Error: Electron failed to install correctly, please delete node_modules/electron and try installing again`. Do **not** just re-run `node install.js` (it silently half-installs again).
+- **`apps/desktop/scripts/ensure-electron.mjs` is the repair path**: it validates `path.txt` + `dist/<exe>` (~60 ms) and, when broken, re-extracts the checksum-verified cached archive with the OS `unzip` / PowerShell `Expand-Archive`, falling back to a child-process `extract-zip` behind a 5-minute timeout. It is wired into `dev` (always) and `postinstall` (only when pnpm actually installs the workspace project — pnpm 11 skips lifecycle scripts on a no-op `pnpm install`).
+- **`better-sqlite3` must stay a direct dependency of `apps/desktop`**: `scripts/build.mjs` marks it `external`, and pnpm's isolated layout means `apps/api/node_modules/better-sqlite3` is invisible to `apps/desktop/dist/main.mjs`; removing it resurfaces `ERR_MODULE_NOT_FOUND` only in the dev path (packaging works because `scripts/stage.mjs` runs its own `npm install`).
 
 ## 4. Non-Negotiable Engineering Invariants
 
@@ -128,6 +137,11 @@ Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code chang
 - **Strict read/write boundaries**: Read-only `GET` requests must never implicitly create Git branches or worktrees (`ensureWorktree(..., { createIfMissing: false })`) and must never mutate process-global default branch state.
 - **Explicit target views for core operations**: Check-in commits the caller's selected drafts against `HEAD`; cross-file diagnostics, strict DITA-OT validation (default `my_drafts` temp materialization), and AI context read `User Overlay` (`Baseline` + caller's own drafts via isomorphic `DitaSemanticIndex.cloneWithOverlay()`); formal Publish defaults to clean `Baseline` (`HEAD` / `Tag` / `Commit` via `git archive`) and resolves HTML5 theme logo/CSS from the build `snapshotDir`, while optional `my_drafts` preview includes only the requester's own drafts.
 - **Cross-module consistency**: Workspace asset URLs (`GET /api/assets`) carry `userId` alongside `manualId` and `branch` so draft images render only for their owner; `topic_assignments.topic_path` syncs on Check-in (not during draft rename); merge conflict resolution must never leave a shared `workDir` in `MERGING` state.
+
+### 4.11 Document Ingest & Tool-Using DITA-OT Repair Agent (`Phase 14`)
+- **Dual-parser isolation & lean base image**: Keep `Dockerfile` free of Python dependencies by default (`ARG INSTALL_MARKITDOWN=false`); Docling runs as an optional `docling-serve` sidecar (`docker-compose.yml`) or local CLI, and `.md`/`.txt` always pass through directly.
+- **Staging sandbox & deterministic final gate**: The Layer 2 tool-using repair agent (`apps/api/src/modules/ingest/agent/dita-ot-repair-agent.ts`) must only read/write generated files inside the temporary `stagingDir` (never touch shared `workDir` or unrelated baseline files), enforce bounded step/DITA-OT-call budgets plus a no-progress circuit breaker, fall back to a per-topic retry loop when `model.bindTools` is unavailable, and ALWAYS pass an outer deterministic `validateStrict(..., { processingMode: 'strict' })` gate before declaring Layer 2 passed.
+- **Idempotent XML hygiene & Phase 13 obedience**: `postProcessGeneratedTopicXml()` must stay idempotent and use `node.nodeType` checks (never `instanceof slimdom.*`) when normalizing `id`, `xml:lang`, relative asset hrefs, and external `<xref>`/`<link>` `scope="external"` / `format` attributes; existing-manual imports must materialize exclusively into the caller's Phase 13 `working_drafts` + `file_locks` without touching shared `workDir` or stealing another user's map lock.
 
 ## 5. TypeScript & Code Style
 

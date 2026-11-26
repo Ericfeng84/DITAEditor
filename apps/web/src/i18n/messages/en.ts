@@ -13,6 +13,7 @@ import { enAi } from './en/ai.js';
 import { enGuide } from './en/guide.js';
 import { enWorkbench } from './en/workbench.js';
 import { enAssignments } from './en/assignments.js';
+import { enIngest } from './en/ingest.js';
 
 export const en: Record<MessageKey, string> = {
   ...enCommon,
@@ -23,4 +24,5 @@ export const en: Record<MessageKey, string> = {
   ...enGuide,
   ...enWorkbench,
   ...enAssignments,
+  ...enIngest,
 };

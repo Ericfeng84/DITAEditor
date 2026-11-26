@@ -6,6 +6,7 @@ import {
   FileCode2,
   FilePlus2,
   FileText,
+  FileUp,
   Filter,
   Folder,
   FolderOpen,
@@ -33,6 +34,8 @@ export interface FileExplorerPanelProps {
   onSelectRootMap: (mapPath: string) => void;
   onNewTopic: () => void;
   onNewMap: () => void;
+  /** Phase 14 — import a document and materialize DITA topics (hidden for viewers / offline). */
+  onImportFromDocument?: () => void;
   onCreateFolder: (dirPath: string) => void;
   onRenameFile: (fromPath: string, toPath: string) => void;
   onDeleteFile: (path: string) => void;
@@ -107,6 +110,7 @@ export function FileExplorerPanel({
   onSelectRootMap,
   onNewTopic,
   onNewMap,
+  onImportFromDocument,
   onCreateFolder,
   onRenameFile,
   onDeleteFile,
@@ -332,6 +336,17 @@ export function FileExplorerPanel({
             >
               <Network className="h-3 w-3 text-sky-600" aria-hidden="true" />
             </button>
+            {onImportFromDocument ? (
+              <button
+                type="button"
+                onClick={onImportFromDocument}
+                title={`${t('ingest.entry.filesTooltip')} · ${t('ingest.entry.shortcutHint')}`}
+                aria-label={t('ingest.entry.filesAria')}
+                className="dita-mini-btn shrink-0 p-1"
+              >
+                <FileUp className="h-3 w-3 text-violet-600" aria-hidden="true" />
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => setNewFolderOpen((v) => !v)}

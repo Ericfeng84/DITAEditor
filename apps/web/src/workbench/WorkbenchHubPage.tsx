@@ -9,6 +9,8 @@ import { HubHeader } from './HubHeader';
 import { ManualFormDialog, type ManualFormMode } from './ManualFormDialog';
 import { ManualListSection } from './ManualListSection';
 import { MyAssignmentsPanel } from './MyAssignmentsPanel';
+import { AiSettingsDialog } from '../ai/AiSettingsDialog';
+import { DocumentIngestDialog } from '../ingest/DocumentIngestDialog.js';
 
 const FOCUS_REFRESH_THROTTLE_MS = 3000;
 
@@ -50,6 +52,8 @@ export function WorkbenchHubPage() {
   const [formMode, setFormMode] = useState<ManualFormMode>('create');
   const [formManual, setFormManual] = useState<Manual | null>(null);
   const [formBusy, setFormBusy] = useState(false);
+  const [ingestOpen, setIngestOpen] = useState(false);
+  const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
 
   const lastFocusRefresh = useRef(0);
 
@@ -134,6 +138,15 @@ export function WorkbenchHubPage() {
 
   const canManage = currentUser ? currentUser.role !== 'viewer' : false;
 
+  /* A finished import creates the manual server-side; reload the list, then open it. */
+  const handleIngestManualCreated = (newManualId: string) => {
+    setIngestOpen(false);
+    void refresh().then(() => {
+      const created = useWorkbenchStore.getState().manuals.find((manual) => manual.id === newManualId);
+      navigate(editorPath(newManualId, created ? { branch: created.currentBranch } : {}));
+    });
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <HubHeader
@@ -201,6 +214,7 @@ export function WorkbenchHubPage() {
               setFormManual(null);
               setFormOpen(true);
             }}
+            onImport={() => setIngestOpen(true)}
             onOpen={(manual) => void openManual(manual)}
             onEdit={(manual) => {
               setFormMode('edit');
@@ -234,6 +248,19 @@ export function WorkbenchHubPage() {
         onCreate={(input) => void handleCreate(input)}
         onUpdate={(id, patch) => void handleUpdate(id, patch)}
       />
+
+      {canManage && !offline ? (
+        <DocumentIngestDialog
+          open={ingestOpen}
+          origin="hub"
+          defaultTargetMode="new_manual"
+          onClose={() => setIngestOpen(false)}
+          onOpenSettings={() => setAiSettingsOpen(true)}
+          onManualCreated={handleIngestManualCreated}
+        />
+      ) : null}
+
+      <AiSettingsDialog open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} />
     </div>
   );
 }

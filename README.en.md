@@ -245,6 +245,20 @@ The workbench opens on the manual list with attach / create / archive / restore 
 
 </details>
 
+### 12. Document ingest and tool-using DITA-OT repair agent (Phase 14)
+
+Import PDF, Word (`.docx`), PowerPoint, Excel, HTML, EPUB, CSV, Outlook (`.msg`), and Markdown files straight into OASIS DITA 1.3 manuals or topics: a pluggable **Docling + Microsoft MarkItDown** parser layer extracts Markdown and standalone images, then a multi-role AI agent (Planner → Writer → **Tool-Using DITA-OT Repair Agent**) authors, validates, and repairs the generated XML — producing either a clean-baseline new manual or Phase 13 personal drafts inside an existing manual.
+
+<details>
+<summary>Implementation details</summary>
+
+- **Dual-parser smart routing**: PDFs, scans and AsciiDoc prefer **Docling** (`docling-serve` async HTTP API with local `docling` CLI fallback); Office, EPUB, CSV and HTML prefer lightweight sub-second **MarkItDown** (`--keep-data-uris` strips embedded images into `images/*` + `asset://` placeholders); `.md` and `.txt` pass through directly with zero dependencies; step 1 of the wizard allows per-upload engine overrides.
+- **Two-stage 5-step wizard**: pauses after parsing and outline planning (`awaiting_plan_approval`) so authors can edit Markdown, inspect extracted images, tweak the map/topic split and re-plan, or toggle one-click auto-approve; accessible from the Workbench Hub, map-tree context menu, file explorer, New Topic dialog, and `Ctrl/Cmd+Shift+I`.
+- **Tool-using DITA-OT repair agent with deterministic final gate**: deterministic Writer post-processing injects canonical `DOCTYPE`, `id`/`xml:lang`, exact relative image hrefs, and `scope="external" format="html"|"pdf"` on external `<xref>` links; Layer 1 checks well-formedness, ordered content models, illegal direct topic-root children, ProseMirror round-trip and assets; Layer 2 runs a `lax` pre-scan to surface all broken files at once, then gives the repair agent four sandboxed tools (`dita_ot_validate`, `list_staged_files`, `read_staged_file`, `write_staged_file`) inside a temporary `stagingDir` to batch-fix topics and maps under dynamic call/step budgets, a no-progress circuit breaker, a per-topic fallback loop for non-tool-calling models, and a mandatory outer **deterministic `strict` final gate** (degrading cleanly to `skipped` when DITA-OT is absent).
+- **Lean base image + Compose stack**: `Dockerfile` keeps `ARG INSTALL_MARKITDOWN=false` by default (zero Python dependencies); the root `docker-compose.yml` launches `ditaeditor` (with MarkItDown) alongside the `docling-serve` sidecar.
+
+</details>
+
 ---
 
 ## Architecture and technology stack
@@ -484,6 +498,11 @@ For editing, Map authoring, Keys / Conref / DITAVAL, Git and check-out locks, Ja
 | `DEEPSEEK_API_KEY` | empty | Environment fallback for the AI key; a key saved by an admin in SQLite wins |
 | `AI_TIMEOUT_MS` | `45000` | Per-call model timeout (ms) |
 | `AI_MAX_CONTEXT_CHARS` | `24000` | Character budget for project context (keyspace, path index, DITAVAL values) |
+| `DITA_INGEST_DIR` | `<importsRoot>/ingest` | Phase 14 staging directory for document ingest jobs (`/data/ingest` in Docker) |
+| `INGEST_DEFAULT_ENGINE` | `auto` | Default document parser engine: `auto` / `docling` / `markitdown` |
+| `DOCLING_MODE` | `auto` | Docling transport mode: `auto` / `serve` / `cli` / `off` |
+| `DOCLING_SERVE_URL` | `http://localhost:5001` | `docling-serve` HTTP endpoint (`http://docling-serve:5001` in `docker-compose.yml`) |
+| `MARKITDOWN_ENABLED` | `true` | Enable local/container `markitdown` CLI |
 
 </details>
 
@@ -518,14 +537,14 @@ pnpm -r build && pnpm -r typecheck && pnpm -r test   # everything
 pnpm build && pnpm typecheck && pnpm test            # or the Turborepo shortcuts
 ```
 
-Current coverage (**719/719 Vitest tests passing**):
+Current coverage (**807/807 Vitest tests passing**):
 
 <details>
 <summary>Expand per-package test coverage</summary>
 
-- `@dita/core` (208): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless Map/Bookmap operations (including in-place `<keydef>` create/edit), DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, and AI fragment targeting/normalization/lossless splice verification.
-- `@dita/web` (353): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, Phase 10 workbench hub router & unsaved-changes guards, plus the document outline model/DnD (`document-outline*.test`), keyspace key management, and the check-in validation gate UI.
-- `@dita/api` (124): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, Phase 10 per-manual isolation & assignment workflows, and Phase 13 draft overlay, conflict-free merge, tags/revert/audit and the check-in structure pre-check.
+- `@dita/core` (232): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless Map/Bookmap operations (including in-place `<keydef>` create/edit), DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, AI fragment targeting/normalization/lossless splice verification, plus Phase 14 Markdown outline slicing, data-URI image extraction and lossless map mounting.
+- `@dita/web` (356): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, Phase 10 workbench hub router & unsaved-changes guards, document outline model/DnD, keyspace key management, check-in validation gate UI, and Phase 14 ingest progress stage/error rendering.
+- `@dita/api` (185): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, Phase 10 per-manual isolation & assignment workflows, Phase 13 draft overlay/conflict-free merge/tags/revert/audit and check-in pre-check, plus Phase 14 dual-parser routing, multi-role agent, tool-using DITA-OT repair agent (batch repair, map repair, circuit breaker, deterministic final gate, non-tool fallback) and end-to-end ingest routes.
 - `@dita/site` (30): bilingual dictionary key parity, doc-slug symmetry, `SITE_BASE` / offline workbench route helpers, and `@dita/core` preset round-trip tests.
 - `@dita/desktop` (4): packaged vs dev resource/`userData` path resolution, idempotent first-launch demo workspace seeding (stripping `.git`, preserving user edits), and release-tag semver normalization.
 
@@ -600,6 +619,10 @@ Current coverage (**719/719 Vitest tests passing**):
 | `GET /api/publish/jobs/:id/events` | SSE stream of build status and logs |
 | `GET /api/publish/jobs/:id/preview/*` | HTML5 output preview (directories default to `index.html`) |
 | `GET /api/publish/jobs/:id/artifact?inline=1` | Downloads the PDF or HTML5 ZIP; `inline=1` embeds it |
+| `GET` / `PUT /api/ingest/config` · `POST /api/ingest/config/test` | Reads/saves parser config (Docling / MarkItDown, admin write) and probes engine runtimes |
+| `POST /api/ingest/jobs` · `GET /api/ingest/jobs` / `:id` | Uploads a source document to create a manual or topics / lists and inspects ingest jobs |
+| `GET` / `PUT /api/ingest/jobs/:id/markdown` · `GET .../assets/:assetId` | Reviews/edits extracted Markdown and previews extracted image assets |
+| `POST /api/ingest/jobs/:id/{replan,approve,cancel}` · `GET .../stream` | Re-plans outline / approves AI authoring & validation / cancels job / streams SSE progress & logs |
 
 </details>
 
@@ -608,7 +631,7 @@ Current coverage (**719/719 Vitest tests passing**):
 ## Roadmap
 
 <details>
-<summary>Expand the completed Phase 0–13 and v1.5.0 items</summary>
+<summary>Expand the completed Phase 0–14 and v1.5.0 items</summary>
 
 - [x] **Phase 0**: Monorepo foundation, `@dita/core` (`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS adapter) and 10 golden round-trip fixtures.
 - [x] **Phase 1**: Dual-mode topic editor MVP (ProseMirror visual editing + NodeViews + CALS/simpletable editing + `/` context insert menu + attribute panel + breadcrumb + CodeMirror 6 source with completion/lint and switch protection).
@@ -625,6 +648,7 @@ Current coverage (**719/719 Vitest tests passing**):
 - [x] **Phase 12**: HTML5 publish themes (four static themes in `dita-ot-plugins/html5-themes/` with a shared typography base and offline runtime, a deterministic Node post-processor, `/api/publish/themes` and multi-viewport previews, per-manual branding stored in `manual_publish_profiles`; `vanilla` stays untouched) and GCP Cloud Run sub-path deployment (see [docs/phase12-html-themes-plan.md](docs/phase12-html-themes-plan.md)).
 - [x] **Phase 13**: Clean baseline plus a personal draft overlay (`working_drafts` with out-of-repo draft assets, the `User Overlay` read view, conflict-free merges, tags / safe revert, `version_audit_logs`, plus multi-tab identity isolation and `my_drafts` publish snapshots; see [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) and [the Phase 13 plan](docs/phase13-versioning-overlay-plan.md)).
 - [x] **v1.5.0 enhancements**: Document outline view (`apps/web/src/editor/outline/` — structure skeleton / all blocks, bidirectional locate and DITA 1.3-constrained drag plus `Alt+↑/↓` reordering), keyspace key management and the create-key workflow (`NewKeyDialog` / `KeyrefAttrField` / `InsertKeyrefDialog`), and the check-in validation gate with an AI repair loop (see [docs/key-management-integration-plan.md](docs/key-management-integration-plan.md) and [docs/checkin-validation-ai-fix-plan.md](docs/checkin-validation-ai-fix-plan.md)).
+- [x] **Phase 14**: Document ingest and AI agent authoring/validation loop (Docling + Microsoft MarkItDown dual parsers with direct `.md`/`.txt` pass-through, data-URI image extraction, Planner → Writer → bounded tool-using DITA-OT repair agent with a deterministic `strict` final gate, clean-baseline new manuals or Phase 13 personal drafts, 5-step wizard with SSE progress, and root `docker-compose.yml`; see [docs/phase14-docling-agent-plan.md](docs/phase14-docling-agent-plan.md)).
 
 </details>
 

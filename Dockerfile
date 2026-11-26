@@ -42,6 +42,10 @@ FROM node:22-bookworm-slim AS runtime
 
 ARG DITA_OT_VERSION=4.2.1
 ARG DITA_BASE_PATH=
+# Phase 14: opt-in, lightweight Microsoft MarkItDown CLI (`markitdown[all]`) for
+# Office / EPUB / CSV / HTML / text-PDF ingest. The default `false` keeps the image
+# byte-for-byte as lean as before (no Python runtime, no extra dependencies).
+ARG INSTALL_MARKITDOWN=false
 
 ENV NODE_ENV=production \
     HOME=/home/node \
@@ -53,6 +57,7 @@ ENV NODE_ENV=production \
     DITA_WORKSPACE_DIR=/data/workspace \
     DITA_IMPORTS_DIR=/data/workspaces \
     DITA_PUBLISH_DIR=/data/publishes \
+    DITA_INGEST_DIR=/data/ingest \
     DITAEDITOR_NOTO_CJK_DIR=/usr/share/fonts/opentype/noto \
     DITA_PUBLISH_CONCURRENCY=1 \
     JAVA_HOME=/opt/java/openjdk
@@ -68,6 +73,25 @@ RUN apt-get update \
         fonts-noto-cjk \
         fonts-noto-cjk-extra \
     && rm -rf /var/lib/apt/lists/*
+
+# Phase 14 (optional): MarkItDown CLI in an isolated venv at /opt/markitdown-venv.
+# Kept in a single conditional layer so `INSTALL_MARKITDOWN=false` adds zero bytes and
+# zero apt packages. `--no-cache-dir` keeps the layer small; apt lists are removed.
+RUN if [ "$INSTALL_MARKITDOWN" = "true" ]; then \
+        set -e; \
+        apt-get update \
+        && apt-get install -y --no-install-recommends python3 python3-venv \
+        && rm -rf /var/lib/apt/lists/* \
+        && python3 -m venv /opt/markitdown-venv \
+        && /opt/markitdown-venv/bin/pip install --no-cache-dir --upgrade pip \
+        && /opt/markitdown-venv/bin/pip install --no-cache-dir "markitdown[all]" \
+        && /opt/markitdown-venv/bin/python -c "import markitdown" \
+        && chmod -R a+rX /opt/markitdown-venv; \
+    fi
+
+# A non-existent PATH entry is harmless, so the lean default build is unaffected while
+# `INSTALL_MARKITDOWN=true` exposes the `markitdown` CLI to `@dita/api` (spawned as `node`).
+ENV PATH=/opt/markitdown-venv/bin:$PATH
 
 COPY --from=jre /opt/java/openjdk /opt/java/openjdk
 
@@ -98,7 +122,7 @@ RUN cd /app/dita-ot-plugins \
 
 # Prepare writable runtime directories and run as UID 1000 (`node`) so the same image works
 # seamlessly on standard Docker hosts and non-root platforms such as Hugging Face Spaces.
-RUN mkdir -p /data/workspace /data/workspaces /data/publishes /home/node/.fop /home/node/.cache /opt/dita-ot/temp \
+RUN mkdir -p /data/workspace /data/workspaces /data/publishes /data/ingest /home/node/.fop /home/node/.cache /opt/dita-ot/temp \
     && chown -R node:node /data /home/node /opt/dita-ot/temp \
     && chmod -R g+rwX /data /home/node /opt/dita-ot/temp \
     && git config --system --add safe.directory '*'

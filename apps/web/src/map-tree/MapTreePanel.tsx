@@ -54,6 +54,8 @@ export interface MapTreePanelProps {
   onJumpToSource: (mapPath: string, line?: number) => void;
   onOpenCreateAndMount: (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => void;
   onOpenMountExisting: (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => void;
+  /** Phase 14 — import a document and mount the generated topics under this node. */
+  onOpenIngestTopic?: (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => void;
   onInsertStructure: (
     mapPath: string,
     parentPath: number[] | null,
@@ -115,6 +117,7 @@ export function MapTreePanel({
   onJumpToSource,
   onOpenCreateAndMount,
   onOpenMountExisting,
+  onOpenIngestTopic,
   onInsertStructure,
   onDeleteNode,
   onCreateMissingTarget,
@@ -670,6 +673,9 @@ export function MapTreePanel({
         onViewSource={(node) => onJumpToSource(node.ownerMapPath, node.line)}
         onCreateChildTopic={(node) => onOpenCreateAndMount(getMountParentForNode(node))}
         onMountExisting={(node) => onOpenMountExisting(getMountParentForNode(node))}
+        {...(onOpenIngestTopic
+          ? { onImportTopics: (node) => onOpenIngestTopic(getMountParentForNode(node)) }
+          : {})}
         onInsertStructure={(node, tagName) => {
           const parent = getMountParentForNode(node);
           onInsertStructure(parent.mapPath, parent.parentPath, tagName);

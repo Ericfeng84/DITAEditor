@@ -3,6 +3,7 @@ import {
   BookOpen,
   Code2,
   FilePlus2,
+  FileUp,
   FolderPlus,
   Layers,
   Link2,
@@ -28,6 +29,8 @@ export interface MapNodeContextMenuProps {
   onViewSource: (node: CompositeMapTreeNode) => void;
   onCreateChildTopic: (node: CompositeMapTreeNode) => void;
   onMountExisting: (node: CompositeMapTreeNode) => void;
+  /** Omitted when the caller may not write (viewer / offline demo). */
+  onImportTopics?: (node: CompositeMapTreeNode) => void;
   onInsertStructure: (node: CompositeMapTreeNode, tagName: string) => void;
   onInspectNode: (node: CompositeMapTreeNode) => void;
   onRemoveNode: (node: CompositeMapTreeNode) => void;
@@ -49,6 +52,7 @@ export function MapNodeContextMenu({
   onViewSource,
   onCreateChildTopic,
   onMountExisting,
+  onImportTopics,
   onInsertStructure,
   onInspectNode,
   onRemoveNode,
@@ -299,6 +303,17 @@ export function MapNodeContextMenu({
             <Link2 className="dita-ctx-icon text-blue-600" aria-hidden="true" />
             <span>{t('mapMenu.mountExisting')}</span>
           </button>
+          {onImportTopics ? (
+            <button
+              type="button"
+              disabled={!canNestChildren}
+              onPointerMove={handlePointerMoveItem}
+              onClick={(ev) => runAction(ev, onImportTopics)}
+            >
+              <FileUp className="dita-ctx-icon text-violet-600" aria-hidden="true" />
+              <span>{t('ingest.entry.mapMenu')}</span>
+            </button>
+          ) : null}
 
           <hr />
 

@@ -47,3 +47,6 @@ export * from './semantics/semantic-engine.js';
 
 // AI assistance fragment engine (target extraction, constraint prompts, verified splicing)
 export * from './ai/index.js';
+
+// Phase 14 document ingest kernel (Markdown outline, DITA plan, lossless map mounting)
+export * from './ingest/index.js';

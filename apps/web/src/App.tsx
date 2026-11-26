@@ -15,6 +15,7 @@ import {
   type RawAttrs,
   type XmlDeclaration,
   type XmlPrologItem,
+  type IngestJobResult,
 } from '@dita/core';
 import { FilePlus2, FolderOpen, ListTree, Network, PanelRightClose, Sparkles } from 'lucide-react';
 import {
@@ -57,6 +58,8 @@ import { XrefImageDialog } from './components/XrefImageDialog';
 import { AiAssistantPanel } from './ai/AiAssistantPanel';
 import { AiDiffDialog } from './ai/AiDiffDialog';
 import { AiSettingsDialog } from './ai/AiSettingsDialog';
+import { DocumentIngestDialog } from './ingest/DocumentIngestDialog';
+import type { IngestMountContext } from './ingest/types';
 import { applyDocumentLocale, useI18n } from './i18n/index.js';
 import type { AiTargetSpec } from './ai/ai-types';
 import { EditorState } from 'prosemirror-state';
@@ -397,6 +400,9 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const [strictLabel, setStrictLabel] = useState('');
   const [strictAiApplied, setStrictAiApplied] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  /** Phase 14 — document ingest wizard (targets the current manual). */
+  const [ingestOpen, setIngestOpen] = useState(false);
+  const [ingestMount, setIngestMount] = useState<IngestMountContext | null>(null);
   const [aiDiffOpen, setAiDiffOpen] = useState(false);
   const [aiTarget, setAiTarget] = useState<AiTargetSpec | null>(null);
   const [sourceReplacementXml, setSourceReplacementXml] = useState<string | null>(null);
@@ -1044,6 +1050,53 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [],
   );
 
+  /** Phase 14 — open the ingest wizard, optionally mounting the generated topics under a Map node. */
+  const handleOpenIngest = useCallback((mount: IngestMountContext | null = null) => {
+    setIngestMount(mount);
+    setIngestOpen(true);
+  }, []);
+
+  /**
+   * A finished import already wrote files into the draft overlay: refresh the tree, the map
+   * buffers, locks and drafts, then jump into the first generated topic.
+   */
+  const handleIngestMaterialized = useCallback(
+    async (result: IngestJobResult) => {
+      await Promise.all([
+        useEditorStore.getState().refreshWorkspaceTree().catch(() => undefined),
+        useGitStore.getState().refreshAll().catch(() => undefined),
+      ]);
+      const touchedMaps = [result.mountedMapPath, result.rootMapPath].filter(
+        (mapPath): mapPath is string => Boolean(mapPath),
+      );
+      if (touchedMaps.length > 0) {
+        await useEditorStore.getState().reloadFilesFromDisk(touchedMaps).catch(() => undefined);
+      }
+      const first = result.topics[0];
+      if (first) await useEditorStore.getState().openFileTab(first.filePath);
+    },
+    [],
+  );
+
+  const canIngestDocument =
+    import.meta.env.VITE_STATIC_DEMO !== 'true' && (currentUser ? currentUser.role !== 'viewer' : false);
+
+  /* Editor-wide shortcut: Ctrl/Cmd + Shift + I opens the import wizard. */
+  useEffect(() => {
+    if (!canIngestDocument) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || !event.shiftKey) return;
+      if (event.key.toLowerCase() !== 'i') return;
+      const target = event.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      if (target?.isContentEditable || tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      event.preventDefault();
+      handleOpenIngest(null);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [canIngestDocument, handleOpenIngest]);
+
   const handleCreateTopicConfirm = useCallback(
     (
       type: DitaTopicTemplateType,
@@ -1424,6 +1477,11 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                     onJumpToSource={(mapPath, line) => void jumpToMapNodeSource(mapPath, line)}
                     onOpenCreateAndMount={handleOpenCreateAndMount}
                     onOpenMountExisting={handleOpenMountExisting}
+                    {...(canIngestDocument
+                      ? {
+                          onOpenIngestTopic: (parent: IngestMountContext) => handleOpenIngest(parent),
+                        }
+                      : {})}
                     onInsertStructure={(mapPath, parentPath, tagName) =>
                       insertMapStructureNode({
                         mapPath,
@@ -1496,6 +1554,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                       setNewTopicOpen(true);
                     }}
                     onNewMap={() => setNewMapOpen(true)}
+                    {...(canIngestDocument ? { onImportFromDocument: () => handleOpenIngest(null) } : {})}
                     onCreateFolder={(dir) => void createWorkspaceFolder(dir)}
                     onRenameFile={(from, to) => void renameWorkspaceFile(from, to)}
                     onDeleteFile={(path) => void deleteWorkspaceFile(path)}
@@ -2090,6 +2149,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
           setTopicMountContext(null);
         }}
         onCreate={handleCreateTopicConfirm}
+        {...(canIngestDocument ? { onImportFromDocument: () => handleOpenIngest(null) } : {})}
       />
 
       <NewMapDialog
@@ -2245,6 +2305,27 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
       />
 
       <AiSettingsDialog open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} />
+
+      {canIngestDocument ? (
+        <DocumentIngestDialog
+          open={ingestOpen}
+          origin="editor"
+          manualId={manualId}
+          {...(branch ? { branch } : {})}
+          mountContext={ingestMount}
+          defaultTargetMode="multi_topic"
+          onClose={() => {
+            setIngestOpen(false);
+            setIngestMount(null);
+          }}
+          onOpenSettings={() => {
+            setIngestOpen(false);
+            setAiSettingsOpen(true);
+          }}
+          onTopicsMaterialized={(result) => void handleIngestMaterialized(result)}
+          onOpenTopic={(filePath) => void openFileTab(filePath)}
+        />
+      ) : null}
 
       <AiDiffDialog
         open={aiDiffOpen}

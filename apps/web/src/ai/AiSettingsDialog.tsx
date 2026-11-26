@@ -3,6 +3,7 @@ import {
   AlertCircle,
   CheckCircle2,
   Clock,
+  FileCog,
   KeyRound,
   Loader2,
   RefreshCw,
@@ -14,6 +15,7 @@ import {
 import { useAiStore } from './ai-store';
 import type { AiConfigPatch, AiConfigTestResult } from './ai-types';
 import { useI18n } from '../i18n/index.js';
+import { ParserSettingsTab } from '../ingest/ParserSettingsTab.js';
 
 export interface AiSettingsDialogProps {
   open: boolean;
@@ -23,6 +25,8 @@ export interface AiSettingsDialogProps {
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_TIMEOUT_MS = 60000;
+
+type AiSettingsTab = 'llm' | 'parsers';
 
 function formatNumber(value: number): string {
   return value.toLocaleString('zh-CN');
@@ -55,6 +59,7 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
   const [testResult, setTestResult] = useState<AiConfigTestResult | null>(null);
   const [testError, setTestError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [tab, setTab] = useState<AiSettingsTab>('llm');
 
   useEffect(() => {
     if (!open || !config) return;
@@ -68,6 +73,10 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
     setClearApiKey(false);
     setSaved(false);
   }, [open, config]);
+
+  useEffect(() => {
+    if (open) setTab('llm');
+  }, [open]);
 
   useEffect(() => {
     if (open && config?.canEdit) void loadUsage(30, 20);
@@ -158,8 +167,38 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
           </button>
         </div>
 
+        <div role="tablist" className="flex shrink-0 items-center gap-1 border-b border-slate-200 bg-slate-50/70 px-4 py-1.5">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'llm'}
+            onClick={() => setTab('llm')}
+            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium ${
+              tab === 'llm' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-white'
+            }`}
+          >
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            {t('ingest.parser.tabLlm')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={tab === 'parsers'}
+            onClick={() => setTab('parsers')}
+            className={`inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium ${
+              tab === 'parsers' ? 'bg-blue-600 text-white' : 'text-slate-600 hover:bg-white'
+            }`}
+          >
+            <FileCog className="h-3 w-3" aria-hidden="true" />
+            {t('ingest.parser.tabParsers')}
+          </button>
+        </div>
+
         <div className="dita-scroller min-h-0 flex-1 overflow-y-auto">
-          <div className="grid gap-4 p-4 lg:grid-cols-[1.15fr_0.85fr]">
+          {tab === 'parsers' ? (
+            <ParserSettingsTab />
+          ) : (
+            <div className="grid gap-4 p-4 lg:grid-cols-[1.15fr_0.85fr]">
             <section className="space-y-3">
               <h3 className="flex items-center gap-1.5 text-xs font-semibold text-slate-800">
                 <Settings2 className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
@@ -453,7 +492,8 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
                 <p className="text-[10.5px] text-slate-500">{t('aiSettings.usage.empty')}</p>
               )}
             </section>
-          </div>
+            </div>
+          )}
         </div>
 
         <div className="flex shrink-0 items-center justify-end border-t border-slate-200 bg-slate-50 px-4 py-2">

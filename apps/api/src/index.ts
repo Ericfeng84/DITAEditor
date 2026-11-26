@@ -35,6 +35,11 @@ import { PublishProfileService } from './modules/publish/publish-profiles.js';
 import { PublishService } from './modules/publish/publish-service.js';
 import { defaultWebDistDir, registerWebStaticRoutes } from './modules/static/web-static.js';
 import { registerStrictValidationRoutes } from './modules/validate/routes.js';
+import { IngestService } from './modules/ingest/ingest-service.js';
+import { ParserSettingsService } from './modules/ingest/parser-settings-service.js';
+import { registerIngestRoutes } from './modules/ingest/routes.js';
+import type { IngestStrictValidator } from './modules/ingest/agent/types.js';
+import type { CommandRunner } from './modules/ingest/parsers/types.js';
 import type { DitaRuntimeOptions } from './modules/dita-ot/dita-runtime.js';
 
 export interface CreateServerOptions {
@@ -56,6 +61,14 @@ export interface CreateServerOptions {
   draftAssetsRootDir?: string;
   ditaRuntime?: DitaRuntimeOptions;
   webDistDir?: string;
+  /** Phase 14: staging root for document ingest jobs (defaults to `<imports>/ingest`). */
+  ingestRootDir?: string;
+  /** Phase 14: injectable DITA-OT strict validator used by the ingest agent's Layer 2. */
+  ingestStrictValidator?: IngestStrictValidator;
+  /** Phase 14: injectable `fetch` for Docling Serve health/upload calls. */
+  ingestFetchImpl?: typeof fetch;
+  /** Phase 14: injectable command runner for Docling/MarkItDown CLI probes. */
+  ingestCommandRunner?: CommandRunner;
   /** Optional reverse-proxy subpath prefix (e.g. `/dita`) stripped before routing. */
   basePath?: string;
   logger?: boolean;
@@ -128,10 +141,12 @@ export function createServer(options: CreateServerOptions = {}) {
   app.addHook('onReady', async () => {
     await registry.syncLegacyWorkspaces();
     await publish.start();
+    await ingest.start();
   });
   app.addHook('onClose', async () => {
     clearInterval(maintenanceTimer);
     await publish.stop();
+    await ingest.stop();
     database.close();
   });
   // Phase 10: one manual = one independent workspace (its own directory + git repository).
@@ -153,6 +168,31 @@ export function createServer(options: CreateServerOptions = {}) {
     drafts,
   });
   const assignments = new AssignmentService({ db: database.db, identity, git });
+  // Phase 14: document ingest (parse → plan → write → validate → materialize).
+  const parserSettings = new ParserSettingsService(database.db);
+  const ingest = new IngestService({
+    db: database.db,
+    settings: parserSettings,
+    aiSettings,
+    aiUsage,
+    modelFactory: options.aiModelFactory ?? createLangChainModelFactory(),
+    git,
+    registry,
+    context,
+    identity,
+    drafts,
+    locks,
+    importsRootDir: workspace.importsRootDir,
+    ingestRootDir: options.ingestRootDir,
+    ditaRuntime: options.ditaRuntime,
+    strictValidator: options.ingestStrictValidator,
+    fetchImpl: options.ingestFetchImpl,
+    commandRunner: options.ingestCommandRunner,
+    logger: (message, error) => {
+      if (options.logger === false) return;
+      app.log.warn({ err: error }, message);
+    },
+  });
 
   const merge = new MergeService({ git, locks, drafts, audit, registry });
   const indexer = new WorkspaceSemanticIndexer(workspace);
@@ -170,6 +210,7 @@ export function createServer(options: CreateServerOptions = {}) {
   const maintenanceTimer = setInterval(() => {
     void git.pruneOrphanWorktrees().catch(() => undefined);
     void drafts.pruneOrphanDraftBlobs().catch(() => undefined);
+    void ingest.pruneExpiredJobs().catch(() => undefined);
     context.evictIdleSessions();
   }, MAINTENANCE_INTERVAL_MS);
   maintenanceTimer.unref?.();
@@ -320,6 +361,14 @@ export function createServer(options: CreateServerOptions = {}) {
         app.log.warn(message);
       },
     },
+  });
+  registerIngestRoutes(app, {
+    identity,
+    settings: parserSettings,
+    service: ingest,
+    context,
+    ...(options.ingestFetchImpl ? { fetchImpl: options.ingestFetchImpl } : {}),
+    ...(options.ingestCommandRunner ? { commandRunner: options.ingestCommandRunner } : {}),
   });
   registerWebStaticRoutes(app, options.webDistDir ?? defaultWebDistDir());
 

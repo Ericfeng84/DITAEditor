@@ -5,7 +5,16 @@ import { z } from 'zod';
  * Source of truth: docs/phase6-ai-contract.md §3.
  */
 
-export const aiTaskTypeSchema = z.enum(['ask', 'authoring', 'optimize_tags', 'fix_error']);
+export const aiTaskTypeSchema = z.enum([
+  'ask',
+  'authoring',
+  'optimize_tags',
+  'fix_error',
+  /** Phase 14 ingest: outline planning, topic writing, and validation repair passes. */
+  'ingest_plan',
+  'ingest_write',
+  'ingest_repair',
+]);
 export type AiTaskType = z.infer<typeof aiTaskTypeSchema>;
 
 export const aiSubActionSchema = z.enum([

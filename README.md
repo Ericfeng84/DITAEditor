@@ -245,6 +245,20 @@ AI 只输出被替换区间的 XML，由 `@dita/core` 按源码偏移无损拼�
 
 </details>
 
+### 12. 文档智能导入与工具化 DITA-OT 修复 Agent（Phase 14）
+
+一键将 PDF、Word（`.docx`）、PowerPoint、Excel、HTML、EPUB、CSV、Outlook（`.msg`）与 Markdown 转换为标准 OASIS DITA 1.3 手册或 Topic：先经 **Docling + Microsoft MarkItDown** 双解析层转为 Markdown 并提取独立图片，再由多角色 AI Agent（Planner → Writer → **工具化 DITA-OT Repair Agent**）撰写、校验并自动修复；支持新建干净基线手册或在现有手册中写入 Phase 13 个人草稿叠加层。
+
+<details>
+<summary>实现细节</summary>
+
+- **双解析器与智能路由**：PDF / 扫描件 / AsciiDoc 优先 **Docling**（`docling-serve` sidecar HTTP 异步 API 优先、本机 `docling` CLI 回退），Office / EPUB / CSV / HTML 优先亚秒级零 GPU 的 **MarkItDown**（`--keep-data-uris` 保留 Base64 插图并剥离为 `images/*` + `asset://` 占位符），`.md` / `.txt` 零依赖直通；上传向导第 1 步支持按次覆盖解析引擎。
+- **两段式 5 步向导**：默认在解析与大纲规划后暂停于审阅页（支持编辑 Markdown、检查图片、调整 Map / Topic 拆分与重新规划），也提供「一键全自动」直通撰写；工作台首页、Map 树右键、文件树、新建 Topic 弹窗与 `Ctrl/Cmd+Shift+I` 均可直达。
+- **工具化 DITA-OT 修复 Agent 与确定性终检**：Writer 后处理幂等注入标准 `DOCTYPE`、`id`/`xml:lang`、精确相对图片路径与外链 `scope="external" format="html"|"pdf"`；Layer 1 拦截良构、内容模型、Topic 根非法直系子节点、ProseMirror 往返与缺失资产；Layer 2 先 `lax` 预扫暴露全部出错文件，再在沙箱 `stagingDir` 中向模型提供 `dita_ot_validate`（`lax`/`strict`）、`list_staged_files`、`read_staged_file`、`write_staged_file` 四个工具批量修复 Topic 与 Map，配动态步数/调用预算、无进展熔断、非 Tool-Calling 模型按 Topic 独立计数降级，以及外层**确定性 `strict` 终检门禁**（无 DITA-OT 时显式 `skipped`）。
+- **容器按需组合**：主 `Dockerfile` 默认 `ARG INSTALL_MARKITDOWN=false` 保持零 Python 依赖精简；根级 `docker-compose.yml` 一键编排 `ditaeditor`（含 MarkItDown）+ `docling-serve` sidecar。
+
+</details>
+
 ---
 
 ## 系统架构与技术栈
@@ -485,6 +499,11 @@ GCP_PROJECT_ID="<你的GCP项目ID>" ./deploy/gcp/deploy-cloudrun.sh
 | `DEEPSEEK_API_KEY` | 空 | AI Key 的环境变量兜底；数据库中管理员保存的 Key 优先 |
 | `AI_TIMEOUT_MS` | `45000` | 单次模型调用超时（毫秒） |
 | `AI_MAX_CONTEXT_CHARS` | `24000` | 项目上下文（键空间/路径索引/DITAVAL 词表）字符预算 |
+| `DITA_INGEST_DIR` | `<importsRoot>/ingest` | Phase 14 导入暂存目录（容器内默认 `/data/ingest`） |
+| `INGEST_DEFAULT_ENGINE` | `auto` | 文档导入默认解析引擎：`auto` / `docling` / `markitdown` |
+| `DOCLING_MODE` | `auto` | Docling 通道：`auto` / `serve` / `cli` / `off` |
+| `DOCLING_SERVE_URL` | `http://localhost:5001` | `docling-serve` HTTP 地址（`docker-compose.yml` 默认指向 `http://docling-serve:5001`） |
+| `MARKITDOWN_ENABLED` | `true` | 是否启用本机 / 容器内 `markitdown` CLI |
 
 </details>
 
@@ -519,14 +538,14 @@ pnpm -r build && pnpm -r typecheck && pnpm -r test   # 全量
 pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚本
 ```
 
-当前测试覆盖 **719/719 Vitest 全部通过**：
+当前测试覆盖 **807/807 Vitest 全部通过**：
 
 <details>
 <summary>展开各包测试明细</summary>
 
-- `@dita/core`（208 项）：10 份复杂 DITA 1.3 黄金往返、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Phase 9 顺序/基数内容模型校验、Map/Bookmap 无损操作（含 `<keydef>` 增删改与降噪）、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测，以及 AI 片段定位（元素/行窗口/整篇）、候选 XML 规整、无损拼接与校验失败原因。
-- `@dita/web`（353 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、顺序引导与结构装饰、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装、Phase 4 身份/锁只读投影、Phase 8 双语目录对称与源码硬编码中文扫描、Phase 10 手册工作台路由与防丢逻辑，以及文档大纲模型/拖拽重排（`document-outline*.test`、`document-outline-ui.test.tsx`）、Keyspace 键管理与新建 Key 工作流、检入校验门禁界面。
-- `@dita/api`（124 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断、Phase 4 身份/Git/锁/跨分支隔离/强解备份、Phase 5 运行时探测（含 Windows `dita.bat` 调度封装 `resolveDitaSpawn`）、DOTJ/DOTX 日志归一化、严格校验与 HTML5/PDF 发布流水线、Phase 6 AI 配置/掩码/用量/SSE 回归、Phase 8 `x-dita-locale` 双语响应、Phase 10 多手册隔离与任务委派全链路，以及 Phase 13 草稿叠加层、无污染合并、Tag/回滚/审计与检入结构预检。
+- `@dita/core`（232 项）：10 份复杂 DITA 1.3 黄金往返、未知/特化元素透传、OASIS CALS 表格网格计算、XML 解析/XPath 3.1、规则与模板、Phase 9 顺序/基数内容模型校验、Map/Bookmap 无损操作（含 `<keydef>` 增删改与降噪）、DITAVAL 条件求值（多值/分组/Flag/冲突配色）、BFS Keyspace + `keyscope`、Conref/Conkeyref/`conrefend` 展开与 DFS 环路检测、AI 片段定位与无损拼接，以及 Phase 14 Markdown 大纲切片、Base64 图片剥离与无损 Map 挂载。
+- `@dita/web`（356 项）：ProseMirror ↔ XML 桥接、表格命令、行内气泡栏、块级手柄与变换、顺序引导与结构装饰、CodeMirror DITA 补全（含 `keyref` / `conkeyref` / 条件属性语义补全）、Map 树工具与 DITAVAL 投影、可视化语义装饰无损往返断言、复用属性值组装、Phase 4 身份/锁只读投影、Phase 8 双语目录对称与源码硬编码中文扫描、Phase 10 手册工作台路由与防丢逻辑、文档大纲模型/拖拽重排、Keyspace 键管理与检入校验门禁，以及 Phase 14 导入进度步骤状态测试。
+- `@dita/api`（185 项）：内置示例项目零错误校验、55 个 Topic + 4 个嵌套子 Map 规模化扫描与安全/上传/断链测试、`/api/semantics/*` Root Map 切换与增量环路诊断、Phase 4 身份/Git/锁/跨分支隔离/强解备份、Phase 5 运行时探测（含 Windows `dita.bat` 调度封装 `resolveDitaSpawn`）、DOTJ/DOTX 日志归一化、严格校验与 HTML5/PDF 发布流水线、Phase 6 AI 配置/掩码/用量/SSE 回归、Phase 8 `x-dita-locale` 双语响应、Phase 10 多手册隔离与任务委派全链路、Phase 13 草稿叠加层/无污染合并/Tag/回滚/审计与检入结构预检，以及 Phase 14 双解析器路由、多角色 Agent、工具化 DITA-OT 修复 Agent（含跨文件修 Map / 熔断 / 终检门禁 / 非工具降级）与端到端导入路由测试。
 - `@dita/site`（30 项）：中英双语字典键对称、文档 slug 对称、子路径（`SITE_BASE`）与离线工作台路由辅助，以及 `@dita/core` 预设无损往返。
 - `@dita/desktop`（4 项）：打包态/开发态资源与 `userData` 路径隔离、首次样本拷贝幂等性（跳过 `.git`、不覆盖用户修改）与 Release Tag 版本号规范化。
 
@@ -601,6 +620,10 @@ pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚�
 | `GET /api/publish/jobs/:id/events` | SSE 实时推送构建状态与日志 |
 | `GET /api/publish/jobs/:id/preview/*` | HTML5 产物在线预览（目录默认 `index.html`） |
 | `GET /api/publish/jobs/:id/artifact?inline=1` | 下载 PDF 或 HTML5 ZIP，`inline=1` 内嵌预览 |
+| `GET` / `PUT /api/ingest/config` · `POST /api/ingest/config/test` | 文档解析引擎（Docling / MarkItDown）配置读取、Admin 保存与连通性探测 |
+| `POST /api/ingest/jobs` · `GET /api/ingest/jobs` / `:id` | 上传文档创建导入任务（新项目或现有手册 Topic）/ 查询任务列表与详情 |
+| `GET` / `PUT /api/ingest/jobs/:id/markdown` · `GET .../assets/:assetId` | 审阅/编辑解析出的 Markdown 与预览提取的图片资产 |
+| `POST /api/ingest/jobs/:id/{replan,approve,cancel}` · `GET .../stream` | 重新规划大纲 / 批准进入 AI 撰写校验 / 取消任务 / SSE 实时进度与日志流 |
 
 </details>
 
@@ -609,7 +632,7 @@ pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚�
 ## 实施路线图
 
 <details>
-<summary>展开 Phase 0–13 与 v1.5.0 已完成条目</summary>
+<summary>展开 Phase 0–14 与 v1.5.0 已完成条目</summary>
 
 - [x] **Phase 0**：Monorepo 底座、`@dita/core`（`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS 适配器）与 10 份黄金往返测试。
 - [x] **Phase 1**：双模式 Topic 编辑器 MVP（ProseMirror 可视化编辑 + NodeView + CALS/simpletable 编辑 + `/` 上下文插入 + 属性面板 + 面包屑 + CodeMirror 6 源码补全/Lint 与切换保护）。
@@ -626,6 +649,7 @@ pnpm build && pnpm typecheck && pnpm test            # 或 Turborepo 快捷脚�
 - [x] **Phase 12**：HTML5 发布样式主题（`dita-ot-plugins/html5-themes/` 四套静态主题 + 共享排版底座与离线运行时、确定性 Node 后处理器、`/api/publish/themes` 与多视口预览、按手册保存品牌参数于 `manual_publish_profiles`；`vanilla` 主题保持原样）与 GCP Cloud Run 子路径部署（规划见 [docs/phase12-html-themes-plan.md](docs/phase12-html-themes-plan.md)）。
 - [x] **Phase 13**：干净基线 + 个人草稿叠加层（`working_drafts` 与仓库外草稿资产、`User Overlay` 读取视图、无污染合并、Tag / 安全回滚、`version_audit_logs` 版本审计，以及多 Tab 身份隔离与 `my_drafts` 发布快照；见 [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) 与 [Phase 13 方案](docs/phase13-versioning-overlay-plan.md)）。
 - [x] **v1.5.0 增强**：编辑器文档大纲视图（`apps/web/src/editor/outline/`，结构骨架 / 全部块级、双向定位与受 DITA 1.3 约束的拖拽 / `Alt+↑/↓` 重排）、Keyspace 键管理与新建 Key 工作流（`NewKeyDialog` / `KeyrefAttrField` / `InsertKeyrefDialog`）、检入校验门禁与 AI 修复闭环（见 [docs/key-management-integration-plan.md](docs/key-management-integration-plan.md)、[docs/checkin-validation-ai-fix-plan.md](docs/checkin-validation-ai-fix-plan.md)）。
+- [x] **Phase 14**：文档智能导入与 AI Agent 撰写校验闭环（Docling + Microsoft MarkItDown 双解析器与直通、Base64 图片资产提取、Planner → Writer → 有界工具化 DITA-OT Repair Agent + 确定性 `strict` 终检门禁、新建干净基线手册或写 Phase 13 草稿叠加层、5 步向导与 SSE 实时进度，以及根级 `docker-compose.yml`；见 [docs/phase14-docling-agent-plan.md](docs/phase14-docling-agent-plan.md)）。
 
 </details>
 
