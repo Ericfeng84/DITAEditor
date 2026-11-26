@@ -225,6 +225,8 @@ export const apiMessagesZh = {
   'git.externalDirtyConflict': '以下文件在工作区被外部改动，无法安全提交：{paths}',
   'locks.releaseDirtyBlocked': '该文件仍有未提交的个人草稿，请先签入或取消检出：{path}',
   'locks.draftRequired': '该文件没有可签入的个人草稿：{path}',
+  'locks.checkinValidationFailed':
+    '签入已阻止：发现 {count} 处 XML/DITA 错误（{files}），请先修复后再签入',
   'locks.handoffTargetInvalid': '无法移交：目标用户不存在或不可用',
   'locks.handoffViewerForbidden': '只读角色不能接收文件移交',
   'drafts.ownedByOther': '该文件已有其他用户的草稿：{path}',
@@ -457,6 +459,8 @@ export const apiMessagesEn: Record<ApiMessageKey, string> = {
   'git.externalDirtyConflict': 'These files were changed outside the workbench and cannot be committed safely: {paths}',
   'locks.releaseDirtyBlocked': 'This file still has uncommitted personal drafts; check in or cancel the check-out first: {path}',
   'locks.draftRequired': 'There is no personal draft to check in for this file: {path}',
+  'locks.checkinValidationFailed':
+    'Check-in blocked: found {count} XML/DITA error(s) in {files}. Fix them before checking in.',
   'locks.handoffTargetInvalid': 'Cannot hand off: the target user does not exist or is unavailable',
   'locks.handoffViewerForbidden': 'A read-only role cannot receive a file handoff',
   'drafts.ownedByOther': 'Another user already has a draft for this file: {path}',

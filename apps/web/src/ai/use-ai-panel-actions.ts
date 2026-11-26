@@ -9,10 +9,11 @@ import {
 import type { AiTargetSpec } from './ai-types';
 import { hasAiProposalChanges, isAiProposalStale, isSameXmlBuffer } from './ai-proposal';
 import { buildDiagnosticFixTarget, buildSourceAiTarget, buildVisualAiTarget } from './ai-target';
-import { useAiStore, type AiPanelIntent } from './ai-store';
+import { useAiStore, type AiApplyOutcome, type AiPanelIntent } from './ai-store';
 import type { InspectorTab } from '../components/TopicInspector';
 import type { VisualEditorHandle } from '../editor/visual/VisualEditor';
-import { useEditorStore } from '../store/editor-store';
+import { resolveAiApplyMode, useEditorStore } from '../store/editor-store';
+import { useGitStore } from '../store/git-store';
 import type {
   AiApplyMode,
   EditorViewMode,
@@ -57,6 +58,167 @@ export interface AiPanelActions {
   handleAiFixStrictDiagnostic: (diagnostic: PublishDiagnostic) => Promise<void>;
   handleApplyAiProposal: (patchedXml: string) => Promise<void>;
   handleSourceReplacementApplied: () => void;
+}
+
+/** Where a proposal's patch actually landed. */
+export interface AiBufferWriteResult {
+  /** The visual editor already applied the patch (it owns the single-step undo). */
+  visualApplied: boolean;
+  /** The source editor is mounted for this file and must be replaced explicitly. */
+  syncSource: boolean;
+}
+
+/** Everything the apply pipeline needs from the workbench shell. */
+export interface ApplyAiProposalDeps {
+  patchedXml: string;
+  workspaceMode: 'api' | 'memory';
+  /** File the proposal belongs to; defaults to the live active tab. */
+  filePath?: string | null;
+  writeBuffer: (filePath: string, patchedXml: string) => AiBufferWriteResult;
+  setSourceReplacementXml: (xml: string | null) => void;
+  checkoutFile: (path: string) => Promise<unknown>;
+  announce: (message: string) => void;
+  t: (key: MessageKey, params?: MessageParams) => string;
+  closeDiff: () => void;
+  onStrictAiApplied?: () => void;
+}
+
+/** File the patch belongs to: the live active tab, else the intent's file, else the caller's. */
+function resolveApplyFilePath(fallbackPath?: string | null): string | null {
+  const editor = useEditorStore.getState();
+  const intentPath = useAiStore.getState().pendingIntent?.projectPath ?? null;
+  for (const candidate of [editor.activeTabPath, intentPath, fallbackPath]) {
+    if (!candidate) continue;
+    const hasBuffer =
+      editor.openTabs.some((tab) => tab.path === candidate) ||
+      Boolean(editor.mapBuffers[candidate]);
+    if (hasBuffer) return candidate;
+  }
+  return editor.activeTabPath ?? intentPath ?? fallbackPath ?? null;
+}
+
+/**
+ * Apply an AI proposal end to end: live lock resolution, optional auto check-out, one undoable
+ * buffer transaction, then persist into the personal Draft Overlay.
+ *
+ * Exported (rather than buried in the hook) so the state machine — check-out ordering, save
+ * failure degradation, cross-file targeting — is testable without a DOM.
+ */
+export async function applyAiProposal(deps: ApplyAiProposalDeps): Promise<AiApplyOutcome> {
+  const filePath = resolveApplyFilePath(deps.filePath);
+  if (!filePath) return null;
+
+  // Resolve the lock state at click time: a cross-file jump (Problems panel → unopened topic) must
+  // not reuse the apply mode computed for the previously active tab.
+  const git = useGitStore.getState();
+  const currentApplyMode = resolveAiApplyMode({
+    role: git.currentUser?.role,
+    userId: git.currentUser?.id,
+    filePath,
+    locks: git.locks,
+    workspaceMode: deps.workspaceMode,
+  });
+  if (currentApplyMode === 'preview-only') {
+    deps.announce(deps.t('app.aiPreviewOnly'));
+    return null;
+  }
+
+  const ai = useAiStore.getState();
+  const proposal = ai.proposal;
+  const currentXml =
+    useEditorStore.getState().openTabs.find((tab) => tab.path === filePath)?.xml ??
+    useEditorStore.getState().mapBuffers[filePath]?.xml;
+  if (currentXml !== undefined && isSameXmlBuffer(deps.patchedXml, currentXml)) {
+    deps.announce(deps.t('app.aiNoChanges'));
+    deps.closeDiff();
+    return null;
+  }
+  if (proposal && currentXml !== undefined && isAiProposalStale(proposal, currentXml)) {
+    deps.announce(deps.t('app.aiStaleProposal'));
+    ai.dismissProposal();
+    deps.closeDiff();
+    return null;
+  }
+  if (proposal && !hasAiProposalChanges(proposal)) {
+    deps.announce(deps.t('app.aiNoChanges'));
+    deps.closeDiff();
+    return null;
+  }
+
+  ai.setApplyOutcome({ status: 'applying', checkedOutAutomatically: false, filePath });
+
+  let checkedOutAutomatically = false;
+  if (currentApplyMode === 'checkout-and-apply' && deps.workspaceMode === 'api') {
+    const lock = await deps.checkoutFile(filePath);
+    if (!lock) {
+      // Somebody else won the race: leave the buffer untouched so no unsaved ghost edit appears.
+      useAiStore.getState().setApplyOutcome(null);
+      deps.announce(deps.t('app.aiCheckoutFailed'));
+      return null;
+    }
+    checkedOutAutomatically = true;
+  }
+
+  const write = deps.writeBuffer(filePath, deps.patchedXml);
+  useEditorStore
+    .getState()
+    .applyAiPatchedXml(filePath, deps.patchedXml, { skipVisualReload: write.visualApplied });
+  if (!write.visualApplied && write.syncSource) {
+    deps.setSourceReplacementXml(deps.patchedXml);
+  }
+  if (useAiStore.getState().pendingIntent?.subAction === 'fix_strict') {
+    deps.onStrictAiApplied?.();
+  }
+
+  if (deps.workspaceMode === 'memory') {
+    const outcome: AiApplyOutcome = {
+      status: 'saved-draft',
+      checkedOutAutomatically: false,
+      filePath,
+    };
+    useAiStore.getState().setApplyOutcome(outcome);
+    useAiStore.getState().markApplied();
+    deps.closeDiff();
+    deps.announce(deps.t('app.aiApplied'));
+    return outcome;
+  }
+
+  const saved = await useEditorStore.getState().saveFile(filePath);
+  // `saveFile` refreshes tree/semantics/diagnostics; the lock list and draft list need their own
+  // round-trip so the "checked out by me / my drafts" UI turns over immediately.
+  await useGitStore.getState().refreshAll().catch(() => undefined);
+
+  if (saved) {
+    const outcome: AiApplyOutcome = {
+      status: 'saved-draft',
+      checkedOutAutomatically,
+      filePath,
+    };
+    useAiStore.getState().setApplyOutcome(outcome);
+    useAiStore.getState().markApplied();
+    deps.closeDiff();
+    deps.announce(
+      deps.t(checkedOutAutomatically ? 'app.aiAppliedCheckedOutDraft' : 'app.aiAppliedSavedDraft'),
+    );
+    return outcome;
+  }
+
+  const editorAfterSave = useEditorStore.getState();
+  const saveError =
+    editorAfterSave.lastSaveFailures?.find((item) => item.path === filePath)?.message ??
+    editorAfterSave.statusMessage ??
+    '';
+  const outcome: AiApplyOutcome = {
+    status: 'applied-unsaved',
+    checkedOutAutomatically,
+    filePath,
+    saveError,
+  };
+  useAiStore.getState().setApplyOutcome(outcome);
+  useAiStore.getState().markApplied();
+  deps.closeDiff();
+  deps.announce(deps.t('app.aiAppliedSaveFailed', { message: saveError }));
+  return outcome;
 }
 
 /**
@@ -175,7 +337,9 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
     openAiPanel({
       taskType: 'fix_error',
       subAction: 'fix_xml',
-      target: buildDiagnosticFixTarget(activeTab.xml, error.line, error.column, error.line),
+      target: buildDiagnosticFixTarget(activeTab.xml, error.line, error.column, error.line, {
+        source: 'xml',
+      }),
       diagnostics: [
         {
           source: 'xml',
@@ -208,6 +372,7 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
           diagnostic.line,
           diagnostic.column,
           diagnostic.line,
+          { source: diagnostic.source },
         ),
         diagnostics: [
           {
@@ -239,6 +404,7 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
           diagnostic.line,
           diagnostic.column,
           diagnostic.line,
+          { source: 'dita-ot' },
         ),
         diagnostics: [
           {
@@ -257,63 +423,32 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
 
   const handleApplyAiProposal = useCallback(
     async (patchedXml: string) => {
-      if (!activeTab) return;
-      const filePath = activeTab.path;
-      if (aiApplyMode === 'preview-only') {
-        announce(t('app.aiPreviewOnly'));
-        return;
-      }
-
-      // Guard both ends of the "it says applied but nothing changed" trap: a patch identical to the
-      // buffer is a no-op, and a patch generated from a different buffer would revert later edits.
-      const proposal = useAiStore.getState().proposal;
-      const currentXml = useEditorStore
-        .getState()
-        .openTabs.find((tab) => tab.path === filePath)?.xml;
-      if (currentXml !== undefined && isSameXmlBuffer(patchedXml, currentXml)) {
-        announce(t('app.aiNoChanges'));
-        setAiDiffOpen(false);
-        return;
-      }
-      if (proposal && currentXml !== undefined && isAiProposalStale(proposal, currentXml)) {
-        announce(t('app.aiStaleProposal'));
-        useAiStore.getState().dismissProposal();
-        setAiDiffOpen(false);
-        return;
-      }
-      if (proposal && !hasAiProposalChanges(proposal)) {
-        announce(t('app.aiNoChanges'));
-        setAiDiffOpen(false);
-        return;
-      }
-
-      if (aiApplyMode === 'checkout-and-apply' && workspaceMode === 'api') {
-        const lock = await checkoutFile(filePath);
-        if (!lock) {
-          announce(t('app.aiCheckoutFailed'));
-          return;
-        }
-      }
-
-      const visualApply =
-        activeTab.kind === 'topic' &&
-        (activeTab.mode === 'visual' || activeTab.mode === 'split') &&
-        (visualRef.current?.replaceDocumentXml(patchedXml) ?? false);
-      useEditorStore
-        .getState()
-        .applyAiPatchedXml(filePath, patchedXml, { skipVisualReload: visualApply });
-      if (!visualApply && (activeTab.mode === 'source' || activeTab.mode === 'split')) {
-        setSourceReplacementXml(patchedXml);
-      }
-      if (useAiStore.getState().pendingIntent?.subAction === 'fix_strict') {
-        setStrictAiApplied(true);
-      }
-      useAiStore.getState().markApplied();
-      setAiDiffOpen(false);
-      announce(t('app.aiApplied'));
+      await applyAiProposal({
+        patchedXml,
+        workspaceMode,
+        filePath: activeTab?.path ?? null,
+        writeBuffer: (filePath, xml) => {
+          const tab = useEditorStore.getState().openTabs.find((item) => item.path === filePath);
+          const visualApplied =
+            tab !== undefined &&
+            tab.kind === 'topic' &&
+            (tab.mode === 'visual' || tab.mode === 'split') &&
+            (visualRef.current?.replaceDocumentXml(xml) ?? false);
+          return {
+            visualApplied,
+            syncSource: tab !== undefined && (tab.mode === 'source' || tab.mode === 'split'),
+          };
+        },
+        setSourceReplacementXml,
+        checkoutFile,
+        announce,
+        t,
+        closeDiff: () => setAiDiffOpen(false),
+        onStrictAiApplied: () => setStrictAiApplied(true),
+      });
     },
     [
-      activeTab,
+      activeTab?.path,
       aiApplyMode,
       workspaceMode,
       checkoutFile,

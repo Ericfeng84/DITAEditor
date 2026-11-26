@@ -45,6 +45,22 @@ export interface AiPanelIntent {
   projectPath?: string;
 }
 
+/**
+ * Result of applying a proposal to the editor buffer.
+ *
+ * `saved-draft` means the buffer write and the Draft Overlay save both landed; `applied-unsaved`
+ * keeps the in-memory edit (never silently reverts the AI fix) while reporting why the draft
+ * could not be persisted, so the panel can offer a retry.
+ */
+export type AiApplyOutcome =
+  | null
+  | {
+      status: 'applying' | 'saved-draft' | 'applied-unsaved';
+      checkedOutAutomatically: boolean;
+      filePath: string;
+      saveError?: string;
+    };
+
 interface AiPanelState {
   panelOpen: boolean;
   tab: AiPanelTab;
@@ -55,6 +71,7 @@ interface AiPanelState {
   proposal: AiProposal | null;
   verification: AiProposalVerification | null;
   applied: boolean;
+  applyOutcome: AiApplyOutcome;
   error: string | null;
   meta: AiMetaEvent | null;
   retry: AiRetryEvent | null;
@@ -76,6 +93,7 @@ interface AiPanelState {
   cancel: () => void;
   dismissProposal: () => void;
   markApplied: () => void;
+  setApplyOutcome: (outcome: AiApplyOutcome) => void;
   applyProposal: () => void;
   loadConfig: () => Promise<void>;
   saveConfig: (patch: AiConfigPatch) => Promise<boolean>;
@@ -110,6 +128,7 @@ const INITIAL_STATE = {
   proposal: null,
   verification: null as AiProposalVerification | null,
   applied: false,
+  applyOutcome: null as AiApplyOutcome,
   error: null,
   meta: null,
   retry: null,
@@ -192,6 +211,7 @@ export const useAiStore = create<AiPanelState>((set, get) => {
         proposal: null,
         verification: null,
         applied: false,
+        applyOutcome: null,
         error: null,
         meta: null,
         retry: null,
@@ -274,11 +294,17 @@ export const useAiStore = create<AiPanelState>((set, get) => {
         proposal: null,
         verification: null,
         applied: false,
+        applyOutcome: null,
         phase: get().phase === 'proposal' ? 'idle' : get().phase,
       });
     },
 
     markApplied,
+
+    setApplyOutcome(outcome) {
+      set({ applyOutcome: outcome });
+    },
+
     applyProposal: markApplied,
 
     async loadConfig() {

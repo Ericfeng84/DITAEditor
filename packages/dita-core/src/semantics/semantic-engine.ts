@@ -10,6 +10,7 @@ import {
 import { parseDitaMap } from '../map/dita-map.js';
 import { classifyDitaFileKind, normalizePosixPath, resolveDitaHref } from '../map/path-utils.js';
 import { DITA_TOPIC_ROOT_TAGS } from '../model/dita-elements.js';
+import { detectTaskContentModel } from '../model/task-model.js';
 import { checkXmlWellFormed, getNodeSourceRange, parseXml } from '../xml/parser.js';
 import { collectXmlStructureIssues } from '../xml/structure-check.js';
 import { formatStructureIssue } from '../model/dita-structure.js';
@@ -649,8 +650,14 @@ export class DitaSemanticIndex {
 
       const parsed = this.getParsedDoc(filePath);
       if (parsed) {
-        // 1a. DITA 1.3 ordered content model (sequence + cardinality) violations
-        for (const issue of collectXmlStructureIssues(parsed.document)) {
+        // 1a. DITA 1.3 ordered content model (sequence + cardinality) violations.
+        // The task shell is detected from the file's own DOCTYPE so `generalTask.dtd` topics are
+        // checked exactly like `checkXmlStructure(..., { taskModel: 'auto' })` does.
+        const rawXml = this.fileContents.get(filePath) ?? '';
+        for (const issue of collectXmlStructureIssues(
+          parsed.document,
+          detectTaskContentModel(rawXml),
+        )) {
           diagnostics.push({
             id: `structure:${filePath}:${issue.offset}:${issue.code}:${issue.childTag}`,
             filePath,

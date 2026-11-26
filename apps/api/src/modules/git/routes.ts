@@ -597,6 +597,7 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
         paths,
         message: parsed.data.message,
         user: scope.user,
+        locale: resolveRequestLocale(req),
       });
       await notifyBaselineChanged(scope, { writtenPaths: paths });
       return {

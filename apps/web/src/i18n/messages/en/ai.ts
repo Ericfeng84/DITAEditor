@@ -65,6 +65,22 @@ export const enAi = {
   'ai.proposal.dismiss': 'Dismiss',
   'ai.proposal.readOnlyHint': 'Read-only / not checked out: you can still view the diff, but check the file out to apply.',
   'ai.proposal.noChangeHint': 'The AI changed nothing (the reported line is often not the cause) — widen the scope or regenerate',
+  'ai.proposal.applyCheckoutDraft': 'Check out & apply to draft',
+  'ai.proposal.applyCheckoutDraftHint':
+    'Check the file out automatically, then apply and save it as your draft',
+  'ai.proposal.applyDraft': 'Apply to draft',
+  'ai.proposal.applyDraftHint': 'Apply to the editor and save it as your draft',
+  'ai.proposal.applying': 'Applying…',
+  'ai.proposal.appliedDraft': 'Applied and saved as your draft (Ctrl+Z undoes this edit)',
+  'ai.proposal.appliedDraftCheckedOut':
+    'Checked out automatically and saved as your draft (Ctrl+Z undoes this edit)',
+  'ai.proposal.appliedUnsaved': 'Applied to the editor, but saving the draft failed: {message}',
+  'ai.proposal.retrySaveDraft': 'Retry save draft',
+  'ai.proposal.saveDraftRetryHint':
+    'The change is still in the editor — retry the save, or save before checking in manually',
+  'ai.proposal.checkin': 'Check in…',
+  'ai.proposal.checkinHint': 'Open the check-in dialog to commit these drafts',
+  'ai.proposal.rerunStrict': 'Re-run strict validation',
   'ai.history.title': 'Send history (up to 6 turns of context)',
   'ai.placeholder.documentAsk': 'Ask about this topic’s structure or semantics…',
   'ai.placeholder.fragmentAsk': 'Ask about this fragment’s structure or semantics…',

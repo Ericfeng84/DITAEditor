@@ -9,6 +9,7 @@ import {
 import type { AiProposal } from './ai-types';
 import { hasAiProposalChanges } from './ai-proposal';
 import { DiffViewer } from '../components/DiffViewer';
+import type { AiApplyMode } from '../store/editor-store';
 import { useI18n } from '../i18n/index.js';
 
 export interface AiDiffDialogProps {
@@ -16,6 +17,11 @@ export interface AiDiffDialogProps {
   proposal: AiProposal | null;
   canApply: boolean;
   readOnly: boolean;
+  /** How applying lands: plain apply, auto check-out first, or preview only. */
+  applyMode?: AiApplyMode;
+  workspaceMode?: 'api' | 'memory';
+  /** A previous apply is still persisting; keep the button disabled and labelled. */
+  applying?: boolean;
   onClose: () => void;
   onApply: (patchedXml: string) => void;
 }
@@ -29,6 +35,9 @@ export function AiDiffDialog({
   proposal,
   canApply,
   readOnly,
+  applyMode = 'apply',
+  workspaceMode = 'api',
+  applying = false,
   onClose,
   onApply,
 }: AiDiffDialogProps) {
@@ -37,7 +46,13 @@ export function AiDiffDialog({
 
   const verification = proposal.verification;
   const noChange = !hasAiProposalChanges(proposal);
-  const blocked = !canApply || readOnly || noChange;
+  const blocked = !canApply || readOnly || noChange || applying;
+  const applyLabel =
+    applyMode === 'checkout-and-apply'
+      ? t('ai.proposal.applyCheckoutDraft')
+      : applyMode === 'apply' && workspaceMode === 'api'
+        ? t('ai.proposal.applyDraft')
+        : t('aiDiff.apply');
 
   return (
     <div
@@ -157,7 +172,9 @@ export function AiDiffDialog({
               ? t('ai.proposal.noChangeHint')
               : blocked
                 ? t('aiDiff.lockedHint')
-                : t('aiDiff.applyHint')}
+                : applyMode === 'checkout-and-apply'
+                  ? t('ai.proposal.applyCheckoutDraftHint')
+                  : t('aiDiff.applyHint')}
           </span>
           <div className="flex items-center gap-2">
             <button
@@ -169,12 +186,13 @@ export function AiDiffDialog({
             </button>
             <button
               type="button"
+              data-testid="ai-diff-apply"
               disabled={blocked}
               onClick={() => onApply(proposal.patchedXml)}
               className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-3 py-1 text-[11px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
             >
               <CheckCircle2 className="h-3 w-3" aria-hidden="true" />
-              {t('aiDiff.apply')}
+              {applying ? t('ai.proposal.applying') : applyLabel}
             </button>
           </div>
         </div>

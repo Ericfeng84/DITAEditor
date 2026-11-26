@@ -110,6 +110,17 @@ export const zhCNCollab = {
   'checkin.strict': '严格校验',
   'checkin.submitting': '提交中…',
   'checkin.submit': '提交 {count} 个文件',
+  'checkin.validationErrors': '{count} 个错误会阻止签入',
+  'checkin.validationWarnings': '{count} 个警告（不阻止签入）',
+  'checkin.statusErrors': '错误 {count}',
+  'checkin.statusWarnings': '警告 {count}',
+  'checkin.statusValid': '校验通过',
+  'checkin.statusChecking': '校验中…',
+  'checkin.blockedByErrors': '选中的文件存在 DITA 校验错误，修复后才能签入',
+  'checkin.jumpToSource': '跳到源码',
+  'checkin.aiFix': 'AI 修复',
+  'checkin.aiFixTooltip': '让 AI 生成针对该错误的修复补丁',
+  'checkin.warningsOnly': '选中的文件只有警告，仍可正常签入',
 
   // --- identity, profiling, diff -----------------------------------------
   'identity.role.admin': '管理员',

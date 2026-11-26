@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { AiTargetMode, AiTargetSpec } from '@dita/core';
 import type { WorkspaceDiagnostic } from '../services/workspace-api';
+import type { AiApplyMode } from '../store/editor-store';
 import {
   getCurrentLocale,
   translate,
@@ -55,10 +56,19 @@ export interface AiAssistantPanelProps {
   diagnostics?: WorkspaceDiagnostic[];
   canApply: boolean;
   readOnly: boolean;
+  /** How the proposal lands: apply outright, auto check-out first, or preview only. */
+  applyMode?: AiApplyMode;
+  workspaceMode?: 'api' | 'memory';
   onApplyProposal: (patchedXml: string) => void;
   onRequestApply?: (targetMode: AiTargetMode) => void;
   onPreviewDiff?: () => void;
   onOpenSettings?: () => void;
+  /** Quick action once a draft is saved: commit it. */
+  onOpenCheckin?: (paths: string[]) => void;
+  /** Quick action for strict-validation fixes: re-run DITA-OT. */
+  onRevalidateStrict?: () => void;
+  /** Retry persisting an `applied-unsaved` patch. */
+  onRetrySave?: () => void;
 }
 
 const TASK_OPTIONS: Array<{ id: AiTaskType; labelKey: MessageKey; hintKey: MessageKey }> = [
@@ -145,10 +155,15 @@ export function AiAssistantPanel({
   diagnostics,
   canApply,
   readOnly,
+  applyMode = 'apply',
+  workspaceMode = 'api',
   onApplyProposal,
   onRequestApply,
   onPreviewDiff,
   onOpenSettings,
+  onOpenCheckin,
+  onRevalidateStrict,
+  onRetrySave,
 }: AiAssistantPanelProps) {
   const { t } = useI18n();
   const panelPhase = useAiStore((state) => state.phase);
@@ -157,6 +172,7 @@ export function AiAssistantPanel({
   const deltaText = useAiStore((state) => state.deltaText);
   const proposal = useAiStore((state) => state.proposal);
   const applied = useAiStore((state) => state.applied);
+  const applyOutcome = useAiStore((state) => state.applyOutcome);
   const error = useAiStore((state) => state.error);
   const meta = useAiStore((state) => state.meta);
   const retry = useAiStore((state) => state.retry);
@@ -268,13 +284,25 @@ export function AiAssistantPanel({
   // A patch that echoes the target back would "apply" without touching the buffer, so say so
   // instead of offering a button that silently changes nothing.
   const proposalNoChange = proposal !== null && !hasAiProposalChanges(proposal);
+  const applying = applyOutcome?.status === 'applying';
   const applyBlockedReason = !canApply
     ? t('ai.proposal.applyLocked')
     : readOnly
       ? t('ai.proposal.applyReadOnly')
       : proposalNoChange
         ? t('ai.proposal.noChangeHint')
-        : t('ai.proposal.applyHint');
+        : applyMode === 'checkout-and-apply'
+          ? t('ai.proposal.applyCheckoutDraftHint')
+          : workspaceMode === 'api'
+            ? t('ai.proposal.applyDraftHint')
+            : t('ai.proposal.applyHint');
+  // The label must say what the click will actually do (lock, draft, or plain buffer write).
+  const applyLabel =
+    applyMode === 'checkout-and-apply'
+      ? t('ai.proposal.applyCheckoutDraft')
+      : applyMode === 'apply' && workspaceMode === 'api'
+        ? t('ai.proposal.applyDraft')
+        : t('ai.proposal.apply');
 
   const proposalBadges = useMemo(() => {
     if (!proposal) return [];
@@ -529,9 +557,69 @@ export function AiAssistantPanel({
               </ul>
             ) : null}
             {applied ? (
-              <p className="mt-1.5 rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-900">
-                {t('ai.proposal.applied')}
-              </p>
+              <div className="mt-1.5 space-y-1.5" data-testid="ai-apply-outcome">
+                {applyOutcome?.status === 'applied-unsaved' ? (
+                  <div
+                    role="alert"
+                    data-testid="ai-apply-unsaved"
+                    className="rounded bg-amber-100 px-2 py-1 text-[10px] font-medium text-amber-900"
+                  >
+                    <p>{t('ai.proposal.appliedUnsaved', { message: applyOutcome.saveError ?? '' })}</p>
+                    <p className="mt-0.5 text-[9.5px] font-normal text-amber-800">
+                      {t('ai.proposal.saveDraftRetryHint')}
+                    </p>
+                    {onRetrySave ? (
+                      <button
+                        type="button"
+                        data-testid="ai-retry-save-draft"
+                        onClick={onRetrySave}
+                        className="mt-1 inline-flex items-center gap-1 rounded border border-amber-300 bg-white px-2 py-0.5 text-[10px] font-medium text-amber-900 hover:bg-amber-50"
+                      >
+                        <RotateCcw className="h-2.5 w-2.5" aria-hidden="true" />
+                        {t('ai.proposal.retrySaveDraft')}
+                      </button>
+                    ) : null}
+                  </div>
+                ) : (
+                  <p
+                    data-testid="ai-apply-saved"
+                    className="rounded bg-emerald-100 px-2 py-1 text-[10px] font-medium text-emerald-900"
+                  >
+                    {applyOutcome?.status === 'saved-draft'
+                      ? t(
+                          applyOutcome.checkedOutAutomatically
+                            ? 'ai.proposal.appliedDraftCheckedOut'
+                            : 'ai.proposal.appliedDraft',
+                        )
+                      : t('ai.proposal.applied')}
+                  </p>
+                )}
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {workspaceMode === 'api' && onOpenCheckin ? (
+                    <button
+                      type="button"
+                      data-testid="ai-open-checkin"
+                      title={t('ai.proposal.checkinHint')}
+                      onClick={() => onOpenCheckin([applyOutcome?.filePath ?? filePath])}
+                      className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50"
+                    >
+                      <CheckCircle2 className="h-2.5 w-2.5" aria-hidden="true" />
+                      {t('ai.proposal.checkin')}
+                    </button>
+                  ) : null}
+                  {onRevalidateStrict && proposal.canRevalidateStrict ? (
+                    <button
+                      type="button"
+                      data-testid="ai-rerun-strict"
+                      onClick={onRevalidateStrict}
+                      className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50"
+                    >
+                      <RotateCcw className="h-2.5 w-2.5" aria-hidden="true" />
+                      {t('ai.proposal.rerunStrict')}
+                    </button>
+                  ) : null}
+                </div>
+              </div>
             ) : (
               <div className="mt-2 flex items-center gap-1.5">
                 {onPreviewDiff ? (
@@ -546,7 +634,8 @@ export function AiAssistantPanel({
                 ) : null}
                 <button
                   type="button"
-                  disabled={!canApply || readOnly || proposalNoChange}
+                  data-testid="ai-apply-button"
+                  disabled={!canApply || readOnly || proposalNoChange || applying}
                   title={applyBlockedReason}
                   onClick={() => {
                     if (onRequestApply) onRequestApply(proposal.targetMode);
@@ -554,8 +643,12 @@ export function AiAssistantPanel({
                   }}
                   className="inline-flex items-center gap-1 rounded bg-blue-600 px-2 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
                 >
-                  <CheckCircle2 className="h-2.5 w-2.5" aria-hidden="true" />
-                  {t('ai.proposal.apply')}
+                  {applying ? (
+                    <Loader2 className="h-2.5 w-2.5 animate-spin" aria-hidden="true" />
+                  ) : (
+                    <CheckCircle2 className="h-2.5 w-2.5" aria-hidden="true" />
+                  )}
+                  {applying ? t('ai.proposal.applying') : applyLabel}
                 </button>
                 <button
                   type="button"

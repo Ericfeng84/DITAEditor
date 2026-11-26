@@ -10,7 +10,11 @@ import {
   type XmlPrologItem,
 } from '@dita/core';
 import { FilePlus2, FolderOpen, Network, PanelRightClose, Sparkles } from 'lucide-react';
-import { CheckinDialog, type CheckinCandidate } from './components/CheckinDialog';
+import {
+  CheckinDialog,
+  collectCheckinIssues,
+  type CheckinCandidate,
+} from './components/CheckinDialog';
 import { DiffDialog } from './components/DiffDialog';
 import { EditorTabBar } from './components/EditorTabBar';
 import { FileExplorerPanel } from './components/FileExplorerPanel';
@@ -383,6 +387,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   );
   const aiConfig = useAiStore((state) => state.config);
   const aiProposal = useAiStore((state) => state.proposal);
+  const aiApplyOutcome = useAiStore((state) => state.applyOutcome);
   const loadAiConfig = useAiStore((state) => state.loadConfig);
   const aiConfigured = aiConfig?.configured ?? false;
   const aiPanelOpen = useAiStore((state) => state.panelOpen);
@@ -506,6 +511,25 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     setCheckinPaths(paths);
     setCheckinOpen(true);
   }, []);
+
+  // Phase 14 preflight: validate the drafts about to be committed before the commit is attempted,
+  // so a structure error cannot turn into an opaque server-side rejection. Open tabs are re-parsed
+  // from their live XML; closed drafts fall back to the indexer's overlay diagnostics.
+  const checkinIssuesByPath = useMemo(() => {
+    if (!checkinOpen) return {};
+    const openXml: Record<string, string | undefined> = {};
+    for (const tab of openTabs) openXml[tab.path] = tab.xml;
+    for (const [path, buffer] of Object.entries(mapBuffers)) {
+      if (openXml[path] === undefined) openXml[path] = buffer.xml;
+    }
+    return collectCheckinIssues({
+      candidates: checkinCandidates.map((item) => item.path),
+      openXml,
+      drafts: userDrafts,
+      diagnostics,
+      locale,
+    });
+  }, [checkinOpen, checkinCandidates, openTabs, mapBuffers, userDrafts, diagnostics, locale]);
 
   const dirtyCount = dirtyPaths.length;
   const reloadFilesFromDisk = useEditorStore((state) => state.reloadFilesFromDisk);
@@ -663,6 +687,50 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     setAiDiffOpen,
     setSourceReplacementXml,
   });
+
+  // Retry persisting an AI patch whose draft save failed: the editor still holds the fix, so the
+  // only thing missing is the Draft Overlay write (and the resulting lock/draft list refresh).
+  const handleRetryAiSaveDraft = useCallback(async () => {
+    const outcome = useAiStore.getState().applyOutcome;
+    const path = outcome?.filePath ?? activeTabPath;
+    if (!path) return;
+    const saved = await useEditorStore.getState().saveFile(path);
+    await useGitStore.getState().refreshAll().catch(() => undefined);
+    const checkedOutAutomatically = outcome?.checkedOutAutomatically ?? false;
+    if (saved) {
+      useAiStore.getState().setApplyOutcome({
+        status: 'saved-draft',
+        checkedOutAutomatically,
+        filePath: path,
+      });
+      announce(t('app.aiAppliedSavedDraft'));
+      return;
+    }
+    const saveError =
+      useEditorStore.getState().lastSaveFailures?.find((item) => item.path === path)?.message ??
+      useEditorStore.getState().statusMessage ??
+      '';
+    useAiStore.getState().setApplyOutcome({
+      status: 'applied-unsaved',
+      checkedOutAutomatically,
+      filePath: path,
+      saveError,
+    });
+    announce(t('app.aiAppliedSaveFailed', { message: saveError }));
+  }, [activeTabPath, announce, t]);
+
+  const handleRevalidateStrictForPatch = useCallback(() => {
+    const path = activeTab?.path ?? activeTabPath;
+    if (!path) return;
+    openStrictValidation(
+      {
+        paths: [path],
+        ditavalPath: activeDitavalPath,
+        ...(activeRootMapPath ? { rootMapPath: activeRootMapPath } : {}),
+      },
+      t('app.checkinStrictLabel', { count: 1 }),
+    );
+  }, [activeTab?.path, activeTabPath, activeDitavalPath, activeRootMapPath, openStrictValidation, t]);
 
   const handleSnapshotChange = useCallback(
     (
@@ -1615,6 +1683,11 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                   diagnostics={diagnostics}
                                   canApply={aiApplyMode !== 'preview-only'}
                                   readOnly={aiApplyMode === 'preview-only'}
+                                  applyMode={aiApplyMode}
+                                  workspaceMode={workspaceMode}
+                                  onOpenCheckin={openCheckin}
+                                  onRevalidateStrict={handleRevalidateStrictForPatch}
+                                  onRetrySave={() => void handleRetryAiSaveDraft()}
                                   onApplyProposal={(patchedXml) => void handleApplyAiProposal(patchedXml)}
                                   onRequestApply={() => setAiDiffOpen(true)}
                                   onPreviewDiff={() => setAiDiffOpen(true)}
@@ -1735,9 +1808,25 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
       <CheckinDialog
         open={checkinOpen}
         candidates={checkinCandidates}
+        issuesByPath={checkinIssuesByPath}
         onClose={() => setCheckinOpen(false)}
         onStrictValidate={handleCheckinStrictValidate}
         assignedPaths={assignedPaths}
+        onJumpToIssue={(issue) => {
+          setCheckinOpen(false);
+          void openFileTab(issue.filePath, { mode: 'source', jumpLine: issue.line });
+        }}
+        onAiFixIssue={(issue) => {
+          void handleAiFixDiagnostic({
+            id: `${issue.filePath}:${issue.line}:${issue.column}:${issue.source}`,
+            filePath: issue.filePath,
+            line: issue.line,
+            column: issue.column,
+            severity: issue.severity,
+            source: issue.source,
+            message: issue.message,
+          });
+        }}
         onConfirm={async (paths, message, options) => {
           const result = await checkinFiles(paths, message, options);
           if (result) await loadGitHistory(activeTabPath);
@@ -1777,6 +1866,9 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         proposal={aiProposal}
         canApply={aiApplyMode !== 'preview-only'}
         readOnly={aiApplyMode === 'preview-only'}
+        applyMode={aiApplyMode}
+        workspaceMode={workspaceMode}
+        applying={aiApplyOutcome?.status === 'applying'}
         onClose={() => setAiDiffOpen(false)}
         onApply={(patchedXml) => void handleApplyAiProposal(patchedXml)}
       />

@@ -11,6 +11,7 @@ export * from './xml/serializer.js';
 export * from './xml/xpath.js';
 export * from './xml/compare.js';
 export * from './xml/structure-check.js';
+export * from './xml/checkin-validate.js';
 
 // DITA 1.3 element metadata & content/attribute rules
 export * from './model/task-model.js';

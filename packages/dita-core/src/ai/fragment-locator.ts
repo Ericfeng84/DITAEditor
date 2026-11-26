@@ -383,6 +383,13 @@ export const DEFAULT_AI_FIX_WINDOW_MAX_LINES = 80;
 export interface AiFixWindowOptions {
   /** Line cap for the widened window. Defaults to `DEFAULT_AI_FIX_WINDOW_MAX_LINES`. */
   maxLines?: number;
+  /**
+   * When true (used for DITA structure / DITA-OT content-model diagnostics), step one level up
+   * from a child element to its enclosing container (e.g. `<cmd>` -> `<step>`) so sibling-level
+   * fixes such as deduplication, reordering, or replacing an illegal child can succeed without
+   * producing an empty patch.
+   */
+  expandToParent?: boolean;
 }
 
 /**
@@ -396,6 +403,11 @@ export interface AiFixWindowOptions {
  * The window stays honest about scope: the smallest enclosing element is used, and when that
  * element is the root (or wider than `maxLines`) the whole document becomes the target. Malformed
  * XML has no element tree at all, so the original target is returned untouched.
+ *
+ * A child element that occupies exactly the reported single line (`<cmd>…</cmd>`) is always
+ * widened to its parent container, and with `expandToParent` any non-root container child is
+ * widened one level even when it spans several lines, so sibling-level structure fixes
+ * (deduplication, reordering, slot exclusivity) can see the whole container.
  */
 export function widenAiFixTarget(
   xml: string,
@@ -422,28 +434,55 @@ export function widenAiFixTarget(
     return target;
   }
 
-  // Walk down to the innermost element whose source range still covers the reported offset.
+  // Walk down to the innermost element whose source range still covers the reported offset,
+  // remembering the ancestor chain (`root` -> `current`) for the parent-widening step below.
+  const ancestors: slimdom.Element[] = [root];
   let current = root;
   for (;;) {
     const children = elementChildren(current);
     let next: slimdom.Element | null = null;
     for (const child of children) {
-      const bounds = resolveElementBounds(xml, child);
-      if (bounds && anchorOffset >= bounds.start && anchorOffset <= bounds.end) {
+      const childBounds = resolveElementBounds(xml, child);
+      if (childBounds && anchorOffset >= childBounds.start && anchorOffset <= childBounds.end) {
         next = child;
         break;
       }
     }
     if (!next) break;
     current = next;
+    ancestors.push(current);
   }
 
   const bounds = resolveElementBounds(xml, current);
   if (!bounds) return target;
-  const wideStart = lineNumberAt(xml, bounds.start);
-  const wideEnd = lineNumberAt(xml, Math.max(bounds.start, bounds.end - 1));
-  if (wideStart === startLine && wideEnd === endLine) return target;
+  let wideStart = lineNumberAt(xml, bounds.start);
+  let wideEnd = lineNumberAt(xml, Math.max(bounds.start, bounds.end - 1));
+  // The element covers exactly the single reported line: the cause is a sibling, so looking at the
+  // element alone can never fix it.
+  const spansReportedSingleLine =
+    wideStart === wideEnd && wideStart === startLine && endLine === startLine;
+
+  let targetElement: slimdom.Element = current;
+
+  // One level up, never further: either the element itself only covers the reported line (so the
+  // cause is a sibling, e.g. a duplicated `<cmd>`), or the caller explicitly asked for container
+  // visibility for structure diagnostics and the element sits below the document root.
+  const parentEl = ancestors.length >= 2 ? ancestors[ancestors.length - 2]! : null;
+  if (
+    parentEl &&
+    (spansReportedSingleLine || (options.expandToParent === true && ancestors.length >= 3))
+  ) {
+    const parentBounds = resolveElementBounds(xml, parentEl);
+    if (parentBounds) {
+      targetElement = parentEl;
+      wideStart = lineNumberAt(xml, parentBounds.start);
+      wideEnd = lineNumberAt(xml, Math.max(parentBounds.start, parentBounds.end - 1));
+    }
+  }
+
+  if (targetElement === root) return { mode: 'full-document' };
   if (wideEnd - wideStart + 1 > maxLines) return { mode: 'full-document' };
+  if (wideStart === startLine && wideEnd === endLine) return target;
 
   return {
     mode: 'line-window',

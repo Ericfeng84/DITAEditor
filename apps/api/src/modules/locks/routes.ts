@@ -251,6 +251,7 @@ export function registerLockRoutes(app: FastifyInstance, options: LockRouteOptio
         paths,
         message: parsed.data.message,
         user: scope.user,
+        locale: resolveRequestLocale(req),
       });
       const completedAssignments = options.onCheckin
         ? await options.onCheckin({

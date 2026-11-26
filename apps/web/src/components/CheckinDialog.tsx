@@ -9,16 +9,182 @@ import {
   Trash2,
   X,
 } from 'lucide-react';
+import {
+  validateDitaFileForCheckin,
+  type CheckinFileInput,
+  type CheckinValidationIssue,
+} from '@dita/core';
 import type { FileLock } from '../services/git-api';
+import type { WorkspaceDiagnostic } from '../services/workspace-api';
 import { useGitStore } from '../store/git-store';
 import { DiffViewer } from './DiffViewer';
 import { useI18n } from '../i18n/index.js';
+
+/**
+ * A check-in preflight issue. `source` is wider than core's `CheckinValidationIssue` because
+ * cross-file diagnostics (keyref/conref/map-ref) are merged in from the workspace indexer.
+ */
+export type CheckinIssue = Omit<CheckinValidationIssue, 'source'> & {
+  source: WorkspaceDiagnostic['source'];
+};
 
 export interface CheckinCandidate {
   path: string;
   /** Absent for drafts that never took a check-out (new file, rename, delete). */
   lock?: FileLock;
   label?: string;
+}
+
+/**
+ * Check-in preflight issues, keyed by candidate path.
+ *
+ * Live editor buffers win over the indexer: a draft that is open in a tab is validated from its
+ * in-memory XML (the unsaved truth), and only cross-file diagnostics (keyref/conref/map-ref) are
+ * merged in from the workspace scan. Closed drafts fall back to the indexed diagnostics.
+ */
+export interface CheckinIssueSources {
+  candidates: string[];
+  /** Live XML of open tabs, by path. */
+  openXml?: Record<string, string | undefined>;
+  /** Drafts from the overlay (`userDrafts`), used to skip deletes/binaries. */
+  drafts?: { filePath: string; op: string; isBinary?: boolean }[];
+  /** Workspace-wide semantic diagnostics (indexer view of the user overlay). */
+  diagnostics?: WorkspaceDiagnostic[];
+  locale: 'zh-CN' | 'en';
+}
+
+/** Diagnostic sources that only the cross-file indexer can produce. */
+const CROSS_FILE_SOURCES = new Set([
+  'map-ref',
+  'asset-ref',
+  'keyref',
+  'conref',
+  'conref-cycle',
+]);
+
+/**
+ * Sources whose `error` severity really blocks a check-in. This mirrors `@dita/core`'s
+ * `validateDitaFileForCheckin` (single-file XML / structure / DITAVAL gate).
+ *
+ * Cross-file reference diagnostics (`keyref`, `conref`, `conref-cycle`, `map-ref`, `asset-ref`)
+ * are always presented as non-blocking warnings, even when the semantic indexer reports them with
+ * `severity: 'error'`, so parallel team authoring can still check in and the dialog never diverges
+ * from the backend gate.
+ */
+const BLOCKING_ERROR_SOURCES = new Set<string>(['xml', 'structure', 'ditaval']);
+
+/** True only when the issue would actually be rejected by the server-side check-in gate. */
+export function isBlockingCheckinIssue(issue: CheckinIssue): boolean {
+  return issue.severity === 'error' && BLOCKING_ERROR_SOURCES.has(issue.source);
+}
+
+/** Per-file badge counts, classified exactly like the submit gate. */
+export function countCheckinIssues(issues: CheckinIssue[]): { errors: number; warnings: number } {
+  let errors = 0;
+  for (const issue of issues) if (isBlockingCheckinIssue(issue)) errors += 1;
+  return { errors, warnings: issues.length - errors };
+}
+
+function issueKey(issue: CheckinIssue): string {
+  return `${issue.severity}|${issue.line}|${issue.column}|${issue.source}|${issue.message}`;
+}
+
+export function collectCheckinIssues(
+  sources: CheckinIssueSources,
+): Record<string, CheckinIssue[]> {
+  const openXml = sources.openXml ?? {};
+  const drafts = sources.drafts ?? [];
+  const diagnostics = sources.diagnostics ?? [];
+  const result: Record<string, CheckinIssue[]> = {};
+
+  for (const path of sources.candidates) {
+    const draft = drafts.find((item) => item.filePath === path);
+    const xml = openXml[path];
+    const issues: CheckinIssue[] = [];
+    const seen = new Set<string>();
+    const push = (issue: CheckinIssue) => {
+      const key = issueKey(issue);
+      if (seen.has(key)) return;
+      seen.add(key);
+      issues.push(issue);
+    };
+
+    if (draft?.op === 'delete' || draft?.isBinary) {
+      result[path] = [];
+      continue;
+    }
+
+    if (xml !== undefined && xml !== null) {
+      const input: CheckinFileInput = { filePath: path, content: xml };
+      for (const issue of validateDitaFileForCheckin(input, sources.locale)) {
+        push({ ...issue, filePath: path });
+      }
+    }
+
+    for (const diagnostic of diagnostics) {
+      if (diagnostic.filePath !== path) continue;
+      // Open buffers already ran the local structure check; keep only what needs the whole project.
+      if (xml !== undefined && !CROSS_FILE_SOURCES.has(diagnostic.source)) continue;
+      push({
+        filePath: path,
+        line: diagnostic.line,
+        column: diagnostic.column,
+        severity: diagnostic.severity,
+        source: diagnostic.source,
+        message: diagnostic.message,
+      });
+    }
+
+    result[path] = issues;
+  }
+
+  return result;
+}
+
+/** Selected-only rollup used by the dialog (and by the tests). */
+export function summarizeCheckinIssues(
+  issuesByPath: Record<string, CheckinIssue[]>,
+  selectedPaths: string[],
+): { blockingErrors: CheckinIssue[]; warnings: CheckinIssue[] } {
+  const blockingErrors: CheckinIssue[] = [];
+  const warnings: CheckinIssue[] = [];
+  for (const path of selectedPaths) {
+    for (const issue of issuesByPath[path] ?? []) {
+      if (isBlockingCheckinIssue(issue)) blockingErrors.push(issue);
+      else warnings.push(issue);
+    }
+  }
+  return { blockingErrors, warnings };
+}
+
+/** Single submit gate, so the badge, the tooltip and the button can never disagree. */
+export function resolveCheckinSubmit(params: {
+  selected: string[];
+  message: string;
+  busy: boolean;
+  conflictingExternalPaths: string[];
+  blockingErrors: CheckinIssue[];
+}): { canSubmit: boolean; blockedReason: 'none' | 'errors' | 'external' | 'empty' | 'message' } {
+  if (params.conflictingExternalPaths.length > 0) {
+    return { canSubmit: false, blockedReason: 'external' };
+  }
+  if (params.blockingErrors.length > 0) return { canSubmit: false, blockedReason: 'errors' };
+  if (params.selected.length === 0) return { canSubmit: false, blockedReason: 'empty' };
+  if (params.message.trim().length === 0) return { canSubmit: false, blockedReason: 'message' };
+  if (params.busy) return { canSubmit: false, blockedReason: 'none' };
+  return { canSubmit: true, blockedReason: 'none' };
+}
+
+/**
+ * "AI Fix" on a blocking issue: close the check-in dialog, then hand the issue to the workbench
+ * (which opens the file and streams a fix proposal).
+ */
+export function applyCheckinAiFix(
+  issue: CheckinIssue,
+  handlers: { onAiFixIssue: (issue: CheckinIssue) => void; onClose: () => void },
+): void {
+  handlers.onClose();
+  handlers.onAiFixIssue(issue);
 }
 
 export interface CheckinDialogProps {
@@ -36,6 +202,14 @@ export interface CheckinDialogProps {
     options?: { completeMyAssignments: boolean },
   ) => Promise<boolean>;
   onStrictValidate?: (paths: string[]) => void;
+  /** Preflight issues per candidate path (see `collectCheckinIssues`). */
+  issuesByPath?: Record<string, CheckinIssue[]>;
+  /** Validation in flight (live buffers / indexer refresh). */
+  validating?: boolean;
+  /** Jump the editor to the issue (line/column of the failing draft). */
+  onJumpToIssue?: (issue: CheckinIssue) => void;
+  /** Ask the AI to fix this blocking issue (the dialog closes first). */
+  onAiFixIssue?: (issue: CheckinIssue) => void;
 }
 
 export function CheckinDialog({
@@ -45,6 +219,10 @@ export function CheckinDialog({
   assignedPaths = [],
   onConfirm,
   onStrictValidate,
+  issuesByPath = {},
+  validating = false,
+  onJumpToIssue,
+  onAiFixIssue,
 }: CheckinDialogProps) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<string[]>(() =>
@@ -127,11 +305,25 @@ export function CheckinDialog({
   );
   const canWrite = currentUser?.role === 'admin' || currentUser?.role === 'writer';
   const busy = submitting || resolvingExternal;
-  const canSubmit =
-    selected.length > 0 &&
-    message.trim().length > 0 &&
-    !busy &&
-    conflictingExternalPaths.length === 0;
+  const { blockingErrors, warnings } = useMemo(
+    () => summarizeCheckinIssues(issuesByPath, selected),
+    [issuesByPath, selected],
+  );
+  const { canSubmit, blockedReason } = resolveCheckinSubmit({
+    selected,
+    message,
+    busy,
+    conflictingExternalPaths,
+    blockingErrors,
+  });
+  const submitTitle =
+    blockedReason === 'errors'
+      ? t('checkin.blockedByErrors')
+      : blockedReason === 'external'
+        ? t('checkin.blockedByExternal')
+        : undefined;
+
+  const issuesFor = (path: string): CheckinIssue[] => issuesByPath[path] ?? [];
 
   if (!open) return null;
 
@@ -233,6 +425,41 @@ export function CheckinDialog({
                           <Lock className="h-2.5 w-2.5" aria-hidden="true" />
                           {item.lock?.userName ?? t('checkin.draftOnly')}
                         </span>
+                        {(() => {
+                          const { errors: errorCount, warnings: warningCount } = countCheckinIssues(
+                            issuesFor(item.path),
+                          );
+                          if (errorCount > 0) {
+                            return (
+                              <span
+                                data-testid={`checkin-badge-errors-${item.path}`}
+                                className="mt-0.5 inline-flex items-center gap-0.5 rounded border border-rose-200 bg-rose-50 px-1 py-px text-[9.5px] font-semibold text-rose-700"
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+                                {t('checkin.statusErrors', { count: errorCount })}
+                              </span>
+                            );
+                          }
+                          if (warningCount > 0) {
+                            return (
+                              <span
+                                data-testid={`checkin-badge-warnings-${item.path}`}
+                                className="mt-0.5 inline-flex items-center gap-0.5 rounded border border-amber-200 bg-amber-50 px-1 py-px text-[9.5px] font-semibold text-amber-700"
+                              >
+                                <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+                                {t('checkin.statusWarnings', { count: warningCount })}
+                              </span>
+                            );
+                          }
+                          return (
+                            <span
+                              data-testid={`checkin-badge-valid-${item.path}`}
+                              className="mt-0.5 inline-flex items-center gap-0.5 rounded border border-emerald-200 bg-emerald-50 px-1 py-px text-[9.5px] font-medium text-emerald-700"
+                            >
+                              {validating ? t('checkin.statusChecking') : t('checkin.statusValid')}
+                            </span>
+                          );
+                        })()}
                       </button>
                       {hasExternalConflict ? (
                         <span title={t('checkin.externalBadgeTooltip')} className="shrink-0 text-amber-600">
@@ -381,6 +608,92 @@ export function CheckinDialog({
               </div>
             ) : null}
 
+            {/* Phase 14 preflight: a structure/XML error inside a selected draft blocks the commit,
+                with one-click jump and AI fix so the user never has to leave the dialog blind. */}
+            {blockingErrors.length > 0 ? (
+              <div
+                role="alert"
+                data-testid="checkin-blocking-errors"
+                className="shrink-0 rounded-lg border border-rose-300 bg-rose-50/90 px-3 py-2 text-[11px] text-rose-950"
+              >
+                <div className="flex items-start gap-2">
+                  <AlertTriangle
+                    className="mt-0.5 h-3.5 w-3.5 shrink-0 text-rose-600"
+                    aria-hidden="true"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="font-semibold">
+                      {t('checkin.validationErrors', { count: blockingErrors.length })}
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                      {blockingErrors.map((issue) => (
+                        <li
+                          key={`${issue.filePath}:${issue.line}:${issue.column}:${issue.message}`}
+                          className="rounded border border-rose-200 bg-white/80 px-2 py-1"
+                        >
+                          <p className="truncate font-mono text-[10px] text-rose-900/80">
+                            {issue.filePath}:{issue.line}:{issue.column}
+                          </p>
+                          <p className="mt-0.5 text-[10.5px] leading-relaxed text-rose-950">
+                            {issue.message}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1">
+                            {onJumpToIssue ? (
+                              <button
+                                type="button"
+                                data-testid={`checkin-jump-${issue.filePath}`}
+                                onClick={() => onJumpToIssue(issue)}
+                                className="rounded border border-rose-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-rose-800 hover:bg-rose-100"
+                              >
+                                {t('checkin.jumpToSource')}
+                              </button>
+                            ) : null}
+                            {onAiFixIssue ? (
+                              <button
+                                type="button"
+                                data-testid={`checkin-ai-fix-${issue.filePath}`}
+                                title={t('checkin.aiFixTooltip')}
+                                onClick={() =>
+                                  applyCheckinAiFix(issue, {
+                                    onAiFixIssue,
+                                    onClose,
+                                  })
+                                }
+                                className="rounded border border-rose-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-rose-800 hover:bg-rose-100"
+                              >
+                                {t('checkin.aiFix')}
+                              </button>
+                            ) : null}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </div>
+            ) : null}
+
+            {blockingErrors.length === 0 && warnings.length > 0 ? (
+              <div
+                role="status"
+                data-testid="checkin-warnings-only"
+                className="flex shrink-0 items-start gap-2 rounded-lg border border-amber-300 bg-amber-50/90 px-3 py-2 text-[11px] text-amber-950"
+              >
+                <AlertTriangle
+                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-600"
+                  aria-hidden="true"
+                />
+                <div className="min-w-0">
+                  <p className="font-semibold">
+                    {t('checkin.validationWarnings', { count: warnings.length })}
+                  </p>
+                  <p className="mt-0.5 text-[10.5px] leading-relaxed text-amber-900/90">
+                    {t('checkin.warningsOnly')}
+                  </p>
+                </div>
+              </div>
+            ) : null}
+
             <label className="shrink-0">
               <span className="mb-1 block text-[11px] font-semibold text-slate-600">{t('checkin.messageLabel')}</span>
               <input
@@ -441,10 +754,9 @@ export function CheckinDialog({
             </button>
             <button
               type="button"
+              data-testid="checkin-submit"
               disabled={!canSubmit}
-              title={
-                conflictingExternalPaths.length > 0 ? t('checkin.blockedByExternal') : undefined
-              }
+              title={submitTitle}
               onClick={async () => {
                 setSubmitting(true);
                 const ok = await onConfirm(selected, message.trim(), {

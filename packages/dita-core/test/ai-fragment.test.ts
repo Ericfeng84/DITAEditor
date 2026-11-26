@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
   buildDitaConstraintSummary,
+  checkXmlStructure,
   checkXmlWellFormed,
   extractTargetFragment,
   getAllowedChildElementTags,
@@ -544,5 +545,284 @@ describe('widenAiFixTarget — a reported line is not always the cause', () => {
       expect(widened.line).toBeLessThanOrEqual(line);
       expect(widened.lineEnd).toBeGreaterThanOrEqual(line);
     }
+  });
+});
+
+/**
+ * Step 1 regression tests (docs/checkin-validation-ai-fix-plan.md §5.1 CORE-1..CORE-6): a reported
+ * line is often a symptom in a sibling, so a single-line child widens to its container, and
+ * structure diagnostics (`expandToParent`) buy container visibility so deduplication / reordering /
+ * slot-exclusivity fixes are not applied to a too-narrow fragment.
+ */
+const DUPLICATE_CMD_TASK = [
+  '<?xml version="1.0" encoding="UTF-8"?>', // 1
+  '<?xml-model href="task.rng" type="application/xml" schematypens="http://relaxng.org/ns/structure/1.0"?>', // 2
+  '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">', // 3
+  '<task id="create-map-structure">', // 4
+  '  <title>Create a map structure</title>', // 5
+  '  <taskbody>', // 6
+  '    <context><p>Create a map structure. <!-- keep one cmd per step --></p></context>', // 7
+  '    <steps>', // 8
+  '      <step>', // 9
+  '        <cmd>Open the map editor.</cmd>', // 10
+  '      </step>', // 11
+  '      <step>', // 12
+  '        <cmd>Choose the DITA map template.</cmd>', // 13
+  '      </step>', // 14
+  '      <step>', // 15
+  '        <cmd>Type a map title.</cmd>', // 16
+  '        <cmd>Type a map title.</cmd>', // 17
+  '      </step>', // 18
+  '    </steps>', // 19
+  '  </taskbody>', // 20
+  '</task>', // 21
+].join('\n');
+
+const MULTILINE_CMD_TASK = [
+  '<?xml version="1.0" encoding="UTF-8"?>', // 1
+  '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">', // 2
+  '<task id="t">', // 3
+  '  <title>T</title>', // 4
+  '  <taskbody>', // 5
+  '    <context>', // 6
+  '      <p>Create the map structure.</p>', // 7
+  '      <p>Keep the structure flat.</p>', // 8
+  '      <p>Review every step.</p>', // 9
+  '    </context>', // 10
+  '    <steps>', // 11
+  '      <step>', // 12
+  '        <cmd>Open the map editor.</cmd>', // 13
+  '      </step>', // 14
+  '      <step>', // 15
+  '        <cmd>Choose the DITA map template.</cmd>', // 16
+  '        <cmd>Type the map title and', // 17
+  '  confirm the structure before', // 18
+  '  saving the map.</cmd>', // 19
+  '      </step>', // 20
+  '    </steps>', // 21
+  '  </taskbody>', // 22
+  '</task>', // 23
+].join('\n');
+
+const OUT_OF_ORDER_TASK = [
+  '<?xml version="1.0" encoding="UTF-8"?>', // 1
+  '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">', // 2
+  '<task id="t">', // 3
+  '  <title>T</title>', // 4
+  '  <taskbody>', // 5
+  '    <prereq>', // 6
+  '      <p>Install the editor.</p>', // 7
+  '    </prereq>', // 8
+  '    <result>', // 9
+  '      <p>The task finished.</p>', // 10
+  '    </result>', // 11
+  '    <steps>', // 12
+  '      <step><cmd>Go</cmd></step>', // 13
+  '    </steps>', // 14
+  '  </taskbody>', // 15
+  '</task>', // 16
+].join('\n');
+
+const SLOT_EXCLUSIVE_TASK = [
+  '<?xml version="1.0" encoding="UTF-8"?>', // 1
+  '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">', // 2
+  '<task id="t">', // 3
+  '  <title>T</title>', // 4
+  '  <taskbody>', // 5
+  '    <steps>', // 6
+  '      <step><cmd>Go</cmd></step>', // 7
+  '    </steps>', // 8
+  '    <steps-unordered>', // 9
+  '      <step><cmd>Again</cmd></step>', // 10
+  '    </steps-unordered>', // 11
+  '  </taskbody>', // 12
+  '</task>', // 13
+].join('\n');
+
+const MISSING_CMD_TASK = [
+  '<?xml version="1.0" encoding="UTF-8"?>', // 1
+  '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">', // 2
+  '<task id="t">', // 3
+  '  <title>T</title>', // 4
+  '  <taskbody>', // 5
+  '    <steps>', // 6
+  '      <step/>', // 7
+  '    </steps>', // 8
+  '  </taskbody>', // 9
+  '</task>', // 10
+].join('\n');
+
+const MISSING_CMD_BLOCK_TASK = [
+  '<?xml version="1.0" encoding="UTF-8"?>', // 1
+  '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">', // 2
+  '<task id="t">', // 3
+  '  <title>T</title>', // 4
+  '  <taskbody>', // 5
+  '    <steps>', // 6
+  '      <step>', // 7
+  '        <info>Only info, no cmd.</info>', // 8
+  '      </step>', // 9
+  '    </steps>', // 10
+  '  </taskbody>', // 11
+  '</task>', // 12
+].join('\n');
+
+/** Assert a widened target is a line window and return it typed. */
+function asLineWindow(target: ReturnType<typeof widenAiFixTarget>) {
+  if (target.mode !== 'line-window') throw new Error(`expected line-window, got ${target.mode}`);
+  return target;
+}
+
+describe('widenAiFixTarget — parent container expansion (CORE-1..CORE-5)', () => {
+  it('CORE-1: widens a single-line duplicated <cmd> to the enclosing <step> instead of itself', () => {
+    const target = { mode: 'line-window' as const, line: 17, column: 1, lineEnd: 17 };
+    const widened = asLineWindow(widenAiFixTarget(DUPLICATE_CMD_TASK, target, { expandToParent: true }));
+    // The cause (two sibling <cmd> elements) lives in the *step*, so the window must never stay
+    // pinned to the single reported line.
+    expect(widened.line === 17 && widened.lineEnd === 17).toBe(false);
+    expect(widened.line).toBeLessThanOrEqual(15);
+    expect(widened.lineEnd).toBeGreaterThanOrEqual(18);
+    // Both <cmd> lines (16 and 17) are inside the window.
+    expect(widened.line).toBeLessThanOrEqual(16);
+    expect(widened.lineEnd).toBeGreaterThanOrEqual(17);
+    // The structure validator really does report the duplicate at line 17, column 9.
+    const structure = checkXmlStructure(DUPLICATE_CMD_TASK, { taskModel: 'auto' });
+    if (!structure.ok) throw new Error('fixture must be well-formed');
+    expect(structure.issues.map((issue) => [issue.code, issue.line, issue.column])).toEqual([
+      ['child-cardinality', 17, 9],
+    ]);
+    // With the reported column the widening stops at <step> (lines 15-18).
+    const byColumn = widenAiFixTarget(
+      DUPLICATE_CMD_TASK,
+      { mode: 'line-window', line: 17, column: 9, lineEnd: 17 },
+      { expandToParent: true },
+    );
+    expect(byColumn).toEqual({ mode: 'line-window', line: 15, column: 9, lineEnd: 18 });
+  });
+
+  it('CORE-2: expands one level from a multi-line <cmd> so sibling slots stay visible', () => {
+    const target = { mode: 'line-window' as const, line: 17, column: 9, lineEnd: 17 };
+    const widened = asLineWindow(widenAiFixTarget(MULTILINE_CMD_TASK, target, { expandToParent: true }));
+    expect(widened).toEqual({ mode: 'line-window', line: 15, column: 9, lineEnd: 20 });
+    const fragment = MULTILINE_CMD_TASK.split('\n').slice(widened.line - 1, widened.lineEnd).join('\n');
+    expect(fragment).toContain('<step>');
+    expect(fragment).toContain('</step>');
+    expect(fragment.match(/<cmd>/g)?.length).toBe(2);
+    // Without the flag the multi-line child is already wide enough and stays as reported.
+    expect(
+      widenAiFixTarget(MULTILINE_CMD_TASK, { mode: 'line-window', line: 17, lineEnd: 19, column: 9 }),
+    ).toEqual({ mode: 'line-window', line: 17, lineEnd: 19, column: 9 });
+  });
+
+  it('CORE-3: widens <steps> / <steps-unordered> reports to <taskbody>, downgrading when too wide', () => {
+    const order = widenAiFixTarget(
+      OUT_OF_ORDER_TASK,
+      { mode: 'line-window', line: 12, column: 5, lineEnd: 12 },
+      { expandToParent: true },
+    );
+    expect(order).toEqual({ mode: 'line-window', line: 5, column: 5, lineEnd: 15 });
+    expect(
+      widenAiFixTarget(
+        OUT_OF_ORDER_TASK,
+        { mode: 'line-window', line: 12, column: 5, lineEnd: 12 },
+        { expandToParent: true, maxLines: 10 },
+      ),
+    ).toEqual({ mode: 'full-document' });
+
+    const slot = widenAiFixTarget(
+      SLOT_EXCLUSIVE_TASK,
+      { mode: 'line-window', line: 9, column: 5, lineEnd: 9 },
+      { expandToParent: true },
+    );
+    expect(slot).toEqual({ mode: 'line-window', line: 5, column: 5, lineEnd: 12 });
+    // <taskbody> is on the second level, not the root, so the window is never empty.
+    expect(slot.mode === 'line-window' && slot.lineEnd > slot.line).toBe(true);
+  });
+
+  it('CORE-4: keeps <step> inside the window when the required <cmd> is missing', () => {
+    const structure = checkXmlStructure(MISSING_CMD_TASK, { taskModel: 'auto' });
+    if (!structure.ok) throw new Error('fixture must be well-formed');
+    const [issue] = structure.issues;
+    expect(issue?.code).toBe('missing-required-child');
+    expect(issue?.line).toBe(7);
+    const widened = widenAiFixTarget(
+      MISSING_CMD_TASK,
+      { mode: 'line-window', line: issue!.line!, column: issue!.column!, lineEnd: issue!.line! },
+      { expandToParent: true },
+    );
+    expect(widened).toEqual({ mode: 'line-window', line: 6, column: 7, lineEnd: 8 });
+
+    const block = widenAiFixTarget(
+      MISSING_CMD_BLOCK_TASK,
+      { mode: 'line-window', line: 7, column: 7, lineEnd: 7 },
+      { expandToParent: true },
+    );
+    expect(block).toEqual({ mode: 'line-window', line: 6, column: 7, lineEnd: 10 });
+    const lines = MISSING_CMD_BLOCK_TASK.split('\n').slice(5, 10);
+    expect(lines[0]).toBe('    <steps>');
+    expect(lines[4]).toBe('    </steps>');
+  });
+
+  it('CORE-5: returns the target untouched for malformed XML, even with expandToParent', () => {
+    const broken = DUPLICATE_CMD_TASK.replace(
+      '        <cmd>Type a map title.</cmd>',
+      '        <cmd>Type a map title.',
+    );
+    expect(checkXmlWellFormed(broken).ok).toBe(false);
+    const target = { mode: 'line-window' as const, line: 17, column: 1, lineEnd: 17 };
+    expect(widenAiFixTarget(broken, target, { expandToParent: true })).toEqual(target);
+    // A non line-window target never enters the widening path at all.
+    const full = { mode: 'full-document' as const };
+    expect(widenAiFixTarget(broken, full, { expandToParent: true })).toBe(full);
+  });
+});
+
+describe('deduplicate + splice end-to-end (CORE-6)', () => {
+  it('CORE-6: a widened <step> fragment can be deduplicated and spliced back losslessly', () => {
+    const reported = { mode: 'line-window' as const, line: 17, column: 9, lineEnd: 17 };
+    const widened = widenAiFixTarget(DUPLICATE_CMD_TASK, reported, { expandToParent: true });
+    expect(widened).toEqual({ mode: 'line-window', line: 15, column: 9, lineEnd: 18 });
+
+    const fragment = extractTargetFragment(DUPLICATE_CMD_TASK, widened);
+    expect(fragment.mode).toBe('line-window');
+    if (fragment.mode !== 'line-window') throw new Error('expected line-window');
+    expect(fragment.lineStart).toBe(15);
+    expect(fragment.lineEnd).toBe(18);
+    expect(fragment.targetXml).toContain('      <step>');
+    expect(fragment.targetXml).toContain('      </step>');
+    expect(fragment.targetXml.match(/<cmd>/g)?.length).toBe(2);
+
+    const candidateXml = fragment.targetXml.replace('        <cmd>Type a map title.</cmd>\n', '');
+    const spliced = spliceAndVerifyAiXml(DUPLICATE_CMD_TASK, fragment, candidateXml);
+    expect(spliced.ok).toBe(true);
+    if (!spliced.ok) throw new Error(`splice rejected: ${spliced.errorCode} ${spliced.errorMessage}`);
+    expect(spliced.verification.wellFormed).toBe(true);
+    expect(spliced.verification.preservedDoctype).toBe(true);
+    expect(spliced.verification.preservedXmlDeclaration).toBe(true);
+    expect(spliced.verification.structureValid).toBe(true);
+    const patched = spliced.patchedXml;
+    expect(patched).not.toBe(DUPLICATE_CMD_TASK);
+
+    // Everything outside the fragment is byte-identical: prolog, xml-model, DOCTYPE, comment,
+    // and the neighbouring <step> blocks.
+    expect(patched.slice(0, fragment.startOffset)).toBe(
+      DUPLICATE_CMD_TASK.slice(0, fragment.startOffset),
+    );
+    expect(patched.slice(patched.length - (DUPLICATE_CMD_TASK.length - fragment.endOffset))).toBe(
+      DUPLICATE_CMD_TASK.slice(fragment.endOffset),
+    );
+    expect(patched.startsWith('<?xml version="1.0" encoding="UTF-8"?>')).toBe(true);
+    expect(patched).toContain('<?xml-model');
+    expect(patched).toContain('<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">');
+    expect(patched).toContain('<!-- keep one cmd per step -->');
+    expect(patched).toContain('        <cmd>Open the map editor.</cmd>');
+    expect(patched).toContain('        <cmd>Choose the DITA map template.</cmd>');
+    // Exactly one <cmd> remains inside the deduplicated step.
+    expect(patched.match(/<cmd>Type a map title\.<\/cmd>/g)?.length).toBe(1);
+
+    const after = checkXmlStructure(patched, { taskModel: 'auto' });
+    if (!after.ok) throw new Error('patched XML must stay well-formed');
+    expect(after.issues).toEqual([]);
+    expect(checkXmlWellFormed(patched).ok).toBe(true);
   });
 });

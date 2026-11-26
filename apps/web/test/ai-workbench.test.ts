@@ -18,7 +18,11 @@ import {
   resolveScopeTarget,
 } from '../src/ai/ai-target';
 import { resetAiStore, useAiStore } from '../src/ai/ai-store';
+import { applyAiProposal } from '../src/ai/use-ai-panel-actions';
 import { hasAiProposalChanges, isAiProposalStale } from '../src/ai/ai-proposal';
+import { useGitStore } from '../src/store/git-store';
+import type { FileLock } from '../src/services/git-api';
+import type { IdentityUser } from '../src/services/identity-api';
 import { translate } from '../src/i18n/messages/index.js';
 import type { AiProposal, AiStreamRequest } from '../src/ai/ai-types';
 import {
@@ -577,6 +581,345 @@ describe('AI target scope (full topic authoring)', () => {
     expect(translate('zh-CN', AI_TARGET_SCOPE_LABELS.fragment)).toBe('片段');
     expect(translate('en', AI_TARGET_SCOPE_LABELS.document)).toBe('Full Topic');
     expect(translate('en', AI_TARGET_SCOPE_LABELS.fragment)).toBe('Fragment');
+  });
+});
+
+describe('Phase 14 diagnostic fix window (WEB-5)', () => {
+  // A `<step>` whose `<info>` block spans several lines: the validator points at the child, but the
+  // structural cause (duplicate/illegal sibling) lives on the container.
+  const TASK_XML = [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">',
+    '<task id="t"><title>T</title>',
+    '<taskbody>',
+    '<steps>',
+    '<step>',
+    '<cmd>Run</cmd>',
+    '<info>',
+    '<p>one</p>',
+    '<p>two</p>',
+    '</info>',
+    '</step>',
+    '</steps>',
+    '</taskbody>',
+    '</task>',
+  ].join('\n');
+
+  it('expands a structure diagnostic to the enclosing <step>', () => {
+    expect(buildDiagnosticFixTarget(TASK_XML, 8, 1, 8, { source: 'structure' })).toEqual({
+      mode: 'line-window',
+      line: 6,
+      column: 1,
+      lineEnd: 12,
+    });
+  });
+
+  it('treats DITA-OT content-model diagnostics the same as the TS structural indexer', () => {
+    expect(buildDiagnosticFixTarget(TASK_XML, 8, 1, 8, { source: 'dita-ot' })).toEqual({
+      mode: 'line-window',
+      line: 6,
+      column: 1,
+      lineEnd: 12,
+    });
+  });
+
+  it('keeps the plain one-level window for non-structure sources', () => {
+    expect(buildDiagnosticFixTarget(TASK_XML, 8, 1, 8)).toEqual({
+      mode: 'line-window',
+      line: 8,
+      column: 1,
+      lineEnd: 11,
+    });
+    expect(buildDiagnosticFixTarget(TASK_XML, 8, 1, 8, { source: 'xml' })).toEqual({
+      mode: 'line-window',
+      line: 8,
+      column: 1,
+      lineEnd: 11,
+    });
+  });
+});
+
+describe('Phase 14 AI apply closure (WEB-6..WEB-11)', () => {
+  const WRITER: IdentityUser = {
+    id: 'u-writer-1',
+    displayName: '林知远',
+    initials: '林',
+    email: 'lin@dita.local',
+    color: '#0f766e',
+    role: 'writer',
+  };
+  const VIEWER: IdentityUser = { ...WRITER, id: 'u-viewer-1', role: 'viewer' };
+  const TARGET = 'topics/intro.dita';
+  const OTHER = 'topics/task-body.dita';
+  const PATCHED = PROPOSAL.patchedXml;
+
+  const lock = (filePath: string, user: IdentityUser): FileLock => ({
+    id: `lock-${filePath}`,
+    projectId: 'manual-1',
+    branch: 'main',
+    filePath,
+    userId: user.id,
+    userName: user.displayName,
+    userColor: user.color,
+    userRole: user.role,
+    lockedAt: '2026-01-01T00:00:00.000Z',
+    updatedAt: '2026-01-01T00:00:00.000Z',
+    expired: false,
+  });
+
+  const tabOf = (path: string, xml: string): OpenEditorTab => ({
+    path,
+    fileName: path.split('/').at(-1) ?? path,
+    title: path,
+    kind: 'topic' as const,
+    docType: 'concept' as const,
+    baselineXml: xml,
+    xml,
+    mode: 'source' as const,
+    xmlError: null,
+    switchBlockedReason: null,
+    visualReloadToken: 0,
+  });
+
+  const t = (key: Parameters<typeof translate>[1], params?: Record<string, string | number>) =>
+    translate('zh-CN', key, params);
+
+  interface Harness {
+    order: string[];
+    checkoutFile: ReturnType<typeof vi.fn>;
+    saveFile: ReturnType<typeof vi.fn>;
+    writeBuffer: ReturnType<typeof vi.fn>;
+    setSourceReplacementXml: ReturnType<typeof vi.fn>;
+    announce: ReturnType<typeof vi.fn>;
+    closeDiff: ReturnType<typeof vi.fn>;
+    refreshAll: ReturnType<typeof vi.fn>;
+    run: (options?: {
+      workspaceMode?: 'api' | 'memory';
+      filePath?: string | null;
+      visualApplied?: boolean;
+    }) => Promise<ReturnType<typeof applyAiProposal> extends Promise<infer T> ? T : never>;
+  }
+
+  const harness = (options: {
+    user: IdentityUser;
+    locks: FileLock[];
+    openTabs: OpenEditorTab[];
+    activeTabPath: string | null;
+    checkout?: unknown;
+    save?: boolean;
+    lastSaveFailures?: { path: string; message: string }[];
+  }): Harness => {
+    const order: string[] = [];
+    const checkoutFile = vi.fn(async (path: string) => {
+      order.push('checkout');
+      return options.checkout === undefined ? { filePath: path } : options.checkout;
+    });
+    const saveFile = vi.fn(async () => {
+      order.push('save');
+      return options.save ?? true;
+    });
+    const refreshAll = vi.fn(async () => {
+      order.push('refresh');
+    });
+    const writeBuffer = vi.fn(() => {
+      order.push('write');
+      return { visualApplied: false, syncSource: true };
+    });
+    const setSourceReplacementXml = vi.fn();
+    const announce = vi.fn();
+    const closeDiff = vi.fn();
+
+    useGitStore.setState({
+      currentUser: options.user,
+      locks: options.locks,
+      refreshAll,
+    });
+    useEditorStore.setState({
+      workspaceMode: 'api',
+      openTabs: options.openTabs,
+      activeTabPath: options.activeTabPath,
+      mapBuffers: {},
+      saveFile,
+      lastSaveFailures: options.lastSaveFailures,
+      refreshDocumentOverlay: vi.fn(async () => undefined),
+    });
+    useAiStore.setState({ proposal: PROPOSAL, applied: false, applyOutcome: null });
+
+    return {
+      order,
+      checkoutFile,
+      saveFile,
+      writeBuffer,
+      setSourceReplacementXml,
+      announce,
+      closeDiff,
+      refreshAll,
+      run: (runOptions = {}) =>
+        applyAiProposal({
+          patchedXml: PATCHED,
+          workspaceMode: runOptions.workspaceMode ?? 'api',
+          filePath: runOptions.filePath ?? null,
+          writeBuffer: writeBuffer as unknown as (
+            filePath: string,
+            patchedXml: string,
+          ) => { visualApplied: boolean; syncSource: boolean },
+          setSourceReplacementXml,
+          checkoutFile: checkoutFile as unknown as (path: string) => Promise<unknown>,
+          announce,
+          t,
+          closeDiff,
+        }),
+    };
+  };
+
+  beforeEach(() => {
+    resetAiStore();
+    useAiStore.setState({ proposal: PROPOSAL, applied: false, applyOutcome: null });
+  });
+
+  it('WEB-6: checks out, writes one undoable buffer transaction, then saves the draft', async () => {
+    const h = harness({
+      user: WRITER,
+      locks: [],
+      openTabs: [tabOf(TARGET, TOPIC_XML)],
+      activeTabPath: TARGET,
+    });
+
+    const outcome = await h.run();
+
+    expect(h.order).toEqual(['checkout', 'write', 'save', 'refresh']);
+    expect(h.checkoutFile).toHaveBeenCalledWith(TARGET);
+    expect(h.saveFile).toHaveBeenCalledTimes(1);
+    expect(h.refreshAll).toHaveBeenCalledTimes(1);
+    expect(outcome).toEqual({
+      status: 'saved-draft',
+      checkedOutAutomatically: true,
+      filePath: TARGET,
+    });
+    expect(useEditorStore.getState().openTabs[0]?.xml).toBe(PATCHED);
+    expect(useAiStore.getState().applied).toBe(true);
+    expect(useAiStore.getState().applyOutcome).toEqual(outcome);
+    expect(h.closeDiff).toHaveBeenCalledTimes(1);
+    expect(h.setSourceReplacementXml).toHaveBeenCalledWith(PATCHED);
+    expect(h.announce).toHaveBeenCalledWith(t('app.aiAppliedCheckedOutDraft'));
+  });
+
+  it('WEB-7: skips the check-out when I already hold the lock', async () => {
+    const h = harness({
+      user: WRITER,
+      locks: [lock(TARGET, WRITER)],
+      openTabs: [tabOf(TARGET, TOPIC_XML)],
+      activeTabPath: TARGET,
+    });
+
+    const outcome = await h.run();
+
+    expect(h.order).toEqual(['write', 'save', 'refresh']);
+    expect(h.checkoutFile).not.toHaveBeenCalled();
+    expect(outcome).toMatchObject({ status: 'saved-draft', checkedOutAutomatically: false });
+    expect(h.announce).toHaveBeenCalledWith(t('app.aiAppliedSavedDraft'));
+  });
+
+  it('WEB-8: aborts untouched when the check-out is refused', async () => {
+    const h = harness({
+      user: WRITER,
+      locks: [],
+      openTabs: [tabOf(TARGET, TOPIC_XML)],
+      activeTabPath: TARGET,
+      checkout: null,
+    });
+
+    const outcome = await h.run();
+
+    expect(outcome).toBeNull();
+    expect(h.writeBuffer).not.toHaveBeenCalled();
+    expect(h.saveFile).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().openTabs[0]?.xml).toBe(TOPIC_XML);
+    expect(useAiStore.getState().applied).toBe(false);
+    expect(useAiStore.getState().applyOutcome).toBeNull();
+    expect(h.announce).toHaveBeenCalledWith(t('app.aiCheckoutFailed'));
+  });
+
+  it('WEB-9: keeps the fix in the buffer and reports a failed draft save', async () => {
+    const h = harness({
+      user: WRITER,
+      locks: [],
+      openTabs: [tabOf(TARGET, TOPIC_XML)],
+      activeTabPath: TARGET,
+      save: false,
+      lastSaveFailures: [{ path: TARGET, message: '磁盘只读' }],
+    });
+
+    const outcome = await h.run();
+
+    expect(outcome).toEqual({
+      status: 'applied-unsaved',
+      checkedOutAutomatically: true,
+      filePath: TARGET,
+      saveError: '磁盘只读',
+    });
+    expect(useEditorStore.getState().openTabs[0]?.xml).toBe(PATCHED);
+    expect(useAiStore.getState().applied).toBe(true);
+    expect(h.announce).toHaveBeenCalledWith(t('app.aiAppliedSaveFailed', { message: '磁盘只读' }));
+  });
+
+  it('WEB-10: a viewer never checks out, writes or saves', async () => {
+    const h = harness({
+      user: VIEWER,
+      locks: [lock(TARGET, WRITER)],
+      openTabs: [tabOf(TARGET, TOPIC_XML)],
+      activeTabPath: TARGET,
+    });
+
+    const outcome = await h.run();
+
+    expect(outcome).toBeNull();
+    expect(h.checkoutFile).not.toHaveBeenCalled();
+    expect(h.writeBuffer).not.toHaveBeenCalled();
+    expect(h.saveFile).not.toHaveBeenCalled();
+    expect(useEditorStore.getState().openTabs[0]?.xml).toBe(TOPIC_XML);
+    expect(h.announce).toHaveBeenCalledWith(t('app.aiPreviewOnly'));
+  });
+
+  it('WEB-11: resolves the lock state of the file the patch targets, not the previous tab', async () => {
+    // The Problems panel jumped from my locked topic to another topic; the apply mode baked into the
+    // hook was computed for the previous tab, so it must be recomputed for the new target.
+    const h = harness({
+      user: WRITER,
+      locks: [lock(OTHER, WRITER)],
+      openTabs: [tabOf(OTHER, TOPIC_XML), tabOf(TARGET, TOPIC_XML)],
+      activeTabPath: TARGET,
+    });
+
+    const outcome = await h.run({ filePath: TARGET });
+
+    expect(h.checkoutFile).toHaveBeenCalledWith(TARGET);
+    expect(h.checkoutFile).not.toHaveBeenCalledWith(OTHER);
+    expect(h.saveFile).toHaveBeenCalledWith(TARGET);
+    expect(outcome).toMatchObject({
+      status: 'saved-draft',
+      checkedOutAutomatically: true,
+      filePath: TARGET,
+    });
+  });
+
+  it('applies in memory mode without any check-out or draft save', async () => {
+    const h = harness({
+      user: WRITER,
+      locks: [],
+      openTabs: [tabOf(TARGET, TOPIC_XML)],
+      activeTabPath: TARGET,
+    });
+
+    const outcome = await h.run({ workspaceMode: 'memory' });
+
+    expect(h.order).toEqual(['write']);
+    expect(outcome).toEqual({
+      status: 'saved-draft',
+      checkedOutAutomatically: false,
+      filePath: TARGET,
+    });
+    expect(h.announce).toHaveBeenCalledWith(t('app.aiApplied'));
   });
 });
 

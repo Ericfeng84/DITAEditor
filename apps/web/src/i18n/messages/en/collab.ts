@@ -110,6 +110,18 @@ export const enCollab = {
   'checkin.strict': 'Strict Validation',
   'checkin.submitting': 'Committing…',
   'checkin.submit': 'Commit {count} file(s)',
+  'checkin.validationErrors': '{count} error(s) block check-in',
+  'checkin.validationWarnings': '{count} warning(s) (do not block check-in)',
+  'checkin.statusErrors': '{count} error(s)',
+  'checkin.statusWarnings': '{count} warning(s)',
+  'checkin.statusValid': 'Valid',
+  'checkin.statusChecking': 'Checking…',
+  'checkin.blockedByErrors':
+    'The selected files have DITA validation errors; fix them before checking in',
+  'checkin.jumpToSource': 'Jump to source',
+  'checkin.aiFix': 'AI Fix',
+  'checkin.aiFixTooltip': 'Ask AI for a patch that fixes this error',
+  'checkin.warningsOnly': 'The selected files only have warnings; you can still check in',
 
   // --- identity, profiling, diff -----------------------------------------
   'identity.role.admin': 'Admin',

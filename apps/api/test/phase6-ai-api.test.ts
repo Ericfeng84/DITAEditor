@@ -507,3 +507,50 @@ describe('POST /api/ai/stream', () => {
     await app.close();
   });
 });
+
+describe('AI output entity decoding (check-in validation plan API-11)', () => {
+  it('decodes basic XML entities in the parsed explanation only', async () => {
+    const { parseAiOutput } = await import('../src/modules/ai/ai-output-parser.js');
+    const parsed = parseAiOutput(
+      '<explanation>该 &lt;step&gt; 内有两条 &lt;cmd&gt; &amp; 重复文本</explanation>' +
+        '<dita_patch><p>patch</p></dita_patch>',
+    );
+    expect(parsed.explanation).toBe('该 <step> 内有两条 <cmd> & 重复文本');
+    expect(parsed.patchXml).not.toBeNull();
+
+    // Raw markup inside <explanation> is still stripped/kept as before; only entities decode.
+    const raw = parseAiOutput(
+      '<explanation>原文 <step> 保留 &lt;b&gt; 与 &amp;amp;</explanation>',
+    );
+    expect(raw.explanation).toBe('原文 <step> 保留 <b> 与 &amp;');
+    expect(raw.patchXml).toBeNull();
+  });
+
+  it('decodes entities split across stream chunks without leaking <dita_patch>', async () => {
+    const { createExplanationStreamFilter } = await import(
+      '../src/modules/ai/ai-output-parser.js'
+    );
+    const filter = createExplanationStreamFilter();
+    const chunks = [
+      '<explanation>该 &l',
+      't;step&gt; 内有两条 &lt;c',
+      'md&gt; &amp; 重复文本</explanation><dita_patch><p>不应泄漏</p></dita_patch>',
+    ];
+    let output = '';
+    for (const chunk of chunks) output += filter.push(chunk);
+    output += filter.flush();
+    expect(output).toBe('该 <step> 内有两条 <cmd> & 重复文本');
+    expect(output).not.toContain('dita_patch');
+    expect(output).not.toContain('不应泄漏');
+  });
+
+  it('holds a dangling & at the end of a chunk until it is completed', async () => {
+    const { createExplanationStreamFilter } = await import(
+      '../src/modules/ai/ai-output-parser.js'
+    );
+    const filter = createExplanationStreamFilter();
+    expect(filter.push('A &am')).toBe('A ');
+    expect(filter.push('p; B')).toBe('& B');
+    expect(filter.flush()).toBe('');
+  });
+});

@@ -102,6 +102,9 @@ export const AI_FIX_WINDOW_MAX_LINES = 80;
 /** Malformed XML has no element tree, so the fix scope is padded around the reported line. */
 export const AI_FIX_MALFORMED_CONTEXT_LINES = 12;
 
+/** Diagnostic sources whose reported line is a child tag rather than the structural cause. */
+const STRUCTURE_DIAGNOSTIC_SOURCES = new Set(['structure', 'dita-ot']);
+
 /**
  * Turn a validator's reported line into a window the assistant can actually repair.
  *
@@ -110,15 +113,26 @@ export const AI_FIX_MALFORMED_CONTEXT_LINES = 12;
  * the model can only echo the line back (an "applied" patch that changes nothing). The window is
  * therefore widened to the enclosing element — or to the whole topic when that element is the
  * root — and, for malformed XML (no element tree), padded symmetrically around the line.
+ *
+ * Content-model diagnostics (`structure` / `dita-ot`) are widened one extra level to the
+ * container (`<cmd>` -> `<step>`) so sibling-level fixes such as deduplication, reordering or an
+ * illegal child replacement can see every element involved.
  */
 export function buildDiagnosticFixTarget(
   xml: string,
   line: number | undefined,
   column?: number,
   lineEnd?: number,
+  options?: { source?: string },
 ): AiTargetSpec {
   const base = buildLineWindowAiTarget(line, column, lineEnd);
-  const widened = widenAiFixTarget(xml, base, { maxLines: AI_FIX_WINDOW_MAX_LINES });
+  const widened = widenAiFixTarget(
+    xml,
+    base,
+    options?.source !== undefined && STRUCTURE_DIAGNOSTIC_SOURCES.has(options.source)
+      ? { maxLines: AI_FIX_WINDOW_MAX_LINES, expandToParent: true }
+      : { maxLines: AI_FIX_WINDOW_MAX_LINES },
+  );
   const changed =
     widened.mode !== base.mode ||
     widened.line !== base.line ||

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve as resolvePath } from 'node:path';
 import { randomUUID } from 'node:crypto';
+import { validateCheckinBatch, type CheckinFileInput, type UiLocale } from '@dita/core';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import type { DitaDatabase } from '../../db/client.js';
 import {
@@ -581,8 +582,11 @@ export class LockService {
     paths: string[];
     message: string;
     user: IdentityUser;
+    /** Phase 13 check-in gate: language for XML/DITA structure diagnostics. */
+    locale?: UiLocale;
   }): Promise<CheckinResult> {
     const { workDir, projectRootDir, paths, message, user } = options;
+    const locale = options.locale ?? 'zh-CN';
     if (user.role === 'viewer') {
       throw httpError(403, 'locks.viewerCannotCommit');
     }
@@ -608,6 +612,19 @@ export class LockService {
           throw httpError(409, 'locks.noCommitChange', { path: filePath });
         }
       }
+      // Legacy mode: the dirty content already lives on disk, so validate it in place before
+      // committing. A failed gate leaves HEAD, the working tree and every lock untouched.
+      const legacyFiles: CheckinFileInput[] = [];
+      for (const filePath of paths) {
+        const absolute = join(workDir, filePath);
+        if (!existsSync(absolute)) continue;
+        try {
+          legacyFiles.push({ filePath, content: readFileSync(absolute, 'utf8') });
+        } catch {
+          // Unreadable paths fall through to the commit step, which reports its own error.
+        }
+      }
+      this.assertCheckinValidation(legacyFiles, locale);
       const commit = await this.git.commit(workDir, paths, message, user);
       this.deleteLockPaths(projectId, branch, paths);
       this.auditRecord({
@@ -661,6 +678,31 @@ export class LockService {
       if (colliding.length > 0) {
         throw httpError(409, 'git.externalDirtyConflict', { paths: colliding.join(', ') });
       }
+      // Check-in gate: validate the personal drafts BEFORE `materializeDraft()` writes anything,
+      // so a rejected batch leaves the shared workDir clean, HEAD unchanged, locks held and every
+      // draft intact. Deletions and binary drafts are exempt by contract.
+      const candidateFiles: CheckinFileInput[] = [];
+      for (const draft of selected) {
+        if (draft.op === 'delete') {
+          candidateFiles.push({ filePath: draft.filePath, content: '', deleted: true });
+          continue;
+        }
+        if (draft.assetBlobPath) {
+          candidateFiles.push({ filePath: draft.filePath, content: '', binary: true });
+          continue;
+        }
+        if (draft.content !== null) {
+          candidateFiles.push({ filePath: draft.filePath, content: draft.content });
+          continue;
+        }
+        if (draft.op === 'rename' && draft.originalPath) {
+          const baseline = await this.git.fileAtRevision(workDir, 'HEAD', draft.originalPath);
+          if (baseline !== null) {
+            candidateFiles.push({ filePath: draft.filePath, content: baseline });
+          }
+        }
+      }
+      this.assertCheckinValidation(candidateFiles, locale);
       const existedBefore = new Set(
         affectedPaths.filter((path) => existsSync(join(workDir, path))),
       );
@@ -894,6 +936,22 @@ export class LockService {
   // ---------------------------------------------------------------------------
   // Draft materialization (Phase 13)
   // ---------------------------------------------------------------------------
+
+  /**
+   * Hard check-in gate shared by both overlay and legacy modes. Error-level XML/DITA issues block
+   * the whole batch with a 422 that carries the full issue list; warnings never block.
+   */
+  private assertCheckinValidation(files: readonly CheckinFileInput[], locale: UiLocale): void {
+    const validation = validateCheckinBatch(files, locale);
+    if (validation.ok) return;
+    const uniqueErrorFiles = [...new Set(validation.errors.map((issue) => issue.filePath))];
+    throw httpError(
+      422,
+      'locks.checkinValidationFailed',
+      { count: validation.errors.length, files: uniqueErrorFiles.join(', ') },
+      { code: 'checkin_validation_failed', issues: validation.errors },
+    );
+  }
 
   private deleteLockPaths(projectId: string, branch: string, paths: string[]): void {
     if (paths.length === 0) return;
