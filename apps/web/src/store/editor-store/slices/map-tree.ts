@@ -4,12 +4,15 @@ import {
   computeRelativeDitaHref,
   createTopicTemplate,
   deleteMapNode,
+  DITA_KEY_NAME_PATTERN,
   insertMapNode,
+  removeMapNodeKey,
   renameMapNodeKeyToken,
   updateMapKeyValueText,
   updateMapNodeAttr,
   updateMapNodeNavtitle,
   updateMapTitle,
+  upsertMapKeyInlineText,
   type XmlAttributeEntry,
 } from '@dita/core';
 import { planMapNodeMove } from '../../../map-tree/map-tree-utils';
@@ -24,6 +27,35 @@ import {
 import { ensureFileCheckedOut } from '../../git-store';
 import type { EditorWorkbenchState, StoreGet, StoreSet } from '../types.js';
 import type { StoreRuntime } from '../runtime.js';
+
+/** Map a workspace asset path to the DITA `@format` token used on `<keydef>`. */
+function inferKeyFormat(filePath: string): string | null {
+  const kind = classifyDitaFileKind(filePath);
+  if (kind === 'ditamap' || kind === 'bookmap') return 'ditamap';
+  if (kind === 'topic') return null;
+  const lower = filePath.toLowerCase();
+  const ext = lower.slice(lower.lastIndexOf('.') + 1);
+  switch (ext) {
+    case 'png':
+    case 'jpg':
+    case 'jpeg':
+    case 'gif':
+    case 'svg':
+    case 'webp':
+    case 'bmp':
+    case 'tif':
+    case 'tiff':
+    case 'eps':
+    case 'pdf':
+    case 'html':
+    case 'htm':
+    case 'xml':
+    case 'txt':
+      return ext === 'htm' ? 'html' : ext === 'tif' || ext === 'tiff' ? 'tiff' : ext;
+    default:
+      return null;
+  }
+}
 
 /** Workbench state slice: see `EditorWorkbenchState` in `../types.ts`. */
 export function createMapTreeSlice(
@@ -461,6 +493,151 @@ export function createMapTreeSlice(
       // Same reason as `renameMapKey`: the keyspace is re-indexed from persisted map files.
       if (state.workspaceMode === 'api') {
         await get().saveFile(def.sourceMapPath);
+      }
+      return true;
+    },
+
+    async createMapKey(options) {
+      const mapPath = options.mapPath;
+      const trimmedKey = options.keyName.trim();
+      if (!trimmedKey || !DITA_KEY_NAME_PATTERN.test(trimmedKey)) return { ok: false };
+      if (!(await get().ensureMapEditable(mapPath))) return { ok: false };
+
+      const buf = get().mapBuffers[mapPath];
+      if (!buf) return { ok: false };
+
+      // Attribute order matters for a minimal Git diff: keys, href, format, scope, keyscope,
+      // processing-role. Everything the DITA 1.3 `<keydef>` content model allows, nothing more.
+      const attrs: XmlAttributeEntry[] = [
+        { name: 'keys', value: trimmedKey, namespaceURI: null },
+      ];
+      let keydefKeyword: string | undefined;
+      let keydefLinktext: string | undefined;
+
+      if (options.bindingKind === 'file') {
+        const target = options.targetFilePath?.trim();
+        if (!target) return { ok: false };
+        attrs.push({
+          name: 'href',
+          value: computeRelativeDitaHref(mapPath, target),
+          namespaceURI: null,
+        });
+        const format = options.format?.trim() || inferKeyFormat(target);
+        if (format) attrs.push({ name: 'format', value: format, namespaceURI: null });
+        keydefKeyword = options.textValue?.trim() || undefined;
+        keydefLinktext = options.linkText?.trim() || undefined;
+      } else if (options.bindingKind === 'external') {
+        const url = options.externalUrl?.trim();
+        if (!url) return { ok: false };
+        attrs.push({ name: 'href', value: url, namespaceURI: null });
+        const format = options.format?.trim();
+        if (format) attrs.push({ name: 'format', value: format, namespaceURI: null });
+        attrs.push({ name: 'scope', value: 'external', namespaceURI: null });
+        keydefLinktext = options.linkText?.trim() || undefined;
+      } else {
+        const text = options.textValue?.trim();
+        if (!text) return { ok: false };
+        keydefKeyword = text;
+        keydefLinktext = options.linkText?.trim() || undefined;
+      }
+
+      const keyscope = options.keyscope?.trim();
+      if (keyscope) attrs.push({ name: 'keyscope', value: keyscope, namespaceURI: null });
+      attrs.push({ name: 'processing-role', value: 'resource-only', namespaceURI: null });
+
+      const inserted = insertMapNode(buf.xml, {
+        parentPath: options.parentPath,
+        tagName: 'keydef',
+        attrs,
+        keydefKeyword,
+        keydefLinktext,
+      });
+
+      get().mutateMapXml(mapPath, inserted.xml, t('status.keyCreated', { key: trimmedKey }));
+
+      if (options.selectCreated !== false) {
+        set({ selectedMapNode: { mapPath, elementPath: inserted.insertedPath } });
+      }
+
+      // API mode resolves the Keyspace from the files on disk, so the new `<keydef>` must reach the
+      // Draft Overlay before the qualified key can be reported back to the calling dialog.
+      if (get().workspaceMode === 'api') {
+        await get().saveFile(mapPath);
+      } else {
+        await get().refreshSemantics();
+      }
+
+      const keyspace = get().keyspace;
+      const samePath = (def: { elementPath: number[] }) =>
+        def.elementPath.length === inserted.insertedPath.length &&
+        def.elementPath.every((step, index) => step === inserted.insertedPath[index]);
+      const match =
+        keyspace?.allDefinitions.find(
+          (def) => def.sourceMapPath === mapPath && def.key === trimmedKey && samePath(def),
+        ) ??
+        (keyspace
+          ? (Object.values(keyspace.keys).find(
+              (def) => def.sourceMapPath === mapPath && def.key === trimmedKey,
+            ) ?? Object.values(keyspace.keys).find((def) => def.key === trimmedKey))
+          : undefined);
+
+      return {
+        ok: true,
+        qualifiedKey: match?.qualifiedKey ?? trimmedKey,
+        elementPath: inserted.insertedPath,
+      };
+    },
+
+    async deleteMapKey(def) {
+      if (!(await get().ensureMapEditable(def.sourceMapPath))) return false;
+      const buf = get().mapBuffers[def.sourceMapPath];
+      if (!buf) return false;
+
+      const res = removeMapNodeKey(buf.xml, def.elementPath, def.key);
+      if (!res.changed) return false;
+
+      get().mutateMapXml(
+        def.sourceMapPath,
+        res.xml,
+        t('status.keyDeleted', { key: def.qualifiedKey }),
+      );
+
+      const selected = get().selectedMapNode;
+      if (
+        res.removedElement &&
+        selected &&
+        selected.mapPath === def.sourceMapPath &&
+        selected.elementPath !== null &&
+        selected.elementPath.length === def.elementPath.length &&
+        selected.elementPath.every((step, index) => step === def.elementPath[index])
+      ) {
+        set({ selectedMapNode: { mapPath: def.sourceMapPath, elementPath: null } });
+      }
+
+      if (get().workspaceMode === 'api') {
+        await get().saveFile(def.sourceMapPath);
+      } else {
+        await get().refreshSemantics();
+      }
+      return true;
+    },
+
+    async upsertMapNodeKeyText(mapPath, elementPath, source, value) {
+      if (!(await get().ensureMapEditable(mapPath))) return false;
+      const buf = get().mapBuffers[mapPath];
+      if (!buf) return false;
+
+      const res = upsertMapKeyInlineText(buf.xml, elementPath, source, value);
+      // The core helper re-serialises the element even when the text is already identical, so the
+      // byte comparison keeps a no-op save (and its Draft Overlay write) out of the store.
+      if (!res.changed || res.xml === buf.xml) return false;
+
+      get().mutateMapXml(mapPath, res.xml, t('status.keyTextUpdated'));
+
+      if (get().workspaceMode === 'api') {
+        await get().saveFile(mapPath);
+      } else {
+        await get().refreshSemantics();
       }
       return true;
     },

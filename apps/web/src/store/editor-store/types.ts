@@ -28,8 +28,28 @@ export type EditorViewMode = 'visual' | 'split' | 'source';
 export type TagDisplayMode = 'none' | 'tags' | 'full';
 /** `auto` follows each document's DOCTYPE, otherwise the task content model is forced. */
 export type { TaskContentModelSetting };
-export type LeftSidebarTab = 'map' | 'files' | 'keys' | 'git' | 'assignments';
+export type LeftSidebarTab = 'map' | 'files' | 'git' | 'assignments';
+/**
+ * The `Map 管理` sidebar hosts both the structure tree and the Keyspace.
+ * A segmented toggle switches between them so keys no longer need their own tab.
+ */
+export type MapPanelView = 'tree' | 'keys';
 export type InspectorTarget = 'topic' | 'map-node';
+
+/** Everything `NewKeyDialog` collects before the store writes a `<keydef>` into the map. */
+export interface CreateMapKeyOptions {
+  mapPath: string;
+  parentPath: number[] | null;
+  keyName: string;
+  bindingKind: 'text' | 'file' | 'external';
+  textValue?: string;
+  targetFilePath?: string;
+  externalUrl?: string;
+  linkText?: string;
+  format?: string;
+  keyscope?: string;
+  selectCreated?: boolean;
+}
 
 export interface OpenEditorTab {
   path: string;
@@ -128,6 +148,8 @@ export interface EditorWorkbenchState {
   // Workbench UI state
   leftSidebarOpen: boolean;
   leftSidebarTab: LeftSidebarTab;
+  /** Which pane of `Map 管理` is showing: the structure tree or the Keyspace. */
+  mapPanelView: MapPanelView;
   inspectorOpen: boolean;
   inspectorTarget: InspectorTarget;
   selectedMapNode: SelectedMapNodeRef | null;
@@ -322,6 +344,22 @@ export interface EditorWorkbenchState {
    * or when the source map could not be checked out for editing.
    */
   updateMapKeyValue: (def: KeyDefinition, nextValue: string) => Promise<boolean>;
+  /**
+   * Create a `<keydef>` under `parentPath` (or the map root) and, in API mode, check the map
+   * into the caller's Draft Overlay. Returns the freshly resolved qualified key when found.
+   */
+  createMapKey: (
+    options: CreateMapKeyOptions,
+  ) => Promise<{ ok: boolean; qualifiedKey?: string; elementPath?: number[] }>;
+  /** Delete one key token; removes the whole `<keydef>` only when it was its last key. */
+  deleteMapKey: (def: KeyDefinition) => Promise<boolean>;
+  /** Write or clear the inline `<keyword>` / `<linktext>` value of one map node. */
+  upsertMapNodeKeyText: (
+    mapPath: string,
+    elementPath: number[],
+    source: 'keyword' | 'linktext',
+    value: string | null,
+  ) => Promise<boolean>;
   updateMapRootTitle: (mapPath: string, title: string) => Promise<void>;
   deleteMapTreeNode: (mapPath: string, elementPath: number[]) => Promise<void>;
   jumpToMapNodeSource: (mapPath: string, line?: number) => Promise<void>;
@@ -350,6 +388,7 @@ export interface EditorWorkbenchState {
   // Layout & Cursor Jump UI state
   setLeftSidebarOpen: (open: boolean) => void;
   setLeftSidebarTab: (tab: LeftSidebarTab) => void;
+  setMapPanelView: (view: MapPanelView) => void;
   setInspectorOpen: (open: boolean) => void;
   setInspectorTarget: (target: InspectorTarget) => void;
   setProblemsOpen: (open: boolean) => void;

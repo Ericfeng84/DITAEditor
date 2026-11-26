@@ -112,3 +112,19 @@ export function describeLock(lock: LockLike, currentUserId: string | null): stri
     ? translate(getCurrentLocale(), 'lock.byYou')
     : translate(getCurrentLocale(), 'lock.byUser', { user: lock.userName ?? lock.userId });
 }
+
+export interface CanManageMapKeysInput {
+  workspaceMode: 'api' | 'memory';
+  role: IdentityRole | null | undefined;
+}
+
+/**
+ * Key management is a *map* concern, not a topic concern: `createMapKey`, `renameMapKey`,
+ * `updateMapKeyValue`, `deleteMapKey` and `upsertMapNodeKeyText` all write the `.ditamap` and
+ * check that map out themselves via `ensureMapEditable(mapPath)`. Permission therefore depends
+ * only on the workspace mode and the identity role — never on whether the topic tab next to it
+ * happens to be checked out by the current user.
+ */
+export function canManageMapKeys({ workspaceMode, role }: CanManageMapKeysInput): boolean {
+  return workspaceMode === 'memory' || role === 'admin' || role === 'writer';
+}

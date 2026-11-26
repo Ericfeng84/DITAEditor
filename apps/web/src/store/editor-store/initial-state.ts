@@ -39,6 +39,7 @@ export function createInitialEditorState(): EditorStateValues {
 
     leftSidebarOpen: true,
     leftSidebarTab: 'map',
+    mapPanelView: 'tree',
     inspectorOpen: true,
     inspectorTarget: 'topic',
     selectedMapNode: null,

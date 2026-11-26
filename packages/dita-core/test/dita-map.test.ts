@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  DITA_KEY_NAME_PATTERN,
   classifyDitaFileKind,
   computeRelativeDitaHref,
   createMapTemplate,
@@ -12,6 +13,7 @@ import {
   normalizePosixPath,
   parseDitaMap,
   parseXml,
+  removeMapNodeKey,
   renameMapNodeKeyToken,
   resolveDitaHref,
   serializeXml,
@@ -20,6 +22,7 @@ import {
   updateMapNodeAttr,
   updateMapNodeNavtitle,
   updateMapTitle,
+  upsertMapKeyInlineText,
 } from '../src/index.js';
 
 const SAMPLE_DITAMAP = `<?xml version="1.0" encoding="UTF-8"?>
@@ -415,5 +418,397 @@ describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
     const nextSub = parseDitaMap(transferred.targetXml);
     expect(nextSub.nodes[1]!.href).toBe('../concepts/dita-architecture.dita');
     expect(nextSub.nodes[1]!.children?.[0]?.href).toBe('../concepts/single-sourcing.dita');
+  });
+});
+
+const KEY_MAP_XML = `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="urn:oasis:names:tc:dita:rng:map.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<!-- Key management fixture: keep this comment -->
+<map id="key_map" xml:lang="zh-CN">
+  <title>Key Map</title>
+  <keydef keys="prod_name" processing-role="resource-only"/>
+  <keydef keys="doc_url" href="https://example.com/doc" format="html" scope="external">
+    <topicmeta>
+      <navtitle>External Docs</navtitle>
+      <shortdesc>Reference site</shortdesc>
+    </topicmeta>
+  </keydef>
+  <keydef keys="rich_name">
+    <topicmeta>
+      <keywords>
+        <keyword>DITA <ph>markup</ph></keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <topicref keys="legacy" href="concepts/legacy.dita" type="concept">
+    <topicref href="concepts/child.dita"/>
+  </topicref>
+</map>
+`;
+
+describe('Key name validation', () => {
+  it('accepts DITA 1.3 NMTOKEN-shaped key names and rejects unsafe ones', () => {
+    for (const name of ['prod_name', 'a', 'A1.b-c_d', '_private', '0zero', 'key.with.dots']) {
+      expect(DITA_KEY_NAME_PATTERN.test(name)).toBe(true);
+    }
+    for (const name of ['', ' spaced', 'with space', '-leading', '.leading', 'a/b', 'a#b', 'key$x', '键值']) {
+      expect(DITA_KEY_NAME_PATTERN.test(name)).toBe(false);
+    }
+  });
+});
+
+describe('DITA Map key inline text extraction (parseDitaMap)', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<map id="inline_map">
+  <keydef keys="k_keyword">
+    <topicmeta>
+      <keywords>
+        <keyword>Keyword Value</keyword>
+      </keywords>
+      <linktext>Linktext Value</linktext>
+      <navtitle>Navtitle Value</navtitle>
+    </topicmeta>
+  </keydef>
+  <keydef keys="k_linktext">
+    <topicmeta>
+      <linktext>Linktext Only</linktext>
+      <navtitle>Navtitle Only</navtitle>
+    </topicmeta>
+  </keydef>
+  <keydef keys="k_navtitle">
+    <topicmeta>
+      <navtitle>Meta Navtitle</navtitle>
+    </topicmeta>
+  </keydef>
+  <keydef keys="k_attr" navtitle="Attr Navtitle"/>
+  <keydef keys="k_none"/>
+</map>
+`;
+
+  it('follows the Keyspace priority keyword > linktext > topicmeta navtitle > @navtitle', () => {
+    const nodes = parseDitaMap(xml).nodes;
+    expect(nodes.map((n) => n.inlineText)).toEqual([
+      'Keyword Value',
+      'Linktext Only',
+      'Meta Navtitle',
+      'Attr Navtitle',
+      undefined,
+    ]);
+    expect(nodes.map((n) => n.inlineTextSource)).toEqual([
+      'keyword',
+      'linktext',
+      'navtitle',
+      'navtitle',
+      'none',
+    ]);
+  });
+
+  it('reports keyword-sourced inline text for the shared sample map', () => {
+    const keydef = parseDitaMap(SAMPLE_DITAMAP).nodes[0]!;
+    expect(keydef.inlineText).toBe('DITAEditor');
+    expect(keydef.inlineTextSource).toBe('keyword');
+  });
+});
+
+describe('DITA Map key insertion with keyword & linktext', () => {
+  it('writes <navtitle> -> <linktext> -> <keywords> inside topicmeta in DITA 1.3 order', () => {
+    const inserted = insertMapNode(KEY_MAP_XML, {
+      parentPath: null,
+      index: 0,
+      tagName: 'keydef',
+      attrs: [
+        { name: 'keys', value: 'doc_external', namespaceURI: null },
+        { name: 'href', value: 'https://example.com/guide', namespaceURI: null },
+        { name: 'format', value: 'html', namespaceURI: null },
+        { name: 'scope', value: 'external', namespaceURI: null },
+      ],
+      navtitle: '外部文档',
+      useTopicmetaNavtitle: true,
+      keydefLinktext: 'Example Guide',
+      keydefKeyword: 'example_key',
+    });
+
+    const node = parseDitaMap(inserted.xml).nodes[0]!;
+    expect(node.tagName).toBe('keydef');
+    // keyword wins the extraction priority even when navtitle and linktext also exist
+    expect(node.inlineText).toBe('example_key');
+    expect(node.inlineTextSource).toBe('keyword');
+    expect(node.rawAttrs.map((a) => `${a.name}=${a.value}`)).toEqual([
+      'keys=doc_external',
+      'href=https://example.com/guide',
+      'format=html',
+      'scope=external',
+    ]);
+
+    const navIdx = inserted.xml.indexOf('<navtitle>外部文档</navtitle>');
+    const linkIdx = inserted.xml.indexOf('<linktext>Example Guide</linktext>');
+    const keywordsIdx = inserted.xml.indexOf('<keywords>');
+    expect(navIdx).toBeGreaterThan(-1);
+    expect(linkIdx).toBeGreaterThan(navIdx);
+    expect(keywordsIdx).toBeGreaterThan(linkIdx);
+    expect(inserted.xml).toContain('<keyword>example_key</keyword>');
+
+    // Lossless: declaration, xml-model PI, DOCTYPE, comment all survive.
+    expect(inserted.xml).toContain('<!DOCTYPE map PUBLIC');
+    expect(inserted.xml).toContain('<?xml-model');
+    expect(inserted.xml).toContain('<!-- Key management fixture: keep this comment -->');
+    expect(serializeXml(parseXml(inserted.xml))).toBe(inserted.xml);
+  });
+
+  it('ignores blank keyword/linktext options and keeps a plain node when nothing is provided', () => {
+    const inserted = insertMapNode(KEY_MAP_XML, {
+      parentPath: null,
+      index: 0,
+      tagName: 'keydef',
+      attrs: [{ name: 'keys', value: 'blank_key', namespaceURI: null }],
+      keydefLinktext: '   ',
+      keydefKeyword: '  ',
+    });
+    expect(inserted.xml).toContain('<keydef keys="blank_key"/>');
+    expect(parseDitaMap(inserted.xml).nodes[0]!.inlineTextSource).toBe('none');
+  });
+});
+
+describe('upsertMapKeyInlineText', () => {
+  it('creates <topicmeta><keywords><keyword> when the key has no metadata yet', () => {
+    const target = parseDitaMap(KEY_MAP_XML).nodes[0]!;
+    const result = upsertMapKeyInlineText(KEY_MAP_XML, target.elementPath, 'keyword', 'DITAEditor Enterprise');
+    expect(result.changed).toBe(true);
+
+    const node = parseDitaMap(result.xml).nodes[0]!;
+    expect(node.inlineText).toBe('DITAEditor Enterprise');
+    expect(node.inlineTextSource).toBe('keyword');
+    // Attributes keep their exact order and value.
+    expect(node.rawAttrs.map((a) => `${a.name}=${a.value}`)).toEqual([
+      'keys=prod_name',
+      'processing-role=resource-only',
+    ]);
+    expect(result.xml).toContain('<keyword>DITAEditor Enterprise</keyword>');
+    // Surrounding XML is untouched.
+    expect(result.xml).toContain('<!DOCTYPE map PUBLIC');
+    expect(result.xml).toContain('<?xml-model');
+    expect(result.xml).toContain('<!-- Key management fixture: keep this comment -->');
+    expect(serializeXml(parseXml(result.xml))).toBe(result.xml);
+  });
+
+  it('updates an existing pure-text <keyword> in place without duplicating the container', () => {
+    const target = parseDitaMap(KEY_MAP_XML).nodes[0]!;
+    const created = upsertMapKeyInlineText(KEY_MAP_XML, target.elementPath, 'keyword', 'First Value');
+    const updated = upsertMapKeyInlineText(created.xml, target.elementPath, 'keyword', 'Second Value');
+    expect(updated.changed).toBe(true);
+    expect(updated.xml).toContain('<keyword>Second Value</keyword>');
+    expect(updated.xml).not.toContain('First Value');
+    expect(updated.xml.match(/Second Value/g)).toHaveLength(1);
+    expect(updated.xml).not.toContain('<keyword>First Value</keyword>');
+    expect(serializeXml(parseXml(updated.xml))).toBe(updated.xml);
+  });
+
+  it('inserts <keywords> after existing navtitle/shortdesc and <linktext> before them per DITA order', () => {
+    const nodes = parseDitaMap(KEY_MAP_XML).nodes;
+    const docUrlPath = nodes[1]!.elementPath;
+
+    const withKeyword = upsertMapKeyInlineText(KEY_MAP_XML, docUrlPath, 'keyword', 'External Doc');
+    expect(withKeyword.changed).toBe(true);
+    const afterKeyword = withKeyword.xml;
+    expect(afterKeyword.indexOf('<navtitle>External Docs</navtitle>')).toBeLessThan(
+      afterKeyword.indexOf('<shortdesc>Reference site</shortdesc>'),
+    );
+    expect(afterKeyword.indexOf('<shortdesc>Reference site</shortdesc>')).toBeLessThan(
+      afterKeyword.indexOf('<keywords>'),
+    );
+    // Existing sibling metadata survives.
+    expect(parseDitaMap(afterKeyword).nodes[1]!.inlineText).toBe('External Doc');
+    expect(parseDitaMap(afterKeyword).nodes[1]!.rawAttrs.map((a) => a.name)).toEqual([
+      'keys',
+      'href',
+      'format',
+      'scope',
+    ]);
+
+    const withLinktext = upsertMapKeyInlineText(afterKeyword, docUrlPath, 'linktext', 'Example Docs');
+    expect(withLinktext.changed).toBe(true);
+    expect(withLinktext.xml.indexOf('<navtitle>External Docs</navtitle>')).toBeLessThan(
+      withLinktext.xml.indexOf('<linktext>Example Docs</linktext>'),
+    );
+    expect(withLinktext.xml.indexOf('<linktext>Example Docs</linktext>')).toBeLessThan(
+      withLinktext.xml.indexOf('<shortdesc>Reference site</shortdesc>'),
+    );
+    // <keyword> still wins the extraction priority.
+    expect(parseDitaMap(withLinktext.xml).nodes[1]!.inlineTextSource).toBe('keyword');
+    expect(serializeXml(parseXml(withLinktext.xml))).toBe(withLinktext.xml);
+  });
+
+  it('creates <topicmeta> before non-metadata children of a topicref', () => {
+    const nodes = parseDitaMap(KEY_MAP_XML).nodes;
+    const legacyPath = nodes[3]!.elementPath;
+    const result = upsertMapKeyInlineText(KEY_MAP_XML, legacyPath, 'linktext', 'Legacy Guide');
+    expect(result.changed).toBe(true);
+
+    const legacy = parseDitaMap(result.xml).nodes[3]!;
+    expect(legacy.inlineText).toBe('Legacy Guide');
+    expect(legacy.inlineTextSource).toBe('linktext');
+    expect(legacy.children?.map((c) => c.tagName)).toEqual(['topicref']);
+    // topicmeta sits between the parent topicref tag and its first child topicref
+    const parentOpen = result.xml.indexOf('<topicref keys="legacy" href="concepts/legacy.dita" type="concept">');
+    const topicmetaIdx = result.xml.indexOf('<topicmeta>', parentOpen);
+    const childIdx = result.xml.indexOf('<topicref href="concepts/child.dita"/>');
+    expect(parentOpen).toBeGreaterThan(-1);
+    expect(topicmetaIdx).toBeGreaterThan(parentOpen);
+    expect(childIdx).toBeGreaterThan(topicmetaIdx);
+    expect(serializeXml(parseXml(result.xml))).toBe(result.xml);
+  });
+
+  it('refuses to flatten inline markup inside the value holder', () => {
+    const richPath = parseDitaMap(KEY_MAP_XML).nodes[2]!.elementPath;
+    const refused = upsertMapKeyInlineText(KEY_MAP_XML, richPath, 'keyword', 'flattened');
+    expect(refused.changed).toBe(false);
+    expect(refused.xml).toBe(KEY_MAP_XML);
+
+    const cleared = upsertMapKeyInlineText(KEY_MAP_XML, richPath, 'keyword', null);
+    expect(cleared.changed).toBe(false);
+    expect(cleared.xml).toBe(KEY_MAP_XML);
+  });
+
+  it('clears the value and drops empty <keywords>/<topicmeta> containers', () => {
+    const target = parseDitaMap(KEY_MAP_XML).nodes[0]!;
+    const created = upsertMapKeyInlineText(KEY_MAP_XML, target.elementPath, 'keyword', 'Temp Value');
+    const cleared = upsertMapKeyInlineText(created.xml, target.elementPath, 'keyword', null);
+    expect(cleared.changed).toBe(true);
+    expect(cleared.xml).not.toContain('Temp Value');
+    // Only the pre-existing rich_name keywords container remains.
+    expect(cleared.xml.match(/<keywords>/g)).toHaveLength(1);
+    expect(cleared.xml).toContain('<keydef keys="prod_name" processing-role="resource-only"/>');
+    expect(parseDitaMap(cleared.xml).nodes[0]!.inlineTextSource).toBe('none');
+    expect(serializeXml(parseXml(cleared.xml))).toBe(cleared.xml);
+  });
+
+  it('keeps <topicmeta> siblings when only the cleared container becomes empty', () => {
+    const docUrlPath = parseDitaMap(KEY_MAP_XML).nodes[1]!.elementPath;
+    const withKeyword = upsertMapKeyInlineText(KEY_MAP_XML, docUrlPath, 'keyword', 'Temporary');
+    const cleared = upsertMapKeyInlineText(withKeyword.xml, docUrlPath, 'keyword', '   ');
+    expect(cleared.changed).toBe(true);
+    // Only the pre-existing rich_name keywords container remains.
+    expect(cleared.xml.match(/<keywords>/g)).toHaveLength(1);
+    expect(cleared.xml).toContain('<navtitle>External Docs</navtitle>');
+    expect(cleared.xml).toContain('<shortdesc>Reference site</shortdesc>');
+    expect(cleared.xml).toContain('<topicmeta>');
+    // navtitle is now the highest-priority value again.
+    expect(parseDitaMap(cleared.xml).nodes[1]!.inlineTextSource).toBe('navtitle');
+    expect(serializeXml(parseXml(cleared.xml))).toBe(cleared.xml);
+  });
+
+  it('removes only <linktext> and keeps other metadata when clearing a linktext value', () => {
+    const nodes = parseDitaMap(KEY_MAP_XML).nodes;
+    const docUrlPath = nodes[1]!.elementPath;
+    const withLinktext = upsertMapKeyInlineText(KEY_MAP_XML, docUrlPath, 'linktext', 'Example Docs');
+    const cleared = upsertMapKeyInlineText(withLinktext.xml, docUrlPath, 'linktext', null);
+    expect(cleared.changed).toBe(true);
+    expect(cleared.xml).not.toContain('<linktext>');
+    expect(cleared.xml).toContain('<navtitle>External Docs</navtitle>');
+    expect(cleared.xml).toContain('<topicmeta>');
+
+    // Clearing a linktext that never existed is a no-op.
+    const noop = upsertMapKeyInlineText(KEY_MAP_XML, docUrlPath, 'linktext', null);
+    expect(noop.changed).toBe(false);
+    expect(noop.xml).toBe(KEY_MAP_XML);
+  });
+
+  it('rejects empty paths, root targets, and unknown paths without touching the XML', () => {
+    expect(upsertMapKeyInlineText(KEY_MAP_XML, [], 'keyword', 'x')).toEqual({
+      xml: KEY_MAP_XML,
+      changed: false,
+    });
+    expect(upsertMapKeyInlineText(KEY_MAP_XML, [99], 'keyword', 'x').changed).toBe(false);
+  });
+});
+
+describe('removeMapNodeKey', () => {
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<!-- Delete one key, keep everything else -->
+<map id="remove_keys_map">
+  <keydef keys="single_key" processing-role="resource-only"/>
+  <keydef keys="multi_a multi_b" href="concepts/a.dita" type="concept" scope="local"/>
+  <topicref keys="nav_a nav_b" href="concepts/nav.dita" type="task"/>
+</map>
+`;
+
+  it('removes a single-key <keydef> element entirely', () => {
+    const path = parseDitaMap(xml).nodes[0]!.elementPath;
+    const result = removeMapNodeKey(xml, path, 'single_key');
+    expect(result.changed).toBe(true);
+    expect(result.removedElement).toBe(true);
+    expect(result.xml).not.toContain('single_key');
+    expect(result.xml).not.toContain('<keydef keys="single_key"');
+    expect(result.xml).toContain('<!DOCTYPE map PUBLIC');
+    expect(result.xml).toContain('<!-- Delete one key, keep everything else -->');
+    expect(parseDitaMap(result.xml).nodes.map((n) => n.tagName)).toEqual(['keydef', 'topicref']);
+    expect(serializeXml(parseXml(result.xml))).toBe(result.xml);
+  });
+
+  it('removes only one token from a multi-key <keydef> preserving attribute order', () => {
+    const path = parseDitaMap(xml).nodes[1]!.elementPath;
+    const result = removeMapNodeKey(xml, path, 'multi_a');
+    expect(result.changed).toBe(true);
+    expect(result.removedElement).toBe(false);
+    expect(parseDitaMap(result.xml).nodes[1]!.rawAttrs.map((a) => `${a.name}=${a.value}`)).toEqual([
+      'keys=multi_b',
+      'href=concepts/a.dita',
+      'type=concept',
+      'scope=local',
+    ]);
+    expect(serializeXml(parseXml(result.xml))).toBe(result.xml);
+  });
+
+  it('removes a key token from a <topicref> and drops @keys when it becomes empty', () => {
+    const path = parseDitaMap(xml).nodes[2]!.elementPath;
+    const first = removeMapNodeKey(xml, path, 'nav_a');
+    expect(first.changed).toBe(true);
+    expect(first.removedElement).toBe(false);
+    expect(parseDitaMap(first.xml).nodes[2]!.keys).toBe('nav_b');
+
+    const second = removeMapNodeKey(first.xml, path, 'nav_b');
+    expect(second.changed).toBe(true);
+    expect(second.removedElement).toBe(false);
+    expect(parseDitaMap(second.xml).nodes[2]!.keys).toBeUndefined();
+    expect(second.xml).toContain('<topicref href="concepts/nav.dita" type="task"/>');
+    expect(second.xml).not.toContain('<topicref keys=');
+    expect(serializeXml(parseXml(second.xml))).toBe(second.xml);
+  });
+
+  it('keeps the element and reports no change for unknown keys, empty paths, and the map root', () => {
+    const path = parseDitaMap(xml).nodes[1]!.elementPath;
+    const unknown = removeMapNodeKey(xml, path, 'not_a_key');
+    expect(unknown).toEqual({ xml, changed: false, removedElement: false });
+
+    expect(removeMapNodeKey(xml, [], 'single_key')).toEqual({
+      xml,
+      changed: false,
+      removedElement: false,
+    });
+    expect(removeMapNodeKey(xml, path, '   ').changed).toBe(false);
+  });
+
+  it('preserves comments and PIs around the removed key definition', () => {
+    const withPi = `<?xml version="1.0" encoding="UTF-8"?>
+<?xml-model href="urn:oasis:names:tc:dita:rng:map.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="pi_map">
+  <!-- before -->
+  <keydef keys="temp_key"/>
+  <!-- after -->
+  <?oxy_comment_start author="docs"?>
+</map>
+`;
+    const result = removeMapNodeKey(withPi, [0], 'temp_key');
+    expect(result.changed).toBe(true);
+    expect(result.removedElement).toBe(true);
+    expect(result.xml).toContain('<?xml-model');
+    expect(result.xml).toContain('<!DOCTYPE map PUBLIC');
+    expect(result.xml).toContain('<!-- before -->');
+    expect(result.xml).toContain('<!-- after -->');
+    expect(result.xml).toContain('<?oxy_comment_start author="docs"?>');
+    expect(serializeXml(parseXml(result.xml))).toBe(result.xml);
   });
 });

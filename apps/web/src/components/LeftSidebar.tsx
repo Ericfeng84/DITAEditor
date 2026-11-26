@@ -17,7 +17,6 @@ export interface LeftSidebarProps {
   onOpenManualHub?: () => void;
   mapTreeSlot: ReactNode;
   fileExplorerSlot: ReactNode;
-  keyspaceSlot: ReactNode;
   gitSlot: ReactNode;
   /** Phase 10: my assignments for this manual/branch. */
   assignmentsSlot?: ReactNode;
@@ -42,7 +41,6 @@ export function LeftSidebar({
   onOpenManualHub,
   mapTreeSlot,
   fileExplorerSlot,
-  keyspaceSlot,
   gitSlot,
   assignmentsSlot,
   assignmentBadgeCount = 0,
@@ -50,13 +48,11 @@ export function LeftSidebar({
   const { t } = useI18n();
   const mapTabId = useId();
   const filesTabId = useId();
-  const keysTabId = useId();
   const gitTabId = useId();
   const assignmentsTabId = useId();
   const tablistRef = useRef<HTMLDivElement | null>(null);
   const mapPanelRef = useRef<HTMLDivElement | null>(null);
   const filesPanelRef = useRef<HTMLDivElement | null>(null);
-  const keysPanelRef = useRef<HTMLDivElement | null>(null);
   const gitPanelRef = useRef<HTMLDivElement | null>(null);
   const assignmentsPanelRef = useRef<HTMLDivElement | null>(null);
 
@@ -107,7 +103,6 @@ export function LeftSidebar({
     };
     syncPanel(mapPanelRef.current, 'map');
     syncPanel(filesPanelRef.current, 'files');
-    syncPanel(keysPanelRef.current, 'keys');
     syncPanel(gitPanelRef.current, 'git');
     syncPanel(assignmentsPanelRef.current, 'assignments');
   }, [activeTab]);
@@ -115,23 +110,19 @@ export function LeftSidebar({
   useEffect(() => {
     const mapEl = mapPanelRef.current;
     const filesEl = filesPanelRef.current;
-    const keysEl = keysPanelRef.current;
     const gitEl = gitPanelRef.current;
     const assignmentsEl = assignmentsPanelRef.current;
     const onMatchMap = () => onChangeTab('map');
     const onMatchFiles = () => onChangeTab('files');
-    const onMatchKeys = () => onChangeTab('keys');
     const onMatchGit = () => onChangeTab('git');
     const onMatchAssignments = () => onChangeTab('assignments');
     mapEl?.addEventListener('beforematch', onMatchMap);
     filesEl?.addEventListener('beforematch', onMatchFiles);
-    keysEl?.addEventListener('beforematch', onMatchKeys);
     gitEl?.addEventListener('beforematch', onMatchGit);
     assignmentsEl?.addEventListener('beforematch', onMatchAssignments);
     return () => {
       mapEl?.removeEventListener('beforematch', onMatchMap);
       filesEl?.removeEventListener('beforematch', onMatchFiles);
-      keysEl?.removeEventListener('beforematch', onMatchKeys);
       gitEl?.removeEventListener('beforematch', onMatchGit);
       assignmentsEl?.removeEventListener('beforematch', onMatchAssignments);
     };
@@ -199,9 +190,9 @@ export function LeftSidebar({
         ref={tablistRef}
         {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
         aria-label={t('sidebar.viewGroup')}
-        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-[0.95fr_1.25fr_0.85fr_0.7fr_1.45fr] border-b border-slate-200 bg-slate-50 text-[10.5px]"
+        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-[0.9fr_1.2fr_0.75fr_1.15fr] border-b border-slate-200 bg-slate-50 text-[10.5px]"
       >
-        {/* Five tabs in a 256px rail: text-only labels plus a wider last column so
+        {/* Four tabs in a 256px rail: text-only labels plus a wider last column so
             "Assignments" also fits in English without truncating. */}
         <button
           type="button"
@@ -224,17 +215,6 @@ export function LeftSidebar({
           className="dita-sidebar-tab relative flex min-w-0 items-center justify-center px-0.5 text-slate-600 hover:text-slate-900"
         >
           <span className="min-w-0 truncate">{t('sidebar.tab.map')}</span>
-        </button>
-        <button
-          type="button"
-          id={keysTabId}
-          aria-selected={activeTab === 'keys'}
-          {...(activeTab === 'keys' ? ({ focusgroupstart: '' } as Record<string, string>) : {})}
-          onClick={() => onChangeTab('keys')}
-          title="Keys"
-          className="dita-sidebar-tab relative flex min-w-0 items-center justify-center px-0.5 text-slate-600 hover:text-slate-900"
-        >
-          <span className="min-w-0 truncate">Keys</span>
         </button>
         <button
           type="button"
@@ -286,15 +266,6 @@ export function LeftSidebar({
           className="dita-sidebar-panel col-start-1 row-start-1"
         >
           <div className="h-full w-full overflow-hidden">{fileExplorerSlot}</div>
-        </div>
-        <div
-          ref={keysPanelRef}
-          role="tabpanel"
-          aria-labelledby={keysTabId}
-          hidden
-          className="dita-sidebar-panel col-start-1 row-start-1"
-        >
-          <div className="h-full w-full overflow-hidden">{keyspaceSlot}</div>
         </div>
         <div
           ref={gitPanelRef}

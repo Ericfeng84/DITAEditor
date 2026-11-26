@@ -4,7 +4,7 @@ import {
   type KeyspaceResult,
   type RawAttrs,
 } from '@dita/core';
-import { AlertTriangle, KeyRound, Search, X } from 'lucide-react';
+import { AlertTriangle, KeyRound, Plus, Search, X } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 
 export interface InsertKeyrefDialogProps {
@@ -13,6 +13,12 @@ export interface InsertKeyrefDialogProps {
   rootMapPath: string | null;
   onClose: () => void;
   onConfirm: (tagName: 'keyword' | 'ph' | 'xref' | 'term', attrs: RawAttrs, fallbackText?: string) => void;
+  canEditKeys?: boolean;
+  /** Opens the map-level New Key flow; the created key becomes the current selection. */
+  onRequestCreateKey?: (options: {
+    initialKeyName?: string;
+    onCreated: (qualifiedKey: string) => void;
+  }) => void;
 }
 
 export function InsertKeyrefDialog({
@@ -21,10 +27,13 @@ export function InsertKeyrefDialog({
   rootMapPath,
   onClose,
   onConfirm,
+  canEditKeys = false,
+  onRequestCreateKey,
 }: InsertKeyrefDialogProps) {
   const { t } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
+  const wasOpenRef = useRef(false);
 
   const [search, setSearch] = useState('');
   const [scopeFilter, setScopeFilter] = useState('__all__');
@@ -36,16 +45,20 @@ export function InsertKeyrefDialog({
     const dialog = dialogRef.current;
     if (!dialog) return;
     if (open) {
-      const keys = keyspace ? Object.keys(keyspace.keys).sort() : [];
-      setSelectedKey(keys[0] ?? '');
-      setSearch('');
-      setScopeFilter('__all__');
-      setTagName('keyword');
-      setFallbackText('');
+      // Reset only on open: a key created while open must stay selected.
+      if (!wasOpenRef.current) {
+        const keys = keyspace ? Object.keys(keyspace.keys).sort() : [];
+        setSelectedKey(keys[0] ?? '');
+        setSearch('');
+        setScopeFilter('__all__');
+        setTagName('keyword');
+        setFallbackText('');
+      }
       if (!dialog.open) dialog.showModal();
     } else if (dialog.open) {
       dialog.close();
     }
+    wasOpenRef.current = open;
   }, [open, keyspace]);
 
   useEffect(() => {
@@ -160,12 +173,44 @@ export function InsertKeyrefDialog({
               ))}
             </select>
           ) : null}
+          {canEditKeys && onRequestCreateKey ? (
+            <button
+              type="button"
+              onClick={() =>
+                onRequestCreateKey({
+                  initialKeyName: search.trim() || undefined,
+                  onCreated: (qualifiedKey) => setSelectedKey(qualifiedKey),
+                })
+              }
+              className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+            >
+              <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('keyref.newKey')}
+            </button>
+          ) : null}
         </div>
 
         {/* Available keys picker */}
         <div className="dita-scroller max-h-44 overflow-y-auto rounded-lg border border-slate-200 divide-y divide-slate-100">
           {filteredDefs.length === 0 ? (
-            <p className="p-4 text-center text-slate-400">{t('keyref.empty')}</p>
+            <div className="p-4 text-center text-slate-400">
+              <p>{t('keyref.empty')}</p>
+              {canEditKeys && onRequestCreateKey ? (
+                <button
+                  type="button"
+                  onClick={() =>
+                    onRequestCreateKey({
+                      initialKeyName: search.trim() || undefined,
+                      onCreated: (qualifiedKey) => setSelectedKey(qualifiedKey),
+                    })
+                  }
+                  className="mt-2 inline-flex items-center gap-1 rounded-lg border border-dashed border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                >
+                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
+                  {t('keyref.newKeyEmpty')}
+                </button>
+              ) : null}
+            </div>
           ) : (
             filteredDefs.map((def) => {
               const active = selectedKey === def.qualifiedKey;

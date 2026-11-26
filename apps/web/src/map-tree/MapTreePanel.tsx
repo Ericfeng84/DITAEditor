@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { Tree, type TreeApi } from 'react-arborist';
 import type { DitavalDisplayMode, ParsedDitaval } from '@dita/core';
 import { useI18n } from '../i18n/index.js';
@@ -12,6 +12,7 @@ import {
   Filter,
   FolderPlus,
   Heading,
+  KeyRound,
   Layers,
   Link2,
   Network,
@@ -65,6 +66,14 @@ export interface MapTreePanelProps {
   onRedoMap: (mapPath: string) => void;
   /** Publishing lives next to the map structure: the output is always the active root map. */
   onOpenPublish: () => void;
+  /** `tree` shows the structure, `keys` shows the keyspace of the same root map. */
+  viewMode: 'tree' | 'keys';
+  onChangeViewMode: (view: 'tree' | 'keys') => void;
+  keyCount: number;
+  /** The keyspace panel, hosted here so keys live next to the map that defines them. */
+  keyspaceSlot: ReactNode;
+  canEditKeys?: boolean;
+  onOpenNewKey: (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => void;
 }
 
 function useContainerDimensions(ref: React.RefObject<HTMLDivElement | null>) {
@@ -114,6 +123,12 @@ export function MapTreePanel({
   onUndoMap,
   onRedoMap,
   onOpenPublish,
+  viewMode,
+  onChangeViewMode,
+  keyCount,
+  keyspaceSlot,
+  canEditKeys = false,
+  onOpenNewKey,
 }: MapTreePanelProps) {
   const { t } = useI18n();
   const treeHostRef = useRef<HTMLDivElement | null>(null);
@@ -265,7 +280,8 @@ export function MapTreePanel({
           </button>
         </div>
 
-        {/* Action Strip */}
+        {/* Action Strip is tree-mode only: the Keys view is driven by the keyspace panel. */}
+        {viewMode === 'tree' ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-1">
           <button
             type="button"
@@ -279,8 +295,7 @@ export function MapTreePanel({
             title={t('mapTree.createMountedTooltip')}
             className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
           >
-            <FilePlus2 className="h-3 w-3" aria-hidden="true" />
-            <span>{t('mapTree.createMounted')}</span>
+            <FilePlus2 className="h-3 w-3" aria-hidden="true" />            <span>{t('mapTree.createMounted')}</span>
           </button>
           <button
             type="button"
@@ -365,6 +380,22 @@ export function MapTreePanel({
           )}
           <button
             type="button"
+            onClick={() =>
+              onOpenNewKey({
+                mapPath: rootMapPath,
+                parentPath: null,
+                parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
+              })
+            }
+            title={t('keyspace.newKeyTooltip')}
+            className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
+            hidden={!canEditKeys}
+          >
+            <KeyRound className="h-3 w-3" aria-hidden="true" />
+            <span>{t('keyspace.newKeyShort')}</span>
+          </button>
+          <button
+            type="button"
             onClick={onOpenPublish}
             title={t('mapTree.publishTooltip')}
             className="dita-mini-btn px-1.5 py-0.5 text-rose-700"
@@ -414,8 +445,49 @@ export function MapTreePanel({
             </button>
           </div>
         </div>
+        ) : null}
       </div>
 
+      {/* Structure / Keyspace switch — Keys live with the map that defines them */}
+      <div className="border-b border-slate-100 px-2.5 py-1.5">
+        <div
+          role="tablist"
+          aria-label={t('mapPanel.switchAria')}
+          className="flex items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'tree'}
+            onClick={() => onChangeViewMode('tree')}
+            className={`flex-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors ${
+              viewMode === 'tree'
+                ? 'bg-white text-blue-800 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {t('mapPanel.tree')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'keys'}
+            onClick={() => onChangeViewMode('keys')}
+            className={`flex-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors ${
+              viewMode === 'keys'
+                ? 'bg-white text-blue-800 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {t('mapPanel.keys', { count: keyCount })}
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'keys' ? (
+        <div className="min-h-0 flex-1 overflow-hidden">{keyspaceSlot}</div>
+      ) : (
+        <>
       {/* DITAVAL Condition Projection Control */}
       <div className="border-b border-slate-100 px-2.5 py-1.5">
         <div className="flex min-w-0 items-center gap-1">
@@ -603,6 +675,9 @@ export function MapTreePanel({
         {t('mapTree.footerHint')}
       </div>
 
+        </>
+      )}
+
       {/* Native Popover Context Menu */}
       <MapNodeContextMenu
         target={menuTarget}
@@ -616,6 +691,12 @@ export function MapTreePanel({
         onMountExisting={(node) => onOpenMountExisting(getMountParentForNode(node))}
         onInsertStructure={(node, tagName) => {
           const parent = getMountParentForNode(node);
+          // A `<keydef>` needs a key name, an href and a text value, so route it through the
+          // key dialog instead of inserting a bare skeleton element.
+          if (tagName === 'keydef') {
+            onOpenNewKey(parent);
+            return;
+          }
           onInsertStructure(parent.mapPath, parent.parentPath, tagName);
         }}
         onInspectNode={(node) =>

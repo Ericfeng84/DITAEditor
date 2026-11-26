@@ -14,6 +14,7 @@ import type { ParsedXmlDocument, XmlAttributeEntry } from '../xml/types.js';
 import { findDomElementByPath } from '../prosemirror/helpers.js';
 
 const ELEMENT_NODE = 1;
+const TEXT_NODE = 3;
 const COMMENT_NODE = 8;
 const PROCESSING_INSTRUCTION_NODE = 7;
 
@@ -21,6 +22,16 @@ const XML_NS = 'http://www.w3.org/XML/1998/namespace';
 const XMLNS_NS = 'http://www.w3.org/2000/xmlns/';
 
 export type DitaMapKind = 'map' | 'bookmap';
+
+/**
+ * Canonical DITA 1.3 key name shape (an NMTOKEN without `#`, `/`, whitespace or `$`).
+ * Every Key management surface validates user input against this single pattern so a new or
+ * renamed key can never produce XML that DITA-OT would reject.
+ */
+export const DITA_KEY_NAME_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
+
+/** Where a map node's human-readable key value comes from, in DITA resolution priority order. */
+export type DitaMapInlineTextSource = 'keyword' | 'linktext' | 'navtitle' | 'none';
 
 export interface DitaMapTreeNode {
   /** Deterministic node identifier within this map (`node:<elementPath>`). */
@@ -40,6 +51,14 @@ export interface DitaMapTreeNode {
   topicType?: string;
   rawAttrs: XmlAttributeEntry[];
   isSubmapRef: boolean;
+  /**
+   * Human-readable key/link value of this map entry, extracted with the same priority as the
+   * Keyspace indexer: `<topicmeta>/<keywords>/<keyword>` > `<topicmeta>/<linktext>` >
+   * `<topicmeta>/<navtitle>` > `@navtitle`.
+   */
+  inlineText?: string;
+  /** Element (or attribute) that supplied {@link inlineText}; `'none'` when there is no value. */
+  inlineTextSource?: DitaMapInlineTextSource;
   line?: number;
   column?: number;
   /** Empty array `[]` for container-capable nodes so tree widgets allow dropping inside them. */
@@ -174,6 +193,35 @@ function isSubmapElement(tagName: string, href?: string, format?: string): boole
   if (tagName === 'mapref' || format === 'ditamap') return true;
   if (!href) return false;
   return /\.(ditamap|bookmap)(#|$)/i.test(href.trim());
+}
+
+/**
+ * Extract the inline key value of a map entry exactly like the Keyspace indexer does, so the Map
+ * tree, the inspector and the Keyspace panel always agree on which element holds the value.
+ */
+function extractMapNodeInlineText(el: slimdom.Element): {
+  text?: string;
+  source: DitaMapInlineTextSource;
+} {
+  const topicmeta = findDirectChildElement(el, 'topicmeta');
+  if (topicmeta) {
+    const keywords = findDirectChildElement(topicmeta, 'keywords');
+    if (keywords) {
+      const keywordText = extractElementPlainText(findDirectChildElement(keywords, 'keyword'));
+      if (keywordText) return { text: keywordText, source: 'keyword' };
+    }
+
+    const linktextText = extractElementPlainText(findDirectChildElement(topicmeta, 'linktext'));
+    if (linktextText) return { text: linktextText, source: 'linktext' };
+
+    const navtitleText = extractElementPlainText(findDirectChildElement(topicmeta, 'navtitle'));
+    if (navtitleText) return { text: navtitleText, source: 'navtitle' };
+  }
+
+  const attrNavtitle = el.getAttribute('navtitle')?.trim();
+  if (attrNavtitle) return { text: attrNavtitle, source: 'navtitle' };
+
+  return { source: 'none' };
 }
 
 function resolveMapNodeLabel(el: slimdom.Element, rawAttrs: XmlAttributeEntry[]): string {
@@ -404,6 +452,7 @@ export function parseDitaMap(xml: string): ParsedDitaMap {
       const metaNavtitle = topicmeta
         ? extractElementPlainText(findDirectChildElement(topicmeta, 'navtitle'))
         : '';
+      const inline = extractMapNodeInlineText(el);
 
       if (href) {
         references.push({
@@ -437,6 +486,8 @@ export function parseDitaMap(xml: string): ParsedDitaMap {
         topicType: getRawAttr(rawAttrs, 'type'),
         rawAttrs,
         isSubmapRef: submap,
+        inlineText: inline.text,
+        inlineTextSource: inline.source,
         line: range.open?.line,
         column: range.open?.column,
         children: canContainChildren
@@ -646,6 +697,8 @@ export interface InsertMapNodeOptions {
   navtitle?: string;
   /** Optional inline keyword text nested inside `<topicmeta><keywords><keyword>...</keyword></keywords></topicmeta>` (useful for `<keydef>`). */
   keydefKeyword?: string;
+  /** Optional `<topicmeta><linktext>...</linktext>` value (useful for `<keydef>` bound to a URL/file). */
+  keydefLinktext?: string;
   /** Store `navtitle` inside `<topicmeta><navtitle>` instead of `@navtitle` attribute. */
   useTopicmetaNavtitle?: boolean;
 }
@@ -670,6 +723,8 @@ export function insertMapNode(
 
   let finalAttrs: XmlAttributeEntry[] = [...(options.attrs ?? [])];
   const trimmedNavtitle = options.navtitle?.trim();
+  const trimmedLinktext = options.keydefLinktext?.trim();
+  const trimmedKeyword = options.keydefKeyword?.trim();
 
   if (trimmedNavtitle && !options.useTopicmetaNavtitle && !getRawAttr(finalAttrs, 'navtitle')) {
     finalAttrs = setRawAttr(finalAttrs, 'navtitle', trimmedNavtitle);
@@ -677,17 +732,27 @@ export function insertMapNode(
 
   applyElementAttrsPreservingOrder(doc, el, finalAttrs);
 
-  if ((trimmedNavtitle && options.useTopicmetaNavtitle) || options.keydefKeyword?.trim()) {
+  if (
+    (trimmedNavtitle && options.useTopicmetaNavtitle) ||
+    trimmedLinktext ||
+    trimmedKeyword
+  ) {
     const topicmeta = doc.createElementNS(null, 'topicmeta');
+    // DITA 1.3 <topicmeta> order: <navtitle> -> <linktext> -> <keywords>
     if (trimmedNavtitle && options.useTopicmetaNavtitle) {
       const navtitleEl = doc.createElementNS(null, 'navtitle');
       navtitleEl.appendChild(doc.createTextNode(trimmedNavtitle));
       topicmeta.appendChild(navtitleEl);
     }
-    if (options.keydefKeyword?.trim()) {
+    if (trimmedLinktext) {
+      const linktextEl = doc.createElementNS(null, 'linktext');
+      linktextEl.appendChild(doc.createTextNode(trimmedLinktext));
+      topicmeta.appendChild(linktextEl);
+    }
+    if (trimmedKeyword) {
       const keywords = doc.createElementNS(null, 'keywords');
       const kw = doc.createElementNS(null, 'keyword');
-      kw.appendChild(doc.createTextNode(options.keydefKeyword.trim()));
+      kw.appendChild(doc.createTextNode(trimmedKeyword));
       keywords.appendChild(kw);
       topicmeta.appendChild(keywords);
     }
@@ -876,6 +941,219 @@ function setElementPlainText(
   }
   el.appendChild(doc.createTextNode(text));
   return true;
+}
+
+/** DITA 1.3 `<topicmeta>` child order; used to insert a missing metadata element in the right slot. */
+const TOPICMETA_CHILD_ORDER: readonly string[] = [
+  'navtitle',
+  'linktext',
+  'shortdesc',
+  'keywords',
+  'author',
+  'critdates',
+  'othermeta',
+];
+
+function hasElementChild(el: slimdom.Element): boolean {
+  for (const child of el.childNodes) {
+    if (child.nodeType === ELEMENT_NODE) return true;
+  }
+  return false;
+}
+
+/** True when an element holds no element, comment, or PI children (only text/whitespace). */
+function isEmptyMetadataContainer(el: slimdom.Element): boolean {
+  for (const child of el.childNodes) {
+    if (
+      child.nodeType === ELEMENT_NODE ||
+      child.nodeType === COMMENT_NODE ||
+      child.nodeType === PROCESSING_INSTRUCTION_NODE
+    ) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * Drop indentation-only text so a map entry that just lost its last child serializes self-closing
+ * (`<keydef keys="x"/>`) instead of emitting empty indented lines.
+ */
+function collapseFormattingWhitespace(el: slimdom.Element): void {
+  if (!isEmptyMetadataContainer(el)) return;
+  for (const child of Array.from(el.childNodes)) {
+    if (child.nodeType === TEXT_NODE) el.removeChild(child);
+  }
+}
+
+/**
+ * Insert `child` beside its siblings following DITA's element order, so a newly created
+ * `<navtitle>` / `<linktext>` / `<keywords>` never lands after a later-slot sibling.
+ */
+function insertChildInOrder(parent: slimdom.Element, child: slimdom.Element): void {
+  const childRank = TOPICMETA_CHILD_ORDER.indexOf(child.tagName);
+
+  if (childRank >= 0) {
+    for (const sibling of parent.childNodes) {
+      if (sibling.nodeType !== ELEMENT_NODE) continue;
+      const rank = TOPICMETA_CHILD_ORDER.indexOf((sibling as slimdom.Element).tagName);
+      if (rank > childRank) {
+        parent.insertBefore(child, sibling);
+        return;
+      }
+    }
+  }
+
+  const last = parent.lastChild;
+  if (last && last.nodeType === TEXT_NODE && (last.nodeValue ?? '').trim().length === 0) {
+    parent.insertBefore(child, last);
+    return;
+  }
+  parent.appendChild(child);
+}
+
+/**
+ * Create `<topicmeta>` as the first child of a map entry: DITA 1.3 places `topicmeta` before every
+ * navigational child, so the new metadata element is inserted ahead of the existing tree children.
+ */
+function insertTopicmetaFirst(target: slimdom.Element, topicmeta: slimdom.Element): void {
+  for (const child of target.childNodes) {
+    if (child.nodeType !== ELEMENT_NODE) continue;
+    target.insertBefore(topicmeta, child);
+    return;
+  }
+  target.appendChild(topicmeta);
+}
+
+/**
+ * Set, replace, or clear the inline text value of a key (`<topicmeta>/<keywords>/<keyword>` for
+ * `'keyword'`, `<topicmeta>/<linktext>` for `'linktext'`) without touching anything else.
+ *
+ * - Non-empty value: an existing pure-text holder is updated in place (attributes kept); when the
+ *   holder mixes inline markup the edit is refused (`changed: false`). A missing holder is created
+ *   minimally — `<topicmeta>` is added first (before non-metadata children), then `<linktext>` or
+ *   `<keywords><keyword>` at its DITA 1.3 position inside `<topicmeta>`.
+ * - Empty / `null` value: a pure-text holder is removed, and `<keywords>` / `<topicmeta>` are
+ *   dropped once they contain no element/comment/PI children any more. Nothing to remove means
+ *   `changed: false`, so callers can skip a save.
+ */
+export function upsertMapKeyInlineText(
+  xml: string,
+  targetPath: readonly number[],
+  source: 'keyword' | 'linktext',
+  value: string | null,
+): { xml: string; changed: boolean } {
+  if (!targetPath || targetPath.length === 0) return { xml, changed: false };
+
+  const trimmed = value?.trim() ?? '';
+  const parsed = parseXml(xml, { position: false });
+  const root = parsed.document.documentElement;
+  if (!root) return { xml, changed: false };
+
+  const target = findDomElementByPath(parsed.document, targetPath);
+  if (!target || target === root) return { xml, changed: false };
+
+  const doc = parsed.document;
+  const topicmeta = findDirectChildElement(target, 'topicmeta');
+  const keywords = topicmeta ? findDirectChildElement(topicmeta, 'keywords') : null;
+  const holder =
+    source === 'keyword'
+      ? keywords
+        ? findDirectChildElement(keywords, 'keyword')
+        : null
+      : topicmeta
+        ? findDirectChildElement(topicmeta, 'linktext')
+        : null;
+
+  if (trimmed) {
+    if (holder) {
+      if (!setElementPlainText(doc, holder, trimmed)) return { xml, changed: false };
+      return { xml: serializeXml(parsed), changed: true };
+    }
+
+    let targetTopicmeta = topicmeta;
+    if (!targetTopicmeta) {
+      targetTopicmeta = doc.createElementNS(null, 'topicmeta');
+      insertTopicmetaFirst(target, targetTopicmeta);
+    }
+
+    if (source === 'keyword') {
+      let targetKeywords = keywords;
+      if (!targetKeywords) {
+        targetKeywords = doc.createElementNS(null, 'keywords');
+        insertChildInOrder(targetTopicmeta, targetKeywords);
+      }
+      const kw = doc.createElementNS(null, 'keyword');
+      kw.appendChild(doc.createTextNode(trimmed));
+      targetKeywords.appendChild(kw);
+    } else {
+      const linktextEl = doc.createElementNS(null, 'linktext');
+      linktextEl.appendChild(doc.createTextNode(trimmed));
+      insertChildInOrder(targetTopicmeta, linktextEl);
+    }
+
+    return { xml: serializeXml(parsed), changed: true };
+  }
+
+  if (!holder) return { xml, changed: false };
+  if (hasElementChild(holder)) return { xml, changed: false };
+
+  holder.parentNode?.removeChild(holder);
+
+  if (source === 'keyword' && keywords && isEmptyMetadataContainer(keywords)) {
+    keywords.parentNode?.removeChild(keywords);
+  }
+  if (topicmeta && isEmptyMetadataContainer(topicmeta)) {
+    topicmeta.parentNode?.removeChild(topicmeta);
+  }
+
+  collapseFormattingWhitespace(target);
+
+  return { xml: serializeXml(parsed), changed: true };
+}
+
+/**
+ * Delete one key from a map entry's `@keys` attribute.
+ *
+ * A `<keydef>` that defines exactly this one key is removed entirely (`removedElement: true`).
+ * Everything else — a `<keydef keys="a b">` defining several keys, or a navigational element such
+ * as `<topicref keys="a">` — only loses that token, and `@keys` itself is dropped when it would
+ * become empty. Attribute order, DOCTYPE, comments and PIs stay byte-identical.
+ */
+export function removeMapNodeKey(
+  xml: string,
+  targetPath: readonly number[],
+  keyName: string,
+): { xml: string; changed: boolean; removedElement: boolean } {
+  const key = keyName.trim();
+  const noop = { xml, changed: false, removedElement: false };
+  if (!targetPath || targetPath.length === 0 || !key) return noop;
+
+  const parsed = parseXml(xml, { position: false });
+  const root = parsed.document.documentElement;
+  if (!root) return noop;
+
+  const target = findDomElementByPath(parsed.document, targetPath);
+  if (!target || target === root) return noop;
+
+  const existing = extractElementAttrs(target);
+  const keysEntry = existing.find((entry) => entry.name === 'keys' && !entry.namespaceURI);
+  if (!keysEntry) return noop;
+
+  const tokens = keysEntry.value.split(/\s+/).filter(Boolean);
+  if (!tokens.includes(key)) return noop;
+
+  if (target.tagName === 'keydef' && tokens.length === 1) {
+    if (!target.parentNode) return noop;
+    target.parentNode.removeChild(target);
+    return { xml: serializeXml(parsed), changed: true, removedElement: true };
+  }
+
+  const remaining = tokens.filter((token) => token !== key);
+  const next = setRawAttr(existing, 'keys', remaining.length > 0 ? remaining.join(' ') : null);
+  applyElementAttrsPreservingOrder(parsed.document, target, next);
+
+  return { xml: serializeXml(parsed), changed: true, removedElement: false };
 }
 
 /**

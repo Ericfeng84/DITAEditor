@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   computeRelativeDitaHref,
+  DITA_KEY_NAME_PATTERN,
+  DITA_MAP_CONTAINER_NODE_TAGS,
   evaluateElementConditions,
   getAttributesForElement,
   getAttributeDescription,
@@ -15,6 +17,8 @@ import {
   type DitaAttributeSpec,
   type DitaMapTreeNode,
   type DitaProfilingAttrName,
+  type KeyDefinition,
+  type KeyspaceResult,
   type ParsedDitaval,
 } from '@dita/core';
 import {
@@ -22,6 +26,7 @@ import {
   ChevronDown,
   ChevronRight,
   Code2,
+  KeyRound,
   Plus,
   ShieldCheck,
   Tag,
@@ -50,6 +55,21 @@ export interface MapNodeInspectorProps {
   onOpenTargetFile: (filePath: string) => void;
   onJumpToSource: (mapPath: string, line?: number) => void;
   onDeleteNode: (mapPath: string, elementPath: number[]) => void;
+  keyspace?: KeyspaceResult | null;
+  canEditKeys?: boolean;
+  /** Rewrites the `<keyword>`/`<linktext>` text of the selected definition; false = failed. */
+  onUpsertKeyText?: (
+    mapPath: string,
+    elementPath: number[],
+    source: 'keyword' | 'linktext',
+    value: string | null,
+  ) => Promise<boolean>;
+  onOpenNewKey?: (parent: {
+    mapPath: string;
+    parentPath: number[] | null;
+    parentLabel: string;
+  }) => void;
+  onOpenKeysView?: () => void;
 }
 
 const GROUP_SUBTITLES: Record<DitaAttributeGroup, string> = {
@@ -99,6 +119,11 @@ export function MapNodeInspector({
   onOpenTargetFile,
   onJumpToSource,
   onDeleteNode,
+  keyspace = null,
+  canEditKeys = false,
+  onUpsertKeyText,
+  onOpenNewKey,
+  onOpenKeysView,
 }: MapNodeInspectorProps) {
   const { t, locale } = useI18n();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -112,6 +137,8 @@ export function MapNodeInspector({
   const [customAttrName, setCustomAttrName] = useState('');
   const [customAttrValue, setCustomAttrValue] = useState('');
 
+  // `node` is resolved first so the drafts below can start from the real XML value on the very
+  // first render (the sync effect then keeps them aligned when the selection or file changes).
   const parsedMap = useMemo(() => {
     if (!selected) return null;
     const buf = mapBuffers[selected.mapPath];
@@ -122,6 +149,34 @@ export function MapNodeInspector({
       return null;
     }
   }, [selected, mapBuffers]);
+
+  const selectionKey = selected
+    ? `${selected.mapPath}#${selected.elementPath?.join('.') ?? 'root'}`
+    : '';
+
+  const node = useMemo(() => {
+    if (!selected?.elementPath || !parsedMap) return null;
+    return findTreeNodeByPath(parsedMap.nodes, selected.elementPath);
+  }, [selected, parsedMap]);
+
+  const [keysDraft, setKeysDraft] = useState(() => node?.keys ?? '');
+  const [keysError, setKeysError] = useState<string | null>(null);
+  const [inlineDraft, setInlineDraft] = useState(() => node?.inlineText ?? '');
+  const [inlineSource, setInlineSource] = useState<'keyword' | 'linktext'>(() =>
+    node?.inlineTextSource === 'linktext' ? 'linktext' : 'keyword',
+  );
+  const [inlineSaving, setInlineSaving] = useState(false);
+  const [inlineMessage, setInlineMessage] = useState<{ tone: 'ok' | 'error'; text: string } | null>(null);
+
+  // Drafts follow the underlying XML value, so an external edit (or a check-in) re-syncs them.
+  useEffect(() => {
+    setKeysDraft(node?.keys ?? '');
+    setInlineDraft(node?.inlineText ?? '');
+    setInlineSource(node?.inlineTextSource === 'linktext' ? 'linktext' : 'keyword');
+    setKeysError(null);
+    setInlineMessage(null);
+    setInlineSaving(false);
+  }, [selectionKey, node?.keys, node?.inlineText, node?.inlineTextSource]);
 
   if (!selected || !parsedMap) {
     return (
@@ -141,7 +196,6 @@ export function MapNodeInspector({
   }
 
   const isRoot = selected.elementPath === null;
-  const node = isRoot ? null : findTreeNodeByPath(parsedMap.nodes, selected.elementPath!);
   if (!isRoot && !node) {
     return (
       <aside className="flex h-full flex-col border-l border-slate-200 bg-slate-50/70 p-4 text-xs text-slate-400">
@@ -158,6 +212,14 @@ export function MapNodeInspector({
   const conditionEval = activeDitaval
     ? evaluateElementConditions(rawAttrs, activeDitaval)
     : null;
+
+  const keysAttr = getRawAttr(rawAttrs, 'keys') ?? '';
+  const isKeyDefining = !isRoot && (tagName === 'keydef' || keysAttr.trim().length > 0);
+  const isContainer = isRoot || DITA_MAP_CONTAINER_NODE_TAGS.has(tagName);
+  const keyTokens = keysAttr.split(/\s+/).filter(Boolean);
+  const resolvedDefs: KeyDefinition[] = keyTokens
+    .map((token) => keyspace?.keys[token])
+    .filter((def): def is KeyDefinition => Boolean(def));
 
   const grouped = new Map<DitaAttributeGroup, DitaAttributeSpec[]>();
   for (const attrSpec of allAttrSpecs) {
@@ -183,6 +245,36 @@ export function MapNodeInspector({
     onUpdateAttr(selected.mapPath, selected.elementPath, name, customAttrValue);
     setCustomAttrName('');
     setCustomAttrValue('');
+  };
+
+  const commitKeysAttr = () => {
+    if (!canEditKeys || !node) return;
+    const next = keysDraft.trim().replace(/\s+/g, ' ');
+    const tokens = next ? next.split(' ') : [];
+    const invalid = tokens.find((token) => !DITA_KEY_NAME_PATTERN.test(token));
+    if (next && invalid) {
+      setKeysError(t('mapNodeInspector.keysInvalid'));
+      return;
+    }
+    setKeysError(null);
+    if (next === (node.keys ?? '')) return;
+    onUpdateAttr(selected.mapPath, selected.elementPath, 'keys', next || null);
+  };
+
+  const saveInlineText = async (value: string | null) => {
+    if (!onUpsertKeyText || isRoot) return;
+    setInlineSaving(true);
+    const ok = await onUpsertKeyText(
+      selected.mapPath,
+      selected.elementPath!,
+      inlineSource,
+      value,
+    );
+    setInlineSaving(false);
+    setInlineMessage({
+      tone: ok ? 'ok' : 'error',
+      text: ok ? t('mapNodeInspector.inlineTextSaved') : t('mapNodeInspector.inlineTextFailed'),
+    });
   };
 
   return (
@@ -225,6 +317,38 @@ export function MapNodeInspector({
             <Code2 className="h-3 w-3" aria-hidden="true" />
             {t('mapNodeInspector.locateSource')}
           </button>
+          {isContainer && canEditKeys && onOpenNewKey ? (
+            <button
+              type="button"
+              onClick={() =>
+                onOpenNewKey({
+                  mapPath: selected.mapPath,
+                  parentPath: isRoot ? null : selected.elementPath,
+                  parentLabel: isRoot
+                    ? parsedMap.title
+                    : (node?.navtitle ?? node?.label ?? tagName),
+                })
+              }
+              title={t('mapNodeInspector.newKey')}
+              className="dita-mini-btn text-blue-700"
+            >
+              <KeyRound className="h-3 w-3" aria-hidden="true" />
+              {t('mapNodeInspector.newKey')}
+            </button>
+          ) : null}
+          {isRoot && onOpenKeysView ? (
+            <button
+              type="button"
+              onClick={onOpenKeysView}
+              title={t('mapNodeInspector.openKeysView')}
+              className="dita-mini-btn text-slate-700"
+            >
+              <KeyRound className="h-3 w-3" aria-hidden="true" />
+              {t('mapNodeInspector.keysCount', {
+                count: keyspace ? Object.keys(keyspace.keys).length : 0,
+              })}
+            </button>
+          ) : null}
           {!isRoot ? (
             <button
               type="button"
@@ -256,6 +380,146 @@ export function MapNodeInspector({
                 onChange={(e) => onUpdateRootTitle(selected.mapPath, e.target.value)}
                 className="w-full rounded-md border border-slate-200 px-2 py-1 text-xs focus:border-blue-500 focus:outline-none"
               />
+            </div>
+          ) : isKeyDefining ? (
+            <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/40 p-2.5">
+              <div className="flex items-center gap-1.5">
+                <KeyRound className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
+                <span className="text-[11px] font-semibold text-slate-800">
+                  {t('mapNodeInspector.keysTitle')}
+                </span>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="map-key-keys-input"
+                  className="mb-1 block text-[10.5px] font-medium text-slate-600"
+                >
+                  {t('mapNodeInspector.keysLabel')}
+                </label>
+                <input
+                  id="map-key-keys-input"
+                  type="text"
+                  value={keysDraft}
+                  disabled={!canEditKeys}
+                  onChange={(e) => {
+                    setKeysDraft(e.target.value);
+                    setKeysError(null);
+                  }}
+                  onBlur={commitKeysAttr}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      commitKeysAttr();
+                    }
+                  }}
+                  aria-invalid={keysError ? true : undefined}
+                  spellCheck={false}
+                  className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-900 focus:border-blue-500 focus:outline-none disabled:bg-slate-100"
+                />
+                <p className="mt-1 text-[10px] text-slate-400">
+                  {t('mapNodeInspector.keysHint')}
+                </p>
+                {keysError ? (
+                  <p className="mt-1 text-[10.5px] font-medium text-rose-600">{keysError}</p>
+                ) : null}
+                {resolvedDefs.length > 0 ? (
+                  <div className="mt-1 space-y-0.5">
+                    {resolvedDefs.map((def) => (
+                      <p key={def.qualifiedKey} className="flex items-center gap-1 text-[10px] text-slate-500">
+                        <code className="rounded bg-blue-100 px-1 font-mono text-blue-900">
+                          {def.qualifiedKey || def.key}
+                        </code>
+                        <span>
+                          {def.keyscope
+                            ? t('mapNodeInspector.resolvedScope', { scope: def.keyscope })
+                            : t('keyspace.scope.global')}
+                        </span>
+                        {def.shadowedCount > 0 ? (
+                          <span className="rounded bg-amber-100 px-1 font-mono text-amber-800">
+                            {t('mapNodeInspector.shadowedCount', { count: def.shadowedCount })}
+                          </span>
+                        ) : null}
+                      </p>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              {canEditKeys && onUpsertKeyText ? (
+                <div>
+                  <div className="mb-1 flex items-center justify-between gap-1">
+                    <label
+                      htmlFor="map-key-inline-text-input"
+                      className="text-[10.5px] font-medium text-slate-600"
+                    >
+                      {t('mapNodeInspector.inlineTextTitle')}
+                    </label>
+                    <select
+                      aria-label={t('mapNodeInspector.inlineTextSource')}
+                      value={inlineSource}
+                      onChange={(e) => setInlineSource(e.target.value as 'keyword' | 'linktext')}
+                      className="rounded border border-slate-200 bg-white px-1 py-0.5 font-mono text-[10px] text-slate-700 focus:border-blue-500 focus:outline-none"
+                    >
+                      <option value="keyword">{t('mapNodeInspector.sourceKeyword')}</option>
+                      <option value="linktext">{t('mapNodeInspector.sourceLinktext')}</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <input
+                      id="map-key-inline-text-input"
+                      type="text"
+                      value={inlineDraft}
+                      placeholder={t('mapNodeInspector.inlineTextPlaceholder')}
+                      onChange={(e) => {
+                        setInlineDraft(e.target.value);
+                        setInlineMessage(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void saveInlineText(inlineDraft.trim() || null);
+                        }
+                      }}
+                      className="min-w-0 flex-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] focus:border-blue-500 focus:outline-none"
+                    />
+                    <button
+                      type="button"
+                      disabled={inlineSaving}
+                      onClick={() => void saveInlineText(inlineDraft.trim() || null)}
+                      className="shrink-0 rounded-md bg-blue-600 px-2 py-1 text-[10.5px] font-semibold text-white hover:bg-blue-700 disabled:opacity-45"
+                    >
+                      {t('mapNodeInspector.inlineTextSave')}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={inlineSaving}
+                      onClick={() => {
+                        setInlineDraft('');
+                        void saveInlineText(null);
+                      }}
+                      className="shrink-0 rounded-md border border-slate-200 bg-white px-2 py-1 text-[10.5px] font-medium text-slate-600 hover:bg-slate-50 disabled:opacity-45"
+                    >
+                      {t('mapNodeInspector.inlineTextClear')}
+                    </button>
+                  </div>
+                  {inlineMessage ? (
+                    <p
+                      className={`mt-1 text-[10.5px] font-medium ${
+                        inlineMessage.tone === 'ok' ? 'text-emerald-700' : 'text-rose-600'
+                      }`}
+                    >
+                      {inlineMessage.text}
+                    </p>
+                  ) : null}
+                </div>
+              ) : node?.inlineText ? (
+                <p className="rounded border border-slate-200 bg-white px-2 py-1 text-[11px] text-slate-700">
+                  {node.inlineText}
+                </p>
+              ) : null}
+
+              <p className="text-[10px] text-slate-400">{t('mapNodeInspector.hrefHint')}</p>
             </div>
           ) : (
             <div>

@@ -927,6 +927,7 @@ const ELEMENT_SPECIFIC_ATTRS: Readonly<Record<string, readonly DitaAttributeSpec
   ],
   keydef: [
     { name: 'keys', label: 'Keys', group: 'element', required: true, description: 'Key name(s) defined by this entry', placeholder: 'prod_name' },
+    { name: 'keyscope', label: 'Key Scope', group: 'element', description: 'Scoped namespace prefix for this key definition' },
     { name: 'href', label: 'Target Href', group: 'element', description: 'Optional target topic, image, or external URL', placeholder: 'https://example.com' },
     { name: 'format', label: 'Format', group: 'element', description: 'Target format', values: ['dita', 'ditamap', 'html', 'pdf', 'png', 'svg'] },
     { name: 'scope', label: 'Scope', group: 'element', description: 'Target scope', values: ['local', 'peer', 'external'] },

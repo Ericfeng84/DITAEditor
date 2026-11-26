@@ -187,6 +187,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
           title={[
             data.label,
             data.href ? `href: ${data.href}` : null,
+            data.inlineText ? `text: ${data.inlineText}` : null,
             data.isSubmapChild ? t('mapNode.submapOwner', { path: data.ownerMapPath }) : null,
             data.profilingSummary
               ? t('mapNode.profiling', { attrs: data.profilingSummary.map((p) => `${p.name}=${p.values.join(' ')}`).join(', ') })
@@ -204,6 +205,24 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
         >
           {rowLabel}
         </span>
+
+        {/* `<keydef>` rows preview their bound value so keys are readable at a glance */}
+        {data.tagName === 'keydef' ? (
+          (() => {
+            const keyPreview = data.inlineText ?? data.href;
+            if (!keyPreview) return null;
+            return (
+              <span
+                className="max-w-[45%] shrink-0 truncate rounded bg-slate-100 px-1 py-0.2 font-mono text-[9px] font-medium text-slate-600"
+                title={keyPreview}
+              >
+                {data.inlineText
+                  ? t('mapNode.keyTextPreview', { text: data.inlineText })
+                  : keyPreview}
+              </span>
+            );
+          })()
+        ) : null}
 
         {/* DITAVAL Flag / Excluded / Profiling pills */}
         {isExcluded ? (

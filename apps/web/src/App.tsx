@@ -21,6 +21,7 @@ import { FileExplorerPanel } from './components/FileExplorerPanel';
 import { GitPanel } from './components/GitPanel';
 import { MergeDialog } from './components/MergeDialog';
 import { InsertKeyrefDialog } from './components/InsertKeyrefDialog';
+import { NewKeyDialog, type NewKeyDialogContext } from './components/NewKeyDialog';
 import { KeyspacePanel } from './components/KeyspacePanel';
 import { LeftSidebar } from './components/LeftSidebar';
 import { LockStatusBar } from './components/LockStatusBar';
@@ -69,7 +70,7 @@ import {
   type CompositeMapTreeNode,
 } from './map-tree/map-tree-utils';
 import { MountExistingDialog } from './map-tree/MountExistingDialog';
-import { resolveFileEditability } from './services/lock-helpers';
+import { canManageMapKeys, resolveFileEditability } from './services/lock-helpers';
 import type { PublishDiagnostic, StrictValidationInput } from './services/publish-api';
 import {
   resolveWorkspaceAssetUrl,
@@ -124,6 +125,11 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const activeDitaval = useEditorStore((s) => s.activeDitaval);
   const ditavalDisplayMode = useEditorStore((s) => s.ditavalDisplayMode);
   const keyspace = useEditorStore((s) => s.keyspace);
+  const mapPanelView = useEditorStore((s) => s.mapPanelView);
+  const setMapPanelView = useEditorStore((s) => s.setMapPanelView);
+  const createMapKey = useEditorStore((s) => s.createMapKey);
+  const deleteMapKey = useEditorStore((s) => s.deleteMapKey);
+  const upsertMapNodeKeyText = useEditorStore((s) => s.upsertMapNodeKeyText);
   const topicIndices = useEditorStore((s) => s.topicIndices);
   const profilingCatalog = useEditorStore((s) => s.profilingCatalog);
   const documentOverlays = useEditorStore((s) => s.documentOverlays);
@@ -374,6 +380,29 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [currentUser?.role, currentUser?.id, activeTabPath, locks, locale],
   );
   const canEdit = workspaceMode === 'memory' ? true : editability.editable;
+  // Key CRUD writes the `.ditamap`, so it must not follow the open topic's check-out state; the
+  // store actions check the map out themselves through `ensureMapEditable(mapPath)`.
+  const canManageKeys = canManageMapKeys({ workspaceMode, role: currentUser?.role });
+
+  /** `NewKeyDialog` placement plus the optional binding callback for resolved keyrefs. */
+  type NewKeyRequest = NewKeyDialogContext & { onCreated?: (qualifiedKey: string) => void };
+  const [newKeyRequest, setNewKeyRequest] = useState<NewKeyRequest | null>(null);
+  const openNewKey = useCallback(
+    (request: NewKeyRequest) => {
+      setNewKeyRequest(request);
+    },
+    [],
+  );
+  const availableKeyFiles = useMemo(
+    () => collectWorkspaceFilesByKind(fileTree, new Set(['topic', 'ditamap', 'bookmap', 'image'])),
+    [fileTree],
+  );
+  const keyCount = keyspace ? Object.keys(keyspace.keys).length : 0;
+  const openKeysView = useCallback(() => {
+    setLeftSidebarOpen(true);
+    setLeftSidebarTab('map');
+    setMapPanelView('keys');
+  }, [setLeftSidebarOpen, setLeftSidebarTab, setMapPanelView]);
   const aiApplyMode = useMemo(
     () =>
       resolveAiApplyMode({
@@ -1177,26 +1206,48 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                     onUndoMap={undoMap}
                     onRedoMap={redoMap}
                     onOpenPublish={() => setPublishOpen(true)}
-                  />
-                }
-                keyspaceSlot={
-                  <KeyspacePanel
-                    rootMapPath={activeRootMapPath}
-                    keyspace={keyspace}
-                    canInsertInTopic={Boolean(showTopicVisual)}
-                    canEditKeys={canEdit}
-                    onInsertKeyref={(keyName) => {
-                      visualRef.current?.toggleInline('keyword', [
-                        { name: 'keyref', value: keyName, namespaceURI: null },
-                      ]);
-                    }}
-                    onRenameKey={(def, nextKey) => renameMapKey(def, nextKey)}
-                    onUpdateKeyValue={(def, nextValue) => updateMapKeyValue(def, nextValue)}
-                    onJumpToKeyDef={(def) =>
-                      void jumpToSemanticLocation(def.sourceMapPath, {
-                        mode: 'source',
-                        line: def.line,
-                      })
+                    viewMode={mapPanelView}
+                    onChangeViewMode={setMapPanelView}
+                    keyCount={keyCount}
+                    canEditKeys={canManageKeys}
+                    onOpenNewKey={(parent) => openNewKey(parent)}
+                    keyspaceSlot={
+                      <KeyspacePanel
+                        embedded
+                        rootMapPath={activeRootMapPath}
+                        keyspace={keyspace}
+                        selectedMapNode={selectedMapNode}
+                        canInsertInTopic={Boolean(showTopicVisual && canEdit)}
+                        canEditKeys={canManageKeys}
+                        onInsertKeyref={(keyName) => {
+                          visualRef.current?.toggleInline('keyword', [
+                            { name: 'keyref', value: keyName, namespaceURI: null },
+                          ]);
+                        }}
+                        onRenameKey={(def, nextKey) => renameMapKey(def, nextKey)}
+                        onUpdateKeyValue={(def, nextValue) => updateMapKeyValue(def, nextValue)}
+                        onJumpToKeyDef={(def) =>
+                          void jumpToSemanticLocation(def.sourceMapPath, {
+                            mode: 'source',
+                            line: def.line,
+                          })
+                        }
+                        onInspectKeyDef={(def) => {
+                          selectMapNode(
+                            { mapPath: def.sourceMapPath, elementPath: def.elementPath },
+                            true,
+                          );
+                          setInspectorOpen(true);
+                        }}
+                        onDeleteKey={(def) => deleteMapKey(def)}
+                        onOpenNewKey={() =>
+                          openNewKey({
+                            mapPath: activeRootMapPath ?? '',
+                            parentPath: null,
+                            parentLabel: keyspace?.rootMapPath ?? t('keyspace.title'),
+                          })
+                        }
+                      />
                     }
                   />
                 }
@@ -1462,6 +1513,13 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                             parentLabel: title,
                                           })
                                         }
+                                        canEditKeys={canManageKeys}
+                                        onOpenNewKey={(mapPath, title) =>
+                                          openNewKey({ mapPath, parentPath: null, parentLabel: title })
+                                        }
+                                        onInspectNode={(mapPath, elementPath) =>
+                                          selectMapNode({ mapPath, elementPath }, true)
+                                        }
                                       />
                                     ) : (
                                       <VisualEditor
@@ -1623,6 +1681,13 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                               onOpenTargetFile={(path) => void openFileTab(path)}
                               onJumpToSource={(mapPath, line) => void jumpToMapNodeSource(mapPath, line)}
                               onDeleteNode={deleteMapTreeNode}
+                              keyspace={keyspace}
+                              canEditKeys={canManageKeys}
+                              onUpsertKeyText={(mapPath, elementPath, source, value) =>
+                                upsertMapNodeKeyText(mapPath, elementPath, source, value)
+                              }
+                              onOpenNewKey={(parent) => openNewKey(parent)}
+                              onOpenKeysView={openKeysView}
                             />
                             <button
                               type="button"
@@ -1655,6 +1720,27 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                               onSelectBreadcrumb: (pos) => visualRef.current?.selectNode(pos, true),
                               onMoveNode: (pos, dir) => visualRef.current?.moveNode(pos, dir),
                               onDeleteNode: (pos) => visualRef.current?.deleteNode(pos),
+                              keyspace,
+                              canEditKeys: canManageKeys && Boolean(activeRootMapPath),
+                              onOpenNewKey: (options) => {
+                                if (!activeRootMapPath) return;
+                                openNewKey({
+                                  mapPath: activeRootMapPath,
+                                  parentPath: null,
+                                  parentLabel: keyspace?.rootMapPath ?? t('keyspace.title'),
+                                  initialKeyName: options?.initialKeyName,
+                                  initialKind: options?.initialKind,
+                                  onCreated: options?.onCreated,
+                                });
+                              },
+                              onUpdateKeyValue: (def, nextValue) => updateMapKeyValue(def, nextValue),
+                              onInspectKeyDef: (def) => {
+                                selectMapNode(
+                                  { mapPath: def.sourceMapPath, elementPath: def.elementPath },
+                                  true,
+                                );
+                                setInspectorOpen(true);
+                              },
                             }}
                             reuse={{
                               activeDocPath: activeTab?.path ?? null,
@@ -1794,8 +1880,31 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         open={keyrefDialogOpen}
         keyspace={keyspace}
         rootMapPath={activeRootMapPath}
+        canEditKeys={canManageKeys && Boolean(activeRootMapPath)}
+        onRequestCreateKey={({ initialKeyName, onCreated }) => {
+          if (!activeRootMapPath) return;
+          openNewKey({
+            mapPath: activeRootMapPath,
+            parentPath: null,
+            parentLabel: keyspace?.rootMapPath ?? t('keyspace.title'),
+            initialKeyName,
+            onCreated,
+          });
+        }}
         onClose={() => setKeyrefDialogOpen(false)}
         onConfirm={handleConfirmKeyref}
+      />
+
+      <NewKeyDialog
+        open={Boolean(newKeyRequest)}
+        context={newKeyRequest ?? { mapPath: '', parentPath: null }}
+        availableMaps={Object.keys(mapBuffers)}
+        availableFiles={availableKeyFiles}
+        topicTitles={topicTitles}
+        keyspace={keyspace}
+        onClose={() => setNewKeyRequest(null)}
+        onCreate={(options) => createMapKey(options)}
+        onCreated={(qualifiedKey) => newKeyRequest?.onCreated?.(qualifiedKey)}
       />
 
       <DiffDialog

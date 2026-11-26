@@ -18,6 +18,8 @@ import {
   type DitaAttributeSpec,
   type DitaProfilingAttrName,
   type DocumentSemanticOverlay,
+  type KeyDefinition,
+  type KeyspaceResult,
   type ParsedDitaval,
   type XmlDeclaration,
   type XmlPrologItem,
@@ -30,6 +32,8 @@ import {
   ChevronRight,
   CopyPlus,
   ExternalLink,
+  KeyRound,
+  Pencil,
   Plus,
   ShieldCheck,
   Tag,
@@ -37,6 +41,7 @@ import {
   X,
 } from 'lucide-react';
 import { ProfilingAttrEditor } from '../../components/ProfilingAttrEditor';
+import { KeyrefAttrField } from './KeyrefAttrField';
 import type { EditorSelectionSnapshot } from './selection-info';
 import { blockIndexInParent, isBlockMoveOrderSafe } from './block-transforms';
 import { getTaskContentModel } from '../structure-options';
@@ -57,6 +62,16 @@ export interface AttributesPanelProps {
   onSelectBreadcrumb: (pos: number) => void;
   onMoveNode: (nodePos: number, direction: 'up' | 'down') => void;
   onDeleteNode: (nodePos: number) => void;
+  keyspace?: KeyspaceResult | null;
+  canEditKeys?: boolean;
+  /** Opens `NewKeyDialog`; `onCreated` hands the new qualified key back for one-click binding. */
+  onOpenNewKey?: (options?: {
+    initialKeyName?: string;
+    initialKind?: 'text' | 'file' | 'external';
+    onCreated?: (qualifiedKey: string) => void;
+  }) => void;
+  onUpdateKeyValue?: (def: KeyDefinition, nextValue: string) => Promise<boolean>;
+  onInspectKeyDef?: (def: KeyDefinition) => void;
 }
 
 const GROUP_SUBTITLES: Record<DitaAttributeGroup, string> = {
@@ -87,6 +102,11 @@ export function AttributesPanel({
   onSelectBreadcrumb,
   onMoveNode,
   onDeleteNode,
+  keyspace = null,
+  canEditKeys = false,
+  onOpenNewKey,
+  onUpdateKeyValue,
+  onInspectKeyDef,
 }: AttributesPanelProps) {
   const { t, locale } = useI18n();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
@@ -99,6 +119,9 @@ export function AttributesPanel({
   });
   const [customAttrName, setCustomAttrName] = useState('');
   const [customAttrValue, setCustomAttrValue] = useState('');
+  const [keyValueEditing, setKeyValueEditing] = useState(false);
+  const [keyValueDraft, setKeyValueDraft] = useState('');
+  const [keyValueError, setKeyValueError] = useState<string | null>(null);
 
   const activeItem = snapshot?.activeItem ?? null;
 
@@ -127,6 +150,39 @@ export function AttributesPanel({
 
   const keyrefVal = getRawAttr(rawAttrs, 'keyref')?.trim();
   const resolvedKeyref = keyrefVal ? semanticOverlay?.keyrefs[keyrefVal] : undefined;
+  const keyrefDefinition = resolvedKeyref?.definition;
+  /** Only a definition backed by plain text or `@href` can be rewritten losslessly. */
+  const keyValueSource =
+    keyrefDefinition && keyrefDefinition.inlineTextSource && keyrefDefinition.inlineTextSource !== 'none'
+      ? keyrefDefinition.inlineTextSource
+      : keyrefDefinition?.href !== undefined
+        ? 'href'
+        : null;
+  const canQuickEditKeyValue = Boolean(
+    canEditKeys && onUpdateKeyValue && keyrefDefinition && keyValueSource,
+  );
+  const keyFileBoundCount = keyspace
+    ? Object.values(keyspace.keys).filter((def) => def.href !== undefined || def.resolvedHref !== undefined)
+        .length
+    : 0;
+  const startKeyValueEdit = (def: KeyDefinition) => {
+    setKeyValueDraft((def.inlineTextSource && def.inlineTextSource !== 'none' ? def.inlineText : def.href) ?? '');
+    setKeyValueError(null);
+    setKeyValueEditing(true);
+  };
+  const commitKeyValueEdit = async (def: KeyDefinition) => {
+    const next = keyValueDraft.trim();
+    if (!next || !onUpdateKeyValue) {
+      setKeyValueError(t('keyspace.valueInvalid'));
+      return;
+    }
+    const ok = await onUpdateKeyValue(def, next);
+    if (!ok) {
+      setKeyValueError(t('attributes.keyrefValueFailed'));
+      return;
+    }
+    setKeyValueEditing(false);
+  };
 
   const conkeyrefVal = getRawAttr(rawAttrs, 'conkeyref')?.trim();
   const conrefVal = getRawAttr(rawAttrs, 'conref')?.trim();
@@ -435,28 +491,124 @@ export function AttributesPanel({
                             : 'border-rose-200 bg-rose-50 text-rose-800'
                         }`}
                       >
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="font-semibold">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="min-w-0 flex-1 break-words font-semibold">
                             {resolvedKeyref.status === 'resolved'
-                              ? t('attributes.keyResolved', { target: resolvedKeyref.resolvedText ?? resolvedKeyref.targetFilePath ?? t('attributes.valid') })
+                              ? t('attributes.keyResolved', {
+                                  target:
+                                    resolvedKeyref.resolvedText ??
+                                    resolvedKeyref.targetFilePath ??
+                                    t('attributes.valid'),
+                                })
                               : resolvedKeyref.errorMessage}
                           </span>
-                          {resolvedKeyref.definition && onJumpToSource ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onJumpToSource(
-                                  resolvedKeyref.definition!.sourceMapPath,
-                                  resolvedKeyref.definition!.line,
-                                )
-                              }
-                              className="inline-flex shrink-0 items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
-                            >
-                              <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
-                              {t('attributes.define')}
-                            </button>
-                          ) : null}
+                          <span className="flex shrink-0 items-center gap-1">
+                            {resolvedKeyref.status === 'resolved' &&
+                            canQuickEditKeyValue &&
+                            keyrefDefinition ? (
+                              <button
+                                type="button"
+                                aria-pressed={keyValueEditing}
+                                title={t('attributes.keyrefEditValue')}
+                                onClick={() =>
+                                  keyValueEditing
+                                    ? setKeyValueEditing(false)
+                                    : startKeyValueEdit(keyrefDefinition)
+                                }
+                                className="inline-flex items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
+                              >
+                                <Pencil className="h-2.5 w-2.5" aria-hidden="true" />
+                                {t('attributes.keyrefEditValue')}
+                              </button>
+                            ) : null}
+                            {resolvedKeyref.status === 'resolved' &&
+                            keyrefDefinition &&
+                            onInspectKeyDef ? (
+                              <button
+                                type="button"
+                                title={t('attributes.keyrefInspect')}
+                                onClick={() => onInspectKeyDef(keyrefDefinition)}
+                                className="inline-flex items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-700 ring-1 ring-slate-200 hover:bg-slate-100"
+                              >
+                                <KeyRound className="h-2.5 w-2.5" aria-hidden="true" />
+                                {t('attributes.keyrefInspect')}
+                              </button>
+                            ) : null}
+                            {resolvedKeyref.definition && onJumpToSource ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onJumpToSource(
+                                    resolvedKeyref.definition!.sourceMapPath,
+                                    resolvedKeyref.definition!.line,
+                                  )
+                                }
+                                className="inline-flex items-center gap-0.5 rounded bg-white px-1.5 py-0.5 text-[10px] font-medium text-blue-700 ring-1 ring-blue-200 hover:bg-blue-100"
+                              >
+                                <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
+                                {t('attributes.define')}
+                              </button>
+                            ) : null}
+                          </span>
                         </div>
+
+                        {resolvedKeyref.status === 'resolved' &&
+                        keyValueEditing &&
+                        keyrefDefinition ? (
+                          <div className="mt-1.5 space-y-1">
+                            <div className="flex items-center gap-1">
+                              <input
+                                id="dita-keyref-quick-value"
+                                type="text"
+                                value={keyValueDraft}
+                                aria-label={t('attributes.keyrefEditValue')}
+                                onChange={(e) => setKeyValueDraft(e.target.value)}
+                                className="min-w-0 flex-1 rounded border border-blue-200 bg-white px-1.5 py-0.5 font-mono text-[10.5px] focus:border-blue-500 focus:outline-none"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => void commitKeyValueEdit(keyrefDefinition)}
+                                className="rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-blue-700"
+                              >
+                                {t('common.save')}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setKeyValueEditing(false);
+                                  setKeyValueError(null);
+                                }}
+                                className="rounded px-1.5 py-0.5 text-[10px] text-slate-600 hover:bg-white"
+                              >
+                                {t('common.cancel')}
+                              </button>
+                            </div>
+                            {keyValueError ? (
+                              <p className="text-[10px] font-medium text-rose-600">{keyValueError}</p>
+                            ) : null}
+                          </div>
+                        ) : null}
+
+                        {resolvedKeyref.status === 'unresolved' && canEditKeys && onOpenNewKey ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              onOpenNewKey({
+                                initialKeyName: resolvedKeyref.keyName || keyrefVal,
+                                // The banner exists to fix *this* unresolved reference, so adopt the
+                                // new key's qualified name as soon as it exists.
+                                onCreated: (qualifiedKey) =>
+                                  onUpdateAttr(activeItem.pos, 'keyref', qualifiedKey),
+                              })
+                            }
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-md bg-rose-600 px-2 py-0.5 text-[10.5px] font-semibold text-white hover:bg-rose-700"
+                          >
+                            <Plus className="h-3 w-3" aria-hidden="true" />
+                            {t('attributes.keyrefCreateNamed', {
+                              key: resolvedKeyref.keyName || keyrefVal,
+                            })}
+                          </button>
+                        ) : null}
                       </div>
                     ) : null}
 
@@ -470,6 +622,16 @@ export function AttributesPanel({
                           >
                             <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
                             {t('attributes.pickReuse')}
+                          </button>
+                        ) : null}
+                        {canEditKeys && onOpenNewKey && keyFileBoundCount === 0 ? (
+                          <button
+                            type="button"
+                            onClick={() => onOpenNewKey({ initialKind: 'file' })}
+                            className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed border-teal-300 px-2.5 py-1.5 text-[11px] font-medium text-teal-700 hover:bg-teal-50"
+                          >
+                            <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+                            {t('attributes.newFileKey')}
                           </button>
                         ) : null}
                         {resolvedConref ? (
@@ -539,7 +701,31 @@ export function AttributesPanel({
                             ) : null}
                           </div>
 
-                          {groupKey === 'profiling' ? (
+                          {attr.name === 'keyref' ? (
+                            <KeyrefAttrField
+                              inputId={inputId}
+                              value={currentVal}
+                              keyspace={keyspace}
+                              canEditKeys={canEditKeys}
+                              placeholder={
+                                getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale)
+                              }
+                              onChange={(nextVal) => onUpdateAttr(activeItem.pos, attr.name, nextVal)}
+                              onOpenNewKey={
+                                onOpenNewKey
+                                  ? () =>
+                                      onOpenNewKey({
+                                        initialKeyName: currentVal || undefined,
+                                        // Bind straight away so a freshly created key lands in the
+                                        // field the user was already editing.
+                                        onCreated: (qualifiedKey) =>
+                                          onUpdateAttr(activeItem.pos, attr.name, qualifiedKey),
+                                      })
+                                  : undefined
+                              }
+                              onInspectKeyDef={onInspectKeyDef}
+                            />
+                          ) : groupKey === 'profiling' ? (
                             <ProfilingAttrEditor
                               attrName={attr.name as DitaProfilingAttrName}
                               inputId={inputId}

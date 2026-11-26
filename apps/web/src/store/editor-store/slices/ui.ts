@@ -17,6 +17,10 @@ export function createUiSlice(
       set({ leftSidebarTab: tab, leftSidebarOpen: true });
     },
 
+    setMapPanelView(view) {
+      set({ mapPanelView: view });
+    },
+
     setInspectorOpen(open) {
       set({ inspectorOpen: open });
     },

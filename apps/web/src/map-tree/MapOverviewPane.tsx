@@ -8,6 +8,7 @@ import {
   CheckCircle2,
   Code2,
   FilePlus2,
+  KeyRound,
   Network,
   ShieldCheck,
 } from 'lucide-react';
@@ -21,6 +22,9 @@ export interface MapOverviewPaneProps {
   onOpenSourceMode: () => void;
   onOpenTopic: (filePath: string) => void;
   onCreateAndMount: (mapPath: string, title: string) => void;
+  canEditKeys?: boolean;
+  onOpenNewKey?: (mapPath: string, title: string) => void;
+  onInspectNode?: (mapPath: string, elementPath: number[]) => void;
 }
 
 export function MapOverviewPane({
@@ -32,6 +36,9 @@ export function MapOverviewPane({
   onOpenSourceMode,
   onOpenTopic,
   onCreateAndMount,
+  canEditKeys = false,
+  onOpenNewKey,
+  onInspectNode,
 }: MapOverviewPaneProps) {
   const { t } = useI18n();
   const parsed = useMemo(() => {
@@ -74,6 +81,24 @@ export function MapOverviewPane({
   const pendingRefs = referenceStatuses.filter((entry) => entry.target.status === 'missing');
 
   const submapCount = map.references.filter((r) => r.isSubmapRef).length;
+
+  // Every node that defines (or carries) keys, flattened in document order.
+  const keyNodes: Array<{ elementPath: number[]; tagName: string; keys: string; text?: string; href?: string }> = [];
+  const collectKeys = (nodes: typeof map.nodes) => {
+    for (const node of nodes) {
+      if (node.keys || node.tagName === 'keydef') {
+        keyNodes.push({
+          elementPath: node.elementPath,
+          tagName: node.tagName,
+          keys: node.keys ?? '',
+          text: node.inlineText,
+          href: node.href,
+        });
+      }
+      if (node.children) collectKeys(node.children);
+    }
+  };
+  collectKeys(map.nodes);
 
   return (
     <div className="dita-scroller h-full overflow-y-auto bg-slate-100/80 p-6">
@@ -126,6 +151,16 @@ export function MapOverviewPane({
               <FilePlus2 className="h-3.5 w-3.5" aria-hidden="true" />
               {t('mapTree.createMounted')}
             </button>
+            {canEditKeys && onOpenNewKey ? (
+              <button
+                type="button"
+                onClick={() => onOpenNewKey(mapPath, map.title)}
+                className="inline-flex items-center gap-1 rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-800 hover:bg-blue-100"
+              >
+                <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
+                {t('mapOverview.newKey')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onOpenSourceMode}
@@ -244,6 +279,66 @@ export function MapOverviewPane({
                   </div>
                 );
               })}
+            </div>
+          )}
+        </div>
+
+        {/* Key Definitions */}
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <h3 className="inline-flex items-center gap-1 text-xs font-semibold text-slate-700">
+              <KeyRound className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
+              {t('mapOverview.keysTitle')}
+            </h3>
+            {keyNodes.length > 0 ? (
+              <span className="rounded-full bg-blue-50 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-blue-700">
+                {t('mapOverview.keysCount', { count: keyNodes.length })}
+              </span>
+            ) : null}
+          </div>
+          {keyNodes.length === 0 ? (
+            <div className="flex flex-wrap items-center justify-center gap-2 rounded-lg border border-dashed border-slate-200 p-4 text-center text-xs text-slate-400">
+              <span>{t('mapOverview.keysEmpty')}</span>
+              {canEditKeys && onOpenNewKey ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenNewKey(mapPath, map.title)}
+                  className="inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-blue-700"
+                >
+                  <KeyRound className="h-3 w-3" aria-hidden="true" />
+                  {t('mapOverview.newKey')}
+                </button>
+              ) : null}
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
+              {keyNodes.map((entry) => (
+                <div
+                  key={`${entry.elementPath.join('.')}-${entry.keys}`}
+                  className="flex items-center justify-between gap-3 px-3 py-2 text-xs"
+                >
+                  <div className="flex min-w-0 items-center gap-2">
+                    <code className="rounded bg-blue-100 px-1.5 py-0.5 font-mono text-[10.5px] font-semibold text-blue-900">
+                      {entry.keys || t('mapOverview.keyNoName')}
+                    </code>
+                    <code className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                      &lt;{entry.tagName}&gt;
+                    </code>
+                    <span className="truncate text-slate-600" title={entry.text ?? entry.href ?? ''}>
+                      {entry.text ?? entry.href ?? t('keyspace.noValue')}
+                    </span>
+                  </div>
+                  {onInspectNode ? (
+                    <button
+                      type="button"
+                      onClick={() => onInspectNode(mapPath, entry.elementPath)}
+                      className="shrink-0 rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+                    >
+                      {t('mapOverview.keyInspect')}
+                    </button>
+                  ) : null}
+                </div>
+              ))}
             </div>
           )}
         </div>

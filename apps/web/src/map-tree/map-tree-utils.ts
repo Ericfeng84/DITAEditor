@@ -88,6 +88,9 @@ export interface CompositeMapTreeNode {
   keys?: string;
   keyref?: string;
   navtitle?: string;
+  /** Resolved inline text of a `<keydef>` (`<keyword>`/`<linktext>`), shown as a row preview. */
+  inlineText?: string;
+  inlineTextSource?: 'keyword' | 'linktext' | 'navtitle' | 'none';
   format?: string;
   scope?: string;
   processingRole?: string;
@@ -302,6 +305,8 @@ export function buildCompositeMapTree(
         keys: node.keys,
         keyref: node.keyref,
         navtitle: node.navtitle,
+        inlineText: node.inlineText,
+        inlineTextSource: node.inlineTextSource,
         format: node.format,
         scope: node.scope,
         processingRole: node.processingRole,

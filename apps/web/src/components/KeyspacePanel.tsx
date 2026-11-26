@@ -1,16 +1,20 @@
 import { useMemo, useState } from 'react';
 import { useI18n } from '../i18n/index.js';
-import type { KeyDefinition, KeyspaceResult } from '@dita/core';
+import { DITA_KEY_NAME_PATTERN, type KeyDefinition, type KeyspaceResult } from '@dita/core';
 import {
   AlertTriangle,
   Check,
+  Crosshair,
   ExternalLink,
   KeyRound,
   Pencil,
+  Plus,
   PlusCircle,
   Search,
+  Trash2,
   X,
 } from 'lucide-react';
+import type { SelectedMapNodeRef } from '../store/editor-store/types.js';
 
 export interface KeyspacePanelProps {
   rootMapPath: string | null;
@@ -24,10 +28,19 @@ export interface KeyspacePanelProps {
   onRenameKey?: (def: KeyDefinition, nextKey: string) => Promise<boolean>;
   /** Rewrite the definition's displayed value (keyword/linktext/navtitle text or `@href`). */
   onUpdateKeyValue?: (def: KeyDefinition, nextValue: string) => Promise<boolean>;
+  /** Rendered inside `MapTreePanel`'s Keys view: drop the duplicated root-map line. */
+  embedded?: boolean;
+  /** Highlights the card whose `<keydef>` is currently selected in the map tree. */
+  selectedMapNode?: SelectedMapNodeRef | null;
+  onOpenNewKey?: () => void;
+  onDeleteKey?: (def: KeyDefinition) => Promise<boolean>;
+  onInspectKeyDef?: (def: KeyDefinition) => void;
 }
 
-/** DITA key names are NMTOKENs: whitespace separates keys, so a token cannot contain spaces. */
-const KEY_NAME_PATTERN = /^[A-Za-z0-9_][A-Za-z0-9._-]*$/;
+function samePath(a: readonly number[] | null | undefined, b: readonly number[] | null | undefined): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  return a.every((value, index) => value === b[index]);
+}
 
 export function KeyspacePanel({
   rootMapPath,
@@ -38,6 +51,11 @@ export function KeyspacePanel({
   onJumpToKeyDef,
   onRenameKey,
   onUpdateKeyValue,
+  embedded = false,
+  selectedMapNode = null,
+  onOpenNewKey,
+  onDeleteKey,
+  onInspectKeyDef,
 }: KeyspacePanelProps) {
   const { t } = useI18n();
   const [search, setSearch] = useState('');
@@ -48,6 +66,8 @@ export function KeyspacePanel({
   const [editingValueKey, setEditingValueKey] = useState<string | null>(null);
   const [valueDraft, setValueDraft] = useState('');
   const [valueError, setValueError] = useState<string | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const definitions = useMemo(() => {
     if (!keyspace) return [];
@@ -92,7 +112,7 @@ export function KeyspacePanel({
       cancelRename();
       return;
     }
-    if (!KEY_NAME_PATTERN.test(next)) {
+    if (!DITA_KEY_NAME_PATTERN.test(next)) {
       setKeyError(t('keyspace.renameInvalid'));
       return;
     }
@@ -155,6 +175,16 @@ export function KeyspacePanel({
     cancelValueEdit();
   };
 
+  const commitDelete = async (def: KeyDefinition) => {
+    setDeleteError(null);
+    const removed = (await onDeleteKey?.(def)) ?? false;
+    if (!removed) {
+      setDeleteError(t('keyspace.deleteFailed'));
+      return;
+    }
+    setConfirmingDelete(null);
+  };
+
   if (!rootMapPath) {
     return (
       <div className="flex h-full flex-col items-center justify-center p-6 text-center text-xs text-slate-400">
@@ -171,22 +201,35 @@ export function KeyspacePanel({
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Header summary */}
-      <div className="border-b border-slate-100 px-2.5 py-2">
+      <div className="shrink-0 border-b border-slate-100 px-2.5 py-2">
         <div className="flex items-center justify-between gap-2">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
               <KeyRound className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />
               <span className="truncate text-xs font-semibold text-slate-800">
-                Root Map Keyspace
+                {t('keyspace.title')}
+              </span>
+              <span className="shrink-0 rounded-full bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-700">
+                {t('keyspace.count', { count: totalKeys })}
               </span>
             </div>
-            <p className="mt-0.5 truncate font-mono text-[10px] text-slate-400" title={rootMapPath}>
-              {rootMapPath}
-            </p>
+            {embedded ? null : (
+              <p className="mt-0.5 truncate font-mono text-[10px] text-slate-400" title={rootMapPath}>
+                {rootMapPath}
+              </p>
+            )}
           </div>
-          <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 font-mono text-[10.5px] font-semibold text-blue-700">
-            {totalKeys} keys
-          </span>
+          {canEditKeys && onOpenNewKey ? (
+            <button
+              type="button"
+              onClick={onOpenNewKey}
+              title={t('keyspace.newKeyTooltip')}
+              className="inline-flex shrink-0 items-center gap-0.5 rounded-md bg-blue-600 px-1.5 py-1 text-[10.5px] font-semibold text-white hover:bg-blue-700"
+            >
+              <Plus className="h-3 w-3" aria-hidden="true" />
+              {t('keyspace.newKey')}
+            </button>
+          ) : null}
         </div>
 
         {/* Scope filter pills */}
@@ -233,7 +276,7 @@ export function KeyspacePanel({
       </div>
 
       {/* Search */}
-      <div className="border-b border-slate-100 px-2.5 py-1.5">
+      <div className="shrink-0 border-b border-slate-100 px-2.5 py-1.5">
         <div className="relative flex items-center">
           <Search
             className="pointer-events-none absolute left-2 h-3 w-3 text-slate-400"
@@ -264,9 +307,17 @@ export function KeyspacePanel({
       <div className="dita-scroller min-h-0 flex-1 overflow-y-auto p-2 space-y-1.5">
         {definitions.length === 0 ? (
           <div className="p-6 text-center text-xs text-slate-400">
-            {totalKeys === 0
-              ? t('keyspace.emptyRoot')
-              : t('keyspace.emptyFiltered')}
+            <p>{totalKeys === 0 ? t('keyspace.emptyRoot') : t('keyspace.emptyFiltered')}</p>
+            {totalKeys === 0 && canEditKeys && onOpenNewKey ? (
+              <button
+                type="button"
+                onClick={onOpenNewKey}
+                className="mt-2 inline-flex items-center gap-1 rounded-md bg-blue-600 px-2 py-1 text-[11px] font-semibold text-white hover:bg-blue-700"
+              >
+                <Plus className="h-3 w-3" aria-hidden="true" />
+                {t('keyspace.emptyCta')}
+              </button>
+            ) : null}
           </div>
         ) : (
           definitions.map((def) => {
@@ -275,15 +326,28 @@ export function KeyspacePanel({
               (def.targetTitle ? `${def.targetTitle} (${def.resolvedHref ?? def.href})` : def.resolvedHref ?? def.href ?? t('keyspace.noValue'));
             const isRenaming = renamingKey === def.qualifiedKey;
             const isEditingValue = editingValueKey === def.qualifiedKey;
+            const isSelected = Boolean(
+              selectedMapNode &&
+                selectedMapNode.mapPath === def.sourceMapPath &&
+                samePath(selectedMapNode.elementPath, def.elementPath),
+            );
+            const isConfirming = confirmingDelete === def.qualifiedKey;
 
             return (
               <div
                 key={def.qualifiedKey}
+                onClick={
+                  onInspectKeyDef && !isRenaming && !isEditingValue
+                    ? () => onInspectKeyDef(def)
+                    : undefined
+                }
                 className={`group rounded-lg border bg-slate-50/70 p-2 text-xs transition-colors ${
                   isRenaming || isEditingValue
                     ? 'border-blue-400 bg-blue-50/40'
-                    : 'border-slate-200/90 hover:border-blue-300 hover:bg-blue-50/30'
-                }`}
+                    : isSelected
+                      ? 'border-blue-500 bg-blue-50/60 ring-1 ring-blue-200'
+                      : 'border-slate-200/90 hover:border-blue-300 hover:bg-blue-50/30'
+                } ${onInspectKeyDef ? 'cursor-pointer' : ''}`}
               >
                 <div className="flex items-center justify-between gap-1.5">
                   {isRenaming ? (
@@ -294,6 +358,7 @@ export function KeyspacePanel({
                         setKeyDraft(e.target.value);
                         setKeyError(null);
                       }}
+                      onClick={(e) => e.stopPropagation()}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -338,6 +403,7 @@ export function KeyspacePanel({
                       setValueDraft(e.target.value);
                       setValueError(null);
                     }}
+                    onClick={(e) => e.stopPropagation()}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
@@ -363,7 +429,10 @@ export function KeyspacePanel({
                     {isValueEditable(def) ? (
                       <button
                         type="button"
-                        onClick={() => startValueEdit(def)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          startValueEdit(def);
+                        }}
                         title={t('keyspace.valueTooltip')}
                         aria-label={t('keyspace.valueTooltip')}
                         className="shrink-0 rounded p-0.5 text-slate-400 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-white hover:text-blue-700 focus-visible:opacity-100"
@@ -383,7 +452,10 @@ export function KeyspacePanel({
                       <>
                         <button
                           type="button"
-                          onClick={() => void commitRename(def)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void commitRename(def);
+                          }}
                           title={t('keyspace.renameSave')}
                           className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
                         >
@@ -392,7 +464,10 @@ export function KeyspacePanel({
                         </button>
                         <button
                           type="button"
-                          onClick={cancelRename}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelRename();
+                          }}
                           title={t('keyspace.renameCancel')}
                           className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
                         >
@@ -404,7 +479,10 @@ export function KeyspacePanel({
                       <>
                         <button
                           type="button"
-                          onClick={() => void commitValueEdit(def)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void commitValueEdit(def);
+                          }}
                           title={t('keyspace.valueSave')}
                           className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
                         >
@@ -413,7 +491,10 @@ export function KeyspacePanel({
                         </button>
                         <button
                           type="button"
-                          onClick={cancelValueEdit}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            cancelValueEdit();
+                          }}
                           title={t('keyspace.valueCancel')}
                           className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
                         >
@@ -421,12 +502,43 @@ export function KeyspacePanel({
                           {t('keyspace.valueCancel')}
                         </button>
                       </>
+                    ) : isConfirming ? (
+                      <>
+                        <span className="shrink-0 text-[9.5px] font-medium text-rose-700">
+                          {t('keyspace.deleteConfirmHint')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void commitDelete(def);
+                          }}
+                          className="inline-flex items-center gap-0.5 rounded bg-rose-600 px-1.5 py-0.5 text-[10px] font-semibold text-white hover:bg-rose-700"
+                        >
+                          <Trash2 className="h-2.5 w-2.5" aria-hidden="true" />
+                          {t('common.confirm')}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setConfirmingDelete(null);
+                          }}
+                          className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
+                        >
+                          <X className="h-2.5 w-2.5" aria-hidden="true" />
+                          {t('common.cancel')}
+                        </button>
+                      </>
                     ) : (
                       <>
                         {canEditKeys && onRenameKey ? (
                           <button
                             type="button"
-                            onClick={() => startRename(def)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              startRename(def);
+                            }}
                             title={t('keyspace.renameTooltip')}
                             aria-label={t('keyspace.renameTooltip')}
                             className="inline-flex items-center rounded border border-slate-200 bg-white p-0.5 text-slate-500 hover:bg-slate-100 hover:text-blue-700"
@@ -437,7 +549,10 @@ export function KeyspacePanel({
                         {canInsertInTopic ? (
                           <button
                             type="button"
-                            onClick={() => onInsertKeyref(def.qualifiedKey)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onInsertKeyref(def.qualifiedKey);
+                            }}
                             title={t('keyspace.insertTooltip')}
                             className="inline-flex items-center gap-0.5 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-blue-700"
                           >
@@ -445,15 +560,46 @@ export function KeyspacePanel({
                             {t('keyspace.insert')}
                           </button>
                         ) : null}
+                        {onInspectKeyDef ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onInspectKeyDef(def);
+                            }}
+                            title={t('keyspace.inspectTooltip')}
+                            className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
+                          >
+                            <Crosshair className="h-2.5 w-2.5" aria-hidden="true" />
+                            {t('keyspace.inspect')}
+                          </button>
+                        ) : null}
                         <button
                           type="button"
-                          onClick={() => onJumpToKeyDef(def)}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onJumpToKeyDef(def);
+                          }}
                           title={t('keyspace.jumpTooltip')}
-                          className="inline-flex items-center gap-0.5 rounded border border-slate-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-slate-600 hover:bg-slate-100"
+                          className="inline-flex items-center rounded border border-slate-200 bg-white p-0.5 text-slate-500 hover:bg-slate-100 hover:text-blue-700"
                         >
                           <ExternalLink className="h-2.5 w-2.5" aria-hidden="true" />
-                          {t('attributes.define')}
                         </button>
+                        {canEditKeys && onDeleteKey ? (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeleteError(null);
+                              setConfirmingDelete(def.qualifiedKey);
+                            }}
+                            title={t('keyspace.deleteTooltip')}
+                            aria-label={t('keyspace.deleteTooltip')}
+                            className="inline-flex items-center rounded border border-slate-200 bg-white p-0.5 text-slate-500 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                          >
+                            <Trash2 className="h-2.5 w-2.5" aria-hidden="true" />
+                          </button>
+                        ) : null}
                       </>
                     )}
                   </div>
@@ -464,6 +610,9 @@ export function KeyspacePanel({
                 ) : null}
                 {isEditingValue && valueError ? (
                   <p className="mt-1 text-[10.5px] font-medium text-rose-600">{valueError}</p>
+                ) : null}
+                {isConfirming && deleteError ? (
+                  <p className="mt-1 text-[10.5px] font-medium text-rose-600">{deleteError}</p>
                 ) : null}
               </div>
             );
