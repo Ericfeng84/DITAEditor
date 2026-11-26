@@ -194,6 +194,21 @@ function worktrees(fixture: Fixture): string[] {
     .map((line) => line.slice('worktree '.length));
 }
 
+/** Flatten a `/api/workspace` file tree into the workspace-relative paths the UI uses. */
+function flattenFilePaths(
+  nodes: { path: string; kind: string; children?: unknown[] }[],
+): string[] {
+  const out: string[] = [];
+  for (const node of nodes) {
+    if (node.kind === 'directory') {
+      out.push(...flattenFilePaths((node.children ?? []) as typeof nodes));
+    } else {
+      out.push(node.path);
+    }
+  }
+  return out;
+}
+
 /** Creates the repository, an initial full commit and returns the scoped builtin manual id. */
 async function bootstrap(app: App, fixture: Fixture): Promise<string> {
   // `POST /api/git/init` already commits the whole sample tree as the initial baseline.
@@ -388,6 +403,12 @@ describe('Phase 13 §6.1 same-branch draft isolation', () => {
     const aWorkspace = await app.inject({ method: 'GET', url: '/api/workspace', headers: WRITER_A });
     expect(aWorkspace.json().files.some((node: { path: string }) => node.path === 'concepts')).toBe(true);
     expect(aWorkspace.body).not.toContain(A_BROKEN_MARKER);
+
+    // Nested file nodes must keep their FULL workspace path: a draft overlay used to rewrite
+    // `concepts/workspace-model.dita` to `workspace-model.dita`, so `fileSet` no longer matched
+    // the map's `href` and the Map Tree flagged a perfectly valid target as missing.
+    expect(flattenFilePaths(aWorkspace.json().files)).toContain(TOPIC_A);
+    expect(flattenFilePaths(aWorkspace.json().files)).not.toContain('workspace-model.dita');
 
     // Diagnostics: A reports its XML error, B stays clean.
     const aDiagnostics = (

@@ -17,6 +17,56 @@ import {
   type XmlParseError,
 } from '@dita/core';
 
+/**
+ * Verdict for one `topicref` / `mapref` target.
+ *
+ * - `ok`       target file exists in the current view (Baseline + caller overlay)
+ * - `external` `scope="external|peer"` or an absolute URL — nothing to resolve, never an error
+ * - `missing`  a valid workspace-relative `href` whose file has not been created yet (a hint, not an error)
+ * - `escaped`  `href` resolves outside the workspace root or is malformed — a real authoring error
+ * - `cycle`    `mapref` that re-enters a map already on the expansion stack
+ */
+export type MapTargetStatus = 'ok' | 'external' | 'missing' | 'escaped' | 'cycle';
+
+export interface MapTargetResolution {
+  status: MapTargetStatus;
+  /** Workspace-relative target path the `href` points at (undefined for `external`). */
+  targetPath?: string;
+  /** True only when the target can actually be opened. */
+  exists: boolean;
+}
+
+/**
+ * Single source of truth for “is this map reference healthy?”.
+ *
+ * The Map Tree row, the Map overview reference list and the missing-target quick fix all call
+ * this instead of re-deriving `escapesRoot || !targetPath || !fileSet.has(…)` by hand: a newly
+ * saved draft used to be reported as broken in one place and healthy in another.
+ */
+export function resolveMapTargetStatus(
+  mapPath: string,
+  href: string,
+  fileSet: ReadonlySet<string>,
+  scope?: string,
+): MapTargetResolution {
+  if (scope === 'external' || scope === 'peer') {
+    return { status: 'external', exists: true };
+  }
+  const res = resolveDitaHref(mapPath, href);
+  if (res.isExternal) {
+    return { status: 'external', exists: true };
+  }
+  const targetPath = res.targetPath || undefined;
+  if (res.escapesRoot) {
+    return { status: 'escaped', targetPath, exists: false };
+  }
+  if (!targetPath) {
+    return { status: 'missing', exists: false };
+  }
+  const exists = fileSet.has(targetPath);
+  return { status: exists ? 'ok' : 'missing', targetPath, exists };
+}
+
 export interface MapBufferState {
   path: string;
   baselineXml: string;
@@ -47,6 +97,8 @@ export interface CompositeMapTreeNode {
   isSubmapRef: boolean;
   resolvedTargetPath?: string;
   targetExists: boolean;
+  /** Fine-grained reason behind `targetExists`, so every surface colours the row identically. */
+  targetStatus?: MapTargetStatus;
   resolvedTitle?: string;
   isSubmapChild: boolean;
   isCyclicRef?: boolean;
@@ -166,7 +218,6 @@ export function buildCompositeMapTree(
 
     for (const node of rawNodes) {
       const nodeId = `${instancePrefix}${ownerMapPath}::${node.elementPath.join('.')}`;
-      const isExternal = node.scope === 'external' || node.scope === 'peer';
 
       const condEval = evaluateElementConditions(node.rawAttrs, ditaval);
       const isExcluded = inheritedExcluded || condEval.status === 'exclude';
@@ -185,17 +236,17 @@ export function buildCompositeMapTree(
 
       let resolvedTargetPath: string | undefined;
       let targetExists = true;
+      let targetStatus: MapTargetStatus | undefined;
       let isCyclicRef = false;
       let resolvedTitle: string | undefined;
 
       if (node.href) {
-        const res = resolveDitaHref(ownerMapPath, node.href);
-        if (!res.isExternal && !isExternal) {
-          resolvedTargetPath = res.targetPath || undefined;
-          targetExists = Boolean(!res.escapesRoot && res.targetPath && fileSet.has(res.targetPath));
-          if (resolvedTargetPath) {
-            resolvedTitle = topicTitles[resolvedTargetPath];
-          }
+        const resolution = resolveMapTargetStatus(ownerMapPath, node.href, fileSet, node.scope);
+        targetStatus = resolution.status;
+        resolvedTargetPath = resolution.targetPath;
+        targetExists = resolution.exists;
+        if (resolvedTargetPath) {
+          resolvedTitle = topicTitles[resolvedTargetPath];
         }
       }
 
@@ -203,6 +254,7 @@ export function buildCompositeMapTree(
       if (node.isSubmapRef && resolvedTargetPath) {
         if (visitedStack.has(resolvedTargetPath)) {
           isCyclicRef = true;
+          targetStatus = 'cycle';
         } else if (targetExists && mapBuffers[resolvedTargetPath]) {
           try {
             const subParsed = parseDitaMap(mapBuffers[resolvedTargetPath]!.xml);
@@ -261,6 +313,7 @@ export function buildCompositeMapTree(
         isSubmapRef: node.isSubmapRef,
         resolvedTargetPath,
         targetExists,
+        targetStatus,
         resolvedTitle,
         isSubmapChild,
         isCyclicRef,

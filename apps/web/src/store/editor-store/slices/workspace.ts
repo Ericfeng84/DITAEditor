@@ -1,6 +1,7 @@
 import {
   checkXmlWellFormed,
   classifyDitaFileKind,
+  extractDitaDocumentTitle,
   findPmPosByDitaId,
   xmlToPmDoc,
   type DitavalDisplayMode,
@@ -22,6 +23,7 @@ import {
   resolveDocumentSemantics,
   resolveSingleConref,
 } from '../../../services/workspace-api';
+import { ApiHttpError } from '../../../services/workspace-api';
 import {
   cancelAllPendingRefreshes,
   collectMemoryIndexFiles,
@@ -155,56 +157,128 @@ export function createWorkspaceSlice(
 
     async reloadFilesFromDisk(filePaths) {
       if (get().workspaceMode === 'memory') return;
-      const uniquePaths = Array.from(new Set(filePaths));
-      const tabs = get().openTabs;
-      const buffers = get().mapBuffers;
-      const nextTabs = [...tabs];
-      const nextBuffers = { ...buffers };
+      const uniquePaths = Array.from(new Set(filePaths.filter((path) => path.length > 0)));
+      if (uniquePaths.length === 0) return;
 
-      for (const filePath of uniquePaths) {
-        let content: string;
-        let contentHash: string | null = null;
+      // Only paths that are currently open can be refreshed: any other path has no buffer to
+      // update and will be read fresh when its tab is opened later.
+      const before = get();
+      const openPaths = new Set<string>([
+        ...before.openTabs.map((tab) => tab.path),
+        ...Object.keys(before.mapBuffers),
+      ]);
+      const targets = uniquePaths.filter((path) => openPaths.has(path));
+      if (targets.length === 0) return;
+
+      type Fetched =
+        | { path: string; kind: 'content'; content: string; contentHash: string | null }
+        // 404 means the file no longer exists in Baseline + this user's overlay: a revert, merge
+        // or delete really removed it, so its tab must close instead of showing stale bytes.
+        | { path: string; kind: 'missing' }
+        // Any other failure is transient: never destroy the user's tab for a flaky network.
+        | { path: string; kind: 'failed' };
+
+      const fetched: Fetched[] = [];
+      for (const filePath of targets) {
         try {
           const res = await fetchFileContent(filePath);
-          content = res.content;
-          contentHash = res.contentHash ?? null;
-        } catch {
-          continue;
-        }
-        const check = checkXmlWellFormed(content, { position: false });
-        const xmlError = check.ok ? null : check.error;
-        const tabIndex = nextTabs.findIndex((tab) => tab.path === filePath);
-        if (tabIndex >= 0) {
-          const tab = nextTabs[tabIndex]!;
-          nextTabs[tabIndex] = {
-            ...tab,
-            xml: content,
-            baselineXml: content,
-            xmlError,
-            switchBlockedReason: null,
-            visualReloadToken: tab.visualReloadToken + 1,
-            title: extractTitleFromCheck(check, tab.fileName),
-            contentHash,
-          };
-        }
-        if (nextBuffers[filePath]) {
-          const buffer = nextBuffers[filePath]!;
-          nextBuffers[filePath] = {
-            ...buffer,
-            xml: content,
-            baselineXml: content,
-            undoStack: [],
-            redoStack: [],
-            xmlError,
-            contentHash,
-          };
+          fetched.push({
+            path: filePath,
+            kind: 'content',
+            content: res.content,
+            contentHash: res.contentHash ?? null,
+          });
+        } catch (err) {
+          fetched.push({
+            path: filePath,
+            kind: err instanceof ApiHttpError && err.status === 404 ? 'missing' : 'failed',
+          });
         }
       }
 
-      set({
-        openTabs: nextTabs,
-        mapBuffers: nextBuffers,
-        statusMessage: t('status.reloaded', { count: uniquePaths.length }),
+      const applied = fetched.filter((entry) => entry.kind !== 'failed').length;
+      if (applied === 0) return;
+
+      // Merge atomically against the freshest state: any edit/close/tab-switch that happened while
+      // the fetches were in flight survives (a snapshot taken before the awaits would clobber it).
+      set((s) => {
+        let nextTabs = s.openTabs;
+        let nextBuffers = s.mapBuffers;
+        let nextTitles = s.topicTitles;
+        let nextActive = s.activeTabPath;
+        let nextConflict = s.contentConflict;
+
+        for (const entry of fetched) {
+          if (entry.kind === 'content') {
+            const check = checkXmlWellFormed(entry.content, { position: false });
+            const xmlError = check.ok ? null : check.error;
+            const tabIndex = nextTabs.findIndex((tab) => tab.path === entry.path);
+            if (tabIndex >= 0) {
+              const tab = nextTabs[tabIndex]!;
+              const nextTitle = extractTitleFromCheck(check, tab.fileName);
+              nextTabs = nextTabs.map((item, index) =>
+                index === tabIndex
+                  ? {
+                      ...item,
+                      xml: entry.content,
+                      baselineXml: entry.content,
+                      xmlError,
+                      switchBlockedReason: null,
+                      visualReloadToken: item.visualReloadToken + 1,
+                      title: nextTitle,
+                      contentHash: entry.contentHash,
+                    }
+                  : item,
+              );
+              const parsedTitle = extractDitaDocumentTitle(entry.content);
+              if (parsedTitle) nextTitles = { ...nextTitles, [entry.path]: parsedTitle };
+            }
+            const buffer = nextBuffers[entry.path];
+            if (buffer) {
+              nextBuffers = {
+                ...nextBuffers,
+                [entry.path]: {
+                  ...buffer,
+                  xml: entry.content,
+                  baselineXml: entry.content,
+                  undoStack: [],
+                  redoStack: [],
+                  xmlError,
+                  contentHash: entry.contentHash,
+                },
+              };
+            }
+            if (nextConflict?.path === entry.path) nextConflict = null;
+            continue;
+          }
+
+          if (entry.kind === 'missing') {
+            if (nextBuffers[entry.path]) {
+              const buffersWithoutPath = { ...nextBuffers };
+              delete buffersWithoutPath[entry.path];
+              nextBuffers = buffersWithoutPath;
+            }
+            const removedIndex = nextTabs.findIndex((tab) => tab.path === entry.path);
+            if (removedIndex >= 0) {
+              const wasActive = nextActive === entry.path;
+              nextTabs = nextTabs.filter((tab) => tab.path !== entry.path);
+              if (wasActive) {
+                const neighbour = nextTabs[removedIndex] ?? nextTabs[removedIndex - 1] ?? null;
+                nextActive = neighbour?.path ?? null;
+              }
+            }
+            if (nextConflict?.path === entry.path) nextConflict = null;
+          }
+        }
+
+        return {
+          openTabs: nextTabs,
+          mapBuffers: nextBuffers,
+          topicTitles: nextTitles,
+          activeTabPath: nextActive,
+          contentConflict: nextConflict,
+          statusMessage: t('status.reloaded', { count: applied }),
+        };
       });
       await get().refreshSemantics();
       await get().refreshDiagnostics();

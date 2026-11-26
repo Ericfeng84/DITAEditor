@@ -15,7 +15,7 @@
       <step>
         <cmd>在顶部选择当前激活的 Root Map（如 <filepath>product-manual.ditamap</filepath> 或 <filepath>admin-book.bookmap</filepath>）。</cmd>
       </step>
-      <step>
+<step>
         <cmd>拖拽树节点调整同级顺序，或拖入其他容器节点下建立子章节。</cmd>
         <info>
           <p>所有拖拽操作均直接驱动底层 <codeph>slimdom</codeph> 节点移动，不会破坏 <codeph>&lt;reltable&gt;</codeph>、注释或 DOCTYPE。</p>

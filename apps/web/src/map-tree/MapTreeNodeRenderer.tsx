@@ -34,6 +34,14 @@ export interface MapNodeRowActions {
     restoreEl: HTMLElement | null,
   ) => void;
   onQuickAddChildTopic: (node: CompositeMapTreeNode) => void;
+  /** Opens the “target not created yet” quick-fix popover anchored at the badge. */
+  onOpenTargetFix: (
+    node: CompositeMapTreeNode,
+    x: number,
+    y: number,
+    openedByKeyboard: boolean,
+    restoreEl: HTMLElement | null,
+  ) => void;
 }
 
 function NodeKindIcon({ data }: { data: CompositeMapTreeNode }) {
@@ -86,7 +94,11 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
     const { t } = useI18n();
     const data = node.data;
     const hasExpandable = Boolean(data.children && data.children.length > 0);
-    const hasBrokenTarget = Boolean(data.href && !data.targetExists);
+    // A `missing` target is a to-do (amber hint + quick fix); `escaped` / `cycle` are real errors.
+    const targetStatus =
+      data.targetStatus ?? (data.href && !data.targetExists ? 'missing' : undefined);
+    const hasTargetError = targetStatus === 'escaped' || targetStatus === 'cycle';
+    const hasMissingTarget = targetStatus === 'missing';
     const tagPillStyle = TAG_PILL_STYLES[data.tagName] ?? 'bg-slate-100 text-slate-600';
     const isExcluded = Boolean(data.isExcluded);
     const isFlagged = !isExcluded && data.conditionEval?.status === 'flag';
@@ -170,9 +182,7 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
 
         {/* Label */}
         <span
-          className={`min-w-0 flex-1 truncate font-medium ${
-            hasBrokenTarget || data.isCyclicRef ? 'text-rose-700' : ''
-          }`}
+          className={`min-w-0 flex-1 truncate font-medium ${hasTargetError ? 'text-rose-700' : ''}`}
           style={isFlagged && flagColor ? { color: flagColor } : undefined}
           title={[
             data.label,
@@ -182,8 +192,12 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
               ? t('mapNode.profiling', { attrs: data.profilingSummary.map((p) => `${p.name}=${p.values.join(' ')}`).join(', ') })
               : null,
             isExcluded ? t('mapNode.excluded') : null,
-            hasBrokenTarget ? t('mapNode.brokenTarget') : null,
-            data.isCyclicRef ? t('mapNode.cycle') : null,
+            hasTargetError
+              ? t(targetStatus === 'cycle' ? 'mapNode.cycle' : 'mapNode.targetEscaped')
+              : null,
+            hasMissingTarget
+              ? t('mapNode.targetMissingHint', { path: data.resolvedTargetPath ?? data.href ?? '' })
+              : null,
           ]
             .filter(Boolean)
             .join('\n')}
@@ -215,12 +229,38 @@ export function createMapTreeNodeRenderer(actions: MapNodeRowActions) {
           </span>
         ) : null}
 
-        {/* Broken Link / Cycle Warning */}
-        {hasBrokenTarget || data.isCyclicRef ? (
+        {/* Broken / cyclic reference error (rose) */}
+        {hasTargetError ? (
           <AlertTriangle
             className="h-3.5 w-3.5 shrink-0 text-rose-500"
-            aria-label={data.isCyclicRef ? t('mapNode.cycleAria') : t('mapNode.missingAria')}
+            aria-label={targetStatus === 'cycle' ? t('mapNode.cycleAria') : t('mapNode.escapedAria')}
           />
+        ) : null}
+
+        {/* Target file not created yet: an action, not an error — click for the quick fix */}
+        {hasMissingTarget ? (
+          <button
+            type="button"
+            tabIndex={-1}
+            onClick={(ev) => {
+              ev.stopPropagation();
+              const rect = ev.currentTarget.getBoundingClientRect();
+              actions.onOpenTargetFix(
+                data,
+                rect.left,
+                rect.bottom + 2,
+                ev.detail === 0,
+                ev.currentTarget,
+              );
+            }}
+            title={t('mapNode.targetMissingFixTitle')}
+            aria-label={t('mapNode.targetPendingAria')}
+            aria-haspopup="menu"
+            className="flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 py-0.2 font-mono text-[9px] font-semibold text-amber-800 hover:bg-amber-200"
+          >
+            <AlertTriangle className="h-2.5 w-2.5" aria-hidden="true" />
+            {t('mapNode.targetPendingBadge')}
+          </button>
         ) : null}
 
         {/* Compact Tag Pill */}

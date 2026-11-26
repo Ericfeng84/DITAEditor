@@ -335,6 +335,8 @@ export const enCollab = {
   'git.restoreFile': 'Restore this version',
   'git.restoreFileTooltip': 'Restore this file from that commit into my drafts',
   'git.restoreConfirm': 'Restore {path} from {revision} into your drafts?',
+  'git.headBadge': 'HEAD',
+  'git.dismissNotice': 'Dismiss notice',
   'git.revertCommit': 'Revert commit',
   'git.revertCommitTooltip': 'Create a revert commit that undoes this change',
   'git.revertConfirm': 'Revert commit {hash}?',
@@ -353,6 +355,9 @@ export const enCollab = {
   'gitStatus.tagDeleted': 'Deleted tag: {tag}',
   'gitStatus.tagDeleteFailed': 'Delete tag failed: {message}',
   'gitStatus.restored': 'Restored {path} from {revision}',
+  'gitStatus.restoredUnchanged': 'File {path} already matches revision {revision}; nothing to restore',
+  'gitStatus.restoredClearedDraft':
+    'Restored {path} to baseline {revision} and cleared the redundant draft',
   'gitStatus.restoreFailed': 'Restore failed: {message}',
   'gitStatus.reverted': 'Reverted commit: {hash}',
   'gitStatus.revertFailed': 'Revert failed: {message}',

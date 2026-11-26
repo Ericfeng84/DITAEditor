@@ -160,6 +160,7 @@ export const zhCNCommon = {
   'status.mapRedo': '已重做 {path} 结构修改',
   'status.mapStructureUpdated': '已调整 Map 目录结构',
   'status.mountedNew': '已新建并挂载 {path}',
+  'status.missingTargetCreated': '已补建缺失的目标文件 {path}',
   'status.mounted': '已挂载 {path}',
   'status.insertedTag': '已插入 <{tag}>',
   'status.attrUpdated': '已更新属性 {name}',

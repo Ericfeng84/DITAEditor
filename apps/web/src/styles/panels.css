@@ -256,6 +256,12 @@
   flex: none;
 }
 
+/* Map Tree “target not created yet” quick fix: roomier than the row context menu */
+.dita-ctx-popover.dita-target-fix-popover {
+  min-inline-size: 272px;
+  max-inline-size: 320px;
+}
+
 /* react-arborist tree container tweaks */
 .dita-map-tree-host [role="tree"] {
   outline: none;

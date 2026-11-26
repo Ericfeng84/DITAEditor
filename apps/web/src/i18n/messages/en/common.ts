@@ -160,6 +160,7 @@ export const enCommon = {
   'status.mapRedo': 'Redid the structural change in {path}',
   'status.mapStructureUpdated': 'Map structure updated',
   'status.mountedNew': 'Created and mounted {path}',
+  'status.missingTargetCreated': 'Created the missing target {path}',
   'status.mounted': 'Mounted {path}',
   'status.insertedTag': 'Inserted <{tag}>',
   'status.attrUpdated': 'Updated attribute {name}',

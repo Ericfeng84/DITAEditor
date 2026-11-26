@@ -275,6 +275,19 @@ export interface EditorWorkbenchState {
     lang: string;
     targetDir: string;
   }) => Promise<void>;
+  /**
+   * Creates the file a dangling `topicref` points at, leaving the node and its `href` untouched.
+   * One-click repair for the Map Tree “target not created yet” state; writing the file needs no
+   * map edit, so it never checks out or rewrites the map itself.
+   */
+  createMissingMapTarget: (options: {
+    mapPath: string;
+    targetPath: string;
+    elementPath: number[];
+    title: string;
+    topicType: DitaTopicTemplateType;
+    lang: string;
+  }) => Promise<void>;
   mountExistingFileInMap: (options: {
     mapPath: string;
     parentPath: number[] | null;

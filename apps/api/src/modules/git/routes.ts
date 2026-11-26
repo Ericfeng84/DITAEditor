@@ -9,7 +9,7 @@ import type { GitFileChange, GitFileDiff, GitManager } from './git-manager.js';
 import { validateBranchName } from './git-manager.js';
 import type { IdentityService } from '../identity/identity-service.js';
 import type { LockService } from '../locks/lock-service.js';
-import type { DraftService, DraftView } from '../locks/draft-service.js';
+import { computeContentHash, type DraftService, type DraftView } from '../locks/draft-service.js';
 import {
   handlePhase4Error,
   resolvePhase4Scope,
@@ -86,9 +86,80 @@ function draftToChange(draft: DraftView): GitFileChange {
   };
 }
 
-function countLines(text: string): number {
-  if (!text) return 0;
-  return text.split('\n').length;
+/**
+ * Upper bound for the LCS matrix. Above it the middle section is reported as a whole
+ * replaced block instead of running an O(n·m) table — still exact for the common
+ * single-edit case, and never pathological on huge generated files.
+ */
+const MAX_LCS_CELLS = 4_000_000;
+
+/** Splits into lines, ignoring the implicit empty line a trailing newline creates. */
+function splitDiffLines(text: string): string[] {
+  if (!text) return [];
+  return (text.endsWith('\n') ? text.slice(0, -1) : text).split('\n');
+}
+
+/**
+ * Exact line-level additions/deletions (Myers-equivalent via bounded LCS).
+ *
+ * Identical inputs short-circuit to `0/0` so a byte-identical draft never renders as
+ * `+N/-N`; common prefix/suffix lines are trimmed before the LCS so single-line edits
+ * stay O(1) regardless of file size.
+ */
+export function computeLineDiffStats(
+  oldText: string,
+  newText: string,
+): { additions: number; deletions: number } {
+  if (oldText === newText) return { additions: 0, deletions: 0 };
+  const oldLines = splitDiffLines(oldText);
+  const newLines = splitDiffLines(newText);
+
+  let prefix = 0;
+  while (
+    prefix < oldLines.length &&
+    prefix < newLines.length &&
+    oldLines[prefix] === newLines[prefix]
+  ) {
+    prefix += 1;
+  }
+  let suffix = 0;
+  while (
+    suffix < oldLines.length - prefix &&
+    suffix < newLines.length - prefix &&
+    oldLines[oldLines.length - 1 - suffix] === newLines[newLines.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  const oldMiddle = oldLines.slice(prefix, oldLines.length - suffix);
+  const newMiddle = newLines.slice(prefix, newLines.length - suffix);
+  if (oldMiddle.length === 0) return { additions: newMiddle.length, deletions: 0 };
+  if (newMiddle.length === 0) return { additions: 0, deletions: oldMiddle.length };
+  if (oldMiddle.length * newMiddle.length > MAX_LCS_CELLS) {
+    return { additions: newMiddle.length, deletions: oldMiddle.length };
+  }
+
+  // Rolling two-row LCS: only the previous row is needed to build the next one.
+  let previous = new Uint32Array(newMiddle.length + 1);
+  let current = new Uint32Array(newMiddle.length + 1);
+  for (let oldIndex = 1; oldIndex <= oldMiddle.length; oldIndex += 1) {
+    const oldLine = oldMiddle[oldIndex - 1];
+    for (let newIndex = 1; newIndex <= newMiddle.length; newIndex += 1) {
+      current[newIndex] =
+        oldLine === newMiddle[newIndex - 1]
+          ? (previous[newIndex - 1] ?? 0) + 1
+          : Math.max(previous[newIndex] ?? 0, current[newIndex - 1] ?? 0);
+    }
+    const swap = previous;
+    previous = current;
+    current = swap;
+    current.fill(0);
+  }
+  const lcs = previous[newMiddle.length] ?? 0;
+  return {
+    additions: newMiddle.length - lcs,
+    deletions: oldMiddle.length - lcs,
+  };
 }
 
 /**
@@ -112,18 +183,21 @@ function buildDraftDiff(
   const newText = row.op === 'delete' ? '' : (row.content ?? '');
   const binary = Boolean(row.assetBlobPath) || (row.content === null && row.op !== 'delete');
 
-  return git.fileAtRevision(scope.workDir, from, originalPath).then((oldText) => ({
-    path: row.filePath,
-    fromLabel: from,
-    toLabel: 'draft',
-    oldText: oldText ?? '',
-    newText,
-    additions: countLines(newText),
-    deletions: countLines(oldText ?? ''),
-    binary,
-    oldExists: oldText !== null,
-    newExists: row.op !== 'delete',
-  }));
+  return git.fileAtRevision(scope.workDir, from, originalPath).then((oldText) => {
+    const stats = computeLineDiffStats(oldText ?? '', newText);
+    return {
+      path: row.filePath,
+      fromLabel: from,
+      toLabel: 'draft',
+      oldText: oldText ?? '',
+      newText,
+      additions: stats.additions,
+      deletions: stats.deletions,
+      binary,
+      oldExists: oldText !== null,
+      newExists: row.op !== 'delete',
+    };
+  });
 }
 
 export interface GitRouteOptions extends LockRouteOptions {
@@ -716,9 +790,48 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       const mode = parsed.data.mode ?? 'draft';
 
       if (mode === 'draft') {
-        if (!options.drafts) {
+        const drafts = options.drafts;
+        if (!drafts) {
           throw new HttpError(503, 'Personal drafts are not available.');
         }
+        const headContent = await git.fileAtRevision(scope.workDir, 'HEAD', filePath);
+        const existsInBaseline = headContent !== null;
+        const contentHash = computeContentHash(content);
+
+        // Restoring what HEAD already holds must not mint a lock or a zero-diff ghost draft.
+        if (headContent !== null && content === headContent) {
+          const existing = drafts.getUserDraft(
+            scope.projectId,
+            scope.branch,
+            scope.user.id,
+            filePath,
+          );
+          if (!existing) {
+            return { path: filePath, revision, mode, unchanged: true, contentHash };
+          }
+          drafts.deleteUserDraft(scope.projectId, scope.branch, scope.user.id, filePath);
+          drafts.bumpDraftRev(scope.projectId, scope.branch, scope.user.id);
+          try {
+            locks.release(scope.projectId, scope.branch, filePath, scope.user);
+          } catch {
+            // A stale draft was the whole problem; an already-released lock is harmless.
+          }
+          recordAudit({
+            scope,
+            action: 'restore',
+            targetPath: filePath,
+            details: { revision, mode, unchanged: false, clearedDraft: true, contentHash },
+          });
+          return {
+            path: filePath,
+            revision,
+            mode,
+            unchanged: false,
+            clearedDraft: true,
+            contentHash,
+          };
+        }
+
         await locks.checkout({
           workDir: scope.workDir,
           projectRootDir: scope.projectRootDir,
@@ -727,12 +840,13 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
           allowMissing: true,
         });
         const baseCommit = (await git.headCommit(scope.workDir)) ?? '';
-        const draft = options.drafts.upsertTextDraft({
+        const draft = drafts.upsertTextDraft({
           projectId: scope.projectId,
           branch: scope.branch,
           filePath,
           userId: scope.user.id,
-          op: 'edit',
+          // A file absent from HEAD can only come back as a new (created) draft.
+          op: existsInBaseline ? 'edit' : 'create',
           content,
           baseCommit,
           originalPath: null,
@@ -743,7 +857,13 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
           targetPath: filePath,
           details: { revision, mode, contentHash: draft.contentHash },
         });
-        return { path: filePath, revision, mode, contentHash: draft.contentHash };
+        return {
+          path: filePath,
+          revision,
+          mode,
+          unchanged: false,
+          contentHash: draft.contentHash,
+        };
       }
 
       // mode === 'commit': rewrite the shared baseline under the caller's file lock.
@@ -804,16 +924,72 @@ export function registerGitRoutes(app: FastifyInstance, options: GitRouteOptions
       identity.requireRole(scope.user, ['admin', 'writer']);
       const revision = normalizeRevision(parsed.data.commitHash);
       if (!revision) throw httpError(400, 'git.invalidRevision', { revision: parsed.data.commitHash });
+
+      // Phase 13 preflight: a revert must never be masked by a draft overlay or steal a
+      // file another member is editing. Inspect the paths the target commit touched.
+      const targetPaths = await git.commitChangedFiles(scope.workDir, revision);
+      if (targetPaths.length > 0) {
+        const targetSet = new Set(targetPaths);
+        const blockingLocks = locks
+          .list(scope.projectId, scope.branch)
+          .filter((lock) => targetSet.has(lock.filePath));
+        // Another member's check-out is the least negotiable blocker: the revert would rewrite a
+        // file they are actively working on, so report it before anything the caller can resolve
+        // on their own. The caller's own lock is reported last (after their drafts) because a
+        // caller-held lock with a draft is better explained as an uncommitted draft.
+        const foreignLocks = blockingLocks.filter((lock) => lock.userId !== scope.user.id);
+        const throwBlockedByLocks = (blocked: typeof blockingLocks) => {
+          const paths = blocked.map((lock) => lock.filePath);
+          return httpError(
+            409,
+            'git.revertBlockedByLocks',
+            { paths: paths.join(', ') },
+            { paths, locks: blocked },
+          );
+        };
+        if (foreignLocks.length > 0) {
+          throw throwBlockedByLocks(foreignLocks);
+        }
+        const blockingDrafts = (options.drafts?.listBranchDrafts(scope.projectId, scope.branch) ?? [])
+          // Rename drafts block through their source path as well.
+          .filter(
+            (draft) =>
+              targetSet.has(draft.filePath) ||
+              (draft.originalPath !== null && targetSet.has(draft.originalPath)),
+          );
+        if (blockingDrafts.length > 0) {
+          const paths = [
+            ...new Set(
+              blockingDrafts.map((draft) =>
+                targetSet.has(draft.filePath) ? draft.filePath : (draft.originalPath ?? draft.filePath),
+              ),
+            ),
+          ];
+          throw httpError(
+            409,
+            'git.revertBlockedByDrafts',
+            { paths: paths.join(', ') },
+            { paths },
+          );
+        }
+        if (blockingLocks.length > 0) {
+          throw throwBlockedByLocks(blockingLocks);
+        }
+      }
+
       const commit = await git.revertCommit(scope.workDir, revision, scope.user);
-      await notifyBaselineChanged(scope);
+      const revertedPaths = await git.commitChangedFiles(scope.workDir, commit.hash);
+      const changedFiles = revertedPaths.length > 0 ? revertedPaths : targetPaths;
+      await notifyBaselineChanged(scope, { writtenPaths: changedFiles });
       recordAudit({
         scope,
         action: 'revert',
         targetPath: revision,
-        details: { commitHash: revision, revertCommit: commit.hash },
+        details: { commitHash: revision, revertCommit: commit.hash, changedFiles },
       });
       return {
         commit,
+        changedFiles,
         status: await git.status(scope.workDir, scope.projectRootDir, resolveRequestLocale(req)),
       };
     } catch (err) {

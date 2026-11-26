@@ -52,6 +52,13 @@ import { ApiHttpError } from '../services/workspace-api';
 import { useAssignmentStore } from './assignment-store';
 import { useEditorStore } from './editor-store';
 
+/** Phase 13 visible operation feedback: an `sr-only` announcement alone is invisible on screen. */
+export interface GitNotice {
+  id: number;
+  tone: 'success' | 'info';
+  message: string;
+}
+
 export interface GitWorkbenchState {
   identity: IdentityResponse | null;
   currentUser: IdentityUser | null;
@@ -76,6 +83,8 @@ export interface GitWorkbenchState {
   loading: boolean;
   busyPath: string | null;
   error: string | null;
+  /** Sticky, dismissible success/info banner pinned below the panel header. */
+  notice: GitNotice | null;
   lastCommit: GitCommitInfo | null;
 
   initialize: () => Promise<void>;
@@ -120,6 +129,7 @@ export interface GitWorkbenchState {
   loadDiff: (options: { path: string; from?: string; to?: string }) => Promise<GitFileDiff | null>;
   clearDiff: () => void;
   clearError: () => void;
+  clearNotice: () => void;
   applyBranchSnapshot: (snapshot: WorkspaceSnapshot) => Promise<void>;
 }
 
@@ -136,17 +146,37 @@ function messageOf(err: unknown): string {
 export const useGitStore = create<GitWorkbenchState>((set, get) => {
   const applyLocks = (locks: FileLock[]) => set({ locks });
   const announce = (message: string) => useEditorStore.getState().announce(message);
+  let noticeSequence = 0;
+  const showNotice = (tone: GitNotice['tone'], message: string) => {
+    noticeSequence += 1;
+    set({ notice: { id: noticeSequence, tone, message } });
+  };
 
   /**
    * Phase 13: a baseline mutation (merge / restore / revert / external commit) changes files
    * behind the open tabs, so every derived view is re-read instead of trusting stale buffers.
+   *
+   * `reloadAllOpen` (and any baseline-wide mutation with no known path list) must refresh every
+   * open tab and map buffer: passing an empty list used to reload literally nothing, which made
+   * revert / external-commit look like a no-op in the editor.
    */
-  const refreshBaselineDependents = async (paths: readonly string[]) => {
+  const refreshBaselineDependents = async (
+    paths: readonly string[],
+    options?: { reloadAllOpen?: boolean },
+  ) => {
     await refreshGit().catch(() => undefined);
     const editor = useEditorStore.getState();
     await editor.refreshWorkspaceTree().catch(() => undefined);
-    await editor.reloadFilesFromDisk([...paths]).catch(() => undefined);
+    const targets = new Set(paths.filter((path) => path.length > 0));
+    if (options?.reloadAllOpen === true || paths.length === 0) {
+      for (const tab of editor.openTabs) targets.add(tab.path);
+      for (const mapPath of Object.keys(editor.mapBuffers)) targets.add(mapPath);
+    }
+    await editor.reloadFilesFromDisk([...targets]).catch(() => undefined);
     await editor.refreshDiagnostics().catch(() => undefined);
+    if (get().auditLogs.length > 0) {
+      await get().loadAudit({ limit: 50 }).catch(() => undefined);
+    }
   };
 
   const applyStatus = (status: GitStatusResponse) => {
@@ -224,6 +254,7 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
     loading: false,
     busyPath: null,
     error: null,
+    notice: null,
     lastCommit: null,
 
     async initialize() {
@@ -546,14 +577,31 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
     },
 
     async restoreFile(input) {
-      set({ busyPath: input.path, error: null });
+      set({ busyPath: input.path, error: null, notice: null });
+      const revision = shortCommitHash(input.revision);
       try {
-        await restoreGitFile(input);
-        await refreshBaselineDependents([input.path]);
-        announce(t('gitStatus.restored', { path: input.path, revision: input.revision }));
+        const response = await restoreGitFile(input);
+        // `unchanged`: the revision matches what this user reads, so the API minted no lock and
+        // no draft — reloading would only throw away unsaved in-memory edits.
+        if (response.unchanged === true) {
+          const message = t('gitStatus.restoredUnchanged', { path: input.path, revision });
+          showNotice('info', message);
+          announce(message);
+        } else {
+          await refreshBaselineDependents([input.path]);
+          const message =
+            response.clearedDraft === true
+              ? t('gitStatus.restoredClearedDraft', { path: input.path, revision })
+              : t('gitStatus.restored', { path: input.path, revision: input.revision });
+          showNotice('success', message);
+          announce(message);
+        }
+        if (input.mode === 'commit') {
+          await get().loadHistory(get().historyPath);
+        }
         return true;
       } catch (err) {
-        set({ error: messageOf(err) });
+        set({ error: messageOf(err), notice: null });
         announce(t('gitStatus.restoreFailed', { message: messageOf(err) }));
         return false;
       } finally {
@@ -562,15 +610,20 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
     },
 
     async revertCommit(commitHash) {
-      set({ loading: true, error: null });
+      set({ loading: true, error: null, notice: null });
       try {
         const response = await revertGitCommit(commitHash);
-        await refreshBaselineDependents([]);
+        const changedFiles = response.changedFiles ?? [];
+        await refreshBaselineDependents(changedFiles, {
+          reloadAllOpen: changedFiles.length === 0,
+        });
         await get().loadHistory(get().historyPath);
-        announce(t('gitStatus.reverted', { hash: shortCommitHash(response.commit) }));
+        const message = t('gitStatus.reverted', { hash: shortCommitHash(response.commit) });
+        showNotice('success', message);
+        announce(message);
         return true;
       } catch (err) {
-        set({ error: messageOf(err) });
+        set({ error: messageOf(err), notice: null });
         announce(t('gitStatus.revertFailed', { message: messageOf(err) }));
         return false;
       } finally {
@@ -579,15 +632,16 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
     },
 
     async commitExternal(message) {
-      set({ loading: true, error: null });
+      set({ loading: true, error: null, notice: null });
       try {
         const response = await commitExternalChanges(message);
-        await refreshBaselineDependents([]);
+        // The API does not report which paths the commit touched, so re-read everything open.
+        await refreshBaselineDependents([], { reloadAllOpen: true });
         await get().loadHistory(get().historyPath);
         announce(t('gitStatus.externalCommitted', { hash: shortCommitHash(response.commit) }));
         return true;
       } catch (err) {
-        set({ error: messageOf(err) });
+        set({ error: messageOf(err), notice: null });
         announce(t('gitStatus.externalCommitFailed', { message: messageOf(err) }));
         return false;
       } finally {
@@ -702,6 +756,10 @@ export const useGitStore = create<GitWorkbenchState>((set, get) => {
 
     clearError() {
       set({ error: null });
+    },
+
+    clearNotice() {
+      set({ notice: null });
     },
 
     async applyBranchSnapshot(snapshot) {

@@ -3,6 +3,7 @@ import { createMapTemplate, parseDitaMap } from '@dita/core';
 import {
   buildCompositeMapTree,
   planMapNodeMove,
+  resolveMapTargetStatus,
 } from '../src/map-tree/map-tree-utils';
 
 const ROOT_MAP = `<?xml version="1.0" encoding="UTF-8"?>
@@ -64,6 +65,9 @@ describe('Phase 2 Composite Map Tree & Cross-Map Move Utilities', () => {
 
     // Broken topicref flagged
     expect(res.nodes[2]!.targetExists).toBe(false);
+    // A dangling href is a “not created yet” hint, never a hard error.
+    expect(res.nodes[2]!.targetStatus).toBe('missing');
+    expect(res.nodes[0]!.children?.[0]?.targetStatus).toBe('ok');
 
     // Circular mapref cycle detection
     const cyclicSub = SUB_MAP.replace(
@@ -81,6 +85,48 @@ describe('Phase 2 Composite Map Tree & Cross-Map Move Utilities', () => {
     );
     const expandedSubChildren = cyclicTree.nodes[1]!.children!;
     expect(expandedSubChildren[2]!.isCyclicRef).toBe(true);
+    expect(expandedSubChildren[2]!.targetStatus).toBe('cycle');
+  });
+
+  it('classifies every map target with one shared verdict (ok / missing / escaped / external)', () => {
+    const files = new Set(['concepts/overview.dita']);
+
+    expect(resolveMapTargetStatus('root.ditamap', 'concepts/overview.dita', files)).toEqual({
+      status: 'ok',
+      targetPath: 'concepts/overview.dita',
+      exists: true,
+    });
+
+    // Valid path, file not authored yet: the Map Tree renders this as an actionable hint.
+    expect(resolveMapTargetStatus('root.ditamap', 'concepts/not-yet.dita', files)).toEqual({
+      status: 'missing',
+      targetPath: 'concepts/not-yet.dita',
+      exists: false,
+    });
+
+    // Escaping the workspace is a real authoring error, not a to-do.
+    const escaped = resolveMapTargetStatus('root.ditamap', '../outside/secret.dita', files);
+    expect(escaped.status).toBe('escaped');
+    expect(escaped.exists).toBe(false);
+
+    // External / peer scopes never become errors and never resolve to a local file.
+    for (const scope of ['external', 'peer']) {
+      expect(resolveMapTargetStatus('root.ditamap', 'https://example.com/a.dita', files, scope)).toEqual({
+        status: 'external',
+        exists: true,
+      });
+    }
+    expect(resolveMapTargetStatus('root.ditamap', 'https://example.com/a.dita', files)).toEqual({
+      status: 'external',
+      exists: true,
+    });
+
+    // Sub-paths are resolved relative to the map that owns the topicref.
+    expect(resolveMapTargetStatus('maps/tasks.ditamap', '../concepts/overview.dita', files)).toEqual({
+      status: 'ok',
+      targetPath: 'concepts/overview.dita',
+      exists: true,
+    });
   });
 
   it('prefers the scanned topic type of the referenced file when the topicref has no type attribute', () => {

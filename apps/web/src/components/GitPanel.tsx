@@ -18,6 +18,7 @@ import {
   Trash2,
   Undo2,
   UserRoundPlus,
+  X,
 } from 'lucide-react';
 import { useGitStore } from '../store/git-store';
 import { useEditorStore } from '../store/editor-store';
@@ -85,6 +86,9 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
   const history = useGitStore((state) => state.history);
   const loading = useGitStore((state) => state.loading);
   const error = useGitStore((state) => state.error);
+  const notice = useGitStore((state) => state.notice);
+  const clearError = useGitStore((state) => state.clearError);
+  const clearNotice = useGitStore((state) => state.clearNotice);
   const busyPath = useGitStore((state) => state.busyPath);
   const refreshAll = useGitStore((state) => state.refreshAll);
   const initGit = useGitStore((state) => state.initGit);
@@ -116,6 +120,16 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
   const canWrite = currentUser?.role === 'admin' || currentUser?.role === 'writer';
   const isAdmin = currentUser?.role === 'admin';
   const initialized = Boolean(status?.initialized);
+  const headHash = status?.lastCommit?.hash ?? null;
+  /** `lastCommit.hash` and `history[].hash` are both full hashes; fall back to prefix matching. */
+  const isHeadCommit = (hash: string): boolean => {
+    if (!headHash) return false;
+    if (hash === headHash) return true;
+    const shorter = hash.length <= headHash.length ? hash : headHash;
+    return shorter.length >= 7 && (hash.startsWith(headHash) || headHash.startsWith(hash));
+  };
+  /** Restore / revert must not fire twice for the same file while a request is in flight. */
+  const versionActionsDisabled = loading || (Boolean(activePath) && busyPath === activePath);
   const dirtyFiles = status?.dirtyFiles ?? [];
   const dirtySet = useMemo(() => new Set(dirtyFiles.map((file) => file.path)), [dirtyFiles]);
   const myLocks = useMemo(
@@ -237,13 +251,56 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
         </div>
       </div>
 
-      <div className="min-h-0 flex-1 space-y-2 overflow-auto p-2">
-        {error ? (
-          <div className="rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] text-rose-700">
-            {error}
-          </div>
-        ) : null}
+      {/* Phase 13: feedback is pinned outside the scrolling body. The Commit History section
+          lives at the very bottom, so an error rendered inside the scroll area (or an
+          `sr-only` success announcement) is invisible right when the user clicks. */}
+      {error || notice ? (
+        <div
+          className="shrink-0 space-y-1 border-b border-slate-200 bg-white px-2 py-1.5"
+          data-testid="git-panel-feedback"
+        >
+          {error ? (
+            <div
+              role="alert"
+              className="flex items-start justify-between gap-1 rounded-md border border-rose-200 bg-rose-50 px-2 py-1.5 text-[10px] leading-relaxed text-rose-700"
+            >
+              <span className="min-w-0 break-words">{error}</span>
+              <button
+                type="button"
+                onClick={clearError}
+                className="shrink-0 rounded p-0.5 text-rose-500 hover:bg-rose-100 hover:text-rose-800"
+                title={t('git.dismissNotice')}
+                aria-label={t('git.dismissNotice')}
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
+          {notice ? (
+            <div
+              role="status"
+              className={`flex items-start justify-between gap-1 rounded-md border px-2 py-1.5 text-[10px] leading-relaxed ${
+                notice.tone === 'info'
+                  ? 'border-sky-200 bg-sky-50 text-sky-800'
+                  : 'border-emerald-200 bg-emerald-50 text-emerald-800'
+              }`}
+            >
+              <span className="min-w-0 break-words">{notice.message}</span>
+              <button
+                type="button"
+                onClick={clearNotice}
+                className="shrink-0 rounded p-0.5 text-slate-500 hover:bg-white hover:text-slate-800"
+                title={t('git.dismissNotice')}
+                aria-label={t('git.dismissNotice')}
+              >
+                <X className="h-3 w-3" aria-hidden="true" />
+              </button>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
 
+      <div className="min-h-0 flex-1 space-y-2 overflow-auto p-2" data-testid="git-panel-scroll">
         {/* Phase 13: on-disk edits made outside the app would otherwise be invisible until a
             check-in stumbled over them. */}
         {initialized && canWrite && externalDirtyFiles.length > 0 ? (
@@ -698,6 +755,11 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
                           <p className="mt-0.5 flex items-center gap-1 text-[9px] text-slate-500">
                             <GitCommitHorizontal className="h-2.5 w-2.5" aria-hidden="true" />
                             {commit.shortHash} · {commit.authorName} · {shortDate(commit.date)}
+                            {isHeadCommit(commit.hash) ? (
+                              <span className="rounded bg-emerald-100 px-1 py-0.5 text-[8.5px] font-semibold uppercase tracking-wide text-emerald-700">
+                                {t('git.headBadge')}
+                              </span>
+                            ) : null}
                           </p>
                         </div>
                         <div className="flex shrink-0 flex-col items-end gap-0.5">
@@ -720,6 +782,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
                           {canWrite && activePath ? (
                             <button
                               type="button"
+                              disabled={versionActionsDisabled}
                               onClick={() => {
                                 if (
                                   window.confirm(
@@ -732,7 +795,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
                                   void restoreFile({ path: activePath, revision: commit.hash });
                                 }
                               }}
-                              className="rounded border border-slate-200 px-1 py-0.5 text-[9px] text-slate-600 hover:bg-slate-50"
+                              className="rounded border border-slate-200 px-1 py-0.5 text-[9px] text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                               title={t('git.restoreFileTooltip')}
                             >
                               {t('git.restoreFile')}
@@ -741,6 +804,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
                           {canWrite ? (
                             <button
                               type="button"
+                              disabled={versionActionsDisabled}
                               onClick={() => {
                                 if (
                                   window.confirm(
@@ -750,7 +814,7 @@ export function GitPanel({ activePath, onOpenDiff, onOpenCheckin, onOpenMerge }:
                                   void revertCommit(commit.hash);
                                 }
                               }}
-                              className="rounded border border-slate-200 px-1 py-0.5 text-[9px] text-slate-600 hover:bg-slate-50"
+                              className="rounded border border-slate-200 px-1 py-0.5 text-[9px] text-slate-600 hover:bg-slate-50 disabled:opacity-50"
                               title={t('git.revertCommitTooltip')}
                             >
                               {t('git.revertCommit')}

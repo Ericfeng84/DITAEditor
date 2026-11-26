@@ -62,6 +62,7 @@ import { MapTreePanel } from './map-tree/MapTreePanel';
 import {
   collectWorkspaceDirectoryPaths,
   collectWorkspaceFilesByKind,
+  type CompositeMapTreeNode,
 } from './map-tree/map-tree-utils';
 import { MountExistingDialog } from './map-tree/MountExistingDialog';
 import { resolveFileEditability } from './services/lock-helpers';
@@ -178,6 +179,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const selectMapNode = useEditorStore((s) => s.selectMapNode);
   const moveMapTreeNodes = useEditorStore((s) => s.moveMapTreeNodes);
   const createTopicAndMountInMap = useEditorStore((s) => s.createTopicAndMountInMap);
+  const createMissingMapTarget = useEditorStore((s) => s.createMissingMapTarget);
   const mountExistingFileInMap = useEditorStore((s) => s.mountExistingFileInMap);
   const insertMapStructureNode = useEditorStore((s) => s.insertMapStructureNode);
   const updateMapAttr = useEditorStore((s) => s.updateMapAttr);
@@ -826,6 +828,27 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [],
   );
 
+  /**
+   * Map Tree quick fix: a `topicref` points at a file that does not exist yet. Writing that file
+   * needs no map edit, so the node, its `href` and its attributes stay byte-identical.
+   */
+  const handleCreateMissingTarget = useCallback(
+    (node: CompositeMapTreeNode) => {
+      if (!node.resolvedTargetPath) return;
+      const templateTypes = ['concept', 'task', 'reference', 'topic'] as const;
+      const declared = templateTypes.find((type) => type === node.topicType);
+      void createMissingMapTarget({
+        mapPath: node.ownerMapPath,
+        targetPath: node.resolvedTargetPath,
+        elementPath: node.elementPath,
+        title: node.label,
+        topicType: declared ?? 'concept',
+        lang: locale === 'en' ? 'en-US' : 'zh-CN',
+      });
+    },
+    [createMissingMapTarget, locale],
+  );
+
   const handleOpenMountExisting = useCallback(
     (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => {
       setMountExistingTarget({
@@ -1082,6 +1105,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                       })
                     }
                     onDeleteNode={deleteMapTreeNode}
+                    onCreateMissingTarget={handleCreateMissingTarget}
                     onUndoMap={undoMap}
                     onRedoMap={redoMap}
                     onOpenPublish={() => setPublishOpen(true)}

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 import { useI18n } from '../i18n/index.js';
-import { parseDitaMap, resolveDitaHref } from '@dita/core';
+import { parseDitaMap } from '@dita/core';
+import { resolveMapTargetStatus } from './map-tree-utils';
 import {
   AlertTriangle,
   BookMarked,
@@ -63,12 +64,14 @@ export function MapOverviewPane({
   }
 
   const map = parsed.data;
-  const brokenRefs = map.references.filter((ref) => {
-    if (ref.scope === 'external' || ref.scope === 'peer') return false;
-    const res = resolveDitaHref(mapPath, ref.href);
-    if (res.isExternal) return false;
-    return res.escapesRoot || !res.targetPath || !fileSet.has(res.targetPath);
-  });
+  // One verdict per reference, shared with the Map Tree so both surfaces agree on what is broken.
+  const referenceStatuses = map.references.map((ref) => ({
+    ref,
+    target: resolveMapTargetStatus(mapPath, ref.href, fileSet, ref.scope),
+  }));
+  // A target file that simply has not been authored yet is a to-do, not an error.
+  const errorRefs = referenceStatuses.filter((entry) => entry.target.status === 'escaped');
+  const pendingRefs = referenceStatuses.filter((entry) => entry.target.status === 'missing');
 
   const submapCount = map.references.filter((r) => r.isSubmapRef).length;
 
@@ -150,12 +153,23 @@ export function MapOverviewPane({
           </div>
           <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
             <div className="text-[11px] text-slate-500">{t('mapOverview.brokenLinks')}</div>
-            <div
-              className={`mt-0.5 text-lg font-bold ${
-                brokenRefs.length > 0 ? 'text-rose-600' : 'text-emerald-700'
-              }`}
-            >
-              {brokenRefs.length}
+            <div className="mt-0.5 flex items-baseline gap-1.5">
+              <span
+                className={`text-lg font-bold ${
+                  errorRefs.length > 0
+                    ? 'text-rose-600'
+                    : pendingRefs.length > 0
+                      ? 'text-amber-600'
+                      : 'text-emerald-700'
+                }`}
+              >
+                {errorRefs.length}
+              </span>
+              {pendingRefs.length > 0 ? (
+                <span className="text-[10.5px] font-medium text-amber-700">
+                  {t('mapOverview.pendingCount', { count: pendingRefs.length })}
+                </span>
+              ) : null}
             </div>
           </div>
         </div>
@@ -184,12 +198,9 @@ export function MapOverviewPane({
             </p>
           ) : (
             <div className="divide-y divide-slate-100 rounded-lg border border-slate-200">
-              {map.references.map((ref, idx) => {
-                const res = resolveDitaHref(mapPath, ref.href);
-                const exists =
-                  res.isExternal ||
-                  ref.scope === 'external' ||
-                  (!res.escapesRoot && Boolean(res.targetPath) && fileSet.has(res.targetPath));
+              {referenceStatuses.map(({ ref, target }, idx) => {
+                const isExternalTarget = target.status === 'external';
+                const exists = target.exists;
 
                 return (
                   <div
@@ -200,7 +211,12 @@ export function MapOverviewPane({
                       {exists ? (
                         <CheckCircle2 className="h-3.5 w-3.5 shrink-0 text-emerald-600" aria-hidden="true" />
                       ) : (
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-rose-500" aria-hidden="true" />
+                        <AlertTriangle
+                          className={`h-3.5 w-3.5 shrink-0 ${
+                            target.status === 'missing' ? 'text-amber-500' : 'text-rose-500'
+                          }`}
+                          aria-hidden="true"
+                        />
                       )}
                       <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10.5px] text-slate-700">
                         &lt;{ref.tagName}&gt;
@@ -208,14 +224,18 @@ export function MapOverviewPane({
                       <span className="truncate font-mono text-slate-700">{ref.href}</span>
                     </div>
 
-                    {exists && !res.isExternal && res.targetPath ? (
+                    {exists && !isExternalTarget && target.targetPath ? (
                       <button
                         type="button"
-                        onClick={() => onOpenTopic(res.targetPath)}
+                        onClick={() => onOpenTopic(target.targetPath!)}
                         className="shrink-0 rounded border border-slate-200 px-2 py-0.5 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
                       >
                         {t('mapOverview.open')}
                       </button>
+                    ) : target.status === 'missing' ? (
+                      <span className="shrink-0 text-[11px] font-medium text-amber-700">
+                        {t('mapOverview.filePending')}
+                      </span>
                     ) : !exists ? (
                       <span className="shrink-0 text-[11px] font-medium text-rose-600">
                         {t('mapOverview.fileMissing')}

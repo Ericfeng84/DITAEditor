@@ -27,6 +27,7 @@ import {
   type MapBufferState,
 } from './map-tree-utils';
 import { MapNodeContextMenu, type MapNodeMenuTarget } from './MapNodeContextMenu';
+import { MapTargetFixPopover, type MapTargetFixTarget } from './MapTargetFixPopover';
 import { createMapTreeNodeRenderer } from './MapTreeNodeRenderer';
 
 export interface MapTreePanelProps {
@@ -58,6 +59,8 @@ export interface MapTreePanelProps {
     tagName: string,
   ) => void;
   onDeleteNode: (mapPath: string, elementPath: number[]) => void;
+  /** Creates the topic a dangling `topicref` points at, keeping the node and its `href` intact. */
+  onCreateMissingTarget: (node: CompositeMapTreeNode) => void;
   onUndoMap: (mapPath: string) => void;
   onRedoMap: (mapPath: string) => void;
   /** Publishing lives next to the map structure: the output is always the active root map. */
@@ -107,6 +110,7 @@ export function MapTreePanel({
   onOpenMountExisting,
   onInsertStructure,
   onDeleteNode,
+  onCreateMissingTarget,
   onUndoMap,
   onRedoMap,
   onOpenPublish,
@@ -118,6 +122,7 @@ export function MapTreePanel({
 
   const [search, setSearch] = useState('');
   const [menuTarget, setMenuTarget] = useState<MapNodeMenuTarget | null>(null);
+  const [fixTarget, setFixTarget] = useState<MapTargetFixTarget | null>(null);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const groupMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -188,7 +193,12 @@ export function MapTreePanel({
           }
         },
         onOpenContextMenu: (node, x, y, openedByKeyboard, restoreEl) => {
+          setFixTarget(null);
           setMenuTarget({ node, x, y, openedByKeyboard, restoreEl });
+        },
+        onOpenTargetFix: (node, x, y, openedByKeyboard, restoreEl) => {
+          setMenuTarget(null);
+          setFixTarget({ node, x, y, openedByKeyboard, restoreEl });
         },
         onQuickAddChildTopic: (node) => {
           onOpenCreateAndMount(getMountParentForNode(node));
@@ -609,6 +619,17 @@ export function MapTreePanel({
           onInsertStructure(parent.mapPath, parent.parentPath, tagName);
         }}
         onInspectNode={(node) =>
+          onSelectMapNode({ mapPath: node.ownerMapPath, elementPath: node.elementPath })
+        }
+        onRemoveNode={(node) => onDeleteNode(node.ownerMapPath, node.elementPath)}
+      />
+
+      {/* “Target not created yet” quick fix */}
+      <MapTargetFixPopover
+        target={fixTarget}
+        onClose={() => setFixTarget(null)}
+        onCreateTarget={(node) => onCreateMissingTarget(node)}
+        onEditHref={(node) =>
           onSelectMapNode({ mapPath: node.ownerMapPath, elementPath: node.elementPath })
         }
         onRemoveNode={(node) => onDeleteNode(node.ownerMapPath, node.elementPath)}

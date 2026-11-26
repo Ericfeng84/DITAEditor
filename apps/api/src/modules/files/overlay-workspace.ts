@@ -168,8 +168,24 @@ function removeFileNode(nodes: WorkspaceFileNode[], targetPath: string): boolean
 
 function insertFileNode(nodes: WorkspaceFileNode[], node: WorkspaceFileNode): void {
   const segments = node.path.split('/').filter((segment) => segment.length > 0);
-  if (segments.length === 0) return;
+  insertFileNodeAt(nodes, segments, '', node);
+}
 
+/**
+ * Insert (or replace) a file node, creating missing parent directories.
+ *
+ * `WorkspaceFileNode.path` is always the FULL workspace-relative POSIX path at every tree
+ * level (see `WorkspaceManager.scanWorkspace`), so it must never be shortened while
+ * descending — an edit draft on `concepts/foo.dita` used to overwrite the baseline node
+ * with `path: 'foo.dita'`, which broke `fileSet` lookups (map tree showed a false
+ * “missing target” warning and file actions addressed a phantom root-level file).
+ */
+function insertFileNodeAt(
+  nodes: WorkspaceFileNode[],
+  segments: readonly string[],
+  parentPath: string,
+  node: WorkspaceFileNode,
+): void {
   const [head, ...rest] = segments;
   if (!head) return;
 
@@ -186,23 +202,24 @@ function insertFileNode(nodes: WorkspaceFileNode[], node: WorkspaceFileNode): vo
     return;
   }
 
+  const dirPath = parentPath ? `${parentPath}/${head}` : head;
   let dir = nodes.find(
     (candidate) => candidate.kind === 'directory' && candidate.name === head,
   );
   if (!dir) {
     dir = {
       name: head,
-      path: head,
+      path: dirPath,
       kind: 'directory',
       children: [],
     };
     nodes.push(dir);
+  } else if (dir.path !== dirPath) {
+    // Repair directories synthesized by an older build that stored a truncated path.
+    dir.path = dirPath;
   }
   if (!dir.children) dir.children = [];
-  insertFileNode(dir.children, {
-    ...node,
-    path: rest.join('/'),
-  });
+  insertFileNodeAt(dir.children, rest, dirPath, node);
   sortNodes(nodes);
 }
 

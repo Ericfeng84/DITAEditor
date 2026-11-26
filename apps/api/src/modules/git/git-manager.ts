@@ -755,6 +755,37 @@ export class GitManager {
     });
   }
 
+  /**
+   * POSIX paths a revision added, modified, deleted or renamed — used to preflight
+   * `revert-commit` against locks/drafts and to report `changedFiles` afterwards.
+   *
+   * `-z` keeps paths literal (no C-style octal quoting), so CJK file names survive.
+   */
+  async commitChangedFiles(workDir: string, revision: string): Promise<string[]> {
+    if (!this.isRepository(workDir)) return [];
+    const safeRev = validateRevisionRef(revision);
+    let raw: string;
+    try {
+      raw = await this.client(workDir).raw([
+        '-c',
+        'core.quotepath=false',
+        'diff-tree',
+        '--no-commit-id',
+        '--name-only',
+        '-r',
+        '-z',
+        '--root',
+        safeRev,
+      ]);
+    } catch {
+      throw httpError(404, 'git.revisionNotFound', { revision });
+    }
+    return raw
+      .split('\u0000')
+      .map((line) => line.trim())
+      .filter(Boolean);
+  }
+
   /** Commits external (desktop-editor) changes on disk into the shared baseline. */
   async commitExternalChanges(
     workDir: string,

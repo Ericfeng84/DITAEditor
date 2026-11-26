@@ -212,6 +212,27 @@ export interface RestoreFileInput {
   message?: string;
 }
 
+/** Phase 13 restore result: the API never mints a lock / ghost draft for a no-op restore. */
+export interface RestoreFileResponse {
+  path?: string;
+  revision?: string;
+  mode?: 'draft' | 'commit';
+  status?: GitStatusResponse;
+  /** The requested revision already matches what this user reads — nothing was restored. */
+  unchanged?: boolean;
+  /** Restoring `HEAD` content deleted the caller's now-redundant personal draft. */
+  clearedDraft?: boolean;
+  contentHash?: string;
+}
+
+/** Phase 13 revert result: `changedFiles` drives which open buffers must be re-read. */
+export interface RevertCommitResponse {
+  commit: GitCommitInfo | string;
+  /** Paths the new revert commit actually changed (absent on older API responses). */
+  changedFiles?: string[];
+  status?: GitStatusResponse;
+}
+
 export interface GitSwitchBranchResponse {
   branch: string;
   workDir: string;
@@ -445,30 +466,20 @@ export function fetchGitAudit(options?: {
   );
 }
 
-export function restoreGitFile(
-  input: RestoreFileInput,
-): Promise<{ status?: GitStatusResponse } & Record<string, unknown>> {
-  return requestJson<{ status?: GitStatusResponse } & Record<string, unknown>>(
-    '/api/git/restore-file',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
-    },
-  );
+export function restoreGitFile(input: RestoreFileInput): Promise<RestoreFileResponse> {
+  return requestJson<RestoreFileResponse>('/api/git/restore-file', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
 }
 
-export function revertGitCommit(
-  commitHash: string,
-): Promise<{ commit: GitCommitInfo | string; status?: GitStatusResponse }> {
-  return requestJson<{ commit: GitCommitInfo | string; status?: GitStatusResponse }>(
-    '/api/git/revert-commit',
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ commitHash }),
-    },
-  );
+export function revertGitCommit(commitHash: string): Promise<RevertCommitResponse> {
+  return requestJson<RevertCommitResponse>('/api/git/revert-commit', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ commitHash }),
+  });
 }
 
 export function fetchMergePreview(sourceBranch: string, targetBranch: string): Promise<MergePreview> {

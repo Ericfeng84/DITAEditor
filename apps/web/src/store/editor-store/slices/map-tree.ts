@@ -200,6 +200,52 @@ export function createMapTreeSlice(
       }
     },
 
+    async createMissingMapTarget({ mapPath, targetPath, elementPath, title, topicType, lang }) {
+      const cleanPath = targetPath.trim().replace(/^\/+/, '');
+      if (!cleanPath) return;
+
+      // The row may only be stale (a teammate's save, or a draft that just materialized).
+      if (get().fileSet.has(cleanPath)) {
+        await get().refreshWorkspaceTree();
+        await get().openFileTab(cleanPath, { mode: 'visual' });
+        return;
+      }
+
+      const base = cleanPath.slice(cleanPath.lastIndexOf('/') + 1).replace(/\.[^.]+$/, '');
+      const id =
+        base.toLowerCase().replace(/[^a-z0-9_-]+/g, '_').replace(/^_+|_+$/g, '') ||
+        `${topicType}_${Date.now().toString(36)}`;
+      const resolvedTitle = title.trim() || base || id;
+      const xml = createTopicTemplate(topicType, { id, title: resolvedTitle, lang });
+
+      try {
+        if (get().workspaceMode === 'api') {
+          await createWorkspaceFile({
+            path: cleanPath,
+            kind: topicType,
+            id,
+            title: resolvedTitle,
+            lang,
+            content: xml,
+          });
+        } else {
+          set((s) => ({ memoryFiles: { ...s.memoryFiles, [cleanPath]: xml } }));
+        }
+      } catch (err) {
+        set({ statusMessage: err instanceof Error ? err.message : String(err) });
+        return;
+      }
+
+      await get().refreshWorkspaceTree();
+      set({
+        selectedMapNode: { mapPath, elementPath },
+        statusMessage: t('status.missingTargetCreated', { path: cleanPath }),
+      });
+      await get().openFileTab(cleanPath, { mode: 'visual' });
+      await get().refreshSemantics();
+      await get().refreshDiagnostics();
+    },
+
     async createTopicAndMountInMap({
       mapPath,
       parentPath,
