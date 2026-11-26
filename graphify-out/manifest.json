@@ -30,9 +30,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/App.tsx": {
-    "mtime": 1795668888.27589,
-    "seen": 1795669519.092842,
-    "ast_hash": "e446c36bed3f7ab0e66d3b02850f96ef",
+    "mtime": 1795674456.9812582,
+    "seen": 1795674659.169987,
+    "ast_hash": "a567226646ff305549f9337cd5e274cb",
     "semantic_hash": ""
   },
   "apps/web/src/main.tsx": {
@@ -246,9 +246,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/AttributesPanel.tsx": {
-    "mtime": 1795479326.910635,
-    "seen": 1795480283.2805882,
-    "ast_hash": "4a8ba55bb2eb2fecab23d62460a44edf",
+    "mtime": 1795674473.0113256,
+    "seen": 1795674659.170038,
+    "ast_hash": "7d5a42a9e9444345c12c0980e1d60de6",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/BreadcrumbBar.tsx": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/src/model/dita-rules.ts": {
-    "mtime": 1795447103.3990233,
-    "seen": 1795447243.7625961,
-    "ast_hash": "06e004bf56afa0904b4bc7a3bce975f1",
+    "mtime": 1795670860.5451503,
+    "seen": 1795671005.290238,
+    "ast_hash": "74a93de946520f0a9baea7ac32b03cd5",
     "semantic_hash": ""
   },
   "packages/dita-core/src/prosemirror/helpers.ts": {
@@ -432,9 +432,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/LeftSidebar.tsx": {
-    "mtime": 1795512795.973266,
-    "seen": 1795512972.566817,
-    "ast_hash": "3f341eb14c90cc60e3bf77793d996701",
+    "mtime": 1795671413.3861248,
+    "seen": 1795672409.3798459,
+    "ast_hash": "46daafc74366498a9e1a18acdf5f77d4",
     "semantic_hash": ""
   },
   "apps/web/src/components/NewMapDialog.tsx": {
@@ -462,27 +462,27 @@
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapNodeInspector.tsx": {
-    "mtime": 1795479326.9275043,
-    "seen": 1795480283.2806358,
-    "ast_hash": "c7f7a138c275dd4737e5d2aad03d4541",
+    "mtime": 1795672208.5611265,
+    "seen": 1795672409.3799338,
+    "ast_hash": "df474b12fa8df39def725b423221f424",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapOverviewPane.tsx": {
-    "mtime": 1795652444.624085,
-    "seen": 1795653020.421706,
-    "ast_hash": "97d9ad61a342e15df1835143f8c58c24",
+    "mtime": 1795671566.3995333,
+    "seen": 1795672409.379935,
+    "ast_hash": "db0770b6584fbf661cb74cd154b355b5",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapTreeNodeRenderer.tsx": {
-    "mtime": 1795652390.3695583,
-    "seen": 1795653020.421708,
-    "ast_hash": "3a71ac6efce484c5b968bff15fac62f8",
+    "mtime": 1795671530.7072067,
+    "seen": 1795672409.379937,
+    "ast_hash": "a17e71289d586ebb63752c8e2498833d",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapTreePanel.tsx": {
-    "mtime": 1795652424.8224022,
-    "seen": 1795653020.421709,
-    "ast_hash": "68722348bb7dff7e844756c0449434c3",
+    "mtime": 1795672239.2999659,
+    "seen": 1795672409.3799381,
+    "ast_hash": "669ed93a719f18eed8c350c46a294e55",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MountExistingDialog.tsx": {
@@ -492,9 +492,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/map-tree-utils.ts": {
-    "mtime": 1795652383.708267,
-    "seen": 1795653020.42171,
-    "ast_hash": "f130e61e6c5360e8e0658b6df2ec8082",
+    "mtime": 1795671519.2807424,
+    "seen": 1795672409.379939,
+    "ast_hash": "0622727de51729b46fb5c08804c6d521",
     "semantic_hash": ""
   },
   "apps/web/src/services/workspace-api.ts": {
@@ -510,9 +510,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/src/map/dita-map.ts": {
-    "mtime": 1795483067.415939,
-    "seen": 1795483312.7611961,
-    "ast_hash": "623b7ded38d667afdd09ca48be9cab9c",
+    "mtime": 1795670951.4176285,
+    "seen": 1795671005.2902348,
+    "ast_hash": "d7d939bc173a5831b800ab31f721231d",
     "semantic_hash": ""
   },
   "packages/dita-core/src/map/path-utils.ts": {
@@ -528,9 +528,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/test/dita-map.test.ts": {
-    "mtime": 1795483169.5009112,
-    "seen": 1795483312.761217,
-    "ast_hash": "41da92767cf95d8c46578bef742af4d1",
+    "mtime": 1795670913.3213744,
+    "seen": 1795671005.290258,
+    "ast_hash": "1f7e609d2d947158d8155f28ff49ce2b",
     "semantic_hash": ""
   },
   "samples/demo-dita-project/images/architecture.svg": {
@@ -564,15 +564,15 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/InsertKeyrefDialog.tsx": {
-    "mtime": 1795479495.4041812,
-    "seen": 1795480283.280566,
-    "ast_hash": "11c14b87455ccfc1fbff7d9ecb1bbb3e",
+    "mtime": 1795671815.5651593,
+    "seen": 1795672409.3798451,
+    "ast_hash": "6776e0e85b5383f958ef75e2c2087579",
     "semantic_hash": ""
   },
   "apps/web/src/components/KeyspacePanel.tsx": {
-    "mtime": 1795581488.1981328,
-    "seen": 1795582019.6763258,
-    "ast_hash": "2fd31a64902cb2bfa35895b0a14c65aa",
+    "mtime": 1795671460.3931527,
+    "seen": 1795672409.3798459,
+    "ast_hash": "3fcc64a88b37a0a6dacd5d8c852b95fb",
     "semantic_hash": ""
   },
   "apps/web/src/components/ProfilingAttrEditor.tsx": {
@@ -786,9 +786,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/services/lock-helpers.ts": {
-    "mtime": 1795611708.2146199,
-    "seen": 1795612233.8794408,
-    "ast_hash": "39e2d975efda0a8f1fa2d721dd2de523",
+    "mtime": 1795674437.850279,
+    "seen": 1795674659.170111,
+    "ast_hash": "24b53a1cc185a6c128a0a1c3b345f0f0",
     "semantic_hash": ""
   },
   "apps/web/src/store/git-store.ts": {
@@ -1920,9 +1920,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/common.ts": {
-    "mtime": 1795668705.7251592,
-    "seen": 1795669519.092934,
-    "ast_hash": "f4c4260ef94045cf6a8d17745828573e",
+    "mtime": 1795671348.9550922,
+    "seen": 1795672409.3799198,
+    "ast_hash": "6c77fa8761cdec4e10336404fa71c08f",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/editor.ts": {
@@ -1938,9 +1938,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/structure.ts": {
-    "mtime": 1795652468.1805618,
-    "seen": 1795653020.421694,
-    "ast_hash": "5bc7cd0f6b4bc2a0e0e161ff9d072f27",
+    "mtime": 1795671657.9972281,
+    "seen": 1795672409.379922,
+    "ast_hash": "948d2403e02d6fd93a578a83c31017bc",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/ai.ts": {
@@ -1956,9 +1956,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/common.ts": {
-    "mtime": 1795668702.196195,
-    "seen": 1795669519.092942,
-    "ast_hash": "b37a9f1774d5cc44682e6e37ba301457",
+    "mtime": 1795671345.4502807,
+    "seen": 1795672409.379928,
+    "ast_hash": "f64dd7dc316868e1d370c077ebed2174",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/editor.ts": {
@@ -1974,9 +1974,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/structure.ts": {
-    "mtime": 1795652462.8776124,
-    "seen": 1795653020.421702,
-    "ast_hash": "d44c4a42a66206d5b5d730a553120257",
+    "mtime": 1795671657.9968402,
+    "seen": 1795672409.379931,
+    "ast_hash": "5465d08a661daeddc2c7c00a79835731",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/index.ts": {
@@ -1986,9 +1986,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/initial-state.ts": {
-    "mtime": 1795611833.1776745,
-    "seen": 1795612233.879446,
-    "ast_hash": "4787f66070b40e4c21a159dea18f27a9",
+    "mtime": 1795671248.2556899,
+    "seen": 1795672409.379951,
+    "ast_hash": "7c1fb1f54391ec3f045b037d5524a190",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/internals.ts": {
@@ -2022,9 +2022,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/map-tree.ts": {
-    "mtime": 1795652488.5407455,
-    "seen": 1795653020.421725,
-    "ast_hash": "1c3cfbdcb75ae65adf1181de7d5c43d3",
+    "mtime": 1795672111.4348567,
+    "seen": 1795672409.379956,
+    "ast_hash": "84f6199ee6137295ad1cc1b1abdf6382",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/tabs.ts": {
@@ -2034,9 +2034,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/ui.ts": {
-    "mtime": 1795450396.9053857,
-    "seen": 1795451270.195245,
-    "ast_hash": "a9703001776867cbd78256ded23f6786",
+    "mtime": 1795671255.1863446,
+    "seen": 1795672409.379957,
+    "ast_hash": "205bd149bfc03a1a971321c5cb03dea1",
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/slices/workspace.ts": {
@@ -2046,9 +2046,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/store/editor-store/types.ts": {
-    "mtime": 1795652475.074821,
-    "seen": 1795653020.421729,
-    "ast_hash": "6b6eb6c41b96b938e290b2eefb60db9c",
+    "mtime": 1795671241.764068,
+    "seen": 1795672409.379959,
+    "ast_hash": "ae1228c8c0c4539b479da43106495275",
     "semantic_hash": ""
   },
   "apps/web/src/components/topicGuideTree.ts": {
@@ -2901,6 +2901,30 @@
     "mtime": 1795669383.8266532,
     "seen": 1795669519.092988,
     "ast_hash": "ee3104057d091eda689d129ef782bebd",
+    "semantic_hash": ""
+  },
+  "docs/key-management-integration-plan.md": {
+    "mtime": 1795670720.6771214,
+    "seen": 1795671005.290306,
+    "ast_hash": "3122694094498e52e7a2a492d1b978fe",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/NewKeyDialog.tsx": {
+    "mtime": 1795671888.8875775,
+    "seen": 1795672409.379851,
+    "ast_hash": "091231ad9170b02facdbe19f8a1a39ec",
+    "semantic_hash": ""
+  },
+  "apps/web/src/editor/visual/KeyrefAttrField.tsx": {
+    "mtime": 1795671745.2511003,
+    "seen": 1795672409.379883,
+    "ast_hash": "ea566984659ba140b9528122e4926d27",
+    "semantic_hash": ""
+  },
+  "apps/web/test/key-management-integration.test.tsx": {
+    "mtime": 1795674501.8719947,
+    "seen": 1795674659.1701498,
+    "ast_hash": "60c6015979b745165f945c851490c3a0",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
