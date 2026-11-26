@@ -1,10 +1,11 @@
-import type { Node as PMNode } from 'prosemirror-model';
+import type { Node as PMNode, ResolvedPos } from 'prosemirror-model';
 import type { Command, Transaction } from 'prosemirror-state';
 import {
   getInsertionSlot,
   getPmChildTags,
   getPmNodeTagName,
   hasSequenceModel,
+  isChildAllowed,
   type RawAttrs,
   type TaskContentModel,
 } from '@dita/core';
@@ -72,19 +73,33 @@ export function insertBlockDitaElement(
   initialAttrs: RawAttrs = EMPTY_ATTRS,
 ): Command {
   return (state, dispatch) => {
-    const containerDepth =
-      targetContainerDepth ?? findLegalAncestorDepthForBlock(state, tagName);
-    if (containerDepth === null || containerDepth < 1) return false;
-
     const newNode = createDitaElementSkeleton(tagName, initialAttrs);
     if (!newNode) return false;
 
     const { $from } = state.selection;
-    if (containerDepth > $from.depth) return false;
+    const taskModel = resolveTaskModelForDocument(state.doc);
+    let containerDepth = targetContainerDepth ?? findLegalAncestorDepthForBlock(state, tagName);
+    if (containerDepth === null || containerDepth < 1 || containerDepth > $from.depth) return false;
 
-    const containerNode = $from.node(containerDepth);
+    // A leaf textblock (`<p>`, `<cmd>`, `<title>`, …) or an inline node can never host a block
+    // child. Inserting into it splits the textblock and produces invalid DITA (a `<step>` inside
+    // `<cmd>`, a second `<cmd>`, …), so walk up to the nearest non-textblock ancestor that accepts
+    // the element instead of ever writing inside the leaf.
+    let containerNode = $from.node(containerDepth);
+    while (
+      containerDepth > 1 &&
+      (containerNode.isTextblock ||
+        containerNode.isInline ||
+        !isChildAllowed(getPmNodeTagName(containerNode) ?? '', tagName, taskModel))
+    ) {
+      containerDepth -= 1;
+      containerNode = $from.node(containerDepth);
+    }
+    if (containerNode.isTextblock || containerNode.isInline) return false;
+
     const containerStart = $from.start(containerDepth);
     const containerTag = getPmNodeTagName(containerNode) ?? '';
+    if (!isChildAllowed(containerTag, tagName, taskModel)) return false;
 
     const preferredPos =
       $from.depth > containerDepth
@@ -99,7 +114,7 @@ export function insertBlockDitaElement(
       containerTag,
       tagName,
       preferredPos,
-      resolveTaskModelForDocument(state.doc),
+      taskModel,
     );
     if (!sequence.ok) return false;
     const insertPos = sequence.pos;
@@ -110,6 +125,43 @@ export function insertBlockDitaElement(
     dispatch(tr.scrollIntoView());
     return true;
   };
+}
+
+/**
+ * Nearest ancestor container that legally accepts `tagName` as a direct block child.
+ *
+ * A between-block `+` widget keeps its offset in the DOM, but the document may have grown under it
+ * (text typed in the same paragraph / `<cmd>`). Resolving that offset can land *inside* a leaf
+ * textblock or an inline node, and inserting there splits `<p>` / `<cmd>` into two elements. Walk up
+ * to the nearest enclosing non-inline, non-textblock container whose DITA tag accepts `tagName` and
+ * insert at the gap right after the child that held the offset.
+ */
+function resolveLegalBlockInsertion(
+  $pos: ResolvedPos,
+  tagName: string,
+  insertPos: number,
+  taskModel: TaskContentModel,
+): {
+  containerNode: PMNode;
+  containerStart: number;
+  containerTag: string;
+  preferredPos: number;
+} | null {
+  for (let depth = $pos.depth; depth >= 1; depth -= 1) {
+    const containerNode = $pos.node(depth);
+    if (containerNode.isInline || containerNode.isTextblock) continue;
+    const containerTag = getPmNodeTagName(containerNode);
+    if (!containerTag || !isChildAllowed(containerTag, tagName, taskModel)) continue;
+    return {
+      containerNode,
+      containerStart: $pos.start(depth),
+      containerTag,
+      // Inside a textblock / non-accepting descendant: re-anchor to the gap immediately AFTER that
+      // descendant inside the accepting container, never into its content.
+      preferredPos: depth === $pos.depth ? insertPos : $pos.after(depth + 1),
+    };
+  }
+  return null;
 }
 
 /**
@@ -125,18 +177,25 @@ export function insertBlockDitaElementAtPos(
     const newNode = createDitaElementSkeleton(tagName, initialAttrs);
     if (!newNode) return false;
 
+    const taskModel = resolveTaskModelForDocument(state.doc);
+    const $pos = state.doc.resolve(insertPos);
+
+    // A gap widget can be clicked after the document moved under it. Never insert blindly into a
+    // textblock / inline node or a container that does not accept the element: re-anchor to the
+    // nearest legal ancestor container so `<p>` / `<cmd>` are never split.
+    const anchor = resolveLegalBlockInsertion($pos, tagName, insertPos, taskModel);
+    if (!anchor) return false;
+
     // Even for an explicit gap, keep ordered content models correct: a `+` divider sitting after
     // `<steps>` re-anchors `<prereq>` to its legal slot, while a gap between two `<step>` / `<li>`
     // items stays right where the user clicked.
-    const $pos = state.doc.resolve(insertPos);
-    const parentTag = getPmNodeTagName($pos.parent) ?? '';
     const sequence = resolveSequenceAnchor(
-      $pos.parent,
-      $pos.start($pos.depth),
-      parentTag,
+      anchor.containerNode,
+      anchor.containerStart,
+      anchor.containerTag,
       tagName,
-      insertPos,
-      resolveTaskModelForDocument(state.doc),
+      anchor.preferredPos,
+      taskModel,
     );
     if (!sequence.ok) return false;
     const targetPos = sequence.pos;

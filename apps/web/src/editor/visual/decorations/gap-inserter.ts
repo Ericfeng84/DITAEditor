@@ -6,17 +6,20 @@ import { DitaDecorationsCallbacks } from './types.js';
 export function createBlockGapInserterDom(
   containerTag: string,
   containerDepth: number,
-  insertPos: number,
+  /** Initial gap offset, or a live resolver (widget `getPos`) re-read at click time. */
+  getInsertPos: number | (() => number),
   quickTags: readonly string[],
   hasMoreLegalElements: boolean,
   callbacks: DitaDecorationsCallbacks,
   locale: UiLocale,
 ): HTMLElement {
+  const resolveInsertPos = (): number =>
+    typeof getInsertPos === 'function' ? getInsertPos() : getInsertPos;
   const row = document.createElement('div');
   row.className = 'dita-block-inserter';
   row.contentEditable = 'false';
   row.dataset.containerTag = containerTag;
-  row.dataset.insertPos = String(insertPos);
+  row.dataset.insertPos = String(resolveInsertPos());
 
   const line = document.createElement('div');
   line.className = 'dita-bi-line';
@@ -45,7 +48,7 @@ export function createBlockGapInserterDom(
     callbacks.onOpenGapInsertMenu({
       containerTag,
       containerDepth,
-      insertPos,
+      insertPos: resolveInsertPos(),
       anchorEl: plusBtn,
     });
   });
@@ -85,7 +88,7 @@ export function createBlockGapInserterDom(
     chip.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      callbacks.onQuickInsertBlock(tag, insertPos);
+      callbacks.onQuickInsertBlock(tag, resolveInsertPos());
     });
     quickList.appendChild(chip);
   }
@@ -106,7 +109,7 @@ export function createBlockGapInserterDom(
       callbacks.onOpenGapInsertMenu({
         containerTag,
         containerDepth,
-        insertPos,
+        insertPos: resolveInsertPos(),
         anchorEl: moreBtn,
       });
     });

@@ -327,11 +327,13 @@ export function collectDitaDecorations(
               decorations.push(
                 Decoration.widget(
                   gapPos,
-                  () =>
+                  (_view, getPos) =>
                     createBlockGapInserterDom(
                       tagName,
                       depth,
-                      gapPos,
+                      // Resolve the live widget offset at click time: the document can grow under
+                      // an unmoved widget key, so a captured `gapPos` must never be trusted.
+                      () => getPos() ?? gapPos,
                       quickTags,
                       hasMore,
                       callbacks,
@@ -339,7 +341,10 @@ export function collectDitaDecorations(
                     ),
                   {
                     side: -5,
-                    key: `gap-before-${pos}-${i}-${tagName}-${widgetSig}`,
+                    // Include `gapPos`: when text inside a sibling paragraph / <cmd> grows, the
+                    // widget key must change so ProseMirror rebuilds the DOM instead of reusing
+                    // a stale position closure.
+                    key: `gap-before-${pos}-${i}-${gapPos}-${tagName}-${widgetSig}`,
                     ignoreSelection: true,
                   },
                 ),
@@ -353,11 +358,12 @@ export function collectDitaDecorations(
               decorations.push(
                 Decoration.widget(
                   gapPos,
-                  () =>
+                  (_view, getPos) =>
                     createBlockGapInserterDom(
                       tagName,
                       depth,
-                      gapPos,
+                      // Always insert at the widget's live offset, never at a captured one.
+                      () => getPos() ?? gapPos,
                       quickTags,
                       hasMore,
                       callbacks,
@@ -365,7 +371,9 @@ export function collectDitaDecorations(
                     ),
                   {
                     side: isLastChild ? 2 : -5,
-                    key: `gap-after-${pos}-${i}-${tagName}-${widgetSig}`,
+                    // `gapPos` is part of the key so a growing sibling textblock invalidates the
+                    // cached widget DOM (and its old insert offset) instead of silently reusing it.
+                    key: `gap-after-${pos}-${i}-${gapPos}-${tagName}-${widgetSig}`,
                     ignoreSelection: true,
                   },
                 ),

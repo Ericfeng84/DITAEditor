@@ -381,6 +381,12 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           if (
             prev &&
             prev.target.blockPos === target.blockPos &&
+            // The node itself can be replaced (e.g. typing inside it, or an edit elsewhere
+            // remapping the position) while keeping the same `blockPos`: never keep a target
+            // whose `blockNode` / `containerNode` identity is stale, or the gutter menu would
+            // compute `blockPos + blockNode.nodeSize` from an outdated size.
+            prev.target.blockNode === target.blockNode &&
+            prev.target.containerNode === target.containerNode &&
             Math.abs(prev.top - anchor.top) < 1.5 &&
             Math.abs(prev.left - anchor.left) < 1.5
           ) {
@@ -515,17 +521,17 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     const openInsertMenuAfterBlock = useCallback(() => {
       const target = blockHandle?.target;
       if (!target) return;
+      // Read the live node: the header text may have grown since the handle was resolved, so the
+      // cached `blockNode.nodeSize` can be stale and would make the `+` menu insert inside the block.
+      const liveBlock = viewRef.current?.state.doc.nodeAt(target.blockPos) ?? target.blockNode;
+      const insertPos = target.blockPos + liveBlock.nodeSize;
       slashPosRef.current = null;
       setGapInsertContext({
-        insertPos: target.blockPos + target.blockNode.nodeSize,
+        insertPos,
         groups: buildBlockInsertGroups(
           target.containerTag,
           target.containerDepth,
-          readGapContainerChildTags(
-            viewRef.current,
-            target.blockPos + target.blockNode.nodeSize,
-            target.containerTag,
-          ),
+          readGapContainerChildTags(viewRef.current, insertPos, target.containerTag),
           viewRef.current ? resolveTaskModelForDocument(viewRef.current.state.doc) : 'strict',
         ),
       });

@@ -4,6 +4,7 @@ import {
   createTopicTemplate,
   DITA_SAMPLE_DOCUMENTS,
   pmDocToXml,
+  validatePmStructure,
   xmlToPmDoc,
 } from '@dita/core';
 import {
@@ -161,5 +162,74 @@ describe('Phase 1 DITA ProseMirror Editing Commands', () => {
     state = runCmd(state, insertBlockDitaElement('note'));
     const outXml = pmDocToXml(state.doc);
     expect(outXml).toContain('<note type="note">');
+  });
+});
+
+describe('Block insertion from a cursor inside an inline tag never treats <p> as the container', () => {
+  it('offers block elements under <conbody> (not <p>) and inserts after the paragraph', () => {
+    const conceptSample = DITA_SAMPLE_DOCUMENTS.find((d) => d.id === 'sample-concept')!;
+    const { pmDoc } = xmlToPmDoc(conceptSample.xml);
+    let state = EditorState.create({ doc: pmDoc });
+
+    let firstPPos = -1;
+    state.doc.descendants((node, pos) => {
+      if (firstPPos === -1 && node.type.name === 'dita_p') {
+        firstPPos = pos;
+        return false;
+      }
+      return true;
+    });
+    expect(firstPPos).toBeGreaterThan(0);
+    const pContentSize = state.doc.nodeAt(firstPPos)!.content.size;
+
+    // Cursor inside the `<b>模块化</b>` inline node nested in the paragraph.
+    let bInside = -1;
+    state.doc.descendants((node, pos) => {
+      if (bInside === -1 && node.type.name === 'dita_b') {
+        bInside = pos + 1;
+        return false;
+      }
+      return true;
+    });
+    expect(bInside).toBeGreaterThan(0);
+    state = state.apply(state.tr.setSelection(TextSelection.create(state.doc, bInside)));
+
+    const snapshot = getSelectionSnapshot(state);
+    expect(snapshot.breadcrumbs.map((b) => b.tagName)).toEqual(['concept', 'conbody', 'p', 'b']);
+    // Leaf textblocks (`dita_p` has content `inline*`) must never be block-insertion containers.
+    expect(snapshot.insertGroups.some((g) => g.containerTag === 'p')).toBe(false);
+    const blockGroups = snapshot.insertGroups.filter((g) => g.insertKind === 'block');
+    expect(blockGroups.length).toBeGreaterThan(0);
+    expect(blockGroups[0]!.containerTag).toBe('conbody');
+    expect(blockGroups.some((g) => g.items.some((item) => item.tag === 'note'))).toBe(true);
+
+    state = runCmd(state, insertBlockDitaElement('note'));
+    const outXml = pmDocToXml(state.doc);
+
+    // The paragraph keeps all of its inline children: no split at the inline boundary.
+    expect(outXml).toContain(
+      '<p>DITA（Darwin Information Typing Architecture）是一套基于 XML 的开放技术文档标准，核心强调<b>模块化</b>、<i>语义化</i>与<u>多渠道发布</u>。</p>',
+    );
+    expect(outXml.match(/<note type="note">/g)).toHaveLength(1);
+    // The sample's existing `<note type="tip">` is still there
+    expect(outXml).toContain('<note type="tip">');
+    expect(outXml.indexOf('<note type="note">')).toBeGreaterThan(
+      outXml.indexOf('<u>多渠道发布</u>。</p>'),
+    );
+    expect(outXml.indexOf('<note type="note">')).toBeLessThan(
+      outXml.indexOf('<section id="sec_core_types">'),
+    );
+
+    let firstPAfter = -1;
+    state.doc.descendants((node, pos) => {
+      if (firstPAfter === -1 && node.type.name === 'dita_p') {
+        firstPAfter = pos;
+        return false;
+      }
+      return true;
+    });
+    expect(firstPAfter).toBe(firstPPos);
+    expect(state.doc.nodeAt(firstPPos)!.content.size).toBe(pContentSize);
+    expect(validatePmStructure(state.doc)).toEqual([]);
   });
 });

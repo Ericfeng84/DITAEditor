@@ -208,7 +208,10 @@ function buildInsertContextGroups(
   // 2. Block elements allowed in the nearest 2–3 enclosing structural containers
   for (let i = breadcrumbs.length - 1; i >= 0; i--) {
     const crumb = breadcrumbs[i]!;
-    if (crumb.node.isInline) continue;
+    // Leaf textblocks (`<p>`, `<cmd>`, `<title>`, `<li>` mixed text, …) cannot host a block child:
+    // inserting there would split the textblock. Offer block elements from the enclosing
+    // structural container instead even when the caret sits inside `<p>` or an inline tag in it.
+    if (crumb.node.isInline || crumb.node.isTextblock) continue;
 
     const blockCandidates = getAllowedChildElements(crumb.tagName, 'block', taskModel).filter(
       (spec) => {
