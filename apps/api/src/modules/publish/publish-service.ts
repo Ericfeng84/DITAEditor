@@ -42,6 +42,7 @@ import {
   applyFopFontEntries,
   applyFontBase,
   discoverNotoCjkFontFiles,
+  fontFailureHintKey,
   materializeNotoFopFonts,
   planNotoFopFonts,
 } from '../dita-ot/fop-font-config.js';
@@ -213,12 +214,9 @@ const PUBLISH_SOURCE_MODES: PublishSourceMode[] = ['baseline', 'tag', 'commit', 
  * FOP reports font trouble as a Java stack trace. Matching the stable headline fragments lets the
  * job error name the actual problem (no embeddable CJK font) instead of only a `[PDFX013F]` line.
  */
-const FONT_FAILURE_PATTERN =
-  /Failed to read font file|Name does not exist in the TrueType collection|'loca' table not found/;
-
 function withFontHint(locale: ApiLocale, logText: string, message: string): string {
-  if (!FONT_FAILURE_PATTERN.test(logText)) return message;
-  return `${apiT(locale, 'publish.fontError')}\n${message}`;
+  const key = fontFailureHintKey(logText);
+  return key ? `${apiT(locale, key)}\n${message}` : message;
 }
 
 function normalizeSourceMode(value: string | null | undefined): PublishSourceMode {

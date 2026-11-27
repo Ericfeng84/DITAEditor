@@ -13,6 +13,7 @@ import {
   applyFopFontEntries,
   applyFontBase,
   discoverNotoCjkFontFiles,
+  fontFailureHintKey,
   materializeNotoFopFonts,
   planNotoFopFonts,
   renderFopFontsSection,
@@ -371,6 +372,36 @@ describe('materializeNotoFopFonts', () => {
         cacheDir: path.join(fontDir, 'cache'),
       }),
     ).toEqual([]);
+  });
+});
+
+describe('fontFailureHintKey', () => {
+  it('blames fontconfig for the headless AWT failure', () => {
+    const log = [
+      'java.lang.RuntimeException: Fontconfig head is null, check your fonts or fonts configuration',
+      '\tat sun.awt.FontConfiguration.readFontConfigFile(Unknown Source)',
+      '\tat org.apache.batik.bridge.DefaultFontFamilyResolver.<clinit>(DefaultFontFamilyResolver.java:86)',
+    ].join('\n');
+    expect(fontFailureHintKey(log)).toBe('publish.fontconfigError');
+  });
+
+  it('blames the font table for FOP embedding failures', () => {
+    expect(fontFailureHintKey('Failed to read font file NotoSansCJK-Bold.ttc')).toBe(
+      'publish.fontError',
+    );
+    expect(
+      fontFailureHintKey('java.io.IOException: Name does not exist in the TrueType collection: X'),
+    ).toBe('publish.fontError');
+    expect(fontFailureHintKey("java.io.IOException: 'loca' table not found")).toBe(
+      'publish.fontError',
+    );
+  });
+
+  it('stays quiet for unrelated failures', () => {
+    expect(fontFailureHintKey('[DOTX060W] The gloss_dita key is used in an <abbreviated-form>')).toBe(
+      null,
+    );
+    expect(fontFailureHintKey('')).toBe(null);
   });
 });
 

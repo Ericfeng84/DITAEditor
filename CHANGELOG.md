@@ -13,6 +13,7 @@ DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepa
   - 字体加载失败时发布任务错误会追加中文/英文提示（安装 `fonts-noto-cjk`、设置 `DITAEDITOR_NOTO_CJK_DIR` 或改用 HTML5），而不是只给一段 Java 堆栈。
   - `dita-ot-plugins/com.ditaeditor.pdf-cjk/fop.xconf` 改写为面向单面 OTF（Google 语言包 / macOS、Windows 手动安装）的回退配置，FOP 限制的完整说明移入该目录的 `README.md`。
   - 生成的 `fop.xconf` 在落盘前必须通过 `checkXmlWellFormed()`；改写逻辑会跳过 XML 注释，避免注释里提到 `<fonts>` 时把注释放出来的 `-->` 一起替换掉，导致 FOP 报 `ConfigurationException: xml parse error`。
+  - Docker 镜像补装 `fontconfig` 并执行 `fc-cache -f`：`node:*-slim` 不提供 `/etc/fonts`，而 `fonts-noto-cjk` 并不依赖 `fontconfig`，headless Java / Batik（PDF2 渲染 SVG 用）会以 `Fontconfig head is null, check your fonts or fonts configuration` 失败；失败日志匹配该特征时发布任务追加 `publish.fontconfigError` 提示。
 
 ### Removed
 

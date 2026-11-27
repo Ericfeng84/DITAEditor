@@ -67,6 +67,13 @@ ENV PATH=$JAVA_HOME/bin:$PATH
 # collection (it picks its TrueType parser from the file header), so @dita/api extracts the
 # needed faces into standalone `.otf` files per publish job (`fop-font-config.ts`). The
 # `-extra` package adds Thin/Light/Medium/Black weights; the planner keeps Regular + Bold.
+#
+# `fontconfig` is mandatory for PDF: headless Java reads `/etc/fonts/fonts.conf` to enumerate
+# families, and Batik (SVG images inside PDF2) touches that path on first render. The slim base
+# image ships no `/etc/fonts` at all, which surfaces as
+# `java.lang.RuntimeException: Fontconfig head is null, check your fonts or fonts configuration`
+# from `org.apache.batik.bridge.DefaultFontFamilyResolver.<clinit>`. `fc-cache -f` then records
+# the Noto CJK faces in the font cache used by both Batik and FOP.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \
@@ -74,8 +81,10 @@ RUN apt-get update \
         zip \
         ca-certificates \
         git \
+        fontconfig \
         fonts-noto-cjk \
         fonts-noto-cjk-extra \
+    && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
 # Phase 14 (optional): MarkItDown CLI in an isolated venv at /opt/markitdown-venv.

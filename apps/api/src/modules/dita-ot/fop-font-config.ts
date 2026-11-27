@@ -368,3 +368,28 @@ function escapeXml(value: string): string {
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
 }
+
+/**
+ * i18n key that explains how to fix a PDF failure caused by the font pipeline, or `null` when
+ * the log does not point at fonts. Lives next to the pipeline so the image prerequisites
+ * (`fontconfig`, `fonts-noto-cjk`) and the user-facing hint cannot drift apart.
+ */
+export type PublishFontHintKey = 'publish.fontError' | 'publish.fontconfigError';
+
+const FONT_FAILURE_HINTS: ReadonlyArray<readonly [RegExp, PublishFontHintKey]> = [
+  [
+    /Fontconfig head is null|check your fonts or fonts configuration/,
+    'publish.fontconfigError',
+  ],
+  [
+    /Failed to read font file|Name does not exist in the TrueType collection|'loca' table not found/,
+    'publish.fontError',
+  ],
+];
+
+export function fontFailureHintKey(logText: string): PublishFontHintKey | null {
+  for (const [pattern, key] of FONT_FAILURE_HINTS) {
+    if (pattern.test(logText)) return key;
+  }
+  return null;
+}

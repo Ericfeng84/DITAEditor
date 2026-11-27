@@ -79,6 +79,8 @@ export const apiMessagesZh = {
   'publish.noIndexHtml': 'DITA-OT 未生成 index.html，请查看构建日志。',
   'publish.fontError':
     'PDF 字体加载失败：未找到可嵌入的 Noto CJK 字体。请安装 fonts-noto-cjk（或设置 DITAEDITOR_NOTO_CJK_DIR），或改用 HTML5 发布。',
+  'publish.fontconfigError':
+    'PDF 渲染缺少 fontconfig：镜像需要额外安装 fontconfig 包（fonts-noto-cjk 并不会带入它）并执行 fc-cache，否则 headless Java / Batik 无法枚举字体。',
   'publish.rootMapMissing': 'Root Map 不存在或已移动：{path}',
   'publish.ditavalMissing': 'DITAVAL 文件不存在：{path}',
   'publish.invalidParams': '参数错误',
@@ -335,6 +337,8 @@ export const apiMessagesEn: Record<ApiMessageKey, string> = {
   'publish.noIndexHtml': 'DITA-OT did not produce index.html; check the build log.',
   'publish.fontError':
     'PDF font loading failed: no embeddable Noto CJK font was found. Install fonts-noto-cjk (or set DITAEDITOR_NOTO_CJK_DIR) or publish with the HTML5 format.',
+  'publish.fontconfigError':
+    'PDF rendering is missing fontconfig: install the fontconfig package in the image (fonts-noto-cjk does not pull it in) and run fc-cache, otherwise headless Java / Batik cannot enumerate fonts.',
   'publish.rootMapMissing': 'The root map is missing or was moved: {path}',
   'publish.ditavalMissing': 'DITAVAL file not found: {path}',
   'publish.invalidParams': 'Invalid parameters',

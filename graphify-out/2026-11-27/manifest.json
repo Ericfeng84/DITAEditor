@@ -342,9 +342,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795765896.5790694,
-    "seen": 1795766028.103669,
-    "ast_hash": "647ce2bf053827b3f5980a620455689b",
+    "mtime": 1795768134.510272,
+    "seen": 1795768256.021423,
+    "ast_hash": "d1bcd9a22b143658ea131eced531daab",
     "semantic_hash": ""
   },
   "apps/web/test/decorations-and-inserter.test.ts": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795765886.588573,
-    "seen": 1795766028.1036701,
-    "ast_hash": "00e481ac6ad4808142bda1778c5758f5",
+    "mtime": 1795768139.3202653,
+    "seen": 1795768256.021424,
+    "ast_hash": "91d8175dcb0758619ad272009c774fd4",
     "semantic_hash": ""
   },
   "README.en.md": {
@@ -822,9 +822,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/publish-service.ts": {
-    "mtime": 1795765724.2335236,
-    "seen": 1795766028.103374,
-    "ast_hash": "85a2ce74e3b47a4c3c2ea6a41be411db",
+    "mtime": 1795768067.67482,
+    "seen": 1795768256.021104,
+    "ast_hash": "2e56ff7b8af98091132c4a86ab68e371",
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/routes.ts": {
@@ -3216,15 +3216,21 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/dita-ot/fop-font-config.ts": {
-    "mtime": 1795765645.6908238,
-    "seen": 1795766028.103338,
-    "ast_hash": "b1c6e78eef7463c8de649b779a9e5573",
+    "mtime": 1795768009.5002537,
+    "seen": 1795768256.021067,
+    "ast_hash": "910ae18aec8daf64bc870f42919221d9",
     "semantic_hash": ""
   },
   "apps/api/test/fop-font-config.test.ts": {
-    "mtime": 1795765809.4866796,
-    "seen": 1795766028.103383,
-    "ast_hash": "07b030935019510ca3f4c01491c71bad",
+    "mtime": 1795768026.135926,
+    "seen": 1795768256.021114,
+    "ast_hash": "6a4626f79b228d6759fc76eed07b9cae",
+    "semantic_hash": ""
+  },
+  "dita-ot-plugins/com.ditaeditor.pdf-cjk/README.md": {
+    "mtime": 1795767949.2543647,
+    "seen": 1795768256.02144,
+    "ast_hash": "d89976d3f4f06d405c6cde6ee3bb4e3e",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

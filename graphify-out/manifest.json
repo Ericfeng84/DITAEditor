@@ -342,9 +342,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795768134.510272,
-    "seen": 1795768256.021423,
-    "ast_hash": "d1bcd9a22b143658ea131eced531daab",
+    "mtime": 1795769342.5080323,
+    "seen": 1795769730.7099671,
+    "ast_hash": "24cb03b1b160cd25daf1c424c20f6ff7",
     "semantic_hash": ""
   },
   "apps/web/test/decorations-and-inserter.test.ts": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795768139.3202653,
-    "seen": 1795768256.021424,
-    "ast_hash": "91d8175dcb0758619ad272009c774fd4",
+    "mtime": 1795769342.5085492,
+    "seen": 1795769730.7099679,
+    "ast_hash": "19892c4916f5c2eb82df27457499f1cb",
     "semantic_hash": ""
   },
   "README.en.md": {
@@ -822,9 +822,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/publish-service.ts": {
-    "mtime": 1795768067.67482,
-    "seen": 1795768256.021104,
-    "ast_hash": "2e56ff7b8af98091132c4a86ab68e371",
+    "mtime": 1795769295.687714,
+    "seen": 1795769730.7096572,
+    "ast_hash": "e5553035404448f65443fd4a543ff5ce",
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/routes.ts": {
@@ -1512,9 +1512,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/i18n/messages.ts": {
-    "mtime": 1795765727.7226188,
-    "seen": 1795766028.103322,
-    "ast_hash": "f420175aee3d4eaf4071a0145fb1ea4f",
+    "mtime": 1795769283.0116653,
+    "seen": 1795769730.709601,
+    "ast_hash": "e005b90a8a07486165e0ce3a340c4cfb",
     "semantic_hash": ""
   },
   "apps/api/test/phase8-i18n.test.ts": {
@@ -3216,21 +3216,27 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/dita-ot/fop-font-config.ts": {
-    "mtime": 1795768009.5002537,
-    "seen": 1795768256.021067,
-    "ast_hash": "910ae18aec8daf64bc870f42919221d9",
+    "mtime": 1795769291.0763705,
+    "seen": 1795769730.709619,
+    "ast_hash": "02b524fc5382f3d8c0cc6331dac8eabc",
     "semantic_hash": ""
   },
   "apps/api/test/fop-font-config.test.ts": {
-    "mtime": 1795768026.135926,
-    "seen": 1795768256.021114,
-    "ast_hash": "6a4626f79b228d6759fc76eed07b9cae",
+    "mtime": 1795769327.1581,
+    "seen": 1795769730.709666,
+    "ast_hash": "fea2d691020867f490e58f20716b4085",
     "semantic_hash": ""
   },
   "dita-ot-plugins/com.ditaeditor.pdf-cjk/README.md": {
-    "mtime": 1795767949.2543647,
-    "seen": 1795768256.02144,
-    "ast_hash": "d89976d3f4f06d405c6cde6ee3bb4e3e",
+    "mtime": 1795769337.7870927,
+    "seen": 1795769730.7099829,
+    "ast_hash": "e755e5196ade79ca35ce9d494a8fb05f",
+    "semantic_hash": ""
+  },
+  "docs/versioning-model.md": {
+    "mtime": 1795769179.196459,
+    "seen": 1795769730.7100081,
+    "ast_hash": "6a94186f11c7bf069d3362ba6622f234",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

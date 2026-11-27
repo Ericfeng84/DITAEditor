@@ -73,6 +73,20 @@ names (`NotoSansCJKsc-Regular.otf`, …) under `/usr/share/fonts/opentype/noto`:
 from the Noto CJK "language-specific OTF" download, macOS/Windows manual installs. Point
 `DITAEDITOR_NOTO_CJK_DIR` (or install the fonts) and the API generates a working table instead.
 
+## Runtime prerequisites
+
+The image (and any host that publishes PDFs) needs **both**:
+
+| Package | Why |
+| --- | --- |
+| `fontconfig` | Headless Java reads `/etc/fonts/fonts.conf` to enumerate families, and Batik — which PDF2 uses to render SVG images — does that on its first render. `node:*-slim` ships no `/etc/fonts` at all, so the build fails with `java.lang.RuntimeException: Fontconfig head is null, check your fonts or fonts configuration` from `org.apache.batik.bridge.DefaultFontFamilyResolver.<clinit>`. Note that `fonts-noto-cjk` has **no** `Depends:` on it. |
+| `fonts-noto-cjk` (+ `-extra`) | the actual CJK faces the API extracts per publish |
+
+Run `fc-cache -f` once after installing the fonts so Batik's enumeration and FOP see the same
+cache. On a Debian host without `fonts-noto-cjk`, FOP still parses its configuration (the font
+table is generated per job) but CJK glyphs fall back to a Latin font, which is the other symptom
+users report.
+
 ## Environment
 
 | Variable | Default | Purpose |
@@ -81,6 +95,6 @@ from the Noto CJK "language-specific OTF" download, macOS/Windows manual install
 | `DITAEDITOR_FOP_XCONF` | `<plugin dir>/fop.xconf` | template configuration |
 | `DITAEDITOR_NOTO_CJK_DIR` | auto-detected | Noto CJK font directory to materialise from |
 
-When publishing fails on fonts, the job error is prefixed with `publish.fontError`
-(`apps/api/src/i18n/messages.ts`), which names the fix instead of only printing
-`[PDFX013F] The PDF file ... cannot be generated.`
+When publishing fails on fonts, the job error is prefixed with `publish.fontError` (missing faces)
+or `publish.fontconfigError` (missing `fontconfig`; `apps/api/src/i18n/messages.ts`), which names
+the fix instead of only printing `[PDFX013F] The PDF file ... cannot be generated.`
