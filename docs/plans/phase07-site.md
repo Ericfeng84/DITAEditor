@@ -1,7 +1,7 @@
 # Phase 7 规划与实施蓝图：项目官网、交互式 DITA 沙箱与快速上手文档
 
 > **状态**：✅ 已实施并验收（`apps/site` 全部 Slice 7.1–7.5 已交付，见文末「交付结果」）  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–6 已完成并验收，v1.0.0）  
+> **上游架构基线**：[architecture-and-plan.md](../architecture-and-plan.md)（Phase 0–6 已完成并验收，v1.0.0）  
 > **目标形态**：独立静态站点 `apps/site`（`@dita/site`）· 中英双语（`zh-CN` / `en`）· 现代技术出版编辑风 · 浏览器内纯前端 `@dita/core` 交互试玩
 
 ---

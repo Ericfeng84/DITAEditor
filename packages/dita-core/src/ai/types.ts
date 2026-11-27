@@ -1,6 +1,6 @@
 /**
  * Phase 6 AI assistance — fragment targeting, extraction, and lossless splicing contracts.
- * Binding interface: docs/phase6-ai-contract.md §1.
+ * Binding interface: docs/design/ai-contract.md §1.
  */
 
 export type AiTargetMode = 'element' | 'line-window' | 'full-document';

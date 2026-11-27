@@ -2,7 +2,7 @@
 
 > **适用场景**：希望以最低成本（月均约 **\$0 – \$1**）把 **DITAEditor 完整版单容器工作台**（含 DITA-OT 4.2.1 严格校验、Phase 12 HTML5 多套主题、Noto CJK 中文 PDF、本地 Git / Check-out 锁与 AI 助手）部署到 Google Cloud，**支持中国大陆稳定访问**，并在 `git push` 到 `main` 时全自动更新。
 >
-> 如只需纯前端离线体验，请参阅 [deploy-github-pages.md](./deploy-github-pages.md)；如需免绑卡社区托管，请参阅 [deploy-huggingface-spaces.md](./deploy-huggingface-spaces.md)。
+> 如只需纯前端离线体验，请参阅 [github-pages.md](./github-pages.md)；如需免绑卡社区托管，请参阅 [huggingface-spaces.md](./huggingface-spaces.md)。
 
 ---
 
@@ -36,13 +36,13 @@ flowchart LR
 为确保应用无论部署在根路径 `/` 还是反向代理子路径（如 `https://<your-domain>/dita`）均开箱可用，代码库已内置以下双向适配（默认 `/` 行为 100% 不变）：
 
 1. **前端构建与 API 基址**：
-   - [Dockerfile](../Dockerfile) 支持构建参数 `ARG VITE_BASE=/` 与运行时环境变量 `DITA_BASE_PATH=`。
-   - [apps/web/src/services/api-base.ts](../apps/web/src/services/api-base.ts) 提供 `apiUrl()`，自动将所有 `/api/*` 请求、SSE 日志/AI 流、图片资产（`/api/assets/resolve`）、HTML5 主题实时预览和发布产物下载链接挂载到 `import.meta.env.BASE_URL` 下（如 `/dita/api/...`）。
-   - [apps/web/src/router/app-router.ts](../apps/web/src/router/app-router.ts) 原生兼容 `BASE_URL`，`/dita` 与 `/dita/manuals/:id` 路由无缝往返。
+   - [Dockerfile](../../Dockerfile) 支持构建参数 `ARG VITE_BASE=/` 与运行时环境变量 `DITA_BASE_PATH=`。
+   - [apps/web/src/services/api-base.ts](../../apps/web/src/services/api-base.ts) 提供 `apiUrl()`，自动将所有 `/api/*` 请求、SSE 日志/AI 流、图片资产（`/api/assets/resolve`）、HTML5 主题实时预览和发布产物下载链接挂载到 `import.meta.env.BASE_URL` 下（如 `/dita/api/...`）。
+   - [apps/web/src/router/app-router.ts](../../apps/web/src/router/app-router.ts) 原生兼容 `BASE_URL`，`/dita` 与 `/dita/manuals/:id` 路由无缝往返。
 2. **后端前缀透明剥离**：
-   - [apps/api/src/index.ts](../apps/api/src/index.ts) 在设置 `DITA_BASE_PATH=/dita` 时通过 Fastify `rewriteUrl` 自动剥离请求前缀 `/dita`，确保**经主域名反代**与**直连 Cloud Run URL** 均能正常加载静态资源、SPA 路由与 `/health` 探针。
+   - [apps/api/src/index.ts](../../apps/api/src/index.ts) 在设置 `DITA_BASE_PATH=/dita` 时通过 Fastify `rewriteUrl` 自动剥离请求前缀 `/dita`，确保**经主域名反代**与**直连 Cloud Run URL** 均能正常加载静态资源、SPA 路由与 `/health` 探针。
 3. **干净的构建上下文**：
-   - [.dockerignore](../.dockerignore) 与 [.gcloudignore](../.gcloudignore) 统一排除 `node_modules`、`dist`、`**/*.tsbuildinfo`、`graphify-out`、`apps/desktop/release` 等非运行时文件，防止本地增量编译缓存误导容器内 `tsc` 跳过产物输出。
+   - [.dockerignore](../../.dockerignore) 与 [.gcloudignore](../../.gcloudignore) 统一排除 `node_modules`、`dist`、`**/*.tsbuildinfo`、`graphify-out`、`apps/desktop/release` 等非运行时文件，防止本地增量编译缓存误导容器内 `tsc` 跳过产物输出。
 
 ---
 
@@ -64,7 +64,7 @@ gcloud config set project "${GCP_PROJECT_ID}"
 
 ### 2. 一键构建并部署到 Cloud Run
 
-仓库已内置 [deploy/gcp/cloudbuild.yaml](../deploy/gcp/cloudbuild.yaml) 与 [deploy/gcp/deploy-cloudrun.sh](../deploy/gcp/deploy-cloudrun.sh)：
+仓库已内置 [deploy/gcp/cloudbuild.yaml](../../deploy/gcp/cloudbuild.yaml) 与 [deploy/gcp/deploy-cloudrun.sh](../../deploy/gcp/deploy-cloudrun.sh)：
 
 ```bash
 GCP_PROJECT_ID="${GCP_PROJECT_ID}" \
@@ -165,7 +165,7 @@ export default {
 
 ## 五、配置 `git push` 自动部署（GitHub Actions + 无密钥 WIF）
 
-仓库已内置工作流 [.github/workflows/deploy-cloudrun.yml](../.github/workflows/deploy-cloudrun.yml)。按以下两步一次性完成授权后，此后每次 `push` 到 `main`（改动运行代码或 `Dockerfile`）都会自动构建并滚动发布到 Cloud Run。
+仓库已内置工作流 [.github/workflows/deploy-cloudrun.yml](../../.github/workflows/deploy-cloudrun.yml)。按以下两步一次性完成授权后，此后每次 `push` 到 `main`（改动运行代码或 `Dockerfile`）都会自动构建并滚动发布到 Cloud Run。
 
 ### 1. 在 GCP 创建最小权限部署账号与 Workload Identity Federation
 

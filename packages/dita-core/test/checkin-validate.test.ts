@@ -6,7 +6,7 @@ import {
 } from '../src/index.js';
 
 /**
- * Step 1 regression tests (docs/checkin-validation-ai-fix-plan.md §5.1 CORE-7 / CORE-8): the
+ * Step 1 regression tests (docs/plans/checkin-validation-ai-fix.md §5.1 CORE-7 / CORE-8): the
  * check-in gate is the shared decision point for `@dita/api` (hard gate) and `@dita/web`
  * (`CheckinDialog` pre-check), so it must report XML well-formedness, DITA 1.3 structure and
  * `.ditaval` syntax with identical file paths / lines / columns in both containers.

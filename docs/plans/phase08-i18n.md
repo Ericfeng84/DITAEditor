@@ -1,7 +1,7 @@
 # Phase 8 规划与实施蓝图：全栈英文版界面与双语国际化（i18n）
 
-> **状态**：📋 规划已确认（待实施）  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–6 已完成 v0.8.0，Phase 7 官网规划已完成）  
+> **状态**：✅ 已完成并归档（v1.2.0，见现行代码与 CHANGELOG）  
+> **上游架构基线**：[architecture-and-plan.md](../architecture-and-plan.md)（Phase 0–6 已完成 v0.8.0，Phase 7 官网规划已完成）  
 > **目标形态**：零外部运行依赖的强类型全栈 i18n（`zh-CN` / `en`）· 浏览器语言自动探测 + 顶栏实时无刷新切换 · 工作台 UI / DITA 模板 / 语义诊断 / API 报错 / AI 助手全链路英文支持
 
 ---

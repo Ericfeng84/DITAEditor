@@ -40,8 +40,8 @@ If you would rather not keep Docker on every writer's machine, download an insta
 | macOS (Apple Silicon `arm64`) | `DITAEditor-<version>-mac-arm64.dmg` | `DITAEditor-<version>-mac-arm64.zip` |
 | Windows (`x64`) | `DITAEditor-<version>-win-x64.exe` (NSIS) | `DITAEditor-<version>-win-x64.zip` |
 
-- Workspaces, SQLite, `git worktree` and publish output live in the per-user data directory; override it with `DITA_DESKTOP_DATA_DIR`.
-- Ships the demo manual and the Noto CJK PDF font plugin, so Chinese PDF works out of the box. Local Git and DITA-OT 4.x are auto-detected; editing, maps, keys, conref, DITAVAL and AI keep working without them.
+- Workspaces, SQLite, `git worktree` checkouts and publish output default to the OS `userData` directory and can be moved in-app under **Desktop Settings → Storage** (`Cmd/Ctrl+,`) with safe data migration, reuse of an existing data folder, fresh initialization, or restore to default (`DITA_DESKTOP_DATA_DIR` still overrides via environment variable). Attaching local manuals also uses the native OS folder picker.
+- Ships the demo manual, HTML5 publish themes and the Noto CJK PDF font plugin. **Desktop Settings → Plugins & Runtime** probes host Git, Java, DITA-OT 4.x, Noto CJK fonts and MarkItDown / Docling, offering copyable macOS/Windows install commands, download links, and native folder pickers for `DITA_OT_HOME` or Noto CJK fonts (authoring, maps, keys, conref, DITAVAL and AI keep working before installing them).
 - Open-source builds are not code-signed: if Gatekeeper blocks the first launch on macOS, run `xattr -cr /Applications/DITAEditor.app`; on Windows choose More info → Run anyway in SmartScreen.
 - The desktop app shares the same `@dita/core` kernel and SQLite schema as the web version, so workspaces move between them unchanged.
 

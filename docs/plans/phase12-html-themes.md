@@ -1,7 +1,7 @@
 # Phase 12 规划与实施蓝图：HTML5 发布样式主题与多套专业文档模板
 
-> **状态**：📋 规划已确认（待进入编码实现）  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–11 已完成）  
+> **状态**：✅ 已完成并归档（见现行代码与 CHANGELOG）  
+> **上游架构基线**：[architecture-and-plan.md](../architecture-and-plan.md)（Phase 0–11 已完成）  
 > **目标形态**：发布弹窗支持可视化挑选 **4 套专业 HTML5 文档主题 + 原生默认兜底** · 零依赖离线文档站体验（左侧目录树 / 右侧页内大纲 / `Cmd+K` 离线全文检索 / 代码复制 / 明暗切换 / 响应式抽屉） · 轻量品牌定制（主色 / 标题 / Logo / 页脚 / 工作区自定义 CSS）与按手册持久化默认配置 · 零 DITA-OT 插件安装门槛（Docker / 本机 / 桌面端一致可用）
 
 ---
@@ -265,7 +265,7 @@ DITAEditor/
 │           └── main.ts                    # 扩展：向 createServer 透传 htmlThemesDir
 └── docs/
     ├── architecture-and-plan.md           # 更新 Phase 12 概览、目录与风险矩阵
-    └── phase12-html-themes-plan.md        # 本文档
+    └── plans/phase12-html-themes.md        # 本文档
 ```
 
 ---

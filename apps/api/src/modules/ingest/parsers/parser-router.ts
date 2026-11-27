@@ -49,7 +49,7 @@ function doclingOrder(
 }
 
 /**
- * Routing matrix for one document (see `docs/phase14-docling-agent-plan.md`):
+ * Routing matrix for one document (see `docs/plans/phase14-docling-agent.md`):
  *
  * | extension                            | order                                              |
  * |--------------------------------------|----------------------------------------------------|

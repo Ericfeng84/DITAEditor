@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "docs/architecture-and-plan.md": {
-    "mtime": 1795764210.7529242,
-    "seen": 1795764482.422658,
-    "ast_hash": "6cf65611ad058e586d0288a1b3d26305",
+    "mtime": 1795788874.516133,
+    "seen": 1795789018.3209338,
+    "ast_hash": "b368f0a7335a86524750164cba34d3d7",
     "semantic_hash": ""
   },
   "apps/web/src/components/NewTopicDialog.tsx": {
@@ -234,9 +234,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/source/dita-completion.ts": {
-    "mtime": 1795764048.931174,
-    "seen": 1795764482.422438,
-    "ast_hash": "642bb49c3ddf2303c45dae22b8f72ba5",
+    "mtime": 1795788260.4471717,
+    "seen": 1795788622.951765,
+    "ast_hash": "9a1f9d17486c1c88c0377a6bb9517caa",
     "semantic_hash": ""
   },
   "apps/web/src/editor/source/xml-linter.ts": {
@@ -246,9 +246,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/AttributesPanel.tsx": {
-    "mtime": 1795785933.996548,
-    "seen": 1795786464.195649,
-    "ast_hash": "08a2bf51ade3a6c128ef4807592c6690",
+    "mtime": 1795788285.021657,
+    "seen": 1795788622.95177,
+    "ast_hash": "096988f7c8b4c3dd02af02a270e6886f",
     "semantic_hash": ""
   },
   "apps/web/src/editor/visual/BreadcrumbBar.tsx": {
@@ -318,9 +318,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/src/model/dita-rules.ts": {
-    "mtime": 1795764308.6884842,
-    "seen": 1795764482.4225972,
-    "ast_hash": "fe9c292315ec4885744aa931d88c41d0",
+    "mtime": 1795788003.082624,
+    "seen": 1795788116.8580449,
+    "ast_hash": "c86ba4e79f60180aee43d3c03a33f67e",
     "semantic_hash": ""
   },
   "packages/dita-core/src/prosemirror/helpers.ts": {
@@ -336,15 +336,15 @@
     "semantic_hash": ""
   },
   "packages/dita-core/test/rules-and-templates.test.ts": {
-    "mtime": 1795441723.883296,
-    "seen": 1795441975.138745,
-    "ast_hash": "420d861fe1707a72335f4053fbf2ac52",
+    "mtime": 1795788052.0061934,
+    "seen": 1795788116.858088,
+    "ast_hash": "e3b823440130c8e149934c58d4d61851",
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795769342.5080323,
-    "seen": 1795769730.7099671,
-    "ast_hash": "24cb03b1b160cd25daf1c424c20f6ff7",
+    "mtime": 1795788740.8048809,
+    "seen": 1795788852.5833118,
+    "ast_hash": "2549acd20ef4c3835c6172d7fb1d6183",
     "semantic_hash": ""
   },
   "apps/web/test/decorations-and-inserter.test.ts": {
@@ -462,9 +462,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapNodeInspector.tsx": {
-    "mtime": 1795763950.0221298,
-    "seen": 1795764482.422506,
-    "ast_hash": "7753d6b9619b2ad036c98760f51bc4cf",
+    "mtime": 1795788339.2283688,
+    "seen": 1795788622.951869,
+    "ast_hash": "fbc041946ab6bb6dc141de374b6a8f96",
     "semantic_hash": ""
   },
   "apps/web/src/map-tree/MapOverviewPane.tsx": {
@@ -636,9 +636,9 @@
     "semantic_hash": ""
   },
   "README.md": {
-    "mtime": 1795764453.606572,
-    "seen": 1795764482.4226391,
-    "ast_hash": "48c9925461a200e5c8b3fb127a569930",
+    "mtime": 1795788816.1173162,
+    "seen": 1795788852.583318,
+    "ast_hash": "dcd88fb96d0024d5466cc8fd00e5b61f",
     "semantic_hash": ""
   },
   "apps/web/src/components/ConrefReusePanel.tsx": {
@@ -666,15 +666,15 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795769342.5085492,
-    "seen": 1795769730.7099679,
-    "ast_hash": "19892c4916f5c2eb82df27457499f1cb",
+    "mtime": 1795788744.7870812,
+    "seen": 1795788852.583314,
+    "ast_hash": "6db19ab90255ff99ffdbc86d337bf0ed",
     "semantic_hash": ""
   },
   "README.en.md": {
-    "mtime": 1795764453.612345,
-    "seen": 1795764482.4226382,
-    "ast_hash": "9404574a4dae319bd1a41e143e161fb7",
+    "mtime": 1795788830.6961904,
+    "seen": 1795788852.583317,
+    "ast_hash": "b1726d1f9a9703b42e7122f76cbc61f9",
     "semantic_hash": ""
   },
   "apps/api/src/db/client.ts": {
@@ -954,9 +954,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/ai/types.ts": {
-    "mtime": 1795706773.4653177,
-    "seen": 1795707012.9790132,
-    "ast_hash": "a8023eb902d1181a505d9b6689b1496a",
+    "mtime": 1795788839.7495322,
+    "seen": 1795788852.582735,
+    "ast_hash": "89e2911428efde007f17e8f69be28c5e",
     "semantic_hash": ""
   },
   "apps/api/test/ai-config-and-model.test.ts": {
@@ -1050,27 +1050,15 @@
     "semantic_hash": ""
   },
   "packages/dita-core/src/ai/types.ts": {
-    "mtime": 1795329907.7891984,
-    "seen": 1795331234.53597,
-    "ast_hash": "24f830cca1f2ad0e4cdf9bdbf3c68145",
+    "mtime": 1795788837.534175,
+    "seen": 1795788852.583232,
+    "ast_hash": "ec5cbe6f6bc0d214861284d5d11be589",
     "semantic_hash": ""
   },
   "packages/dita-core/test/ai-fragment.test.ts": {
-    "mtime": 1795668228.8254607,
-    "seen": 1795668362.567466,
-    "ast_hash": "32685ec5afab482a16685ac7c87219c1",
-    "semantic_hash": ""
-  },
-  "docs/phase6-ai-contract.md": {
-    "mtime": 1795595960.5874538,
-    "seen": 1795596068.6965928,
-    "ast_hash": "744b140abe00c98ed474d7164b798312",
-    "semantic_hash": ""
-  },
-  "docs/phase6-ai-implementation-plan.md": {
-    "mtime": 1795307821.4778454,
-    "seen": 1795310776.400511,
-    "ast_hash": "97c4ed97bd3fb71519600182574164ef",
+    "mtime": 1795788844.1502419,
+    "seen": 1795788852.5832782,
+    "ast_hash": "3e2d2b78a4a2a60ed3e6e27211daed4e",
     "semantic_hash": ""
   },
   "docs/pic/phase5-pdf-output.png": {
@@ -1314,15 +1302,15 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/features.md": {
-    "mtime": 1795764190.773365,
-    "seen": 1795764482.422642,
-    "ast_hash": "326ac8cfcbfcb9d984f25c4fec21249b",
+    "mtime": 1795788027.1681178,
+    "seen": 1795788116.8581161,
+    "ast_hash": "72fcf4645cf5ff040d3143429f162cbd",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/getting-started.md": {
-    "mtime": 1795529842.572597,
-    "seen": 1795530050.06907,
-    "ast_hash": "a68d237ac82cbd9cee62eb861d41e84d",
+    "mtime": 1795788187.9526768,
+    "seen": 1795788622.952085,
+    "ast_hash": "56c46cd5952176f6803e798f6e830130",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/en/introduction.md": {
@@ -1350,15 +1338,15 @@
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/features.md": {
-    "mtime": 1795764190.7729647,
-    "seen": 1795764482.422646,
-    "ast_hash": "9ff40168335f22699c1260a51ca1e67b",
+    "mtime": 1795788025.4386098,
+    "seen": 1795788116.858124,
+    "ast_hash": "8d3126edea7dd752e8ae3977c5f93dd8",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/getting-started.md": {
-    "mtime": 1795529842.572394,
-    "seen": 1795530050.0690749,
-    "ast_hash": "2408216cc574e7eaadb83a5f8eb0b540",
+    "mtime": 1795788186.629274,
+    "seen": 1795788622.952092,
+    "ast_hash": "28da1e8483277a06d40f24ec990f0369",
     "semantic_hash": ""
   },
   "apps/site/src/content/docs/zh/introduction.md": {
@@ -1371,18 +1359,6 @@
     "mtime": 1795309114.560517,
     "seen": 1795310776.400508,
     "ast_hash": "1f3c975c5addf84dcb5fada5fa718aed",
-    "semantic_hash": ""
-  },
-  "docs/phase7-site-plan.md": {
-    "mtime": 1795764210.7551477,
-    "seen": 1795764482.422674,
-    "ast_hash": "1fff77a376ccc593092b5ee8e71ede37",
-    "semantic_hash": ""
-  },
-  "docs/phase8-i18n-plan.md": {
-    "mtime": 1795310502.6832478,
-    "seen": 1795310776.400513,
-    "ast_hash": "eee465b0e05b591d2469001b05a4f9e3",
     "semantic_hash": ""
   },
   "apps/site/public/apple-touch-icon.png": {
@@ -1488,21 +1464,9 @@
     "semantic_hash": ""
   },
   "deploy/huggingface/README.md": {
-    "mtime": 1795764203.267129,
-    "seen": 1795764482.4226508,
-    "ast_hash": "8ed258fb68aa678274d19392834b6d92",
-    "semantic_hash": ""
-  },
-  "docs/deploy-github-pages.md": {
-    "mtime": 1795764210.7540507,
-    "seen": 1795764482.422661,
-    "ast_hash": "5289f83858c3f63a970d63a93552457a",
-    "semantic_hash": ""
-  },
-  "docs/deploy-huggingface-spaces.md": {
-    "mtime": 1795325840.9211397,
-    "seen": 1795325914.698349,
-    "ast_hash": "8bc4ec160f2714b410f79f54bc163d46",
+    "mtime": 1795788833.004295,
+    "seen": 1795788852.583337,
+    "ast_hash": "bdff3f129756529b0c58f68f7fa93583",
     "semantic_hash": ""
   },
   "apps/api/src/i18n/locale.ts": {
@@ -1733,12 +1697,6 @@
     "ast_hash": "13a8fc4b76b896ff2c4c906ddf44fd5d",
     "semantic_hash": ""
   },
-  "docs/dita-authoring-compliance.md": {
-    "mtime": 1795446534.4907885,
-    "seen": 1795447081.0701811,
-    "ast_hash": "9d7b13e9c80cb808cb74702b6dd6a532",
-    "semantic_hash": ""
-  },
   "packages/dita-core/test/pm-doc-title.test.ts": {
     "mtime": 1795764141.588934,
     "seen": 1795764482.422622,
@@ -1926,9 +1884,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/editor.ts": {
-    "mtime": 1795786542.83498,
-    "seen": 1795786696.517477,
-    "ast_hash": "9c9843ad91bb7d69073dbe33fbd42e15",
+    "mtime": 1795788256.6821897,
+    "seen": 1795788622.9518359,
+    "ast_hash": "4d0ed572916d7446f24a085d0443aaf8",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/guide.ts": {
@@ -1962,9 +1920,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/editor.ts": {
-    "mtime": 1795786542.833721,
-    "seen": 1795786696.517494,
-    "ast_hash": "9b18c0c2f6b989c9fed727a05fbbe95b",
+    "mtime": 1795788252.7836215,
+    "seen": 1795788622.951851,
+    "ast_hash": "089c7783c717d6b2b6ea7815e6f9e757",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/guide.ts": {
@@ -2307,12 +2265,6 @@
     "mtime": 1795505101.081147,
     "seen": 1795507573.6239629,
     "ast_hash": "c289b0ee55d8bf7b384c8cdd73ba7d82",
-    "semantic_hash": ""
-  },
-  "docs/phase10-workbench-assignments-plan.md": {
-    "mtime": 1795513635.3425639,
-    "seen": 1795513805.641649,
-    "ast_hash": "eb4d2a30a4688f481a504885492d06a9",
     "semantic_hash": ""
   },
   "apps/web/test/tab-open-dedupe.test.ts": {
@@ -2682,15 +2634,9 @@
     "semantic_hash": ""
   },
   "dita-ot-plugins/html5-themes/README.md": {
-    "mtime": 1795577623.4818704,
-    "seen": 1795580135.31846,
-    "ast_hash": "0757357e6a5cd2b11e57a3bee543a79b",
-    "semantic_hash": ""
-  },
-  "docs/phase12-html-themes-plan.md": {
-    "mtime": 1795573870.4393604,
-    "seen": 1795580135.318471,
-    "ast_hash": "dddbbf277cd1e706a19f38a65110fbaa",
+    "mtime": 1795788835.3303251,
+    "seen": 1795788852.583339,
+    "ast_hash": "0a018688f390ef01d1acfba3926f53c6",
     "semantic_hash": ""
   },
   "apps/web/src/services/api-base.ts": {
@@ -2727,12 +2673,6 @@
     "mtime": 1795583986.6016023,
     "seen": 1795584356.5324092,
     "ast_hash": "5bcb60c9165c5ebbd3410337fc6dde66",
-    "semantic_hash": ""
-  },
-  "docs/deploy-gcp-cloudrun.md": {
-    "mtime": 1795584369.7938313,
-    "seen": 1795585765.048194,
-    "ast_hash": "2513b4e93f4237f6e07a8d8129371357",
     "semantic_hash": ""
   },
   "apps/web/src/ai/ai-proposal.ts": {
@@ -2775,12 +2715,6 @@
     "mtime": 1795613530.8122787,
     "seen": 1795613539.987041,
     "ast_hash": "4370d7b094b14089e6ade592de921032",
-    "semantic_hash": ""
-  },
-  "docs/phase13-versioning-overlay-plan.md": {
-    "mtime": 1795613529.1547,
-    "seen": 1795613539.987051,
-    "ast_hash": "9dd646415ebbb5091bffab6a394671ec",
     "semantic_hash": ""
   },
   "apps/web/src/components/MergeDialog.tsx": {
@@ -2855,12 +2789,6 @@
     "ast_hash": "cef50d88ba0dc2342edfa4a301e52ea8",
     "semantic_hash": ""
   },
-  "docs/phase13-restore-revert-fix-plan.md": {
-    "mtime": 1795652945.561111,
-    "seen": 1795653020.421844,
-    "ast_hash": "87df8fd4407f72ba07ff2c6d43add829",
-    "semantic_hash": ""
-  },
   "apps/api/test/git-restore-revert.test.ts": {
     "mtime": 1795653615.3525617,
     "seen": 1795654097.007807,
@@ -2880,15 +2808,9 @@
     "semantic_hash": ""
   },
   "packages/dita-core/test/checkin-validate.test.ts": {
-    "mtime": 1795764134.6762137,
-    "seen": 1795764482.422616,
-    "ast_hash": "8846d4657ea628dd383acbda57b9f361",
-    "semantic_hash": ""
-  },
-  "docs/checkin-validation-ai-fix-plan.md": {
-    "mtime": 1795764210.7536068,
-    "seen": 1795764482.4226592,
-    "ast_hash": "983a0595f5de4bfe1b937b2ab0109c21",
+    "mtime": 1795788845.9783878,
+    "seen": 1795788852.5832808,
+    "ast_hash": "fed0796fa69227067c7d405a78a32692",
     "semantic_hash": ""
   },
   "apps/api/test/checkin-validation.test.ts": {
@@ -2901,12 +2823,6 @@
     "mtime": 1795669383.8266532,
     "seen": 1795669519.092988,
     "ast_hash": "ee3104057d091eda689d129ef782bebd",
-    "semantic_hash": ""
-  },
-  "docs/key-management-integration-plan.md": {
-    "mtime": 1795670720.6771214,
-    "seen": 1795671005.290306,
-    "ast_hash": "3122694094498e52e7a2a492d1b978fe",
     "semantic_hash": ""
   },
   "apps/web/src/components/NewKeyDialog.tsx": {
@@ -3006,9 +2922,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/ingest/parsers/parser-router.ts": {
-    "mtime": 1795706729.6749585,
-    "seen": 1795707012.9790359,
-    "ast_hash": "08624cc00f8d83d768905304f6ef631b",
+    "mtime": 1795788842.092848,
+    "seen": 1795788852.5827851,
+    "ast_hash": "534ff77fbc96a7bf5ebe2118bb12038b",
     "semantic_hash": ""
   },
   "apps/api/src/modules/ingest/parsers/types.ts": {
@@ -3051,12 +2967,6 @@
     "mtime": 1795764124.678326,
     "seen": 1795764482.4226198,
     "ast_hash": "08795c1000c0f96e208b09eb0830ede6",
-    "semantic_hash": ""
-  },
-  "docs/phase14-docling-agent-plan.md": {
-    "mtime": 1795764210.7546024,
-    "seen": 1795764482.422671,
-    "ast_hash": "3501917cfd1c1c31bb7d840a7ab9b954",
     "semantic_hash": ""
   },
   "apps/api/src/modules/ingest/agent/index.ts": {
@@ -3233,12 +3143,6 @@
     "ast_hash": "e755e5196ade79ca35ce9d494a8fb05f",
     "semantic_hash": ""
   },
-  "docs/versioning-model.md": {
-    "mtime": 1795769179.196459,
-    "seen": 1795769730.7100081,
-    "ast_hash": "6a94186f11c7bf069d3362ba6622f234",
-    "semantic_hash": ""
-  },
   "apps/api/src/modules/runtime/environment-service.ts": {
     "mtime": 1795783193.1946967,
     "seen": 1795783380.090646,
@@ -3357,6 +3261,156 @@
     "mtime": 1795786631.2927797,
     "seen": 1795786696.5176268,
     "ast_hash": "8fd0e139c5b353a29af327bceda3ceb7",
+    "semantic_hash": ""
+  },
+  "packages/dita-core/src/model/dita-attr-docs.ts": {
+    "mtime": 1795787977.9006934,
+    "seen": 1795788116.858042,
+    "ast_hash": "3222ad44fb4ce80e45510c68d263d3c6",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/attributes/AttributeField.tsx": {
+    "mtime": 1795788230.6006105,
+    "seen": 1795788622.951732,
+    "ast_hash": "c01661ea401b2100b3b645a439f9f293",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/attributes/AttributeFilterBar.tsx": {
+    "mtime": 1795788218.6813622,
+    "seen": 1795788622.951734,
+    "ast_hash": "74dc0d6a4f9eb0f3d0735de3f6b4b485",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/attributes/AttributeGroupSection.tsx": {
+    "mtime": 1795788235.5800722,
+    "seen": 1795788622.951735,
+    "ast_hash": "d2e9e9b995088d1adecf966f48cc6d40",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/attributes/RawAttributesSection.tsx": {
+    "mtime": 1795788780.1201305,
+    "seen": 1795788852.5829692,
+    "ast_hash": "3cb5b49d8224415aa071e6c0b68bf2b5",
+    "semantic_hash": ""
+  },
+  "apps/web/src/components/attributes/filter-attrs.ts": {
+    "mtime": 1795788211.003349,
+    "seen": 1795788622.951738,
+    "ast_hash": "91d661d7ffcc57beec5f20ba07f76ce3",
+    "semantic_hash": ""
+  },
+  "apps/web/test/attributes-panel.test.tsx": {
+    "mtime": 1795788476.3581796,
+    "seen": 1795788622.951932,
+    "ast_hash": "68682f074c988fccec7bb23c5cb50f7a",
+    "semantic_hash": ""
+  },
+  "docs/README.md": {
+    "mtime": 1795788698.4233606,
+    "seen": 1795788852.5833411,
+    "ast_hash": "4d11561bc96a579bfe149c1450c8d4ac",
+    "semantic_hash": ""
+  },
+  "docs/deploy/gcp-cloudrun.md": {
+    "mtime": 1795788874.5174453,
+    "seen": 1795789018.320936,
+    "ast_hash": "2118b78ad1d81366cd9f7f767c9d4d60",
+    "semantic_hash": ""
+  },
+  "docs/deploy/github-pages.md": {
+    "mtime": 1795788874.517981,
+    "seen": 1795789018.320937,
+    "ast_hash": "6a006c32e4d370a80744acaa1a85db56",
+    "semantic_hash": ""
+  },
+  "docs/deploy/huggingface-spaces.md": {
+    "mtime": 1795788874.518413,
+    "seen": 1795789018.3209379,
+    "ast_hash": "382bb3bdce9bb522d984deb13d5b56fe",
+    "semantic_hash": ""
+  },
+  "docs/design/ai-contract.md": {
+    "mtime": 1795788747.2868006,
+    "seen": 1795788852.583356,
+    "ast_hash": "56d28fa913a1c94167e9181dd00515ea",
+    "semantic_hash": ""
+  },
+  "docs/design/content-reuse-workflow.md": {
+    "mtime": 1795788745.9556859,
+    "seen": 1795788852.5833569,
+    "ast_hash": "0560ac437d6ec40e6f876c10f70dab0f",
+    "semantic_hash": ""
+  },
+  "docs/design/dita-authoring-compliance.md": {
+    "mtime": 1795446534.4907885,
+    "seen": 1795788852.583358,
+    "ast_hash": "9d7b13e9c80cb808cb74702b6dd6a532",
+    "semantic_hash": ""
+  },
+  "docs/design/versioning-model.md": {
+    "mtime": 1795788701.7766197,
+    "seen": 1795788852.583359,
+    "ast_hash": "3c7fa0752c638851e255c6bbdea1ce9e",
+    "semantic_hash": ""
+  },
+  "docs/plans/checkin-validation-ai-fix.md": {
+    "mtime": 1795788874.5195327,
+    "seen": 1795789018.320949,
+    "ast_hash": "870de7519f89a552cb0524f66776152f",
+    "semantic_hash": ""
+  },
+  "docs/plans/key-management-integration.md": {
+    "mtime": 1795788874.519992,
+    "seen": 1795789018.320951,
+    "ast_hash": "1b2ade84446878da77f507eb4e5dbbf1",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase06-ai-implementation.md": {
+    "mtime": 1795788874.5208418,
+    "seen": 1795789018.3209522,
+    "ast_hash": "2e9e708da651f39e19558cba3066ccaf",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase07-site.md": {
+    "mtime": 1795788874.5213163,
+    "seen": 1795789018.3209531,
+    "ast_hash": "269fb5c1803e6b1ff09c9a376962cde4",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase08-i18n.md": {
+    "mtime": 1795788874.5220175,
+    "seen": 1795789018.320954,
+    "ast_hash": "72a17e0247b04902142b713db1c310b6",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase10-workbench-assignments.md": {
+    "mtime": 1795788874.5227282,
+    "seen": 1795789018.3209548,
+    "ast_hash": "c21324edafa1c6969357b583b4450d12",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase12-html-themes.md": {
+    "mtime": 1795788874.5237834,
+    "seen": 1795789018.320957,
+    "ast_hash": "efc26b5a51577a2c71aab96ecd582329",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase13-restore-revert-fix.md": {
+    "mtime": 1795788874.524212,
+    "seen": 1795789018.320958,
+    "ast_hash": "aa1f80bc69b1cd30c668d482f985ce30",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase13-versioning-overlay.md": {
+    "mtime": 1795788874.5248034,
+    "seen": 1795789018.320959,
+    "ast_hash": "a1253bfc37a6363b2935a6ec9a040ffc",
+    "semantic_hash": ""
+  },
+  "docs/plans/phase14-docling-agent.md": {
+    "mtime": 1795788874.5255225,
+    "seen": 1795789018.32096,
+    "ast_hash": "4ecae33f7d868e3bdec1ce355c4814bc",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

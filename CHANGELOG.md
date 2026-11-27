@@ -5,6 +5,14 @@ DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Added
+
+- **内容复用全链路入口（Warehouse 仓库 / 新建与提取复用段落 / 全场景插入）**（详见 [content-reuse-workflow.md](docs/design/content-reuse-workflow.md)）：
+  - `@dita/core` 新增 `createWarehouseTopicTemplate()`、`packages/dita-core/src/semantics/warehouse.ts`（`generateSemanticElementId`、`collectTopicElementIds`、`appendReusableFragmentToTopicXml`，支持 Strict Task `<context>`/`<example>` 槽位与行内元素 `<p>` 自动包裹、Prolog/属性顺序无损保留）以及 `serializePmBlockToXml()`。
+  - `@dita/web` Store 新增 `createWarehouseTopic` 与 `addReusableFragmentToTopic`，支持一键新建 `processing-role="resource-only"` Warehouse Topic 与 Root Map `<keydef>`，并严格遵守 Phase 13 Check-out 锁与 Draft Overlay 乐观锁保存。
+  - 新增 `CreateReusableSnippetDialog`（`create` 模式默认 `<p>` 并支持内联新建仓库 + 立即插入；`extract` 模式支持提取已有块并单事务替换为保留条件属性的 `conkeyref`/`conref` 骨架或保留副本）。
+  - 补齐消费与生产入口：`ConrefReusePanel` 顶部与空状态新增 `+ 新建复用片段` 引导；`/` 斜杠菜单与块间 `+` 插入菜单（`InsertElementMenu`）支持检索并直达「复用」面板；`BlockHandle` 与 `AttributesPanel` 新增「设为可复用（生成 ID）」与「提取为复用段落…」；`EditorToolbar`「复用」文字自 `lg` 断点起显式展示。
+
 ### Fixed
 
 - **修复服务器端 PDF 发布失败（Noto CJK `ttc` 无法嵌入）**：Adobe FOP 2.9 只对以 `OTTO` 开头的文件才选用 CFF 解析器，`ttcf` 集合一律走 TrueType 解析器并因缺少 `glyf` / `loca` 报 `'loca' table not found`；而 Debian `fonts-noto-cjk` 只提供 CFF 轮廓的 `NotoSansCJK-*.ttc` / `NotoSerifCJK-*.ttc`，因此**任何**直接登记 `ttc` 的 `fop.xconf` 都无法生成 PDF。此前 Docker 镜像因此报 `Name does not exist in the TrueType collection: Noto Sans CJK SC` → `[PDFX013F]`。
@@ -42,7 +50,7 @@ DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepa
 
 ## [1.4.0] — 2026-11-25
 
-Phase 13 交付：**Git 干净基线 + 个人草稿叠加层**（版本管理重构与合并闭环）。未检入的编辑/新建/删除/重命名全部离开共享 `workDir`，隔离进 SQLite `working_drafts`；同分支多人共编同一 Map 不再互相污染校验、AI 上下文与发布快照，并补齐 Tag、安全回滚、无污染合并、乐观锁与版本审计。全仓测试 521 项全绿（`@dita/core` 175 / `@dita/web` 210 / `@dita/api` 102 / `@dita/site` 30 / `@dita/desktop` 4）。设计见 [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) 与 [Phase 13 方案](docs/phase13-versioning-overlay-plan.md)。
+Phase 13 交付：**Git 干净基线 + 个人草稿叠加层**（版本管理重构与合并闭环）。未检入的编辑/新建/删除/重命名全部离开共享 `workDir`，隔离进 SQLite `working_drafts`；同分支多人共编同一 Map 不再互相污染校验、AI 上下文与发布快照，并补齐 Tag、安全回滚、无污染合并、乐观锁与版本审计。全仓测试 521 项全绿（`@dita/core` 175 / `@dita/web` 210 / `@dita/api` 102 / `@dita/site` 30 / `@dita/desktop` 4）。设计见 [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) 与 [Phase 13 方案](docs/plans/phase13-versioning-overlay.md)。
 
 ### Added
 
@@ -160,7 +168,7 @@ Phase 7 交付：独立静态官网 `@dita/site`、零后端浏览器交互式 D
 - 根 `package.json` 与各 workspace 包版本升至 `1.1.0`；README / README.en 增加「官网与浏览器沙箱」章节、目录树与版本徽章。
 - `AGENTS.md` 增补 `apps/site` 目录、站点命令与「静态站不变量」（双语对称、路径辅助函数、首屏不加载编辑器 chunk、
   Tailwind CSS-first、沙箱不得 mock）；路线图补齐 Phase 7。
-- `docs/architecture-and-plan.md` Phase 7 状态更新为已完成；`docs/phase7-site-plan.md` 增补交付结果与两处实现差异说明
+- `docs/architecture-and-plan.md` Phase 7 状态更新为已完成；`docs/plans/phase07-site.md` 增补交付结果与两处实现差异说明
   （自研零依赖行级 Diff 取代 MergeView、HTML/CSS 架构图取代 SVG）。
 - `Dockerfile` 保持不变：构建阶段仍只 `--filter @dita/core --filter @dita/web --filter @dita/api`，官网单独托管。
 

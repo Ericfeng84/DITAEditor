@@ -2,8 +2,8 @@
 
 > 本文档为本项目的架构设计基线与分阶段实施计划，面向**单人 / AI 辅助独立推进**模式，围绕**团队级轻量 Web DITA 工作台**定义系统架构、核心难点攻关方案、技术选型矩阵与垂直切片落地路线。
 >
-> 版本管理与个人草稿叠加层重构方案（Phase 13），另见 [phase13-versioning-overlay-plan.md](phase13-versioning-overlay-plan.md) 与 [ADR 0004](adr/0004-baseline-and-draft-overlay.md)。
-> 文档智能导入与多角色 AI Agent 撰写校验闭环方案（Phase 14），另见 [phase14-docling-agent-plan.md](phase14-docling-agent-plan.md)。
+> 版本管理与个人草稿叠加层重构方案（Phase 13），另见 [plans/phase13-versioning-overlay.md](./plans/phase13-versioning-overlay.md) 与 [ADR 0004](adr/0004-baseline-and-draft-overlay.md)。
+> 文档智能导入与多角色 AI Agent 撰写校验闭环方案（Phase 14），另见 [plans/phase14-docling-agent.md](./plans/phase14-docling-agent.md)。
 
 ---
 
@@ -25,8 +25,8 @@
 | **英文版界面与国际化（Phase 8）** | 零外部依赖的强类型全栈 i18n（`zh-CN` / `en`），浏览器语言自动探测 + 顶栏实时无刷新切换（`localStorage` 持久化） | 覆盖前端工作台 UI / CSS 伪元素 / ProseMirror 热刷新、`@dita/core` 规则与模板/语义诊断、`@dita/api` 报错与 AI 回复语言（`x-dita-locale` 请求头）；严格对齐 OASIS DITA 1.3 官方英文术语且不改动已有文档正文 |
 | **手册编辑工作台与 Topic 委派（Phase 10）** | 独立「手册编辑工作台（Workbench Hub）」首页（`/`）+ 三栏编辑器路由（`/manuals/:id`）；1 手册 = 1 独立工作区与 Git 仓库；轻量 Topic 编辑任务（`Assignment`）委派与软引导协作 | 后端按 `x-dita-manual-id` + `x-dita-branch` 请求级隔离多手册与多分支 worktree；任务仅落库 SQLite（零 XML/Git 污染），与 Check-out 锁解耦（不自动加锁、不做审批流），并支持 Check-out 自动推进与 Check-in 可选同步结单 |
 | **HTML5 发布样式主题与多套模板（Phase 12）** | 内置 **4 套专业 HTML5 文档主题（现代技术文档 / 出版极简纸白 / 企业标准手册 / 开发者暗夜风）+ 原生默认兜底**；DITA-OT 原生 `--nav-toc=full` 搭配确定性静态后处理增强（侧栏树、页内 TOC、`Cmd+K` 离线搜索、代码复制、明暗切换、移动端适配）；轻量品牌定制（主色 / Logo / 标题 / 页脚 / 自定义 CSS）按手册持久化 | 零 DITA-OT XSLT/Java 插件安装门槛（Docker / 本机 / 桌面端一致可用），零 CDN 外部依赖，ZIP 解压 `file://` 双击离线搜索同样可用；配置仅落库 SQLite，零 XML/Git 污染 |
-| **干净基线 + 个人草稿叠加层与合并闭环（Phase 13，已实施）** | 分支 `workDir` 永远保持 clean（严格等于 `HEAD` 基线），未检入编辑/新建/删除/重命名与草稿图片资产全部隔离在 SQLite `working_drafts`（仅持锁人可见）；签入原子落盘推进基线，语法校验/AI 上下文读 `User Overlay`，正式发布默认走 `Baseline/Tag/Commit`（可选 `my_drafts` 预览），补齐 Tag、安全回滚、无污染 Merge、乐观锁与路径解耦（见 [phase13-versioning-overlay-plan.md](./phase13-versioning-overlay-plan.md) 与 [ADR 0004](./adr/0004-baseline-and-draft-overlay.md)） | 同分支多人共编同一 Map 仍只用 1 个 worktree 且零互相污染；只读 GET 永不隐式建分支；零 XML/Git 元数据污染；兼容桌面端外部改盘探测 |
-| **文档智能导入与 AI Agent 撰写校验闭环（Phase 14，已实施）** | 新增可插拔双解析层：**Docling**（`docling-serve` sidecar HTTP 优先 + `docling` CLI 回退，主打扫描件 OCR / 复杂 PDF 版面 / 插图与表格）+ **Microsoft MarkItDown**（轻量 Python CLI，主打 `.docx`/`.pptx`/`.xlsx`/`.xls`/`.epub`/`.csv`/`.msg`/HTML 与文本型 PDF 回退），`.md`/`.txt` 直通；解析产物统一为 Markdown + 提取图片资产（`asset://img_NNN.<ext>`），再由复用 LangChain.js 底座的**多角色 Agent（Planner → Writer → 有界工具化 DITA-OT Repair Agent + 确定性终检门禁）** 生成 DITA 1.3 项目与 Topic，完成 `@dita/core` 良构/结构/根直系子节点校验 + 跨文件语义 + DITA-OT `lax` 预扫/`strict` 终检（不可用时显式 `skipped`，非 Tool-Calling 模型自动按 Topic 独立计数降级）的自修复闭环；支持「新建项目（干净基线 Git init）」与「现有手册新建 Topic（严格写 Phase 13 个人草稿叠加层）」双目标，5 步向导 + SSE 实时进度（见 [phase14-docling-agent-plan.md](./phase14-docling-agent-plan.md)） | 主镜像默认**零 Python 依赖**保持精简，仅 `--build-arg INSTALL_MARKITDOWN=true` 时在 `/opt/markitdown-venv` 安装 `markitdown[all]`；新增根级 `docker-compose.yml` 一键编排 `ditaeditor` + `docling-serve`（CPU 默认 / CUDA GPU 镜像可切换），Docling 仅经 HTTP 调用（`DOCLING_MODE=serve`）；导入作业全部落 SQLite `ingest_jobs` 与 `/data/ingest` 暂存目录，修复 Agent 仅能改写暂存区生成文件并受确定性 `strict` 终检约束，落盘保留 Draft Overlay 隔离与锁语义 |
+| **干净基线 + 个人草稿叠加层与合并闭环（Phase 13，已实施）** | 分支 `workDir` 永远保持 clean（严格等于 `HEAD` 基线），未检入编辑/新建/删除/重命名与草稿图片资产全部隔离在 SQLite `working_drafts`（仅持锁人可见）；签入原子落盘推进基线，语法校验/AI 上下文读 `User Overlay`，正式发布默认走 `Baseline/Tag/Commit`（可选 `my_drafts` 预览），补齐 Tag、安全回滚、无污染 Merge、乐观锁与路径解耦（见 [plans/phase13-versioning-overlay.md](./plans/phase13-versioning-overlay.md) 与 [ADR 0004](./adr/0004-baseline-and-draft-overlay.md)） | 同分支多人共编同一 Map 仍只用 1 个 worktree 且零互相污染；只读 GET 永不隐式建分支；零 XML/Git 元数据污染；兼容桌面端外部改盘探测 |
+| **文档智能导入与 AI Agent 撰写校验闭环（Phase 14，已实施）** | 新增可插拔双解析层：**Docling**（`docling-serve` sidecar HTTP 优先 + `docling` CLI 回退，主打扫描件 OCR / 复杂 PDF 版面 / 插图与表格）+ **Microsoft MarkItDown**（轻量 Python CLI，主打 `.docx`/`.pptx`/`.xlsx`/`.xls`/`.epub`/`.csv`/`.msg`/HTML 与文本型 PDF 回退），`.md`/`.txt` 直通；解析产物统一为 Markdown + 提取图片资产（`asset://img_NNN.<ext>`），再由复用 LangChain.js 底座的**多角色 Agent（Planner → Writer → 有界工具化 DITA-OT Repair Agent + 确定性终检门禁）** 生成 DITA 1.3 项目与 Topic，完成 `@dita/core` 良构/结构/根直系子节点校验 + 跨文件语义 + DITA-OT `lax` 预扫/`strict` 终检（不可用时显式 `skipped`，非 Tool-Calling 模型自动按 Topic 独立计数降级）的自修复闭环；支持「新建项目（干净基线 Git init）」与「现有手册新建 Topic（严格写 Phase 13 个人草稿叠加层）」双目标，5 步向导 + SSE 实时进度（见 [plans/phase14-docling-agent.md](./plans/phase14-docling-agent.md)） | 主镜像默认**零 Python 依赖**保持精简，仅 `--build-arg INSTALL_MARKITDOWN=true` 时在 `/opt/markitdown-venv` 安装 `markitdown[all]`；新增根级 `docker-compose.yml` 一键编排 `ditaeditor` + `docling-serve`（CPU 默认 / CUDA GPU 镜像可切换），Docling 仅经 HTTP 调用（`DOCLING_MODE=serve`）；导入作业全部落 SQLite `ingest_jobs` 与 `/data/ingest` 暂存目录，修复 Agent 仅能改写暂存区生成文件并受确定性 `strict` 终检约束，落盘保留 Draft Overlay 隔离与锁语义 |
 | **前后端技术栈** | React + TS + Vite / TS 主后端 + DITA-OT 4.x CLI | 纯 TypeScript Monorepo（零 Java 业务代码），Node 后端直接调度系统/容器内预装的 `dita` CLI |
 | **部署与权限** | 私有化/团队内网单容器部署（单 `Dockerfile` / 本机直跑）+ **GCP Cloud Run 低成本试用部署**（`min=0`/`max=1`、子路径反向代理 `VITE_BASE` / `DITA_BASE_PATH` + GitHub Actions 无密钥 WIF `push` 自动发布）+ 轻量桌面端（`apps/desktop`，macOS Apple Silicon & Windows x64） | 轻量身份切换（免密码工具栏切换作者与管理员 / 编辑者 / 只读角色），零外部认证与中间件依赖；单容器支持根路径 `/` 与反代子路径（如 `/dita`）双形态运行；桌面端主进程内嵌 `@dita/api`（`127.0.0.1:0`），数据目录隔离至 `app.getPath('userData')`，与 `Dockerfile` 完全解耦 |
 | **推进方式** | 个人 / AI 辅助垂直切片迭代 | Phase 0 先攻克最高风险的 XML 无损双模内核，再逐层叠加能力 |
@@ -244,7 +244,7 @@ flowchart LR
 | **全栈国际化 (Phase 8)** | **自研零依赖强类型 TS i18n 模块（`@dita/core/i18n` + `apps/web/src/i18n` + `apps/api/src/i18n`）+ `x-dita-locale` 请求头** | 零第三方运行包体积开销，TS 编译期校验键名与 `{param}` 占位符，配合 Vitest 双语对称与硬编码中文扫描门禁防止回退，支持 ProseMirror 元数据无损热切换 | `i18next` + `react-i18next`（若未来需扩展 3+ 语种与复杂复数/ICU 规则时可平滑迁移） |
 | **HTML5 发布主题引擎 (Phase 12)** | **DITA-OT 原生 `--nav-toc=full` + Node 确定性静态后处理增强器 + 纯静态主题包（`dita-ot-plugins/html5-themes/`）** | 零外部 CDN 与零 `dita install` 插件门槛，离线 ZIP 双击 `file://` 与静态托管体验一致；按目录深度自适应相对路径；与 Docker / 桌面端 / HF Space 天然兼容 | 独立 DITA-OT XSLT 自定义 `transtype` 插件（仅当需深度改写 DITA HTML DOM 结构时按需演进） |
 | **文档智能导入与多角色 Agent（Phase 14）** | **Docling（`docling-serve` sidecar HTTP API / `docling` CLI）+ Microsoft MarkItDown CLI 双解析器 + LangChain.js 多角色编排（Planner → Writer → 有界工具化 DITA-OT Repair Agent + 确定性终检门禁）** | 解析层按类型智能路由并可按次覆盖：扫描 PDF/多栏版面/复杂表格/插图交给 Docling（OCR + 版面模型），Office/EPUB/CSV/HTML 交给亚秒级零 GPU 的 MarkItDown（`--keep-data-uris` 保留 Base64 图片），`.md`/`.txt` 直通；Markdown 作为唯一中间态天然适配 DITA 结构化拆分；Agent 复用现有 `@langchain/core` + `@langchain/openai`、`AiSettingsService` / `AiModelFactory`（扩展 `bindTools`）/ `AiUsageService`，Layer 2 将 `dita_ot_validate`（`lax`/`strict`）与沙箱文件读写封装为工具并配动态预算、无进展熔断、按 Topic 计数降级与确定性 `strict` 终检门禁，零新增重型 Agent 框架依赖 | 纯 LLM 直读原文档（不可控、无法校验、图片与表格丢失）或无护栏放飞循环（JVM 耗时失控、幻觉“假通过”或死循环） |
-| **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK，支持 `VITE_BASE` / `DITA_BASE_PATH` 子路径反代）+ **GCP Cloud Run 试用部署**（`min=0/max=1`、2 vCPU / 2 GiB + GitHub Actions 无密钥 WIF 自动构建部署，见 [deploy-gcp-cloudrun.md](./deploy-gcp-cloudrun.md)）+ **轻量桌面端（Electron 35 + `electron-builder` + `esbuild`）** | 零外部数据库/队列中间件，一条 `docker run` 一键启动；云端试用借助 Cloud Run 缩容至 0 + 主域名子路径反代（如 Vercel + Cloudflare）兼顾近零成本与中国大陆直连，GitHub Actions 免费 Runner + GHA 层缓存 + AR 保留 2 版清理策略压低 CI/存储成本；桌面端复用同一 `@dita/api` + `@dita/web`，通过扁平 staging 目录按 Electron ABI 重编 `better-sqlite3` | 常驻 GCE 单机 VM（挂载本地 `/data` 持久化卷并按需开关机，适合需要长期保留在线数据的试用场景）或全量离线桌面版（内置 `jlink` JRE 21 + DITA-OT） |
+| **部署交付** | **单容器 `Dockerfile`**（`@dita/api` 托管 `@dita/web` 静态资源，内置 JRE 21 + DITA-OT 4.x + Noto CJK，支持 `VITE_BASE` / `DITA_BASE_PATH` 子路径反代）+ **GCP Cloud Run 试用部署**（`min=0/max=1`、2 vCPU / 2 GiB + GitHub Actions 无密钥 WIF 自动构建部署，见 [deploy/gcp-cloudrun.md](./deploy/gcp-cloudrun.md)）+ **轻量桌面端（Electron 35 + `electron-builder` + `esbuild`）** | 零外部数据库/队列中间件，一条 `docker run` 一键启动；云端试用借助 Cloud Run 缩容至 0 + 主域名子路径反代（如 Vercel + Cloudflare）兼顾近零成本与中国大陆直连，GitHub Actions 免费 Runner + GHA 层缓存 + AR 保留 2 版清理策略压低 CI/存储成本；桌面端复用同一 `@dita/api` + `@dita/web`，通过扁平 staging 目录按 Electron ABI 重编 `better-sqlite3` | 常驻 GCE 单机 VM（挂载本地 `/data` 持久化卷并按需开关机，适合需要长期保留在线数据的试用场景）或全量离线桌面版（内置 `jlink` JRE 21 + DITA-OT） |
 
 ---
 
@@ -312,7 +312,7 @@ DITAEditor/
 │   ├── com.ditaeditor.pdf-cjk/ # 内置中文 PDF 字体映射插件 (plugin.xml + fop.xconf + font-mappings.xml)
 │   └── html5-themes/           # 内置 HTML5 样式主题资产 (shared/ + 4 套专业主题 CSS，Phase 12)
 ├── Dockerfile                  # 单容器部署镜像（Node + JRE 21 + DITA-OT 4.x + Noto CJK + 前后端静态托管）
-└── docs/                       # 架构文档、ADR 与接口契约
+└── docs/                       # 文档总索引（README.md）、架构基线、design/、deploy/、adr/、dita/ 与 plans/
 ```
 
 ---
@@ -368,7 +368,7 @@ DITAEditor/
 - **验收标准**：通过单容器 `docker run`（或本机安装 DITA-OT CLI）一键运行；故意写入违反 DITA 1.3 DTD 的标签可在严格校验中准确标红定位；选定 Root Map + DITAVAL 一键产出排版正常、中文无乱码的 HTML5 与 PDF。
 
 ### Phase 6：DeepSeek AI 辅助文档编写、标签优化与错误处理（第 15–17 周）
-> **状态**：✅ 已完成（v1.0.0；接口契约见 [phase6-ai-contract.md](./phase6-ai-contract.md)，详细方案见 [phase6-ai-implementation-plan.md](./phase6-ai-implementation-plan.md)，真实端点端到端验收脚本 `apps/api/scripts/e2e-ai-live.mts`）。后端采用 **LangChain.js**（`@langchain/core` + `@langchain/openai`），默认模型为 `deepseek-flash`，支持私有化/内网兼容代理，并为后续手册发布后 RAG 问答预留 `BaseRetriever` 扩展底座。
+> **状态**：✅ 已完成（v1.0.0；接口契约见 [design/ai-contract.md](./design/ai-contract.md)，详细方案见 [plans/phase06-ai-implementation.md](./plans/phase06-ai-implementation.md)，真实端点端到端验收脚本 `apps/api/scripts/e2e-ai-live.mts`）。后端采用 **LangChain.js**（`@langchain/core` + `@langchain/openai`），默认模型为 `deepseek-flash`，支持私有化/内网兼容代理，并为后续手册发布后 RAG 问答预留 `BaseRetriever` 扩展底座。
 >
 > **目标**：在不破坏 DITA 无损 XML 往返、最小 Git Diff 与 Check-out 独占锁边界的前提下，引入 DeepSeek 全面提升单 Topic 编写、标签规范化与错误排障效率。
 - **后端 AI 模块与配置审计（`apps/api/src/modules/ai/` + LangChain.js + Drizzle）**：
@@ -386,7 +386,7 @@ DITAEditor/
 - **验收标准**：通过单测（Mock OpenAI 兼容 SSE 流 + `@dita/core` 片段无损回拼与自动重试用例）与端到端手测验证：在含 `DOCTYPE`/注释/PI 的复杂 Topic 上执行选区改写、标签优化与三类错误修复，MergeView Diff 仅改动目标片段且无损往返；未检出文件可提问预览但写操作触发 Check-out 拦截或一键检出并应用；切换为内网兼容代理 URL 与自定义模型可正常工作。
 
 ### Phase 7：项目官网、GitHub Pages 离线工作台与快速上手文档（第 18–19 周）
-> **状态**：✅ 已完成（`@dita/site`；详细蓝图见 [phase7-site-plan.md](./phase7-site-plan.md)，GitHub Pages 部署指南见 [deploy-github-pages.md](./deploy-github-pages.md)，部署工作流 `.github/workflows/deploy-site.yml`）。采用独立静态站 `apps/site`（**Astro 5 + React 19 Islands + Tailwind CSS 4**），中英双语（`zh-CN` / `en`），现代技术出版编辑风，与单容器工作台镜像完全解耦；同时在 GitHub Pages 合包托管纯前端离线版三栏工作台（`/workbench/`）。
+> **状态**：✅ 已完成（`@dita/site`；详细蓝图见 [plans/phase07-site.md](./plans/phase07-site.md)，GitHub Pages 部署指南见 [deploy/github-pages.md](./deploy/github-pages.md)，部署工作流 `.github/workflows/deploy-site.yml`）。采用独立静态站 `apps/site`（**Astro 5 + React 19 Islands + Tailwind CSS 4**），中英双语（`zh-CN` / `en`），现代技术出版编辑风，与单容器工作台镜像完全解耦；同时在 GitHub Pages 合包托管纯前端离线版三栏工作台（`/workbench/`）。
 >
 > **目标**：为 DITAEditor 打造高信噪比的产品展示官网、免后端部署的浏览器内离线三栏工作台与中英双语快速上手/部署文档，实现“访问即体验多文件 DITA 工作台、5 分钟完成 Docker 部署”。
 - **工程底座与静态部署解耦（`apps/site` + CI）**：
@@ -403,7 +403,7 @@ DITAEditor/
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含 `@dita/site` 双语字典/文档 slug 对称性、子路径与 `workbenchPath` 路由单测及预设 `@dita/core` 往返无损单测）；纯静态构建产物在根路径 `/` 与子路径（如 `/DITAEditor/`）下均正常访问；首页首屏不加载 ProseMirror/CodeMirror chunk；GitHub Pages 上的 `/`、`/en/`、`/workbench/` 均返回 `200` 且离线工作台零 `/api/*` 404 报错。
 
 ### Phase 8：全栈英文版界面与双语国际化（第 20–21 周）
-> **状态**：📋 规划已确认（详细蓝图、代码库盘点、术语规范与分步切片见 [phase8-i18n-plan.md](./phase8-i18n-plan.md)）。采用零外部依赖的强类型 TS i18n 模块，支持浏览器语言自动探测与顶栏实时无刷新中/英切换，全链路对齐 OASIS DITA 1.3 官方英文术语。
+> **状态**：✅ 已完成（v1.2.0；详细蓝图、代码库盘点、术语规范与分步切片见 [plans/phase08-i18n.md](./plans/phase08-i18n.md)）。采用零外部依赖的强类型 TS i18n 模块，支持浏览器语言自动探测与顶栏实时无刷新中/英切换，全链路对齐 OASIS DITA 1.3 官方英文术语。
 >
 > **目标**：让 DITAEditor 工作台达到中英双语（`zh-CN` / `en`）全栈一致，消除界面、新建模板、语义诊断、接口报错与 AI 助手中的中英混杂，同时严格守住编辑态零丢失与零意外 Git Diff 底线。
 - **同构 i18n 底座与 `@dita/core` 双语化**：
@@ -427,7 +427,7 @@ DITAEditor/
 - **诊断三处同源**：视觉编辑器用 ProseMirror `Decoration.node` 标出违规节点 + `title` 悬浮说明（按 locale 热切换、不重建 View）；源码模式单次解析输出良构或结构诊断并随语言切换即时刷新；语义索引器统一调用 `@dita/core` 的 `formatStructureIssue` 汇总进问题面板（`source: 'structure'`）。
 
 ### Phase 10：手册编辑工作台与 Topic 编辑任务委派
-> **状态**：✅ 已实现（后端 `apps/api/src/modules/{manuals,assignments}/`（`manual-registry-service.ts`、`manual-context-resolver.ts`、`assignment-service.ts` 及路由）、SQLite `manuals` / `topic_assignments` 表与部分唯一索引；前端 `apps/web/src/router/app-router.ts`、`workbench/`（工作台首页、手册表单、我的任务、委派/防丢弹窗）、`store/workbench-store.ts`、`store/assignment-store.ts` 与 `components/{TopicAssignmentBanner,DelegateTopicButton,ManualAssignmentsPanel}`；详细蓝图、Schema、API 契约与切片计划见 [phase10-workbench-assignments-plan.md](./phase10-workbench-assignments-plan.md)；领域词典见 [GLOSSARY.md](../GLOSSARY.md)；关键架构决策见 [ADR-0001](./adr/0001-manual-as-independent-workspace.md)、[ADR-0002](./adr/0002-per-request-manual-isolation.md)、[ADR-0003](./adr/0003-soft-assignments-in-sqlite.md)）。
+> **状态**：✅ 已实现（后端 `apps/api/src/modules/{manuals,assignments}/`（`manual-registry-service.ts`、`manual-context-resolver.ts`、`assignment-service.ts` 及路由）、SQLite `manuals` / `topic_assignments` 表与部分唯一索引；前端 `apps/web/src/router/app-router.ts`、`workbench/`（工作台首页、手册表单、我的任务、委派/防丢弹窗）、`store/workbench-store.ts`、`store/assignment-store.ts` 与 `components/{TopicAssignmentBanner,DelegateTopicButton,ManualAssignmentsPanel}`；详细蓝图、Schema、API 契约与切片计划见 [plans/phase10-workbench-assignments.md](./plans/phase10-workbench-assignments.md)；领域词典见 [GLOSSARY.md](../GLOSSARY.md)；关键架构决策见 [ADR-0001](./adr/0001-manual-as-independent-workspace.md)、[ADR-0002](./adr/0002-per-request-manual-isolation.md)、[ADR-0003](./adr/0003-soft-assignments-in-sqlite.md)）。
 >
 > **目标**：用户进入系统即展示「手册编辑工作台（Workbench Hub）」，一站式新增、管理与进入多本手册，并提供「我的任务」与轻量 Topic 编辑任务（`Assignment`）委派闭环，同时将后端升级为按手册与分支隔离的并发上下文。
 - **手册领域统一与后端多手册/分支隔离（`apps/api/src/modules/manuals/`）**：
@@ -447,9 +447,11 @@ DITAEditor/
 > **状态**：✅ 已实现（`apps/desktop/`、`.github/workflows/release-desktop.yml`、Windows DITA-OT 兼容修复 `apps/api/src/modules/dita-ot/dita-runtime.ts`）。采用 **Electron 35 + `electron-builder` + `esbuild`** 轻量版形态（自动探测本机 Git / DITA-OT，内置 `com.ditaeditor.pdf-cjk` 插件与示例项目），与单容器 `Dockerfile`、Hugging Face Space 及静态官网彻底解耦。
 >
 > **目标**：让用户无需部署 Docker 或 Node 环境即可在 macOS（Apple Silicon）与 Windows（x64）双击运行完整 DITAEditor 工作台，并在 GitHub Release 发布时自动产出并挂载双端安装包。
-- **内嵌后端与数据目录隔离（`apps/desktop/src/{main,paths,preload}.ts`）**：
-  - 主进程直接调用 `@dita/api` 的 `createServer()` 并仅监听 `127.0.0.1:0`（随机可用回环端口），`BrowserWindow` 以 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true` 加载同源工作台，内置单实例锁、标准应用菜单（保障 macOS 剪贴板/撤销快捷键）、同源 HTML5 预览弹窗与外部链接系统浏览器跳转，并通过 `preload.ts` 预留原生目录选择器 IPC（`dita:pick-directory`）。
-  - 将 SQLite 数据库、工作区目录、分支 `git worktree` 与发布产物全部写入 `app.getPath('userData')`（支持 `DITA_DESKTOP_DATA_DIR` 覆盖）；首次启动将只读资源 `samples/demo-dita-project` 无 `.git` 拷贝到用户可写目录，避免改写只读 `.app` / `Program Files`。
+- **内嵌后端与数据目录隔离（`apps/desktop/src/{main,paths,preload,settings,migration}.ts`）**：
+  - 主进程直接调用 `@dita/api` 的 `createServer()` 并仅监听 `127.0.0.1:0`（随机可用回环端口），`BrowserWindow` 以 `contextIsolation: true`、`nodeIntegration: false`、`sandbox: true` 加载同源工作台，内置单实例锁、标准应用菜单（保障 macOS 剪贴板/撤销快捷键及 `CmdOrCtrl+,` 打开桌面设置）、同源 HTML5 预览弹窗与外部链接系统浏览器跳转，并通过 `preload.ts` 暴露原生目录选择与桌面偏好 IPC（`dita:pick-directory` / `dita:get-desktop-status` / `dita:inspect-data-dir` / `dita:change-data-dir` / `dita:update-preferences` / `dita:open-path`）。
+  - 将 SQLite 数据库、工作区目录、分支 `git worktree` 与发布产物默认写入 `app.getPath('userData')`（支持 `desktop-settings.json` 持久化自定义目录与 `DITA_DESKTOP_DATA_DIR` 环境变量覆盖）；首次启动将只读资源 `samples/demo-dita-project` 无 `.git` 拷贝到用户可写目录，避免改写只读 `.app` / `Program Files`。
+  - **存储位置切换与无损迁移（`settings.ts` / `migration.ts`）**：切换前通过 `inspectDataDirCandidate()` 校验可写性与嵌套冲突；执行 `migrate` 模式时先通过 `shutdownServerOnly()` 干净关闭 Fastify/SQLite 并执行 `PRAGMA wal_checkpoint(TRUNCATE)`，再拷贝工作区/数据库/发布目录、清理旧 `.git/worktrees` 指针并重写 SQLite（`manuals.root_dir`、`repositories.root_dir`、`publish_jobs` 路径列）与 `workspaces.json` 中的绝对路径前缀，最后原地重启内嵌服务并刷新窗口。
+  - **桌面运行环境探测与插件安装引导（`apps/api/src/modules/runtime/` + `apps/web/src/desktop/`）**：启动时通过 `augmentDesktopPath()` 补齐 GUI 进程缺失的本机工具目录，经 `GET /api/runtime/environment` 并行探测 Git、Java、DITA-OT 4.x、Noto CJK 字体与 MarkItDown / Docling 解析器；前端提供 `DesktopSettingsDialog`（存储位置 + 插件与运行环境页签）、首页缺失核心插件引导横幅 `DesktopPluginBanner`，以及发布/严格校验/文档导入弹窗直达引导和原生 `DITA_OT_HOME` / 字体目录选择器（保存后按引用更新 `ditaRuntimeOptions` 并调用 `resetDitaRuntimeCache()` 即时生效）。
   - 优雅退出时先销毁所有 `BrowserWindow` 释放 Chromium HTTP/1.1 keep-alive 连接，再在 3 秒兜底超时内完成 `fastify.close()`，确保 SQLite WAL 正常刷盘且退出绝不挂死。
 - **pnpm Monorepo 原生模块打包与 Windows 兼容**：
   - 通过 `scripts/build.mjs`（`esbuild`）将主进程与 `@dita/api` / `@dita/core` 打包为单文件 ESM（仅 `electron`、`better-sqlite3` 外置），再由 `scripts/stage.mjs` 生成扁平无 symlink 的 `stage/` 目录并交由 `electron-builder`（`asarUnpack` + `npmRebuild: true`）按目标平台 Electron Node ABI 重编 `better-sqlite3`。
@@ -460,7 +462,7 @@ DITAEditor/
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含 `apps/api/test/dita-runtime.test.ts` 与 `apps/desktop/test/paths.test.ts`）；本机 `pnpm --filter @dita/desktop run dist:mac` 产出可运行的 Apple Silicon `.dmg`/`.zip`，实包启动能正常初始化 `better-sqlite3` 数据库、拷贝示例项目并快速优雅退出；`./scripts/sync-hf-space.sh --dry-run` 保持精简无桌面产物混入。
 
 ### Phase 12：HTML5 发布样式主题与多套专业文档模板
-> **状态**：✅ 已实现（`dita-ot-plugins/html5-themes/`、`apps/api/src/modules/publish/{html-themes,theme-enhancer,theme-preview,publish-profiles}.ts`、`apps/web/src/components/publish/`、`apps/desktop/src/paths.ts`；蓝图与设计矩阵见 [phase12-html-themes-plan.md](./phase12-html-themes-plan.md)）。采用 **DITA-OT 原生 `--nav-toc=full` + Node 确定性静态后处理增强 + 纯静态主题资产（`dita-ot-plugins/html5-themes/`）** 方案，无需 `dita install`、零外部 CDN 依赖，在 Docker、本机与桌面端一致开箱可用；示例项目实测 `dev-dark` 发布 9 页 / 5 资源 / 9 条离线搜索索引，ZIP 解压 `file://` 双击搜索与在线预览均正常。
+> **状态**：✅ 已实现（`dita-ot-plugins/html5-themes/`、`apps/api/src/modules/publish/{html-themes,theme-enhancer,theme-preview,publish-profiles}.ts`、`apps/web/src/components/publish/`、`apps/desktop/src/paths.ts`；蓝图与设计矩阵见 [plans/phase12-html-themes.md](./plans/phase12-html-themes.md)）。采用 **DITA-OT 原生 `--nav-toc=full` + Node 确定性静态后处理增强 + 纯静态主题资产（`dita-ot-plugins/html5-themes/`）** 方案，无需 `dita install`、零外部 CDN 依赖，在 Docker、本机与桌面端一致开箱可用；示例项目实测 `dev-dark` 发布 9 页 / 5 资源 / 9 条离线搜索索引，ZIP 解压 `file://` 双击搜索与在线预览均正常。
 >
 > **目标**：将默认的裸版 DITA-OT HTML5 产物升级为多风格可选的现代离线文档站，内置 **4 套定位鲜明的专业样式模板 + 原生默认兜底**，并支持轻量品牌微调、实时样本预览与按手册持久化默认配置。
 - **内置 4 套专业 HTML5 模板 + 原生兜底（`dita-ot-plugins/html5-themes/`）**：
@@ -476,7 +478,7 @@ DITAEditor/
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿（含主题后处理、多级目录相对路径、离线搜索索引、XSS/路径穿越拦截、多手册 Profile 隔离与双语门禁测试）；使用示例项目分别发布 4 套主题与 `vanilla`，工作台在线预览与解压 ZIP 双击 `index.html`（`file://`）均样式完整、离线搜索与交互零报错。
 
 ### Phase 13：Git 干净基线 + 个人草稿叠加层（版本管理重构与合并闭环）
-> **状态**：✅ 已实现（详细蓝图、四类操作对象边界、SQLite 迁移与分阶段测试矩阵见 [phase13-versioning-overlay-plan.md](./phase13-versioning-overlay-plan.md)；架构决策见 [ADR-0004](./adr/0004-baseline-and-draft-overlay.md)）。
+> **状态**：✅ 已实现（详细蓝图、四类操作对象边界、SQLite 迁移与分阶段测试矩阵见 [plans/phase13-versioning-overlay.md](./plans/phase13-versioning-overlay.md)；架构决策见 [ADR-0004](./adr/0004-baseline-and-draft-overlay.md)）。
 >
 > **目标**：在不改变“标准 DITA XML & Git 为唯一真相源、单容器零外部中间件、1 分支 = 1 worktree”轻量定位的前提下，彻底消除同分支半成品互相污染、删除/重命名检入死锁、只读请求隐式建分支与并发竞态等版本管理根因缺陷，并补齐发布基线（Tag）、安全回滚与无污染分支合并闭环。
 - **三层视图解耦与个人草稿层（Stage 1 / P0）**：
@@ -494,7 +496,7 @@ DITAEditor/
 - **验收标准**：`pnpm -r build && pnpm -r typecheck && pnpm -r test` 全绿；同分支 A 写入畸形 XML 草稿时 `workDir` 始终 clean 且 B 的读取/诊断/严格校验/AI 编写/默认发布 100% 不受影响；删除与重命名已跟踪文件可正常签入或撤销；`viewer` 携带不存在分支头调用 GET 返回 404 且零分支创建；无冲突与 XML 冲突合并均不污染共享 `workDir`。
 
 ### Phase 14：文档智能导入与 AI Agent 撰写校验闭环（Docling + MarkItDown → Markdown → DITA）
-> **状态**：✅ 已实现（`packages/dita-core/src/ingest/`、`apps/api/src/modules/ingest/`、`apps/web/src/ingest/`、`docker-compose.yml`；完整蓝图、路由矩阵、数据模型与分阶段测试矩阵见 [phase14-docling-agent-plan.md](./phase14-docling-agent-plan.md)）。
+> **状态**：✅ 已实现（`packages/dita-core/src/ingest/`、`apps/api/src/modules/ingest/`、`apps/web/src/ingest/`、`docker-compose.yml`；完整蓝图、路由矩阵、数据模型与分阶段测试矩阵见 [plans/phase14-docling-agent.md](./plans/phase14-docling-agent.md)）。
 >
 > **目标**：把外部 PDF / Word / PowerPoint / Excel / HTML / EPUB / CSV / Outlook / Markdown 文档一键转换为规范 OASIS DITA 1.3 内容，既可直接创建全新手册（干净基线 Git 仓库），也可在当前手册中以个人草稿方式增量新建 Topic，并用多角色 AI Agent + 双层校验自修复闭环保证产物可直接通过 DITA-OT 严格校验与发布。
 - **可插拔双解析层与智能路由（`apps/api/src/modules/ingest/parsers/`）**：
@@ -527,6 +529,6 @@ DITAEditor/
 | **多手册/分支并发串台与任务目标漂移** | 多人或双标签页同时打开不同手册/分支时覆盖全局工作区，或已委派 Topic 被重命名/删除导致死链、未保存返回工作台丢失草稿 | 后端全部路由与图片端点通过 `ManualContextResolver` 按 `x-dita-manual-id` + `x-dita-branch` 隔离并用 LRU 缓存语义索引；文件重命名同步更新 `topic_assignments.topic_path`、删除标出缺失告警；路由切出前检测 `dirtyCount` 触发防丢确认 |
 | **桌面端原生模块 ABI、Windows 批处理与退出挂死** | pnpm symlink 导致 `electron-builder` 漏包、`better-sqlite3` ABI 不匹配、Windows Node 22 直接 `spawn('dita.bat')` 报 `EINVAL`，或 Chromium keep-alive 阻塞 Fastify 退出 | 用 `esbuild` 打包后端并经扁平 `stage/` 目录 + `asarUnpack` 由 `electron-builder` 在原生 macOS/Windows Runner 上重编 `better-sqlite3`；Windows `.bat` 通过 `cmd.exe /d /s /c` + 显式引号转义执行；退出前先关闭窗口再设 3 秒 drain 兜底；`Dockerfile`/官网 CI 设 `ELECTRON_SKIP_BINARY_DOWNLOAD=1` 严格隔离 |
 | **HTML5 主题多级子目录断链、离线 `file://` CORS 与品牌注入风险** | 嵌套目录 Topic 样式/Logo 路径错误、本地双击解压 ZIP 时 `fetch` 搜索索引报 CORS、或自定义标题/CSS 路径引入 XSS 与路径穿越 | 后处理增强器按每个 `.html` 相对深度自动计算 `relRoot`；搜索索引改以 `_ditaeditor/search-index.js` 脚本加载兼容 `file://`；标题/页脚严格 HTML 转义、主色强校验 `#RRGGBB`、Logo/CSS 强制走 `resolveSafeWorkspacePath()` 与后缀白名单；主题资产统一放在三端已覆盖的 `dita-ot-plugins/html5-themes/` |
-| **云端试用部署子路径断链、国内不可达与镜像存储膨胀** | Cloud Run 默认 `*.run.app` 域名国内不可达；反向代理挂载 `/dita` 子路径时 `/api/*` 请求打到主站；本地 `.tsbuildinfo` 混入容器导致 `tsc` 跳过产物输出；多次 push 导致 Artifact Registry 镜像堆积产生额外费用 | 前端统一经 `apiUrl()` 拼接 `VITE_BASE`、后端以 `DITA_BASE_PATH` + Fastify `rewriteUrl` 透明剥离前缀；复用主域名反代网关（Vercel + Cloudflare）免去 GCP LB 费用；`.dockerignore`/`.gcloudignore` 忽略 `**/*.tsbuildinfo`；GitHub Actions 用无密钥 WIF（锁死 `main`）+ 免费 Runner GHA 缓存构建，并在 AR 配置清理策略仅留最新 2 版（详见 [deploy-gcp-cloudrun.md](./deploy-gcp-cloudrun.md)） |
+| **云端试用部署子路径断链、国内不可达与镜像存储膨胀** | Cloud Run 默认 `*.run.app` 域名国内不可达；反向代理挂载 `/dita` 子路径时 `/api/*` 请求打到主站；本地 `.tsbuildinfo` 混入容器导致 `tsc` 跳过产物输出；多次 push 导致 Artifact Registry 镜像堆积产生额外费用 | 前端统一经 `apiUrl()` 拼接 `VITE_BASE`、后端以 `DITA_BASE_PATH` + Fastify `rewriteUrl` 透明剥离前缀；复用主域名反代网关（Vercel + Cloudflare）免去 GCP LB 费用；`.dockerignore`/`.gcloudignore` 忽略 `**/*.tsbuildinfo`；GitHub Actions 用无密钥 WIF（锁死 `main`）+ 免费 Runner GHA 缓存构建，并在 AR 配置清理策略仅留最新 2 版（详见 [deploy/gcp-cloudrun.md](./deploy/gcp-cloudrun.md)） |
 | **草稿叠加层与基线/外部改盘一致性风险（Phase 13）** | 桌面端外部编辑器直接修改 `workDir` 破坏 clean 假设；草稿图片 `<img src>` 无法带自定义请求头；草稿期重命名过早修改全员共享的 `topic_assignments`；或合并冲突把共享 `workDir` 卡死在 `MERGING` 态 | 签入与状态查询探测外部 `git status` 并提供显式提交/丢弃入口，冲突路径拦截不盲覆；图片端点通过 `userId` query 参数隔离草稿资产；`topic_assignments` 仅在签入推进基线时同步；合并采用 `git merge-tree` 预检 + 隔离合成 merge commit，确保共享 `workDir` 永不残留半截状态 |
 | **文档导入解析质量、容器膨胀与 Docling/MarkItDown 可用性风险（Phase 14）** | 扫描版 PDF 或复杂多栏表格被解析成乱序 Markdown；Office 文档图片丢失（Base64 内联未剥离）；开启 `INSTALL_MARKITDOWN=true` 后镜像体积与构建时长显著上升；`docling-serve` 未启动 / 超时 / 无 GPU 导致导入直接失败；DITA-OT `strict` 遇错即停导致多文件漏修或 Agent 修复循环失控；或 AI 生成 Topic 污染共享 `workDir` | 解析结果先落 Markdown 并在向导第 2 步允许人工审阅修正，图片统一经 `extractDataUriImages()` 落盘为独立资产再改写为相对 `href`；MarkItDown 保持默认 `false` 且仅在单个条件层安装，Docling 走可选 `docker-compose.yml` sidecar 而非主镜像内置；`auto` 路由逐级回退（serve → cli → markitdown），`DOCLING_SERVE_MAX_SYNC_WAIT=600` 容忍大文件，运行时不可用时显式 `skipped` 降级并在 UI 提示；Layer 2 采用 `lax` 全量预扫 + 有界工具化 DITA-OT 修复 Agent（动态步数/调用预算、无进展熔断、按 Topic 独立计数降级、确定性 `strict` 终检门禁）兜底跨文件与多 Topic 错误，落盘严格走 `materializeNewManual()` 干净基线或 Phase 13 `working_drafts`（他人锁不越权） |

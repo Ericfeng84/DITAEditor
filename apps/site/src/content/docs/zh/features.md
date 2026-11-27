@@ -62,7 +62,7 @@ DITAEditor 的功能围绕一条链路组织：**分发 → 编辑 → 语义 �
 
 ### Conref
 
-`conref` / `conkeyref` / `conrefend` 在编辑器内**只读展开**，底层 XML 不变。解析器带 DFS 环检测与 specialization 检查，循环引用会给出明确诊断。
+`conref` / `conkeyref` / `conrefend` 在编辑器内**只读展开**，底层 XML 不变。解析器带 DFS 环检测与 specialization 检查，循环引用会给出明确诊断。支持从复用面板、`BlockHandle` 块操作菜单或属性检查器一键新建标准 `processing-role="resource-only"` 复用仓库、原地生成语义 `id` 或将已有段落提取为可复用片段，并可通过 `/` 斜杠菜单、块间 `+` 与工具栏直接插入复用引用。
 
 ### DITAVAL 投影
 

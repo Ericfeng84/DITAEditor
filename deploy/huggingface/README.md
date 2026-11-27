@@ -29,4 +29,4 @@ A lightweight **Web DITA 1.3 structured authoring workbench** running in a singl
 
 - **Ephemeral Storage（临时存储）**：免费 Space 重启或休眠唤醒后，`/data` 会自动重置为内置的 `demo-dita-project` 示例项目；请勿在公开演示实例中存放正式或敏感文档。
 - **AI Assistant（AI 助手）**：为防止密钥滥用，公共演示实例默认未配置服务端大模型 Key；如需体验 DeepSeek / 私有化 OpenAI 兼容代理辅助写作，请使用单容器镜像在本地或团队内网自托管部署。
-- **Self-Hosting（私有化部署）**：详见仓库文档 `docs/deploy-huggingface-spaces.md` 与 `Dockerfile`。
+- **Self-Hosting（私有化部署）**：详见仓库文档 `docs/deploy/huggingface-spaces.md` 与 `Dockerfile`。

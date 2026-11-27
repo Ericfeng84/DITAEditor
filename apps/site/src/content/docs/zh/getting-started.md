@@ -40,8 +40,8 @@ docker run --rm -p 3001:3001 \
 | macOS（Apple Silicon `arm64`） | `DITAEditor-<version>-mac-arm64.dmg` | `DITAEditor-<version>-mac-arm64.zip` |
 | Windows（`x64`） | `DITAEditor-<version>-win-x64.exe`（NSIS 安装程序） | `DITAEditor-<version>-win-x64.zip` |
 
-- 工作区、SQLite、`git worktree` 与发布产物保存在系统用户数据目录，可用 `DITA_DESKTOP_DATA_DIR` 覆盖。
-- 内置示例手册与 Noto CJK PDF 字体插件，中文 PDF 开箱可发；启动时自动探测本机 Git 与 DITA-OT 4.x（缺失时编辑、Map、Keys、Conref、DITAVAL 与 AI 仍可用）。
+- 工作区、SQLite、`git worktree` 与发布产物默认保存在系统用户数据目录，可在「桌面设置 → 存储位置」（`Cmd/Ctrl+,`）中更换为自定义文件夹（支持迁移当前数据、复用已有数据或新建空白工作区，并可恢复默认位置），也可用环境变量 `DITA_DESKTOP_DATA_DIR` 固定覆盖；接入本地目录时支持原生文件夹选择器。
+- 内置示例手册、HTML5 主题与 Noto CJK PDF 字体插件；「桌面设置 → 插件与运行环境」会自动探测本机 Git、Java、DITA-OT 4.x、Noto CJK 字体与 MarkItDown / Docling，缺失时提供 macOS / Windows 一键复制安装命令、下载链接，以及 `DITA_OT_HOME` / 字体目录原生选择器（缺失时纯编辑、Map、Keys、Conref、DITAVAL 与 AI 仍可用）。
 - 开源构建未购买代码签名：macOS 首次启动若被 Gatekeeper 拦截，执行 `xattr -cr /Applications/DITAEditor.app`；Windows SmartScreen 选择「更多信息 → 仍要运行」。
 - 桌面端与 Web 版共用同一个 `@dita/core` 内核与 SQLite 结构，工作区可以在两者之间整体迁移。
 

@@ -1,10 +1,10 @@
 # 签入前置校验门禁与 AI 修复「检出—草稿—提交」闭环方案与测试案例
 
-- **状态**：已完成实施与自动化验证（待手工端到端抽查验收）
+- **状态**：✅ 已完成并归档（v1.5.0，commit `2828394`）
 - **关联基线**：
-  - [`docs/phase6-ai-contract.md`](./phase6-ai-contract.md)
-  - [`docs/phase13-versioning-overlay-plan.md`](./phase13-versioning-overlay-plan.md)
-  - [`docs/dita-authoring-compliance.md`](./dita-authoring-compliance.md)
+  - [`docs/design/ai-contract.md`](../design/ai-contract.md)
+  - [`docs/plans/phase13-versioning-overlay.md`](./phase13-versioning-overlay.md)
+  - [`docs/design/dita-authoring-compliance.md`](../design/dita-authoring-compliance.md)
 - **问题现象**：
   1. 用户 A 检出 `tasks/create-map-structure.dita`，在 XML 源码编辑器中向同一个 `<step>` 内插入两条 `<cmd>`，保存后点击「签入...」，**系统未做校验即放行签入**，导致结构错误污染团队共享基线 `HEAD` 且锁被释放；
   2. 后续用户手动触发校验并在诊断列表点击「AI 修复」：

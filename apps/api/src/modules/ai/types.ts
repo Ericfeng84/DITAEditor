@@ -2,7 +2,7 @@ import { z } from 'zod';
 
 /**
  * Phase 6 AI assistance — binding request/response contracts.
- * Source of truth: docs/phase6-ai-contract.md §3.
+ * Source of truth: docs/design/ai-contract.md §3.
  */
 
 export const aiTaskTypeSchema = z.enum([

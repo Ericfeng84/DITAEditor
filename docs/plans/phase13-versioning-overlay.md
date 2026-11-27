@@ -1,8 +1,8 @@
 # Phase 13 规划与实施蓝图：Git 干净基线 + 个人草稿叠加层（版本管理重构与合并闭环）
 
 > **状态**：✅ 已实施完成（Stage 1–3 后端、前端工作台与回归测试矩阵全量通过）  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–12 已完成）  
-> **关联架构决策**：[ADR 0001](./adr/0001-manual-as-independent-workspace.md)、[ADR 0002](./adr/0002-per-request-manual-isolation.md)、[ADR 0003](./adr/0003-soft-assignments-in-sqlite.md)、[ADR 0004](./adr/0004-baseline-and-draft-overlay.md)
+> **上游架构基线**：[architecture-and-plan.md](../architecture-and-plan.md)（Phase 0–12 已完成）  
+> **关联架构决策**：[ADR 0001](../adr/0001-manual-as-independent-workspace.md)、[ADR 0002](../adr/0002-per-request-manual-isolation.md)、[ADR 0003](../adr/0003-soft-assignments-in-sqlite.md)、[ADR 0004](../adr/0004-baseline-and-draft-overlay.md)
 
 ---
 

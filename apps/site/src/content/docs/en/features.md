@@ -62,7 +62,7 @@ Starting from the root map, `keydef` entries (including `keyscope`) are resolved
 
 ### Conref
 
-`conref` / `conkeyref` / `conrefend` expand read-only in the editor; the underlying XML is untouched. The resolver performs DFS cycle detection and specialization checks, reporting cycles explicitly.
+`conref` / `conkeyref` / `conrefend` expand read-only in the editor; the underlying XML is untouched. The resolver performs DFS cycle detection and specialization checks, reporting cycles explicitly. Authors can also create `processing-role="resource-only"` warehouse topics with auto-registered `<keydef>` entries, assign semantic IDs in place, extract existing blocks to a warehouse from the block handle or attribute inspector, and jump straight to reuse insertion from the `/` slash menu, `+` block inserters, or the toolbar.
 
 ### DITAVAL projection
 

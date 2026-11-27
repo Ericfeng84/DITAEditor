@@ -1,8 +1,8 @@
 # Phase 10 规划与实施蓝图：手册编辑工作台与 Topic 编辑任务委派
 
 > **状态**：✅ 已实现（后端 `apps/api/src/modules/{manuals,assignments}/`、`apps/api/src/db/{schema,client}.ts`；前端 `apps/web/src/{router,workbench,store}/`、`apps/web/src/components/{TopicAssignmentBanner,DelegateTopicButton,ManualAssignmentsPanel,LeftSidebar,CheckinDialog}.tsx`；测试 `apps/api/test/phase10-{manuals,assignments}-api.test.ts`、`apps/web/test/phase10-router.test.ts`）  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–9 已完成）  
-> **领域词典与架构决策**：[GLOSSARY.md](../GLOSSARY.md) · [ADR-0001](./adr/0001-manual-as-independent-workspace.md) · [ADR-0002](./adr/0002-per-request-manual-isolation.md) · [ADR-0003](./adr/0003-soft-assignments-in-sqlite.md)  
+> **上游架构基线**：[architecture-and-plan.md](../architecture-and-plan.md)（Phase 0–9 已完成）  
+> **领域词典与架构决策**：[GLOSSARY.md](../../GLOSSARY.md) · [ADR-0001](../adr/0001-manual-as-independent-workspace.md) · [ADR-0002](../adr/0002-per-request-manual-isolation.md) · [ADR-0003](../adr/0003-soft-assignments-in-sqlite.md)  
 > **目标形态**：独立「手册编辑工作台（Workbench Hub）」首页（`/`）+ 三栏编辑器路由（`/manuals/:id`）· SQLite 持久化手册元数据与多手册/多分支并发隔离 · 轻量 Topic 编辑任务（`Assignment`）委派、转派与 Check-out/Check-in 联动
 
 ---
@@ -15,10 +15,10 @@ Phase 10 将 DITAEditor 从“打开即进入单一工作区的三栏编辑器�
 
 | 维度 | Phase 10 确认决策 | 明确不做（Non-Goals） |
 | :--- | :--- | :--- |
-| **手册（Manual）边界** | **1 本手册 = 1 个独立工作区目录与独立 Git 仓库**（[ADR-0001](./adr/0001-manual-as-independent-workspace.md)），在 SQLite `manuals` 表持久化元数据，整合现有新建/导入/关联目录能力，内置 `demo-dita-project` 作为默认手册 | 不做跨仓库共享 Topic 池；不引入「项目 → 手册」两层冗余层级；工作台移除手册绝不删除磁盘目录与 Git 仓库 |
+| **手册（Manual）边界** | **1 本手册 = 1 个独立工作区目录与独立 Git 仓库**（[ADR-0001](../adr/0001-manual-as-independent-workspace.md)），在 SQLite `manuals` 表持久化元数据，整合现有新建/导入/关联目录能力，内置 `demo-dita-project` 作为默认手册 | 不做跨仓库共享 Topic 池；不引入「项目 → 手册」两层冗余层级；工作台移除手册绝不删除磁盘目录与 Git 仓库 |
 | **入口与导航路由** | 根路径 `/` 为独立 **Workbench Hub**（左 2/3 手册卡片库 + 右 1/3「我的任务」面板）；编辑器视图使用零依赖 History API 路由 `/manuals/:id?branch=...&topic=...`（兼容 `VITE_BASE` 与单容器 SPA 回退）；未保存改动离开前二次确认；`VITE_STATIC_DEMO=true` 维持直达离线编辑器 | 不引入 `react-router-dom` 等额外路由依赖；离线演示模式不发起任何 `/api/*` 请求 |
-| **多手册 / 多分支隔离** | 后端通过 **`x-dita-manual-id`** 与可选 **`x-dita-branch`** 请求头定位目标手册与对应 `git worktree` 及语义索引缓存池（[ADR-0002](./adr/0002-per-request-manual-isolation.md)），无头调用向后兼容默认手册与主分支 | 不强制把全部旧路由改写为 `/api/manuals/:id/...` 以免破坏既有 API 客户端与测试契约 |
-| **任务（Assignment）模型** | 严格区分 **`Assignment`（编辑任务）** 与 DITA **`Task`（`<task>` 主题）**；仅落库 SQLite（零 XML/Git 污染，[ADR-0003](./adr/0003-soft-assignments-in-sqlite.md)）；限定目标为 `.dita` Topic；绑定 `(manualId, branch, topicPath)`；同 Topic 同分支最多 **1 条活跃任务**，重复委派走转派（Reassign）；字段精简为必填归属 + 可选 `note` / `dueDate` | 绝不把委派信息写入 `.dita` `<prolog>` 或 PI；不支持对 `.ditamap`/`.ditaval`/图片委派；不做工时、优先级矩阵、子任务或评论盖楼 |
+| **多手册 / 多分支隔离** | 后端通过 **`x-dita-manual-id`** 与可选 **`x-dita-branch`** 请求头定位目标手册与对应 `git worktree` 及语义索引缓存池（[ADR-0002](../adr/0002-per-request-manual-isolation.md)），无头调用向后兼容默认手册与主分支 | 不强制把全部旧路由改写为 `/api/manuals/:id/...` 以免破坏既有 API 客户端与测试契约 |
+| **任务（Assignment）模型** | 严格区分 **`Assignment`（编辑任务）** 与 DITA **`Task`（`<task>` 主题）**；仅落库 SQLite（零 XML/Git 污染，[ADR-0003](../adr/0003-soft-assignments-in-sqlite.md)）；限定目标为 `.dita` Topic；绑定 `(manualId, branch, topicPath)`；同 Topic 同分支最多 **1 条活跃任务**，重复委派走转派（Reassign）；字段精简为必填归属 + 可选 `note` / `dueDate` | 绝不把委派信息写入 `.dita` `<prolog>` 或 PI；不支持对 `.ditamap`/`.ditaval`/图片委派；不做工时、优先级矩阵、子任务或评论盖楼 |
 | **状态机与协作联动** | 轻量四态：`pending` → `in_progress` → `done` / `cancelled`（支持重新打开与自委派）；**软引导、不自动加锁、不硬拦截**；`admin`/`writer` 均可委派与被委派（过滤 `viewer`）；他人查看/检出已委派给别人的 Topic 时给出提示与确认；受托人 Check-out 自动推进 `pending → in_progress`，Check-in 弹窗提供默认勾选的「同时标记任务完成」 | 不做多级审批/待验收/打回流；不因委派阻断管理员或紧急救火编辑 |
 | **多入口与刷新策略** | 入口覆盖工作台「我的任务」面板（含「新建委派」）、编辑器 **Map 树**、**文件树**（展示受托人徽章）、**Topic 顶部状态条**与**左侧「任务」Tab**；采用动作即时刷新 + 窗口重新聚焦（`focus`/`visibilitychange`）自动刷新 + 手动刷新 | 不新增任务专用 WebSocket/SSE 推送通道，不建独立站内信/未读通知表 |
 
@@ -26,7 +26,7 @@ Phase 10 将 DITAEditor 从“打开即进入单一工作区的三栏编辑器�
 
 ## 2. 领域模型与系统交互流
 
-核心术语以 [GLOSSARY.md](../GLOSSARY.md) 为唯一标准：`Manual`（手册）、`Root Map`、`Topic`、`Task`（专指 DITA `<task>`）、`Workbench Hub`（手册编辑工作台）、`Assignment`（编辑任务）、`Assigner`（委派人）、`Assignee`（受托人）、`Check-out Lock`（检出独占锁）。
+核心术语以 [GLOSSARY.md](../../GLOSSARY.md) 为唯一标准：`Manual`（手册）、`Root Map`、`Topic`、`Task`（专指 DITA `<task>`）、`Workbench Hub`（手册编辑工作台）、`Assignment`（编辑任务）、`Assigner`（委派人）、`Assignee`（受托人）、`Check-out Lock`（检出独占锁）。
 
 ```mermaid
 flowchart TB
@@ -136,7 +136,7 @@ CREATE INDEX IF NOT EXISTS topic_assignments_manual_branch_idx
 
 ## 4. 后端多手册与多分支并发隔离方案
 
-参考 [ADR-0002](./adr/0002-per-request-manual-isolation.md)，消除当前 `WorkspaceManager` 单例持有全局 `activeRootDir` 的并发串台隐患：
+参考 [ADR-0002](../adr/0002-per-request-manual-isolation.md)，消除当前 `WorkspaceManager` 单例持有全局 `activeRootDir` 的并发串台隐患：
 
 ### 4.1 `ManualContextResolver`（请求级上下文解析器）
 
@@ -259,7 +259,7 @@ CREATE INDEX IF NOT EXISTS topic_assignments_manual_branch_idx
 严格遵守 Phase 8 全栈强类型 i18n 规范与硬编码中文扫描门禁：
 - 前端在 `apps/web/src/i18n/messages/` 新增模块化词典 **`workbench.ts`** 与 **`assignments.ts`**，纳入 `zhMessages` / `enMessages` 强类型对称校验；
 - 后端在 `apps/api/src/i18n/messages.ts` 补齐 `manuals.*` 与 `assignments.*` 全部双语报错文案；
-- 强制术语对齐表（与 [GLOSSARY.md](../GLOSSARY.md) 一致）：
+- 强制术语对齐表（与 [GLOSSARY.md](../../GLOSSARY.md) 一致）：
 
 | 中文界面文案 | 英文标准文案 | 说明 |
 | :--- | :--- | :--- |
@@ -373,4 +373,4 @@ apps/web/src/
 | **旧版本工作区升级丢失** | 升级前用户已在 `workspaces.json` 或 `.dita-workspaces/` 创建多个项目 | 启动时幂等执行 `syncLegacyWorkspaces()` 自动导入 `manuals` 表，且旧 `/api/workspace/*` 接口保留兼容桥接 |
 | **离开编辑器丢失未保存改动** | 作者编辑 Topic 尚未保存就直接点「返回工作台」或浏览后退 | 路由切换守卫检测 `dirtyCount > 0` 并弹出三选项防丢弹窗，同时注册 `beforeunload` 兜底 |
 | **委派目标文件被删或改名** | 任务已委派后，他人在文件树重命名或删除该 `.dita` 文件 | `rename` 路由原子同步 `topic_assignments.topic_path`；`delete` 路由保留任务并通过 `topicExists: false` 给出醒目告警与取消入口 |
-| **术语污染或 i18n 回退** | 英文界面误将编辑任务写成 `Task`（与 DITA `<task>` 混淆），或工作台新增硬编码中文 | 严格遵循 [GLOSSARY.md](../GLOSSARY.md) 统一用 `Assignment`，由 Phase 8 既有双语对称单测与硬编码中文扫描门禁持续把关 |
+| **术语污染或 i18n 回退** | 英文界面误将编辑任务写成 `Task`（与 DITA `<task>` 混淆），或工作台新增硬编码中文 | 严格遵循 [GLOSSARY.md](../../GLOSSARY.md) 统一用 `Assignment`，由 Phase 8 既有双语对称单测与硬编码中文扫描门禁持续把关 |

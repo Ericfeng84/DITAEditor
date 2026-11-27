@@ -1,6 +1,6 @@
 # Hugging Face Spaces 部署指南（Docker 单容器方案）
 
-> **提示**：如仅需免费在线演示而不想绑定计费方式，推荐改用 **GitHub Pages 免费部署非完整版（官网 + 离线三栏工作台）**，详见 [deploy-github-pages.md](./deploy-github-pages.md)。
+> **提示**：如仅需免费在线演示而不想绑定计费方式，推荐改用 **GitHub Pages 免费部署非完整版（官网 + 离线三栏工作台）**，详见 [github-pages.md](./github-pages.md)。
 
 本文档说明如何将 **DITAEditor 完整版单容器工作台**（含 ProseMirror / CodeMirror 双模编辑、Map 树、Keys/Conref/DITAVAL、本地 Git 与 Check-out 独占锁、DITA-OT 4.2.1 严格校验与 Noto CJK 中文 PDF 发布）部署到 **Hugging Face Spaces（Docker SDK）**。
 
@@ -13,10 +13,10 @@
 
 仓库已完成以下开箱适配，无需维护第二份 `Dockerfile`：
 
-1. **非 root `UID 1000`（`USER node`）运行**：[Dockerfile](../Dockerfile) 在运行时切换为 `node`（UID 1000），预先创建并授权 `/data`、`/home/node/.fop`、`/home/node/.cache`、`/opt/dita-ot/temp`，并配置 `git config --system --add safe.directory '*'`。
-2. **非 root 安全初始化演示项目**：[docker-entrypoint.sh](../docker-entrypoint.sh) 使用 `cp -R` 初始化 `/data/workspace`，避免 `UID 1000` 复制镜像文件时因尝试保留 `root` 属主报错。
-3. **Space 元数据与端口对齐**：[deploy/huggingface/README.md](../deploy/huggingface/README.md) 声明 `sdk: docker` 与 `app_port: 3001`，与镜像默认 `PORT=3001` 及健康检查 `/health` 完全一致。
-4. **精简推送包**：[scripts/sync-hf-space.sh](../scripts/sync-hf-space.sh) 只打包工作台 Docker 构建所需源码（剥离 `docs/pic/`、官网源码、`node_modules` 与 `.github/`），避免大文件与工作流权限拦截。
+1. **非 root `UID 1000`（`USER node`）运行**：[Dockerfile](../../Dockerfile) 在运行时切换为 `node`（UID 1000），预先创建并授权 `/data`、`/home/node/.fop`、`/home/node/.cache`、`/opt/dita-ot/temp`，并配置 `git config --system --add safe.directory '*'`。
+2. **非 root 安全初始化演示项目**：[docker-entrypoint.sh](../../docker-entrypoint.sh) 使用 `cp -R` 初始化 `/data/workspace`，避免 `UID 1000` 复制镜像文件时因尝试保留 `root` 属主报错。
+3. **Space 元数据与端口对齐**：[deploy/huggingface/README.md](../../deploy/huggingface/README.md) 声明 `sdk: docker` 与 `app_port: 3001`，与镜像默认 `PORT=3001` 及健康检查 `/health` 完全一致。
+4. **精简推送包**：[scripts/sync-hf-space.sh](../../scripts/sync-hf-space.sh) 只打包工作台 Docker 构建所需源码（剥离 `docs/pic/`、官网源码、`node_modules` 与 `.github/`），避免大文件与工作流权限拦截。
 
 ---
 
@@ -37,7 +37,7 @@
 
 ### 方式 A：通过 GitHub Actions 一键自动同步（推荐）
 
-仓库已内置工作流 [.github/workflows/deploy-hf-space.yml](../.github/workflows/deploy-hf-space.yml)：
+仓库已内置工作流 [.github/workflows/deploy-hf-space.yml](../../.github/workflows/deploy-hf-space.yml)：
 
 1. 在你的 GitHub 仓库进入 **Settings → Secrets and variables → Actions**：
    - **Secrets** 新增：`HF_TOKEN` = 第一步生成的 Hugging Face Write Token

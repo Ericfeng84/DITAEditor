@@ -100,7 +100,7 @@ the theme without touching it.
    print styles and content markup styles are shared. Flourishes must be scoped
    under `html[data-de-theme="<theme-id>"]` so they cannot leak.
 4. Register the id in the theme registry (server-side; see
-   `docs/phase12-html-themes-plan.md`) so the API can copy the directory.
+   `docs/plans/phase12-html-themes.md`) so the API can copy the directory.
 5. Check contrast: body text ≥ 4.5:1 on `--de-bg` and `--de-surface`, accent
    text on tinted rows via `--de-link`.
 

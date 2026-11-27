@@ -1,8 +1,8 @@
 # Phase 6 实施文档：DeepSeek AI 辅助文档编写、标签优化与错误处理
 
 > **状态**：✅ 已完成并验收（v1.0.0，2026-11-22）  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–6 已完成并验收）  
-> **接口契约**：[phase6-ai-contract.md](./phase6-ai-contract.md) · **端到端验收脚本**：`apps/api/scripts/e2e-ai-live.mts`
+> **上游架构基线**：[architecture-and-plan.md](../architecture-and-plan.md)（Phase 0–6 已完成并验收）  
+> **接口契约**：[ai-contract.md](../design/ai-contract.md) · **端到端验收脚本**：`apps/api/scripts/e2e-ai-live.mts`
 
 ---
 
@@ -490,17 +490,17 @@ apps/web/src/ai/
 
 | 现有文件 | 改造点 | 行为说明 |
 | :--- | :--- | :--- |
-| [TopicInspector.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/components/TopicInspector.tsx) | `InspectorTab` 扩展为 `'attributes' \| 'reuse' \| 'ai'`，新增 `AI 助手`（`Sparkles` 图标）Tab | 无论是否处于 Topic 编辑态（包括源码模式、XML 损坏态），只要有打开的文件即可切换查看 AI 面板（需同步调整 `App.tsx` 中 `showRightInspector` 条件，使源码模式切到 `ai` Tab 时右侧检查器也可展开） |
-| [InlineBubbleToolbar.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/editor/visual/InlineBubbleToolbar.tsx) | 尾部增加分隔符 + `AI 润色` / `AI 优化标签` 图标按钮（仅在 `aiConfigured` 或点击时提示配置） | 点击捕获当前 ProseMirror 选区对应的元素路径与文本，自动展开右侧 `TopicInspector` 并切到 `ai` Tab 立即触发任务 |
-| [ProblemsPanel.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/components/ProblemsPanel.tsx) | 每条诊断行右侧增加 `AI 修复` 迷你按钮（阻止冒泡避免只跳转） | 自动打开诊断所属文件、定位到对应行，并携带 `WorkspaceDiagnostic` 唤起右侧 `AI 助手` 执行 `fix_error` |
-| [SourceEditor.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/editor/source/SourceEditor.tsx) / [App.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/App.tsx) | XML 良构报错横幅（阻塞切换 Visual 的提示栏）旁增加 `AI 修复语法错误` 按钮 | 直接以 `mode: 'line-window'` + `XmlParseError` 触发修复，应用后即可恢复切换 Visual 模式 |
-| [StrictValidationDialog.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/components/publish/StrictValidationDialog.tsx) | 每条 DITA-OT DOTJ/DOTX 报错项旁增加 `AI 修复` 按钮 | 关闭/折叠校验弹窗，打开对应文件并向 AI 面板派发 `fix_dita_ot` 任务；`AiDiffDialog` 应用成功后提供「重新运行 DITA-OT 严格校验」快捷按钮 |
-| [WorkbenchHeader.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/components/WorkbenchHeader.tsx) | 工具栏增加 `AI 设置` 图标按钮（显示已配置/未配置状态点；非 Admin 点击显示只读状态与“需切换管理员角色修改”提示） | 打开 `AiSettingsDialog` |
-| [VisualEditor.tsx](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/editor/visual/VisualEditor.tsx) / [editor-store.ts](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/store/editor-store.ts) | 新增 `applyAiPatchedXml(filePath, patchedXml)` 与 `getSelectionElementPath()` | **Visual 模式**：通过单个 ProseMirror Transaction 替换文档根节点（保留 `prosemirror-history` 栈，使 `Cmd/Ctrl+Z` 一键完整撤销 AI 修改）并同步 XML；**Source 模式**：通过 CodeMirror 单次 `dispatch` 替换全文（支持单步 `Cmd/Ctrl+Z` 撤销）并更新 store |
+| [TopicInspector.tsx](../../apps/web/src/components/TopicInspector.tsx) | `InspectorTab` 扩展为 `'attributes' \| 'reuse' \| 'ai'`，新增 `AI 助手`（`Sparkles` 图标）Tab | 无论是否处于 Topic 编辑态（包括源码模式、XML 损坏态），只要有打开的文件即可切换查看 AI 面板（需同步调整 `App.tsx` 中 `showRightInspector` 条件，使源码模式切到 `ai` Tab 时右侧检查器也可展开） |
+| [InlineBubbleToolbar.tsx](../../apps/web/src/editor/visual/InlineBubbleToolbar.tsx) | 尾部增加分隔符 + `AI 润色` / `AI 优化标签` 图标按钮（仅在 `aiConfigured` 或点击时提示配置） | 点击捕获当前 ProseMirror 选区对应的元素路径与文本，自动展开右侧 `TopicInspector` 并切到 `ai` Tab 立即触发任务 |
+| [ProblemsPanel.tsx](../../apps/web/src/components/ProblemsPanel.tsx) | 每条诊断行右侧增加 `AI 修复` 迷你按钮（阻止冒泡避免只跳转） | 自动打开诊断所属文件、定位到对应行，并携带 `WorkspaceDiagnostic` 唤起右侧 `AI 助手` 执行 `fix_error` |
+| [SourceEditor.tsx](../../apps/web/src/editor/source/SourceEditor.tsx) / [App.tsx](../../apps/web/src/App.tsx) | XML 良构报错横幅（阻塞切换 Visual 的提示栏）旁增加 `AI 修复语法错误` 按钮 | 直接以 `mode: 'line-window'` + `XmlParseError` 触发修复，应用后即可恢复切换 Visual 模式 |
+| [StrictValidationDialog.tsx](../../apps/web/src/components/publish/StrictValidationDialog.tsx) | 每条 DITA-OT DOTJ/DOTX 报错项旁增加 `AI 修复` 按钮 | 关闭/折叠校验弹窗，打开对应文件并向 AI 面板派发 `fix_dita_ot` 任务；`AiDiffDialog` 应用成功后提供「重新运行 DITA-OT 严格校验」快捷按钮 |
+| [WorkbenchHeader.tsx](../../apps/web/src/components/WorkbenchHeader.tsx) | 工具栏增加 `AI 设置` 图标按钮（显示已配置/未配置状态点；非 Admin 点击显示只读状态与“需切换管理员角色修改”提示） | 打开 `AiSettingsDialog` |
+| [VisualEditor.tsx](../../apps/web/src/editor/visual/VisualEditor.tsx) / [editor-store.ts](../../apps/web/src/store/editor-store/index.ts) | 新增 `applyAiPatchedXml(filePath, patchedXml)` 与 `getSelectionElementPath()` | **Visual 模式**：通过单个 ProseMirror Transaction 替换文档根节点（保留 `prosemirror-history` 栈，使 `Cmd/Ctrl+Z` 一键完整撤销 AI 修改）并同步 XML；**Source 模式**：通过 CodeMirror 单次 `dispatch` 替换全文（支持单步 `Cmd/Ctrl+Z` 撤销）并更新 store |
 
 ### 6.3 Check-out 独占锁与角色交互矩阵
 
-在 `AiDiffDialog.tsx` 中复用 `resolveFileEditability()`（[lock-helpers.ts](file:///Users/fengkang/Repository/DITAEditor/apps/web/src/services/lock-helpers.ts)）：
+在 `AiDiffDialog.tsx` 中复用 `resolveFileEditability()`（[lock-helpers.ts](../../apps/web/src/services/lock-helpers.ts)）：
 
 | 当前状态 | 能否发起 AI 提问/生成 Diff | `AiDiffDialog` 底部主操作 |
 | :--- | :--- | :--- |

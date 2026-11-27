@@ -15,7 +15,7 @@ A **web-based DITA 1.3 structured authoring workbench** for technical documentat
 | Try it online | URL | Notes |
 | :--- | :--- | :--- |
 | Website and bilingual docs | https://ericfeng84.github.io/DITAEditor/ | Astro static site with a DITA sandbox and full-text search (`/en/` for English) |
-| Full workbench | https://www.cemplatformcvs.cloud/dita | GCP Cloud Run behind a subpath proxy: DITA-OT 4.2.1 strict validation, HTML5 themes with Noto CJK PDF, Git locks, AI ([deployment guide](docs/deploy-gcp-cloudrun.md)) |
+| Full workbench | https://www.cemplatformcvs.cloud/dita | GCP Cloud Run behind a subpath proxy: DITA-OT 4.2.1 strict validation, HTML5 themes with Noto CJK PDF, Git locks, AI ([deployment guide](docs/deploy/gcp-cloudrun.md)) |
 | Browser-only offline build | https://ericfeng84.github.io/DITAEditor/workbench/ | Runs `demo-dita-project` in memory; no server-side Git, publishing, or AI |
 
 ## Table of contents
@@ -355,17 +355,13 @@ DITAEditor/
 ├── samples/
 │   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/reuse library/DITAVAL/SVG)
 ├── docs/
+│   ├── README.md               # documentation index (living specs, ADRs, deployment guides, archived plans)
 │   ├── architecture-and-plan.md # full architecture baseline and phased roadmap
-│   ├── deploy-gcp-cloudrun.md  # low-cost GCP Cloud Run trial, subpath reverse proxy, and WIF auto-deploy guide
-│   ├── deploy-huggingface-spaces.md # Hugging Face Spaces single-container deployment guide
-│   ├── deploy-github-pages.md  # GitHub Pages static site and offline workbench guide
-│   ├── phase12-html-themes-plan.md # Phase 12 HTML5 publish themes blueprint
-│   ├── phase13-versioning-overlay-plan.md # Phase 13 clean baseline + draft overlay blueprint
-│   ├── key-management-integration-plan.md # v1.5.0 keyspace key management plan
-│   ├── checkin-validation-ai-fix-plan.md # v1.5.0 check-in validation gate + AI repair plan
+│   ├── design/                 # living technical designs and cross-package contracts (versioning, compliance, reuse, AI)
+│   ├── deploy/                 # deployment guides (GCP Cloud Run, Hugging Face Spaces, GitHub Pages)
 │   ├── adr/                    # architecture decision records (0001–0004)
-│   ├── phase7-site-plan.md     # Phase 7 site / sandbox / docs blueprint
-│   ├── phase6-ai-contract.md   # Phase 6 AI API/SSE/DB/frontend integration contract
+│   ├── dita/                   # local DITA 1.3 topic authoring references (topic / concept / task / reference)
+│   ├── plans/                  # archived phase blueprints and fix plans (Phase 6–14 / v1.5.0)
 │   └── pic/                    # workbench screenshots
 ├── dita-ot-plugins/            # DITA-OT 4.x plugins and static publish themes (pure XML/CSS/JS)
 │   ├── com.ditaeditor.pdf-cjk/ # Noto CJK PDF font-mappings plugin
@@ -437,7 +433,10 @@ No Docker or Node.js required — download the installer for your platform from 
 - **macOS (Apple Silicon `arm64`)**: `DITAEditor-<version>-mac-arm64.dmg` / `.zip`
 - **Windows (`x64`)**: `DITAEditor-<version>-win-x64.exe` (NSIS installer) / `.zip` (portable)
 
-The desktop app embeds `@dita/api` inside the Electron main process (listening only on `127.0.0.1` with an ephemeral port), bundles the built web workbench, the Noto CJK PDF plugin and the sample project, and keeps all writable state (`dita-editor.sqlite`, workspaces, branch worktrees, publish output) under the OS `userData` directory (overridable via `DITA_DESKTOP_DATA_DIR`). This lightweight build auto-detects host Git and DITA-OT 4.x installations; authoring, Map editing, Keys/Conref/DITAVAL and AI assistance work even without DITA-OT installed.
+The desktop app embeds `@dita/api` inside the Electron main process (listening only on `127.0.0.1` with an ephemeral port), bundles the built web workbench, the Noto CJK PDF plugin and the sample project, and stores all writable state (`dita-editor.sqlite`, workspaces, `git worktree` checkouts, publish output) in the OS `userData` directory by default (overridable via `DITA_DESKTOP_DATA_DIR`). On launch it augments GUI `PATH` and probes host **Git**, **Java**, **DITA-OT 4.x**, **Noto CJK fonts**, and **MarkItDown / Docling** ingest parsers via `GET /api/runtime/environment` (authoring, Map editing, Keys/Conref/DITAVAL and AI assistance continue working even before installing them):
+
+- **Change default storage folder**: Open **Desktop Settings → Storage** from the header button (or `Cmd/Ctrl+,`) to reveal the active folder in Finder/Explorer or pick a new storage root. Candidate folders are inspected for writability and nested-path conflicts, with explicit modes to **migrate existing data** (checkpointing SQLite WAL, rewriting stored paths in SQLite and `workspaces.json`, and pruning stale worktree links), **use existing data** in the target folder, **start fresh**, or **restore the OS default folder**.
+- **Plugin & runtime installation guide**: Missing core tools surface a dismissible hub banner plus direct shortcuts from the Publish, Strict Validation, and Document Ingest dialogs. The **Plugins & Runtime** tab shows live readiness checks, OS-specific copyable install commands and official download links for macOS/Windows, and native folder pickers to bind an extracted `DITA_OT_HOME` or Noto CJK font directory without restarting.
 
 > For unsigned open-source builds without signing certificates: on macOS, if Gatekeeper blocks the first launch, run `xattr -cr /Applications/DITAEditor.app`; on Windows SmartScreen, choose **More info → Run anyway**.
 
@@ -466,7 +465,7 @@ For live evaluation or team demos, deploy the single container to GCP Cloud Run 
 GCP_PROJECT_ID="<your-gcp-project-id>" ./deploy/gcp/deploy-cloudrun.sh
 ```
 
-See **[docs/deploy-gcp-cloudrun.md](docs/deploy-gcp-cloudrun.md)** for the full architecture, reverse-proxy setup, keyless WIF CI configuration, Artifact Registry cleanup policy and one-command teardown (see also [Hugging Face Spaces](docs/deploy-huggingface-spaces.md) and [GitHub Pages](docs/deploy-github-pages.md)).
+See **[docs/deploy/gcp-cloudrun.md](docs/deploy/gcp-cloudrun.md)** for the full architecture, reverse-proxy setup, keyless WIF CI configuration, Artifact Registry cleanup policy and one-command teardown (see also [Hugging Face Spaces](docs/deploy/huggingface-spaces.md) and [GitHub Pages](docs/deploy/github-pages.md)).
 
 ### Option 5: Editing and semantic authoring only (no DITA-OT)
 
@@ -526,7 +525,7 @@ pnpm --filter @dita/site build    # static output + Pagefind index
 pnpm --filter @dita/site test     # dictionary/doc-slug symmetry and preset round-trips
 ```
 
-Deployment: `.github/workflows/deploy-site.yml` builds `@dita/site` and the offline `@dita/web` bundle (published under `/workbench/`) to GitHub Pages on every push to `main` (see [docs/deploy-github-pages.md](docs/deploy-github-pages.md)); `SITE_URL` / `SITE_BASE` repo variables cover the root path or a sub-path such as `/DITAEditor/`.
+Deployment: `.github/workflows/deploy-site.yml` builds `@dita/site` and the offline `@dita/web` bundle (published under `/workbench/`) to GitHub Pages on every push to `main` (see [docs/deploy/github-pages.md](docs/deploy/github-pages.md)); `SITE_URL` / `SITE_BASE` repo variables cover the root path or a sub-path such as `/DITAEditor/`.
 
 ---
 
@@ -537,16 +536,16 @@ pnpm -r build && pnpm -r typecheck && pnpm -r test   # everything
 pnpm build && pnpm typecheck && pnpm test            # or the Turborepo shortcuts
 ```
 
-Current coverage (**807/807 Vitest tests passing**):
+Current coverage (**862/862 Vitest tests passing**):
 
 <details>
 <summary>Expand per-package test coverage</summary>
 
 - `@dita/core` (229): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless DITA Map operations (including in-place `<keydef>` create/edit), DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, AI fragment targeting/normalization/lossless splice verification, plus Phase 14 Markdown outline slicing, data-URI image extraction and lossless map mounting.
-- `@dita/web` (356): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, Phase 10 workbench hub router & unsaved-changes guards, document outline model/DnD, keyspace key management, check-in validation gate UI, and Phase 14 ingest progress stage/error rendering.
-- `@dita/api` (185): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, Phase 10 per-manual isolation & assignment workflows, Phase 13 draft overlay/conflict-free merge/tags/revert/audit and check-in pre-check, plus Phase 14 dual-parser routing, multi-role agent, tool-using DITA-OT repair agent (batch repair, map repair, circuit breaker, deterministic final gate, non-tool fallback) and end-to-end ingest routes.
+- `@dita/web` (366): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, Phase 10 workbench hub router & unsaved-changes guards, document outline model/DnD, keyspace key management, check-in validation gate UI, Phase 14 ingest progress stage/error rendering, plus desktop storage/plugin guide UI tests.
+- `@dita/api` (217): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, Phase 10 per-manual isolation & assignment workflows, Phase 13 draft overlay/conflict-free merge/tags/revert/audit and check-in pre-check, Phase 14 dual-parser routing, multi-role agent, tool-using DITA-OT repair agent (batch repair, map repair, circuit breaker, deterministic final gate, non-tool fallback) and end-to-end ingest routes, plus `/api/runtime/environment` environment probe tests.
 - `@dita/site` (30): bilingual dictionary key parity, doc-slug symmetry, `SITE_BASE` / offline workbench route helpers, and `@dita/core` preset round-trip tests.
-- `@dita/desktop` (4): packaged vs dev resource/`userData` path resolution, idempotent first-launch demo workspace seeding (stripping `.git`, preserving user edits), and release-tag semver normalization.
+- `@dita/desktop` (20): packaged vs dev resource/`userData` path resolution, idempotent first-launch demo workspace seeding (stripping `.git`, preserving user edits), release-tag semver normalization, GUI `PATH` augmentation, candidate folder inspection, atomic `desktop-settings.json` persistence, and `better-sqlite3` path-rewriting data migration.
 
 </details>
 
@@ -608,6 +607,7 @@ Current coverage (**807/807 Vitest tests passing**):
 | `POST /api/git/restore-file` / `revert-commit` | Single-file restore (`draft` / `commit`) and safe commit revert |
 | `GET /api/git/audit` | Append-only version audit trail (check-out / handoff / check-in / merge / revert / publish) |
 | `GET /api/validate/runtime` | DITA-OT version, Chinese PDF plugin and Noto CJK font readiness |
+| `GET /api/runtime/environment` | Unified desktop/host probe for Git, Java, DITA-OT, Noto CJK fonts, Docling and MarkItDown readiness |
 | `POST /api/validate/strict` | Runs `--validate=yes --processing-mode=strict` for files or a Root Map and returns normalized DOTJ/DOTX diagnostics |
 | `GET /api/publish/runtime` | Publish runtime state and publish root |
 | `GET /api/publish/themes` / `themes/:id/preview` | Built-in HTML5 publish themes and their preview pages |
@@ -641,14 +641,14 @@ Current coverage (**807/807 Vitest tests passing**):
 - [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (zero custom Java code; built-in DTD/RNG strict validation + pure-XML Noto CJK PDF plugin), zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE logs, and single-container `Dockerfile` deployment.
 - [x] **Phase 6**: LangChain.js AI assistance (DeepSeek / OpenAI-compatible endpoints), lossless fragment splice with verification retries in `@dita/core`, streaming authoring / tag optimization / error repair, mandatory diff confirmation with lock guards, SQLite config and token-usage auditing, and the real-endpoint script `apps/api/scripts/e2e-ai-live.mts`.
 - [x] **Phase 7**: Standalone static site `@dita/site` (Astro 5 + React 19 + Tailwind CSS 4, bilingual landing page + 6 mirrored docs + Pagefind search + interactive sandbox), with the offline three-pane workbench hosted on GitHub Pages at `/workbench/`.
-- [x] **Phase 8**: Fully bilingual zh-CN/en stack (bilingual element vocabulary and semantic/AI diagnostics in `@dita/core`, a strongly typed i18n layer with lossless hot switching in `@dita/web`, request-locale resolution and bilingual messages in `@dita/api`, plus three i18n regression gates; see `docs/phase8-i18n-plan.md`).
+- [x] **Phase 8**: Fully bilingual zh-CN/en stack (bilingual element vocabulary and semantic/AI diagnostics in `@dita/core`, a strongly typed i18n layer with lossless hot switching in `@dita/web`, request-locale resolution and bilingual messages in `@dita/api`, plus three i18n regression gates; see [docs/plans/phase08-i18n.md](docs/plans/phase08-i18n.md)).
 - [x] **Phase 9**: DITA 1.3 ordered/cardinality content-model validation — pure sequence rules in `@dita/core`, guided slot insertion via `getInsertionSlot()`, and unified structure diagnostics across ProseMirror, CodeMirror and the Problems panel.
-- [x] **Phase 10**: Multi-manual Workbench Hub and lightweight topic editing task (`Assignment`) delegation with per-manual/per-branch request isolation and check-out/check-in/rename hooks (see `docs/phase10-workbench-assignments-plan.md`).
+- [x] **Phase 10**: Multi-manual Workbench Hub and lightweight topic editing task (`Assignment`) delegation with per-manual/per-branch request isolation and check-out/check-in/rename hooks (see [docs/plans/phase10-workbench-assignments.md](docs/plans/phase10-workbench-assignments.md)).
 - [x] **Phase 11**: Lightweight desktop app `@dita/desktop` (Electron 35 + `electron-builder`, embedded `@dita/api` with `userData` isolation, Windows `dita.bat` runtime fixes) and automated GitHub Release builds for macOS Apple Silicon (`arm64` `.dmg`/`.zip`) and Windows (`x64` NSIS `.exe`/`.zip`).
-- [x] **Phase 12**: HTML5 publish themes (four static themes in `dita-ot-plugins/html5-themes/` with a shared typography base and offline runtime, a deterministic Node post-processor, `/api/publish/themes` and multi-viewport previews, per-manual branding stored in `manual_publish_profiles`; `vanilla` stays untouched) and GCP Cloud Run sub-path deployment (see [docs/phase12-html-themes-plan.md](docs/phase12-html-themes-plan.md)).
-- [x] **Phase 13**: Clean baseline plus a personal draft overlay (`working_drafts` with out-of-repo draft assets, the `User Overlay` read view, conflict-free merges, tags / safe revert, `version_audit_logs`, plus multi-tab identity isolation and `my_drafts` publish snapshots; see [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) and [the Phase 13 plan](docs/phase13-versioning-overlay-plan.md)).
-- [x] **v1.5.0 enhancements**: Document outline view (`apps/web/src/editor/outline/` — structure skeleton / all blocks, bidirectional locate and DITA 1.3-constrained drag plus `Alt+↑/↓` reordering), keyspace key management and the create-key workflow (`NewKeyDialog` / `KeyrefAttrField` / `InsertKeyrefDialog`), and the check-in validation gate with an AI repair loop (see [docs/key-management-integration-plan.md](docs/key-management-integration-plan.md) and [docs/checkin-validation-ai-fix-plan.md](docs/checkin-validation-ai-fix-plan.md)).
-- [x] **Phase 14**: Document ingest and AI agent authoring/validation loop (Docling + Microsoft MarkItDown dual parsers with direct `.md`/`.txt` pass-through, data-URI image extraction, Planner → Writer → bounded tool-using DITA-OT repair agent with a deterministic `strict` final gate, clean-baseline new manuals or Phase 13 personal drafts, 5-step wizard with SSE progress, and root `docker-compose.yml`; see [docs/phase14-docling-agent-plan.md](docs/phase14-docling-agent-plan.md)).
+- [x] **Phase 12**: HTML5 publish themes (four static themes in `dita-ot-plugins/html5-themes/` with a shared typography base and offline runtime, a deterministic Node post-processor, `/api/publish/themes` and multi-viewport previews, per-manual branding stored in `manual_publish_profiles`; `vanilla` stays untouched) and GCP Cloud Run sub-path deployment (see [docs/plans/phase12-html-themes.md](docs/plans/phase12-html-themes.md)).
+- [x] **Phase 13**: Clean baseline plus a personal draft overlay (`working_drafts` with out-of-repo draft assets, the `User Overlay` read view, conflict-free merges, tags / safe revert, `version_audit_logs`, plus multi-tab identity isolation and `my_drafts` publish snapshots; see [ADR 0004](docs/adr/0004-baseline-and-draft-overlay.md) and [the Phase 13 plan](docs/plans/phase13-versioning-overlay.md)).
+- [x] **v1.5.0 enhancements**: Document outline view (`apps/web/src/editor/outline/` — structure skeleton / all blocks, bidirectional locate and DITA 1.3-constrained drag plus `Alt+↑/↓` reordering), keyspace key management and the create-key workflow (`NewKeyDialog` / `KeyrefAttrField` / `InsertKeyrefDialog`), and the check-in validation gate with an AI repair loop (see [docs/plans/key-management-integration.md](docs/plans/key-management-integration.md) and [docs/plans/checkin-validation-ai-fix.md](docs/plans/checkin-validation-ai-fix.md)).
+- [x] **Phase 14**: Document ingest and AI agent authoring/validation loop (Docling + Microsoft MarkItDown dual parsers with direct `.md`/`.txt` pass-through, data-URI image extraction, Planner → Writer → bounded tool-using DITA-OT repair agent with a deterministic `strict` final gate, clean-baseline new manuals or Phase 13 personal drafts, 5-step wizard with SSE progress, and root `docker-compose.yml`; see [docs/plans/phase14-docling-agent.md](docs/plans/phase14-docling-agent.md)).
 
 </details>
 

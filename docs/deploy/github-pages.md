@@ -6,7 +6,7 @@
 
 ## 一、部署后的访问路径与能力边界
 
-推送代码后，工作流 [.github/workflows/deploy-site.yml](../.github/workflows/deploy-site.yml) 会自动构建并发布以下路径（以项目页 `https://<username>.github.io/<repo>/` 为例）：
+推送代码后，工作流 [.github/workflows/deploy-site.yml](../../.github/workflows/deploy-site.yml) 会自动构建并发布以下路径（以项目页 `https://<username>.github.io/<repo>/` 为例）：
 
 | 路径 | 内容 | 能力边界 |
 | :--- | :--- | :--- |
@@ -14,7 +14,7 @@
 | `/playground/` 与 `/en/playground/` | 单文件 DITA 1.3 交互沙箱 | 浏览器内运行 `@dita/core`，支持双模编辑、CALS、DITAVAL 与行级 Diff |
 | `/workbench/` | **非完整版三栏工作台**（`@dita/web` 离线内存模式） | 支持内置多文件示例项目、DITA Map 树编排、多 Tab 编辑、Keyref/Conref/DITAVAL 三态过滤与本地目录导入；**不包含**服务端磁盘持久化、本地 Git/Check-out 锁、DITA-OT 严格校验/PDF 发布与服务端 AI 代理 |
 
-> 若需使用 DITA-OT 中文 PDF 发布、本地 Git 协作锁与 AI 辅助写作，请参考 [Dockerfile](../Dockerfile) 在本机或私有服务器运行单容器完整版。
+> 若需使用 DITA-OT 中文 PDF 发布、本地 Git 协作锁与 AI 辅助写作，请参考 [Dockerfile](../../Dockerfile) 在本机或私有服务器运行单容器完整版。
 
 ---
 

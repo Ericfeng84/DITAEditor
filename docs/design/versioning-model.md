@@ -1,247 +1,170 @@
-# 版本管理模型（As-Is 现状说明）
+# 版本管理与并发协作模型（现状说明）
 
-> 本文档描述 **DITAEditor 当前已实现**的版本管理与并发协作模型：仓库身份、分支与 worktree、文件级独占锁、保存/检入、撤销、历史与 Diff、发布快照，以及**已知能力缺口**。
+> 本文档描述 **DITAEditor 现行已实现**（Phase 13 落地后）的版本管理与并发协作模型：**Git 干净基线 + 个人草稿叠加层（Baseline + Draft Overlay）**、分支与 worktree 隔离、文件级独占锁、签入/取消/移交、无污染合并、安全回滚、Tag 与发布溯源、版本审计，以及剩余边界说明。
 >
-> 定位：实现现状基线（as-is），用于后续演进（合并、回滚、远程协作）时对照。设计目标与路线图见 [`architecture-and-plan.md`](architecture-and-plan.md)；相关决策见 [`adr/`](adr/)；**下一阶段重构方案（Phase 13：Git 干净基线 + 个人草稿叠加层）见 [`phase13-versioning-overlay-plan.md`](phase13-versioning-overlay-plan.md) 与 [`ADR 0004`](adr/0004-baseline-and-draft-overlay.md)**。
->
-> 代码基准：`apps/api/src/modules/{git,locks,files,indexer,manuals,publish}/`、`apps/web/src/store/{git-store,editor-store}/`。
+> - 总体架构与路线图见 [architecture-and-plan.md](../architecture-and-plan.md)
+> - 关键架构决策见 [ADR 0001](../adr/0001-manual-as-independent-workspace.md)、[ADR 0002](../adr/0002-per-request-manual-isolation.md)、[ADR 0003](../adr/0003-soft-assignments-in-sqlite.md)、[ADR 0004](../adr/0004-baseline-and-draft-overlay.md)
+> - Phase 13 历史实施蓝图见 [phase13-versioning-overlay.md](../plans/phase13-versioning-overlay.md)
+> - 代码基准：`apps/api/src/modules/{git,locks,files,indexer,manuals,publish,validate,ai}/`、`packages/dita-core/src/semantics/semantic-engine.ts`、`apps/web/src/store/{git-store.ts,editor-store/}`
 
 ---
 
-## 0. 三层对象模型
+## 1. 核心对象模型与三层视图
 
+### 1.1 四层对象模型
+
+```text
+Manual  (1 个独立 Git 仓库，持久化独立 UUID，解耦物理目录)
+  ├── Branch  (1 个活跃分支 = 1 个物理目录：主分支 = 项目根 / 其它分支 = git worktree)
+  │     ├── Shared Baseline (公共基线：workDir 永远保持 clean = HEAD + 共享基线语义索引)
+  │     └── User Overlay    (个人叠加层：file_locks + working_drafts + 仓库外草稿二进制资产)
+  │           └── 仅持锁人本人可见；签入时原子落盘并 git commit 推进 Baseline
+  └── Baseline Tag  (不可变发布基线标签：绑定确定 Commit SHA，用于纯净发布与复现)
 ```
-Manual  (1 个独立 Git 仓库, SQLite manuals 表)
-  └── Branch  (1 个分支 = 1 个物理目录: 主分支 = 项目根 / 其它分支 = git worktree)
-        └── File  (1 个文件 = 1 把独占锁, 作用域 projectId + branch + filePath)
-```
 
-三层严格一一对应，**没有额外抽象层**：
+一句话概括：**共享 `workDir` 永远干净等于 `HEAD`；检出 = 加独占锁；保存/新建/删除/重命名 = 写个人草稿叠加层；签入 = 原子落盘 + `git commit` + 释锁 + 推进基线。**
 
-- 没有 Pull Request / 合并请求，也没有"待合并提交"提示；
-- 没有暴露给用户的暂存区（staging area）概念；
-- 没有远程仓库（remote）、没有 push / pull / fetch。
+### 1.2 三层读视图定义
 
-一句话概括：**分支 = 目录，检出 = 加锁，签入 = 提交 + 解锁。**
+| 视图 | 数据来源 | 可见范围 | 何时变化 |
+| :--- | :--- | :--- | :--- |
+| **1. 公共基线（`Baseline`）** | 分支 `workDir`（始终等于 Git `HEAD`）与共享只读 `DitaSemanticIndex` | 同分支全员共享、只读 | 仅在 **签入（Check-in）**、**合并（Merge）**、**直提恢复（Restore commit）**、**撤销提交（Revert）** 时原子推进 |
+| **2. 个人叠加视图（`User Overlay`）** | `Baseline` + **仅当前用户自己**的 `working_drafts`（`edit` / `create` / `delete` / `rename`）与草稿图片资产 | 仅当前登录用户可见，完全屏蔽同分支他人未检入草稿 | 用户保存、新建、删除、重命名、上传草稿图片、取消检出或恢复草稿时 |
+| **3. 编辑器瞬时内容（`Editor Live XML`）** | 浏览器当前 Tab 内存中的最新 XML 字符串 | 仅当前浏览器标签页 | 每次编辑事务（ProseMirror / CodeMirror） |
+
+### 1.3 五条工程不变量
+
+1. **共享 `workDir` 永远干净**：普通保存、新建、删除、重命名均写 SQLite `working_drafts`（与仓库外草稿二进制目录），不修改共享 `workDir`。同分支多人同时编辑同一 Map 下的不同 Topic 仅需 1 个 worktree 且完全零互相污染。
+2. **只读请求零写副作用**：`ensureWorktree(..., { createIfMissing: false })` 保证所有 `GET` 请求绝不隐式创建分支或 worktree，也不修改进程级默认分支。
+3. **单文件独占锁 + 签入原子回滚**：签入在 `withWorkDirLock(workDir)` 内原子落盘并提交；任何 Git 异常立即将 `workDir` 还原至 `HEAD`，个人草稿与锁完好无损。
+4. **发布可溯源、可复现**：正式发布默认基于干净基线（`HEAD` / `Tag` / `Commit`，经 `git archive` 快照），在 `publish_jobs` 落库 `source_mode`、`source_ref`、`commit_hash`、`is_dirty` 与 `dirty_files_json`。
+5. **零 XML / Git 污染**：草稿、锁、审计日志、保护分支策略全部存 SQLite；草稿二进制图片位于仓库外；手册解耦 ID 存于 `.git/ditaeditor-id`（不出现在工作区与 Git Diff 中）。
 
 ---
 
-## 1. 仓库身份与初始化
+## 2. 仓库身份、分支与请求隔离
+
+### 2.1 仓库身份与初始化
 
 | 项 | 实现 |
 | :--- | :--- |
-| 仓库 ID | `repositoryIdFor(rootDir)` = `sha1(rootDir)` 前 16 位（`apps/api/src/modules/git/git-manager.ts:74`） |
-| 初始化 | `git init -b main`，失败时回落 `git init` + `git symbolic-ref HEAD refs/heads/main`（`git-manager.ts:236`） |
-| 仓库级用户 | `user.name = DITAEditor` / `user.email = dita-editor@local`；**提交时用 `-c` 覆盖为真实用户** |
-| `.gitignore` | 缺失时自动写入（`git-manager.ts:248`） |
-| 首个提交 | `chore: initialize DITA workspace`；空仓库允许保持 unborn（无提交）状态 |
-| 远程 | 完全本地，无 push / pull / fetch |
+| 持久化手册 ID | 新建手册生成独立 UUID 并写入 `.git/ditaeditor-id`；目录迁移后重新关联可自动认回原 `manualId`（旧手册向后兼容并懒回填） |
+| 初始化 | `git init -b main`（失败时回落 `git init` + `git symbolic-ref HEAD refs/heads/main`） |
+| `.gitignore` | 缺失时自动写入常见构建/临时忽略规则 |
+| 提交作者 | 仓库默认身份为 `DITAEditor <dita-editor@local>`；**所有正式提交均通过 `-c` 与 `--author` 写入真实操作用户**，并加 `--no-gpg-sign --no-verify` |
+| 远程 | 完全本地 Git，无 `remote` / `push` / `pull` / `fetch` |
 
-一手册一仓库（见 [ADR 0001](adr/0001-manual-as-independent-workspace.md)），因此跨手册的 Topic 复用、分支、锁空间天然隔离。
+遵循 [ADR 0001](../adr/0001-manual-as-independent-workspace.md)，一手册对应一个独立 Git 仓库，跨手册的分支、锁空间与发布历史天然隔离。
 
----
+### 2.2 分支与 worktree 管理
 
-## 2. 分支 = 目录（整个并发模型的地基）
+- **目录布局**：`<worktreesRootDir>/<manual 目录名>-<sha1_16>/<slug>-<sha1(branch)_8>`（8 位分支哈希消除 `release/2.0` 与 `release__2.0` 的目录碰撞）
+  - 服务端默认：`<importsRootDir>/git-worktrees`
+  - 桌面端：`<userData>/git-worktrees`
+- **分支名校验**：`/^[A-Za-z0-9][A-Za-z0-9._/-]{0,120}$/`，拒绝 `..`、结尾 `/`、结尾 `.lock`、开头 `-`（`400 git.invalidBranch`）。
+- **并发单飞与互斥**：worktree 创建与 session 初始化使用 `inflightWorktrees` / `inflightSessions` 单飞锁；推进 `Baseline` 的写操作受 `withWorkDirLock(workDir)` 串行保护。
+- **保护分支与清理**：`manuals.protected_branches_json` 默认 `["main"]`；`DELETE /api/git/branches/*` 拒绝删除保护分支与当前活跃锁阻塞分支，删除普通分支时同步执行 `git worktree remove` 回收目录，并配合孤儿 worktree 与过期草稿资产巡检。
 
-### 2.1 worktree 解析
+### 2.3 请求级隔离（衔接 ADR 0002）
 
-`ensureWorktree(rootDir, branch)`（`git-manager.ts:343`）：
+每个前端请求通过 `apps/web/src/services/active-scope.ts` 携带 `x-dita-manual-id`、`x-dita-branch` 与用户身份头，服务端 `ManualContextResolver.resolve()` 按 `(manualId, workDir)` 解析独立 `WorkspaceManager` + `WorkspaceSemanticIndexer`（LRU 缓存，上限支持 `DITA_MAX_CACHED_SESSIONS` 配置并自动回收空闲会话）。
 
-```
-branch === 主分支          → 直接返回项目根目录本身（不建 worktree）
-已有 worktree 记录         → 复用其路径
-记录存在但目录缺失         → git worktree prune 后重建
-分支已存在                 → git worktree add <target> <branch>
-分支不存在                 → git worktree add -b <branch> <target>（要求 hasCommits）
-目标目录已存在             → 409 git.worktreeExists
-```
-
-- **目录布局**：`<worktreesRootDir>/<manual 目录名>-<sha1_16>/<slugify(branch)>`
-  - 服务端默认：`<importsRootDir>/git-worktrees`（`apps/api/src/index.ts:91`）
-  - 桌面端：`<userData>/git-worktrees`（`apps/desktop/src/paths.ts:49`）
-- **slug 化**：`branch.replace(/[^A-Za-z0-9._-]+/g, '__')`（`git-manager.ts:92`），因此 `release/2.0` 的目录名是 `release__2.0`，Git 引用仍是 `release/2.0`
-- **分支名校验**：`/^[A-Za-z0-9][A-Za-z0-9._/-]{0,120}$/`，并拒绝 `..`、结尾 `/`、结尾 `.lock`、开头 `-`（`git-manager.ts:78` → 400 `git.invalidBranch`）
-- **目录扫描排除**：`BUILTIN_SCOPE_DIRS = { 'git-worktrees', 'publish' }`，不参与手册内容扫描与统计（`apps/api/src/modules/manuals/manual-registry-service.ts:74`）
-
-### 2.2 请求级隔离
-
-每个前端请求携带 `x-dita-manual-id` + `x-dita-branch`（`apps/web/src/services/active-scope.ts`），服务端 `ManualContextResolver.resolve()`（`apps/api/src/modules/manuals/manual-context-resolver.ts:99`）：
-
-1. 按 manualId 取 `projectRootDir`
-2. 解析目标分支：`请求头分支 ?? 该手册上次分支 ?? git.currentBranch(项目根)`
-3. `ensureWorktree` → `workDir`
-4. 按 `(manualId, workDir)` 取/建 session：`WorkspaceManager` + `new WorkspaceSemanticIndexer(workspace, branch)`，LRU 上限 16（`MAX_CACHED_SESSIONS`）
-5. 无请求头的旧接口回落到"最近打开的 manual + 主分支"
-
-**关键结论**：分支隔离是**物理目录隔离**，不是逻辑过滤。两个浏览器标签页打开不同分支 = 两份完全独立的文件副本 + 两套语义索引缓存。
+- `viewer` 角色可自由切换并浏览**已有**分支，但携带不存在分支头的只读请求会返回 `404` 而不会隐式建分支。
+- 浏览器 `<img>` 加载工作区图片时无法附带自定义请求头，因此 `/api/assets/raw` 与 `/api/assets/resolve` 同时接受 `manualId`、`branch`、`userId` query 参数，确保未签入的草稿图片仅对作者本人可见。
 
 ---
 
-## 3. 文件生命周期（核心状态机）
+## 3. 个人草稿叠加层与文件生命周期
 
-```
-未检出 ──checkout──▶ 已检出(持锁) ──保存──▶ 已检出 + dirty
-   ▲                     │                        │
-   │                     │                        ├─ checkin ──▶ 已提交(锁释放)
-   │                     ├─ release（只删锁，保留磁盘改动）──▶ 未检出 + dirty
-   │                     └─ cancel （HEAD 回滚 + 删锁）─────▶ 未检出 + clean
-   └──────────────── forceUnlock（管理员，先备份补丁再强解）────┘
-```
+### 3.1 SQLite 核心表结构
 
-### 3.1 检出（加锁，不建分支、不切分支）
-
-`LockService.checkout()`（`apps/api/src/modules/locks/lock-service.ts:150`）：
-
-```ts
-if (user.role === 'viewer') throw 403 locks.viewerCannotCheckout;
-const branch = await this.git.currentBranch(workDir);  // 目录已绑定分支
-```
-
-| 现状 | 行为 |
-| :--- | :--- |
-| 无锁 | 插入 `file_locks` 行 |
-| 本人已锁 | 仅刷新 `updatedAt`（续期） |
-| 他人已锁 | 409 `locks.checkoutConflict`，附带锁定人与锁定时间 |
-| 文件不存在 | 需要 `allowMissing: true`（正常保存新文件时由写入路径自动触发） |
-
-- **并发兜底**：`uniqueIndex('file_locks_scope_unique').on(projectId, branch, filePath)`（`apps/api/src/db/schema.ts:112`），插入冲突 → 409 `locks.alreadyCheckedOut`
-- **锁 TTL 只是标记，不自动解锁**：`DEFAULT_LOCK_TTL_HOURS = 72`，可用环境变量 `DITA_LOCK_TTL_HOURS` 调整（`lock-service.ts:46-52`）；过期仅返回 `expired: true` 供 UI 提示，**仍然阻塞他人**，需管理员手动强解
-- **锁不跨分支**：`release/2.0` 上锁住的 `topics/a.dita` 不会阻塞 `main` 上的同名文件
-
-### 3.2 写入鉴权矩阵
-
-`authorizeWrite()`（`lock-service.ts:243`）在每次落盘前调用：
-
-| 角色 | 已存在且未锁 | 已存在 + 本人锁 | 已存在 + 他人锁 | 新文件 |
-| :--- | :--- | :--- | :--- | :--- |
-| viewer | 403 `locks.viewerCannotModify` | 403 | 403 | 403 |
-| writer | **409 `locks.checkoutFirst`** | ✅ + 续期 | **409 `locks.saveConflict`** | ✅ 隐式自动加锁（`autoLocked: true`） |
-| admin | ✅ 免锁 | ✅ | ✅ **直接覆盖，不报错、不转锁** | ✅ |
-
-> admin 绕过锁是**刻意的救火通道**；代价是覆盖他人改动不留审计（只有强制解锁才写 `lock_backups`）。
-
-### 3.3 保存（写盘，不提交）
-
-`PUT /api/files/content`（`apps/api/src/modules/files/routes.ts:292`）→ `authorizeWrite()` → `ws.writeFile()`。
-
-- 直接写 `workDir` 内的真实文件，**不产生 commit**；
-- dirty 状态由 `git status` 实时计算（`git-manager.ts:390` / `statusMap` :431）；
-- 同分支语义索引增量更新（`onFileWritten`）；
-- 重命名 `POST /api/files/rename`（`files/routes.ts:338`）：`authorizeWrite(from)` → `renamePath` → `locks.transferLock()` 转锁 → `onFileRenamed` 索引迁移；
-- 删除 `DELETE /api/files`（`files/routes.ts:372`）：同源锁校验 + 删除钩子。
-
-### 3.4 检入（提交 + 释放锁，**唯一产生 commit 的入口**）
-
-`LockService.checkin()`（`lock-service.ts:282`）：
-
-1. 逐个 path 校验：必须持有本人锁（admin 可代提交）、且 `git statusMap` 显示 dirty —— 否则 409 `locks.commitNotCheckedOut` / `locks.commitByOtherWithPath` / `locks.noCommitChange`
-2. `git add -A -- <paths>` → `git diff --cached --name-only -- <paths>` 为空则 409 `git.noCommitChanges`
-3. `git -c user.name=… -c user.email=… commit --no-gpg-sign --no-verify --author="姓名 <邮箱>" -m <msg> -- <paths>`（`git-manager.ts:539`）
-4. 删除这些 `(projectId, branch, path)` 的锁行
-5. 返回 commit 信息 + 剩余锁 + 最新 status
-
-语义要点：
-
-- **只提交传入的 paths**（pathspec-limited commit），同分支里别人 dirty 的文件不会被带上车；
-- 提交落在**当前分支的 HEAD** 上，**不会合并回 `main`**；
-- 提交作者永远写真实用户（避免全仓库一个机器人作者）；
-- 不跑 Git hooks、不签名（`--no-verify --no-gpg-sign`）。
-
-### 3.5 三条撤销路径
-
-| 操作 | 语义 | 实现 |
+| 表名 | 职责 | 关键字段 / 约束 |
 | :--- | :--- | :--- |
-| 取消检出 | 丢弃改动，回滚到 HEAD | `git checkout HEAD -- <path>`；HEAD 无此文件则 `git rm --cached -f --ignore-unmatch` + 删除磁盘文件（`git-manager.ts:593`，`{deleted: boolean}`） |
-| 释放锁 | 只解锁，**保留磁盘改动**（继续 dirty） | 仅删除锁行（`lock-service.ts:213`） |
-| 强制解锁 | 管理员；先备份当前内容与 diff 补丁再删锁 | 写 `lock_backups` 后释放（`lock-service.ts:370`） |
+| `file_locks` | 文件级独占锁 | 唯一索引 `(project_id, branch, file_path)`；过期判定基于 `updated_at`（默认 TTL 72h，可配 `DITA_LOCK_TTL_HOURS`，支持可选 `DITA_LOCK_AUTO_RECLAIM_CLEAN` 自动回收无草稿空闲锁） |
+| `working_drafts` | 个人未检入草稿 | 唯一索引 `(project_id, branch, file_path)`；`op` 取 `edit \| create \| delete \| rename`；`original_path` 记录重命名原路径；`asset_blob_path` 指向仓库外二进制暂存文件；`content_hash`（SHA-256 前 16 位）用于乐观锁校验 |
+| `lock_backups` | 强解保护备份 | 管理员 `force-unlock` 前保存原持锁人草稿全文与相对 `HEAD` 的补丁 |
+| `version_audit_logs` | 版本审计台账 | Append-only 记录 `checkout` / `release` / `handoff` / `cancel` / `force_unlock` / `checkin` / `branch_create` / `branch_delete` / `tag_create` / `merge` / `restore` / `revert` / `publish` |
+| `publish_jobs` | 发布历史与溯源 | 记录 `source_mode`（`baseline \| tag \| commit \| my_drafts`）、`source_ref`、`commit_hash`、`is_dirty`、`dirty_files_json` |
 
----
+### 3.2 状态机与操作规则
 
-## 4. 历史与差异（只读，不可回写）
-
-| 端点 | 能力 | 实现 |
-| :--- | :--- | :--- |
-| `GET /api/git/status` | 分支、ahead/behind、dirty 列表、最后提交、主分支 | `git-manager.ts:390` |
-| `GET /api/git/log?path=&limit=` | 分支或单文件历史，默认 30，上限 200 | `git-manager.ts:450` |
-| `GET /api/git/diff?path=&from=&to=` | `to` 缺省时对比工作区；返回 old/new 文本、增删行数、二进制标记、存在性 | `git-manager.ts:492` |
-| `GET /api/git/file?path=&rev=` | `git show <rev>:<path>` 只读快照 | `git-manager.ts:441` |
-| `POST /api/git/discard` | 工作区文件回滚 | `git-manager.ts:593` |
-
-**没有**：`revert`、`reset`、`checkout <commit> -- file`、分支删除、分支重命名、tag。
-`architecture-and-plan.md` 中"按版本回滚"目前**未实现**——历史只能看，不能一键恢复（需取文本后手工编辑再检入）。
-
----
-
-## 5. 发布（分支工作区的只读副本）
-
-1. `POST /api/publish/jobs`：`branch` 由作用域决定，`workDir` 写入 `publish_jobs.options_json`
-2. `runJob()`：`cp(sourceDir, snapshotDir, { filter })`，排除 `.git`、`.gitignore`、`.DS_Store`、`node_modules`、`dist`、`out`、`.turbo`、`.dita-workspaces`，并跳过发布目录自身（`apps/api/src/modules/publish/publish-service.ts:498`）
-3. 对快照执行 DITA-OT（`--validate=yes --processing-mode=strict`）→ 可选 HTML5 主题增强 → ZIP / 在线预览
-4. 任务历史按 `(projectId, branch)` 查询（`publish-service.ts:312`）；`PublishQueue` 默认并发 **1**（`apps/api/src/modules/publish/publish-queue.ts:21`）
-
-⚠️ 快照是**工作目录 `cp`**，包含未检入的改动，不是 `git archive HEAD`。因此"发布的内容" ≈ "当前可见内容"，不等于"最后一次提交"。
-
----
-
-## 6. 一致性保障
-
-| 风险 | 手段 |
-| :--- | :--- |
-| 两人抢同一文件 | 锁表唯一索引 + 事务性插入 |
-| 无锁写盘 | `authorizeWrite` 前置校验（admin 除外） |
-| 索引陈旧 | 写入/删除/重命名/资源四类增量钩子，且与读请求同分支键 |
-| 手册/分支串台 | 请求头 + 每分支独立 worktree + 每 session 独立索引器 |
-| 发布被编辑干扰 | 先 `cp` 快照再构建 |
-| 强制解锁丢内容 | `lock_backups` 保存全文与补丁 |
-| 提交记录不可信 | commit author 强制写入真实用户 |
-
----
-
-## 7. 已知能力缺口（按影响排序）长安汽车全球客户信息
-
-全域获取与运营体系规划长安汽车全球客户信息全域获取与运营体系规划
-
-1. **无合并**：分支永久分叉，`release/2.0` 的成果无法回到 `main`（无 merge / cherry-pick / PR / "待合并 N 个提交"提示）。
-2. **无回滚**：看到历史版本改不回去，只能手工重写。
-3. **发布含未检入内容**：无法区分"发布预览"与"发布定稿"。
-4. **无远程协作**：不能 push 到 GitHub / GitLab；多人只能在同一服务端实例上协作。
-5. **锁过期不自动回收**：72h 后仅标 `expired`，仍需管理员手动强解。
-6. **worktree 无生命周期管理**：分支建了不删、删了不回收，孤儿目录依人工或 `prune`。
-7. **admin 静默覆盖**：普通保存覆盖他人锁文件不留审计（仅强解有备份）。
-8. **无保护分支**：除 `main` 外没有 protected 概念，任何人可创建 `main2`、`prod` 之类语义分支。
-9. **无审计日志**：除 Git 提交、`lock_backups`、`publish_jobs` 外，没有统一的"谁在何时改了锁/发布了什么"事件流。
-
----
-
-## 8. 一次完整编辑的时序
-
-```
-① 打开手册 /manuals/:id       → setActiveScope(manualId, branch)，此后请求均带 x-dita-*
-② 点开 Topic（只读）          → GET /api/files/content（+ 语义索引 overlay、conref 解析）
-③ 点「检出」                  → POST /api/locks/checkout → file_locks 插行
-④ 编辑 + 自动保存             → PUT /api/files/content → 写 workDir → 索引增量
-                                （git status = dirty，未提交）
-⑤ 点「签入」                  → CheckinDialog 预览 diff（GET /api/git/diff，工作区 vs HEAD）
-⑥ 填写提交说明并提交          → POST /api/locks/checkin → git add/commit 到当前分支
-                                → 删除锁行 → 可选结单 Assignment
-⑦ 发布                      → cp 工作区快照 → DITA-OT → 主题增强 → ZIP/预览
-⑧ 其他人 / 其他分支           → 不同目录、不同锁空间，互不可见
+```text
+未检出 (Baseline) ──checkout──▶ 已检出 (持锁, clean) ──保存/新建/删除/重命名──▶ 已检出 + working_drafts
+       ▲                               │                                             │
+       │                               ├─ release (仅 clean 允许)                    ├─ checkin (原子落盘→commit→释锁)
+       │                               ├─ handoff (单事务转移锁 + 草稿) ──▶ 他人持锁  │
+       │                               └─ cancel (单事务删草稿与锁，无需 Git) ───────┘
+       └────────────── force-unlock (管理员：先写 lock_backups 再清草稿与锁) ────────┘
 ```
 
+- **统一写入鉴权矩阵**：
+  - `viewer`：只读，所有写/锁操作返回 `403`。
+  - `writer` 与 `admin` 在持锁规则上一致：修改他人已锁文件一律返回 `409`（`admin` **不再**静默覆盖他人文件，如需接管须先 `force-unlock` 留存备份审计）；修改未锁文件或新建文件时支持按策略隐式加锁并写入个人草稿。
+- **乐观并发校验（`expectedHash`）**：`GET /api/files/content` 返回当前内容 `contentHash`，`PUT /api/files/content` 携带 `expectedHash`；若多标签页或强解/还原后基线已变化则返回 `409 files.staleContent`，由前端 `ContentConflictBanner` 引导处理。
+- **删除与重命名闭环**：
+  - 删除已跟踪文件：在 `working_drafts` 写入 `op = 'delete'`，在当前用户的 `OverlayWorkspaceView` 树中隐藏，签入时再从 `workDir` 删除并提交，彻底消除历史版本中删除文件无法签入的死锁。
+  - 重命名已跟踪文件 `a.dita → b.dita`：单事务同时锁定 `a.dita` 与 `b.dita` 并记录 `op = 'rename', original_path = 'a.dita', file_path = 'b.dita'`；按 [ADR 0003](../adr/0003-soft-assignments-in-sqlite.md)，共享任务表 `topic_assignments.topic_path` **仅在签入推进基线成功时同步更新**，草稿期不提前改写。
+- **收紧 `release` + 新增 `handoff`**：存在草稿改动时 `POST /api/locks/release` 返回 `409 locks.releaseDirtyBlocked`，禁止制造无主脏文件；如需把半成品交给同事，使用 `POST /api/locks/handoff` 在单事务内完整转移锁与草稿所有权。
+- **签入前置校验门禁**：前端 `CheckinDialog` 在提交前对选中草稿执行 XML 良构与 DITA 1.3 结构预检，存在阻断性错误时引导定位修复或触发 AI「检出—草稿—提交」修复闭环（详见 [checkin-validation-ai-fix.md](../plans/checkin-validation-ai-fix.md)）。
+- **外部改盘兼容（桌面端 / 本地编辑器）**：`GET /api/git/status` 与签入前会检测 `workDir` 的外部 `git status --porcelain`；若存在外部改动，前端提供 `POST /api/git/external-commit` 或 `POST /api/git/external-discard`，且签入草稿与外部脏路径重叠时返回 `409 git.externalDirtyConflict` 拒绝盲覆。
+
 ---
 
-## 9. 实现索引（改动时对照）
+## 4. 四大核心操作的数据视图边界
 
-| 关注点 | 文件 |
+| 操作 | 读取输入源 | 写入 / 产出 | 是否受同分支他人草稿影响 |
+| :--- | :--- | :--- | :--- |
+| **签入（Check-in）** | 本人选中的 `working_drafts`；Diff 对比源为当前分支 `HEAD` | 原子推进 `Baseline`（落盘 `workDir` → `git commit` → 清草稿与锁 → 同步重命名委派 → 写审计 → 刷共享基线索引） | ❌ 零影响 |
+| **校验（Validation）** | • 编辑器实时检查：`Editor Live XML`<br>• 跨文件语义诊断（`/api/diagnostics`）：`User Overlay` 索引（`DitaSemanticIndex.cloneWithOverlay()` 浅拷贝基线 + 本人草稿增量）<br>• DITA-OT 严格校验（`/api/validate/strict`）：默认 `scope='my_drafts'` 临时物化目录，可选 `scope='baseline'` | 只读诊断列表 | ❌ 零影响 |
+| **AI 辅助（AI Authoring）** | • 目标文档：`Editor Live XML`（缺省回落 `User Overlay`）<br>• 全书语义上下文：`User Overlay` 索引 | `ask` 只读；写入型操作经 `@dita/core` 校验 + `AiDiffDialog` 确认后**仅写入当前用户的 `working_drafts`** | ❌ 零影响 |
+| **发布（Publish）** | • **正式发布（默认）**：纯 `Baseline`（当前分支 `HEAD` / 指定 `Tag` / 指定 `Commit`）<br>• **个人草稿预览（可选）**：`my_drafts`（`HEAD` + 仅发布者本人草稿）<br>• HTML5 主题 Logo / 自定义 CSS 均从本次构建的 `snapshotDir` 解析 | 只读 HTML5 / PDF 产物与 `publish_jobs` 溯源记录 | ❌ 正式发布零草稿；个人预览也**只含自己草稿** |
+
+---
+
+## 5. 分支合并、安全回滚、Tag 与审计端点
+
+### 5.1 无污染分支合并
+
+- `GET /api/git/merge-preview`：使用 `git merge-tree --write-tree` 在纯内存中预检 `ahead/behind`、文件冲突与目标分支活跃锁阻塞，不触碰共享 `workDir`。
+- `GET /api/git/merge-conflict`：拉取单个冲突文件的 `base` / `ours` / `theirs` 三方内容供前端 `MergeDialog`（CodeMirror MergeView）求解。
+- `POST /api/git/merge`：校验用户提交的冲突解必须通过 `@dita/core` XML 良构检查，隔离合成 merge commit 并原子推进目标分支 `HEAD`，**共享 `workDir` 永不残留半截 `MERGING` 状态**。
+
+### 5.2 安全回滚、Tag 与审计 API
+
+| 端点 | 能力 |
 | :--- | :--- |
-| Git 命令封装、worktree、diff、commit、discard | `apps/api/src/modules/git/git-manager.ts` |
-| Git HTTP 端点 | `apps/api/src/modules/git/routes.ts` |
-| 锁生命周期与写入鉴权 | `apps/api/src/modules/locks/lock-service.ts` |
-| 锁 HTTP 端点 | `apps/api/src/modules/locks/routes.ts` |
-| 锁表 / 备份表 / 发布任务表 | `apps/api/src/db/schema.ts` |
-| 文件读写端点（写入鉴权入口） | `apps/api/src/modules/files/routes.ts` |
-| 手册 → 分支 → worktree 会话 | `apps/api/src/modules/manuals/manual-context-resolver.ts` |
-| 分支维度的语义索引 | `apps/api/src/modules/indexer/semantic-indexer.ts` |
-| 发布快照与队列 | `apps/api/src/modules/publish/{publish-service,publish-queue}.ts` |
-| 前端 Git/锁状态 | `apps/web/src/store/{git-store,editor-store}/` |
-| 作用域请求头 | `apps/web/src/services/active-scope.ts` |
+| `GET /api/git/status` | 当前分支、ahead/behind、外部脏文件探测、个人草稿与锁摘要 |
+| `GET /api/git/branches` / `POST /api/git/branches` / `DELETE /api/git/branches/*` / `POST /api/git/switch-branch` | 分支列举、基于指定基线创建、安全删分支并回收 worktree、切换分支 |
+| `GET /api/git/log` / `GET /api/git/diff` / `GET /api/git/file` | 提交历史、基线/草稿 Diff、只读历史快照（`git show`） |
+| `POST /api/git/restore-file` | 将某文件恢复到历史版本：支持写入个人草稿（`draft`）或直接提交（`commit`），前端同步刷新编辑器与草稿状态 |
+| `POST /api/git/revert-commit` | 生成反向提交安全撤销历史 Commit；遇冲突自动 `git revert --abort`，不污染工作区 |
+| `GET /api/git/tags` / `POST /api/git/tags` / `DELETE /api/git/tags/*` | 不可变发布基线标签管理，供正式发布按 Tag 复现 |
+| `GET /api/git/audit` | 查询 `version_audit_logs` 版本协作审计事件流 |
+| `GET /api/locks` / `POST /api/locks/{checkout,release,cancel,checkin,handoff,force-unlock}` | 独占锁与草稿叠加层全生命周期操作 |
+
+---
+
+## 6. 当前已知边界（非目标 / 后续演进项）
+
+1. **纯本地 Git，无远程协作**：尚未支持 `remote` / `push` / `pull` / GitHub/GitLab 同步，多人协作限于同一 DITAEditor 服务端实例。
+2. **非实时协同（无 CRDT）**：同一文件在同一分支上同一时刻仅允许一名作者持独占锁编辑；并发修改靠「多 Topic 拆分 + 同分支草稿隔离」或「多分支 + 无污染合并」解决。
+3. **无重型审批流**：沿用轻量团队定位，不引入 PR 审批门禁或强制评审流（仅保留软性 Topic 任务委派与检入前校验门禁）。
+
+---
+
+## 7. 实现索引（改动时对照）
+
+| 关注点 | 关键文件 |
+| :--- | :--- |
+| SQLite Schema（`file_locks` / `working_drafts` / `lock_backups` / `version_audit_logs` / `publish_jobs`） | `apps/api/src/db/schema.ts` |
+| 个人草稿 CRUD、二进制暂存与哈希校验 | `apps/api/src/modules/locks/draft-service.ts` |
+| 独占锁、原子签入、移交、取消与强解备份 | `apps/api/src/modules/locks/{lock-service,routes}.ts` |
+| 叠加层文件树与读写视图、带 `userId` 的草稿资产读取 | `apps/api/src/modules/files/{overlay-workspace,routes,asset-routes,workspace-fs}.ts` |
+| Git 命令、worktree 单飞与互斥锁、Tag、Restore/Revert | `apps/api/src/modules/git/{git-manager,routes}.ts` |
+| 纯内存预检与无污染分支合并 | `apps/api/src/modules/git/merge-service.ts` |
+| 版本协作审计台账 | `apps/api/src/modules/git/audit-service.ts` |
+| 请求级手册/分支隔离与会话缓存 | `apps/api/src/modules/manuals/{manual-context-resolver,manual-registry-service}.ts` |
+| 同构 `cloneWithOverlay()` 与服务端叠加语义索引 | `packages/dita-core/src/semantics/semantic-engine.ts`、`apps/api/src/modules/indexer/semantic-indexer.ts` |
+| 四态发布快照（`baseline` / `tag` / `commit` / `my_drafts`）与主题资产隔离 | `apps/api/src/modules/publish/{publish-service,theme-enhancer,routes}.ts` |
+| 前端版本/锁/草稿状态、冲突横幅与合并/签入弹窗 | `apps/web/src/store/{git-store.ts,editor-store/}`、`apps/web/src/components/{GitPanel,CheckinDialog,MergeDialog,LockStatusBar}.tsx`、`apps/web/src/workbench/ContentConflictBanner.tsx` |
+| 前端作用域请求头与锁态辅助 | `apps/web/src/services/{active-scope,git-api,lock-helpers}.ts` |

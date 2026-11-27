@@ -1,8 +1,8 @@
 # Phase 14 规划与实施蓝图：文档智能导入与 AI Agent 撰写校验闭环（Docling + MarkItDown → Markdown → DITA）
 
 > **状态**：✅ 已实施完成（Stage 1–4B 全部落地：`@dita/core` 同构导入内核、SQLite `ingest_parser_settings` / `ingest_jobs`、Docling + MarkItDown 双解析器、多角色 Agent、Materializer、REST + SSE 路由、前端 5 步向导、`Dockerfile` 可选 MarkItDown 与根级 `docker-compose.yml`）  
-> **上游架构基线**：[architecture-and-plan.md](./architecture-and-plan.md)（Phase 0–13 已完成）  
-> **关联架构基线**：[phase6-ai-contract.md](./phase6-ai-contract.md)、[phase13-versioning-overlay-plan.md](./phase13-versioning-overlay-plan.md)、[checkin-validation-ai-fix-plan.md](./checkin-validation-ai-fix-plan.md)
+> **上游架构基线**：[architecture-and-plan.md](../architecture-and-plan.md)（Phase 0–13 已完成）  
+> **关联架构基线**：[ai-contract.md](../design/ai-contract.md)、[phase13-versioning-overlay.md](./phase13-versioning-overlay.md)、[checkin-validation-ai-fix.md](./checkin-validation-ai-fix.md)
 
 ---
 

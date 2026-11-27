@@ -6,9 +6,9 @@ Guidance for AI coding agents working in the **DITAEditor** repository.
 
 **DITAEditor** is a team-oriented lightweight Web DITA 1.3 structured authoring workbench.
 
-- **Architecture & Roadmap Baseline**: See `docs/architecture-and-plan.md` for full design decisions, system architecture, and phased vertical slices (Phase 0–14 implemented; Phase 13 spec in `docs/phase13-versioning-overlay-plan.md`, Phase 14 spec in `docs/phase14-docling-agent-plan.md`).
+- **Architecture & Roadmap Baseline**: See [`docs/README.md`](docs/README.md) for the full documentation index, and [`docs/architecture-and-plan.md`](docs/architecture-and-plan.md) for design decisions, system architecture, and phased vertical slices (Phase 0–14 implemented; living specs in `docs/design/`, archived blueprints in `docs/plans/`, including `docs/plans/phase13-versioning-overlay.md` and `docs/plans/phase14-docling-agent.md`).
 - **DITA 1.3 Specification Reference**: [OASIS DITA Version 1.3 Part 2: Technical Content Edition](https://docs.oasis-open.org/dita/dita/v1.3/dita-v1.3-part2-tech-content.html) — authoritative reference for DITA 1.3 element content models, attributes, and semantics.
-- **Local DITA 1.3 Element References**: See [`docs/dita/`](docs/dita/) (`dita_concept.md`, `dita_reference.md`, `dita_task.md`) for local DITA topic type references.
+- **Local DITA 1.3 Element References**: See [`docs/dita/`](docs/dita/) (`dita_topic.md`, `dita_concept.md`, `dita_reference.md`, `dita_task.md`) for local DITA topic type references.
 - **Core Product Decisions**:
   - Dual-mode editing: Visual structured WYSIWYG (**ProseMirror**) + XML source (**CodeMirror 6**).
   - **Standard DITA XML is the single source of truth** (100% lossless round-trip, deterministic formatting, minimal Git Diff).
@@ -46,7 +46,7 @@ DITAEditor/
 │   └── html5-themes/      # shared/theme-base.css + theme-runtime.js + 4 theme CSS (Phase 12)
 ├── Dockerfile              # Single container: Node + JRE 21 + DITA-OT 4.2.1 + Noto CJK (opt-in INSTALL_MARKITDOWN)
 ├── docker-compose.yml      # Full stack: ditaeditor + docling-serve sidecar (Phase 14)
-├── docs/                   # Architecture baseline, ADRs, and contracts
+├── docs/                   # Docs index (README.md), architecture baseline, design/, deploy/, adr/, dita/, plans/
 └── graphify-out/           # Persistent codebase knowledge graph (graph.json, GRAPH_REPORT.md, graph.html)
 ```
 

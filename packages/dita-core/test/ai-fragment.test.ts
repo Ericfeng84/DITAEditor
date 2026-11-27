@@ -549,7 +549,7 @@ describe('widenAiFixTarget — a reported line is not always the cause', () => {
 });
 
 /**
- * Step 1 regression tests (docs/checkin-validation-ai-fix-plan.md §5.1 CORE-1..CORE-6): a reported
+ * Step 1 regression tests (docs/plans/checkin-validation-ai-fix.md §5.1 CORE-1..CORE-6): a reported
  * line is often a symptom in a sibling, so a single-line child widens to its container, and
  * structure diagnostics (`expandToParent`) buy container visibility so deduplication / reordering /
  * slot-exclusivity fixes are not applied to a too-narrow fragment.

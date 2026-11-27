@@ -1,7 +1,7 @@
 # Phase 13 补充修复方案：还原此版本（Restore）与撤销该提交（Revert）前端无响应根因与测试构建
 
-- **状态**：已确认方案，待实施
-- **关联基线**：[`docs/phase13-versioning-overlay-plan.md`](./phase13-versioning-overlay-plan.md)
+- **状态**：✅ 已完成并归档（commit `dd2bf32`）
+- **关联基线**：[`docs/plans/phase13-versioning-overlay.md`](./phase13-versioning-overlay.md)
 - **问题现象**：在左侧版本面板（`GitPanel`）的提交历史中点击 **还原此版本**（`restoreFile`）或 **撤销该提交**（`revertCommit`）后，前端编辑器与界面没有可见变化。
 
 ---

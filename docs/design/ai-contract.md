@@ -1,6 +1,6 @@
 # Phase 6 AI Assistance — Implementation Contract
 
-Companion to `docs/phase6-ai-implementation-plan.md`. This file is the **single source of truth for
+Companion to `docs/plans/phase06-ai-implementation.md`. This file is the **single source of truth for
 cross-package interfaces** while `@dita/core`, `@dita/api`, and `@dita/web` are implemented in
 parallel. Additive fields are allowed; renames are not.
 
