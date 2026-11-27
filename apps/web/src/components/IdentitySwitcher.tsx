@@ -45,9 +45,6 @@ export function IdentitySwitcher({ identity, currentUser, onChange }: IdentitySw
           </option>
         ))}
       </select>
-      <span className="rounded bg-slate-100 px-1 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
-        {roleLabel(currentUser.role)}
-      </span>
     </label>
   );
 }

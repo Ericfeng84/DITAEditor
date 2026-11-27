@@ -62,6 +62,7 @@ import {
   type BlockHandleTarget,
 } from './block-transforms';
 import { getInlineBubbleInfo, type InlineBubbleInfo } from './inline-selection';
+import { isReadOnlyEditKeystroke } from './readonly-nudge.js';
 import {
   getSelectionSnapshot,
   type EditorSelectionSnapshot,
@@ -143,6 +144,13 @@ export interface VisualEditorProps {
   contextSlot?: ReactNode;
   /** Expanded authoring-guide panel, rendered directly under the sub-header. */
   guidePanel?: ReactNode;
+  /**
+   * Formatting toolbar (undo / insert / table…), rendered directly under the sub-header so the
+   * document tooling stays inside the visual pane instead of spanning both sidebar and canvas.
+   */
+  formattingBarSlot?: ReactNode;
+  /** Read-only canvas: the user typed, so the host nudges them toward checking the file out. */
+  onReadOnlyEditAttempt?: () => void;
 }
 
 export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
@@ -179,6 +187,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       saveSlot,
       contextSlot,
       guidePanel,
+      formattingBarSlot,
+      onReadOnlyEditAttempt,
     },
     ref,
   ) {
@@ -1026,10 +1036,28 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           contextSlot={contextSlot}
         />
 
+        {/* The toolbar root uses `flex-1` for its horizontal groups; keeping this wrapper a
+            non-shrinking ROW is what stops `flex-col` from stretching it to half the viewport. */}
+        {formattingBarSlot ? (
+          <div
+            data-testid="visual-formatting-bar"
+            className="flex shrink-0 items-center border-b border-slate-200 bg-white px-3 py-1"
+          >
+            {formattingBarSlot}
+          </div>
+        ) : null}
+
         {guidePanel}
 
         <div
           className="dita-scroller relative min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"
+          onKeyDown={
+            readOnly && onReadOnlyEditAttempt
+              ? (event) => {
+                  if (isReadOnlyEditKeystroke(event)) onReadOnlyEditAttempt();
+                }
+              : undefined
+          }
         >
           <div
             className={`dita-paper dita-tag-mode-${tagDisplayMode} mx-auto min-h-[calc(100%-0.5rem)] max-w-[880px] rounded-xl border border-slate-200/90 bg-white px-7 py-7 shadow-sm sm:px-10 sm:py-9`}

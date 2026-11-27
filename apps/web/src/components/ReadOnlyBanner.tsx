@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { EyeOff, Lock, RefreshCw, ShieldAlert } from 'lucide-react';
 import type { FileLock } from '../services/git-api';
 import type { FileEditability } from '../services/lock-helpers';
@@ -13,6 +14,11 @@ export interface ReadOnlyBannerProps {
   onForceUnlock?: () => void;
   /** Re-reads the lock list, e.g. after the holder released or checked in elsewhere. */
   onRefresh: () => void;
+  /**
+   * Bumped every time the user tried to type into the read-only canvas. The banner pulses the
+   * `检出` button for ~1.5s so the click target is obvious without a blocking dialog.
+   */
+  nudgeToken?: number;
 }
 
 const toneStyles: Record<'unlocked' | 'locked-by-other' | 'viewer', string> = {
@@ -40,8 +46,18 @@ export function ReadOnlyBanner({
   onCheckout,
   onForceUnlock,
   onRefresh,
+  nudgeToken = 0,
 }: ReadOnlyBannerProps) {
   const { t } = useI18n();
+  const [nudging, setNudging] = useState(false);
+
+  useEffect(() => {
+    if (nudgeToken <= 0) return;
+    setNudging(true);
+    const timer = window.setTimeout(() => setNudging(false), 1500);
+    return () => window.clearTimeout(timer);
+  }, [nudgeToken]);
+
   if (editability.editable) return null;
 
   const state =
@@ -75,8 +91,11 @@ export function ReadOnlyBanner({
             type="button"
             disabled={busy || blockedByOther}
             onClick={onCheckout}
-            title={blockedByOther ? t('lock.needRelease', { name: ownerName }) : undefined}
-            className="inline-flex items-center gap-1 rounded bg-blue-600 px-2 py-0.5 font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40"
+            title={blockedByOther ? t('lock.needRelease', { name: ownerName }) : t('readOnly.editAttemptHint')}
+            data-nudging={nudging ? 'true' : 'false'}
+            className={`inline-flex items-center gap-1 rounded bg-blue-600 px-2 py-0.5 font-medium text-white transition-shadow hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-40 ${
+              nudging ? 'ring-2 ring-blue-500 ring-offset-1 animate-pulse' : ''
+            }`}
           >
             <Lock className="h-3 w-3" aria-hidden="true" />
             {busy ? t('lock.busy') : t('lock.checkout')}

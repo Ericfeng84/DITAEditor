@@ -87,7 +87,11 @@ export const enCommon = {
   'header.inspector.expandTitle': 'Expand the AI and attributes inspector',
   'header.inspector.expandAria': 'Expand the right panel',
   'header.inspector.expand': 'Expand',
-
+  'header.settings.aria': 'Interface settings',
+  'header.settings.identity': 'Identity',
+  'header.settings.help': 'Help center',
+  'header.settings.title': 'Interface settings: language and preferences',
+  'header.settings.language': 'Language',
 
   // --- left sidebar -------------------------------------------------------
   'sidebar.aria': 'Project navigation',

@@ -35,6 +35,8 @@ export const zhCNStructure = {
   'mapTree.ditavalSelect': '选择 DITAVAL 条件过滤配置',
   'mapTree.ditavalActiveTooltip': '当前条件过滤配置：{path}',
   'mapTree.ditavalIdleTooltip': '选择当前激活的 .ditaval 条件过滤配置',
+  'mapTree.ditavalToggleTitle': '条件过滤（DITAVAL）',
+  'mapTree.ditavalToggleAria': '展开或收起 DITAVAL 条件过滤控件',
   'mapTree.ditavalOff': '关闭过滤',
   'mapTree.ruleCount': '{count} 条规则',
   'mapTree.ditavalModeAria': 'DITAVAL 条件显示模式',

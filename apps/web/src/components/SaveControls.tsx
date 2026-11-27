@@ -15,7 +15,8 @@ export interface SaveControlsProps {
  *
  * Lives next to the authoring-guide toggle instead of in the app header: the header is
  * navigation + identity + diagnostics, while save belongs with the document tooling.
- * The button keeps a stable slot when nothing is dirty so the toolbar does not jump.
+ * The button keeps a stable slot when nothing is dirty so the toolbar does not jump — except in
+ * read-only views, where dirty drafts never exist and the whole control disappears.
  */
 export function SaveControls({
   dirtyCount,
@@ -26,6 +27,9 @@ export function SaveControls({
   onResetBaseline,
 }: SaveControlsProps) {
   const { t } = useI18n();
+  // Read-only with nothing pending: no save affordance at all — a permanently disabled button
+  // only adds noise (and suggests the user could save if they tried harder).
+  if (readOnly && dirtyCount === 0) return null;
   const disabled = readOnly || saving || dirtyCount === 0;
   const label =
     dirtyCount === 0

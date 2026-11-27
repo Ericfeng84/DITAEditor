@@ -35,6 +35,8 @@ export const enStructure = {
   'mapTree.ditavalSelect': 'Choose a DITAVAL conditional-filtering profile',
   'mapTree.ditavalActiveTooltip': 'Active filter profile: {path}',
   'mapTree.ditavalIdleTooltip': 'Pick the active .ditaval conditional-filtering profile',
+  'mapTree.ditavalToggleTitle': 'Conditional filtering (DITAVAL)',
+  'mapTree.ditavalToggleAria': 'Show or hide the DITAVAL filtering controls',
   'mapTree.ditavalOff': 'Filtering off',
   'mapTree.ruleCount': '{count} rules',
   'mapTree.ditavalModeAria': 'DITAVAL conditional display mode',

@@ -16,7 +16,6 @@ import {
   Link2,
   Network,
   Redo2,
-  Rocket,
   Search,
   Undo2,
 } from 'lucide-react';
@@ -66,8 +65,8 @@ export interface MapTreePanelProps {
   onCreateMissingTarget: (node: CompositeMapTreeNode) => void;
   onUndoMap: (mapPath: string) => void;
   onRedoMap: (mapPath: string) => void;
-  /** Publishing lives next to the map structure: the output is always the active root map. */
-  onOpenPublish: () => void;
+  /** Kept optional for backward compatibility — publishing now lives in the WorkbenchHeader. */
+  onOpenPublish?: () => void;
   /** `tree` shows the structure, `keys` shows the keyspace of the same root map. */
   viewMode: 'tree' | 'keys';
   onChangeViewMode: (view: 'tree' | 'keys') => void;
@@ -233,7 +232,6 @@ export function MapTreePanel({
   onCreateMissingTarget,
   onUndoMap,
   onRedoMap,
-  onOpenPublish,
   viewMode,
   onChangeViewMode,
   keyCount,
@@ -247,6 +245,12 @@ export function MapTreePanel({
   const [search, setSearch] = useState('');
   const [menuTarget, setMenuTarget] = useState<MapNodeMenuTarget | null>(null);
   const [fixTarget, setFixTarget] = useState<MapTargetFixTarget | null>(null);
+  // Progressive disclosure: the three DITAVAL projection modes only matter once the author is
+  // consciously filtering, so the drawer starts collapsed when no .ditaval is active.
+  const [ditavalFilterOpen, setDitavalFilterOpen] = useState(false);
+  // A .ditaval that is already active keeps its projection controls visible; with none selected the
+  // strip only appears on demand, so read-only browsing is not cluttered by disabled buttons.
+  const showDitavalStrip = Boolean(activeDitavalPath) || ditavalFilterOpen;
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const groupMenuRef = useRef<HTMLDivElement | null>(null);
   const [mountMenuOpen, setMountMenuOpen] = useState(false);
@@ -386,10 +390,48 @@ export function MapTreePanel({
             <span>{t('mapTree.source')}</span>
           </button>
         </div>
+      </div>
 
-        {/* Action Strip is tree-mode only: the Keys view is driven by the keyspace panel. */}
-        {viewMode === 'tree' ? (
-          <div className="mt-1.5 flex flex-wrap items-center gap-1">
+      {/* 2. Structure / Keyspace switch — Keys live with the map that defines them */}
+      <div className="border-b border-slate-100 px-2.5 py-1.5">
+        <div
+          role="tablist"
+          aria-label={t('mapPanel.switchAria')}
+          className="flex items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
+        >
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'tree'}
+            onClick={() => onChangeViewMode('tree')}
+            className={`flex-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors ${
+              viewMode === 'tree'
+                ? 'bg-white text-blue-800 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {t('mapPanel.tree')}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={viewMode === 'keys'}
+            onClick={() => onChangeViewMode('keys')}
+            className={`flex-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors ${
+              viewMode === 'keys'
+                ? 'bg-white text-blue-800 shadow-xs'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            {t('mapPanel.keys', { count: keyCount })}
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Action strip is tree-mode only: the Keys view is driven by the keyspace panel.
+          Publishing now lives in the WorkbenchHeader, so this row stays map-structure work. */}
+      {viewMode === 'tree' ? (
+        <div className="flex flex-wrap items-center gap-1 border-b border-slate-100 px-2.5 py-1.5">
             {/* One "Mount" entry point: creating a topic and mounting an existing one are two
                 answers to the same question, so they live in one menu instead of two buttons. */}
             <MountMenu
@@ -460,15 +502,6 @@ export function MapTreePanel({
                 </div>
               ) : null}
             </div>
-            <button
-              type="button"
-              onClick={onOpenPublish}
-              title={t('mapTree.publishTooltip')}
-              className="dita-mini-btn px-1.5 py-0.5 text-rose-700"
-            >
-              <Rocket className="h-3 w-3" aria-hidden="true" />
-              <span>{t('mapTree.publish')}</span>
-            </button>
 
             <div className="ml-auto flex items-center gap-0.5">
               <button
@@ -512,59 +545,63 @@ export function MapTreePanel({
             </div>
           </div>
         ) : null}
-      </div>
-
-      {/* Structure / Keyspace switch — Keys live with the map that defines them */}
-      <div className="border-b border-slate-100 px-2.5 py-1.5">
-        <div
-          role="tablist"
-          aria-label={t('mapPanel.switchAria')}
-          className="flex items-center rounded-md border border-slate-200 bg-slate-100/90 p-0.5"
-        >
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === 'tree'}
-            onClick={() => onChangeViewMode('tree')}
-            className={`flex-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors ${
-              viewMode === 'tree'
-                ? 'bg-white text-blue-800 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {t('mapPanel.tree')}
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={viewMode === 'keys'}
-            onClick={() => onChangeViewMode('keys')}
-            className={`flex-1 rounded px-1.5 py-0.5 text-[10.5px] font-medium transition-colors ${
-              viewMode === 'keys'
-                ? 'bg-white text-blue-800 shadow-xs'
-                : 'text-slate-600 hover:text-slate-900'
-            }`}
-          >
-            {t('mapPanel.keys', { count: keyCount })}
-          </button>
-        </div>
-      </div>
 
       {viewMode === 'keys' ? (
         <div className="min-h-0 flex-1 overflow-hidden">{keyspaceSlot}</div>
       ) : (
         <>
-      {/* DITAVAL Condition Projection Control — the display-mode toggle shares the filter row. */}
+      {/* 4. Search + conditional filtering share one row: the three projection modes are inert
+          without a .ditaval, so they are disclosed together with the filter strip. */}
       <div className="border-b border-slate-100 px-2.5 py-1.5">
         <div className="flex min-w-0 items-center gap-1.5">
-          <Filter
-            className={`h-3 w-3 shrink-0 ${activeDitaval ? 'text-teal-600' : 'text-slate-400'}`}
-            aria-hidden="true"
-          />
-          <label htmlFor="map-ditaval-select" className="sr-only">
-            {t('mapTree.ditavalSelect')}
-          </label>
-          <select
+          <div className="relative flex min-w-0 flex-1 items-center">
+            <Search
+              className="pointer-events-none absolute left-2 h-3 w-3 text-slate-400"
+              aria-hidden="true"
+            />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t('mapTree.searchPlaceholder')}
+              aria-label={t('mapTree.searchAria')}
+              className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none"
+            />
+          </div>
+          {ditavals.length > 0 ? (
+            <button
+              type="button"
+              aria-expanded={showDitavalStrip}
+              aria-controls="map-ditaval-filter"
+              aria-label={t('mapTree.ditavalToggleAria')}
+              title={t('mapTree.ditavalToggleTitle')}
+              data-ditaval-active={activeDitavalPath ? 'true' : 'false'}
+              onClick={() => setDitavalFilterOpen((open) => !open)}
+              className={`dita-mini-btn shrink-0 px-1.5 py-1 ${
+                activeDitavalPath
+                  ? 'border-teal-300 bg-teal-50 text-teal-800'
+                  : 'text-slate-500'
+              }`}
+            >
+              <Filter className="h-3 w-3" aria-hidden="true" />
+            </button>
+          ) : null}
+        </div>
+
+        {showDitavalStrip ? (
+          <div
+            id="map-ditaval-filter"
+            className="mt-1.5 rounded-md border border-teal-200 bg-teal-50/60 p-1.5"
+          >
+            <div className="flex min-w-0 items-center gap-1.5">
+              <Filter
+                className={`h-3 w-3 shrink-0 ${activeDitaval ? 'text-teal-600' : 'text-slate-400'}`}
+                aria-hidden="true"
+              />
+              <label htmlFor="map-ditaval-select" className="sr-only">
+                {t('mapTree.ditavalSelect')}
+              </label>
+              <select
             id="map-ditaval-select"
             value={activeDitavalPath ?? ''}
             onChange={(e) => onSelectDitaval(e.target.value || null)}
@@ -633,24 +670,8 @@ export function MapTreePanel({
             {treeResult.flaggedCount > 0 ? t('mapTree.flaggedCount', { count: treeResult.flaggedCount }) : ''}
           </span>
         ) : null}
-      </div>
-
-      {/* Filter Input */}
-      <div className="border-b border-slate-100 px-2.5 py-1.5">
-        <div className="relative flex items-center">
-          <Search
-            className="pointer-events-none absolute left-2 h-3 w-3 text-slate-400"
-            aria-hidden="true"
-          />
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder={t('mapTree.searchPlaceholder')}
-            aria-label={t('mapTree.searchAria')}
-            className="w-full rounded-md border border-slate-200 bg-slate-50 py-1 pr-2 pl-6 text-xs text-slate-800 placeholder:text-slate-400 focus:border-blue-500 focus:bg-white focus:outline-none"
-          />
-        </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Parse Error Banner if Map XML was broken in Source Mode */}
@@ -683,6 +704,7 @@ export function MapTreePanel({
           <div className="p-6 text-center text-xs text-slate-400">
             <p>{t('mapTree.empty')}</p>
             <p className="mt-1">{t('mapTree.emptyHint')}</p>
+            <p className="mt-2 text-[10.5px] text-slate-400">{t('mapTree.footerHint')}</p>
           </div>
         ) : (
           <Tree<CompositeMapTreeNode>
@@ -732,11 +754,6 @@ export function MapTreePanel({
             {NodeRenderer}
           </Tree>
         )}
-      </div>
-
-      {/* Footer Hint */}
-      <div className="border-t border-slate-100 bg-slate-50/70 px-2.5 py-1 text-[10.5px] text-slate-400">
-        {t('mapTree.footerHint')}
       </div>
 
         </>

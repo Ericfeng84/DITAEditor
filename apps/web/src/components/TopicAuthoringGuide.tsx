@@ -226,16 +226,27 @@ export function TopicGuideChip({
 
   return (
     <div className="flex min-w-0 items-center gap-1.5" data-topic-guide-type={spec.type}>
-      <span
-        className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[10.5px] font-semibold ${spec.accent.badgeBg} ${spec.accent.badgeText}`}
-        title={t(spec.summaryKey)}
+      {/* One pill: type badge + expand chevron. Two separate buttons for a single concern cost a
+          full extra chip of toolbar width on every topic. */}
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-label={t('guide.aria')}
+        title={expanded ? t('guide.collapse') : t(spec.summaryKey)}
+        onClick={onToggle}
+        className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[10.5px] font-semibold transition-colors hover:brightness-[0.97] ${spec.accent.badgeBg} ${spec.accent.badgeText}`}
       >
         <Icon className={`h-3 w-3 ${spec.accent.iconText}`} aria-hidden="true" />
         <span>{t(spec.badgeKey)}</span>
         {/* The raw tag token lives in the status bar / breadcrumb; the chip only needs the
             human label so the toolbar row stays on one line next to the lock and assignment chips. */}
         <code className="sr-only">{spec.rootTag}</code>
-      </span>
+        {expanded ? (
+          <ChevronUp className="h-3 w-3 opacity-60" aria-hidden="true" />
+        ) : (
+          <ChevronDown className="h-3 w-3 opacity-60" aria-hidden="true" />
+        )}
+      </button>
 
       {structureIssueCount > 0 ? (
         <button
@@ -248,25 +259,6 @@ export function TopicGuideChip({
           <span>{t('guide.issuesBadge', { count: structureIssueCount })}</span>
         </button>
       ) : null}
-
-      <button
-        type="button"
-        aria-expanded={expanded}
-        aria-label={t('guide.aria')}
-        title={expanded ? t('guide.collapse') : t('guide.aria')}
-        onClick={onToggle}
-        className="inline-flex shrink-0 items-center gap-1 rounded border border-slate-200/90 bg-white/90 px-2 py-0.5 text-[10.5px] font-medium text-slate-600 transition-colors hover:border-slate-300 hover:bg-white hover:text-slate-900"
-      >
-        {/* Label collapses first on narrow panes so the lock/assignment actions keep their room. */}
-        <span className="hidden @[60rem]:inline">
-          {expanded ? t('guide.collapse') : t('guide.expand')}
-        </span>
-        {expanded ? (
-          <ChevronUp className="h-3 w-3" aria-hidden="true" />
-        ) : (
-          <ChevronDown className="h-3 w-3" aria-hidden="true" />
-        )}
-      </button>
     </div>
   );
 }

@@ -42,6 +42,9 @@
 .dita-ox-body {
   display: inline-flex;
   align-items: center;
+  /* `dita-ox-name` + `dita-ox-attrs` are flex siblings: leading whitespace inside the attribute
+   * span collapses, so the space between `concept` and `id="..."` must come from the gap. */
+  gap: 4px;
   padding: 0 4px;
   background: var(--ox-bg);
   border-top: 1px solid var(--ox-border);
@@ -107,6 +110,31 @@
   --ox-attr: #1d4ed8;
 }
 
+/* --------------------------------------------------------------------------
+ * Adaptive visual hierarchy — unselected structural container strips
+ * --------------------------------------------------------------------------
+ * Block-level container strips (`<conbody>`, `<section>`, `<ul>`, …) are orientation, not content.
+ * De-emphasising them keeps the reading flow dominant while the selected container and inline
+ * tags stay at full contrast. Hover restores full strength so they remain discoverable.
+ */
+.dita-ox-strip:not([data-ox-selected="true"]) {
+  --ox-bg: #f4f6f9;
+  --ox-border: #cbd5e1;
+  --ox-text: #64748b;
+  --ox-attr: #94a3b8;
+  opacity: 0.72;
+  transition: opacity 120ms ease-out;
+}
+
+.dita-ox-strip:not([data-ox-selected="true"]):hover,
+.dita-ox-strip:not([data-ox-selected="true"]):focus-visible {
+  opacity: 1;
+}
+
+.dita-ox-strip[data-ox-selected="true"] {
+  opacity: 1;
+}
+
 .dita-ox-unknown {
   --ox-bg: #fef3c7;
   --ox-border: #d97706;
@@ -155,7 +183,12 @@
 .dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="result"]::before,
 .dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="result"]::before,
 .dita-tag-mode-tags .dita-prosemirror-doc section[data-dita-tag="postreq"]::before,
-.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="postreq"]::before {
+.dita-tag-mode-full .dita-prosemirror-doc section[data-dita-tag="postreq"]::before,
+/* `titlealts` children already carry an Oxygen tag chip in these modes. */
+.dita-tag-mode-tags .dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="navtitle"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="navtitle"]::before,
+.dita-tag-mode-tags .dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="searchtitle"]::before,
+.dita-tag-mode-full .dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="searchtitle"]::before {
   display: none;
 }
 

@@ -31,6 +31,8 @@ export const enCollab = {
   'lock.checkoutAndSave': 'Check out and save',
   'lock.checkoutAndSaveHint': 'Check out these files first, then retry the save',
   'lock.dismissAlert': 'Dismiss notice',
+  // Read-only canvas nudge: a keystroke was swallowed, so point at the check-out button.
+  'readOnly.editAttemptHint': 'This file is read-only. Check it out to start editing.',
 
   // --- git panel ----------------------------------------------------------
   'git.panelTitle': 'Local Git & Check-outs',

@@ -85,7 +85,11 @@ export const zhCNCommon = {
   'header.inspector.expandTitle': '展开右侧 AI 与属性面板',
   'header.inspector.expandAria': '展开右侧面板',
   'header.inspector.expand': '展开',
-
+  'header.settings.aria': '界面设置',
+  'header.settings.identity': '员工',
+  'header.settings.help': '帮助中心',
+  'header.settings.title': '界面设置：语言与偏好',
+  'header.settings.language': '界面语言',
 
   // --- left sidebar -------------------------------------------------------
   'sidebar.aria': '项目导航工作区',

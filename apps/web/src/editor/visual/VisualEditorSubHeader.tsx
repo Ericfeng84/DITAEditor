@@ -106,7 +106,7 @@ export function VisualEditorSubHeader({
         </div>
 
         {contextSlot ? (
-          <div className="flex min-w-0 items-center gap-1.5 overflow-hidden">{contextSlot}</div>
+          <div className="flex min-w-0 items-center gap-1.5">{contextSlot}</div>
         ) : null}
 
         {activeDitaval ? (

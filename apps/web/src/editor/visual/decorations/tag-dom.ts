@@ -87,7 +87,7 @@ export function createOxygenTagDom(
     if (attrsText) {
       const attrsSpan = document.createElement('span');
       attrsSpan.className = 'dita-ox-attrs';
-      attrsSpan.textContent = ` ${attrsText}`;
+      attrsSpan.textContent = attrsText;
       body.appendChild(attrsSpan);
     }
   }

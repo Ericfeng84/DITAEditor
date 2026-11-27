@@ -14,6 +14,10 @@ export interface BreadcrumbBarProps {
   };
   mode: 'visual' | 'split' | 'source';
   activePath?: string | null;
+  /**
+   * Kept for compatibility only — the WorkbenchHeader diagnostics pill is the single place that
+   * opens the problems pane, so the footer no longer duplicates it.
+   */
   diagnosticsCount?: number;
   onToggleProblems?: () => void;
 }
@@ -25,8 +29,6 @@ export function BreadcrumbBar({
   diffStats,
   mode,
   activePath,
-  diagnosticsCount = 0,
-  onToggleProblems,
 }: BreadcrumbBarProps) {
   const { t } = useI18n();
   return (
@@ -82,27 +84,18 @@ export function BreadcrumbBar({
         {activePath ? (
           <span className="hidden font-mono text-slate-400 lg:inline">{activePath}</span>
         ) : null}
-        {onToggleProblems ? (
-          <button
-            type="button"
-            onClick={onToggleProblems}
-            className={`rounded px-1.5 py-0.5 font-mono text-[10.5px] ${
-              diagnosticsCount > 0
-                ? 'bg-rose-50 font-semibold text-rose-700 hover:bg-rose-100'
-                : 'text-slate-500 hover:bg-slate-200/70'
-            }`}
-          >
-            {t('breadcrumb.diagnostics', { count: diagnosticsCount })}
-          </button>
-        ) : null}
         <span className="font-mono text-slate-500">
           {diffStats.isIdentical
             ? t('breadcrumb.diffNone')
             : t('breadcrumb.diff', { count: diffStats.changedLines })}
         </span>
-        <span className="inline-flex items-center gap-1 text-emerald-700">
+        <span
+          className="inline-flex items-center text-emerald-700"
+          title={t('breadcrumb.kernel')}
+          aria-label={t('breadcrumb.kernel')}
+          role="img"
+        >
           <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
-          <span className="hidden sm:inline">{t('breadcrumb.kernel')}</span>
         </span>
       </div>
     </footer>

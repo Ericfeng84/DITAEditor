@@ -155,7 +155,15 @@ export interface EditorWorkbenchState {
   inspectorTarget: InspectorTarget;
   selectedMapNode: SelectedMapNodeRef | null;
   problemsOpen: boolean;
+  /**
+   * Legacy single knob kept for backward compatibility: `setTagDisplayMode(mode)` without a
+   * `scope` writes both scoped values so existing callers keep working.
+   */
   tagDisplayMode: TagDisplayMode;
+  /** Read-only documents default to `none` — tag chrome is noise when nothing can be edited. */
+  readOnlyTagDisplayMode: TagDisplayMode;
+  /** Editable documents default to `tags` — chevrons on, attributes folded away. */
+  editTagDisplayMode: TagDisplayMode;
   /** Collapsible document outline panel (persisted per browser in localStorage). */
   outlineOpen: boolean;
   /** Outline detail level: document skeleton (`structure`) or every block element (`all`). */
@@ -273,7 +281,11 @@ export interface EditorWorkbenchState {
     xml: string,
     options?: { skipVisualReload?: boolean },
   ) => boolean;
-  setTagDisplayMode: (mode: TagDisplayMode) => void;
+  /**
+   * Updates the tag display mode. `scope` picks which adaptive slot is written; omitting it writes
+   * both (legacy behaviour) so older call sites keep working.
+   */
+  setTagDisplayMode: (mode: TagDisplayMode, scope?: 'readOnly' | 'edit') => void;
   setTaskModelSetting: (setting: TaskContentModelSetting) => void;
 
   // Map Tree actions

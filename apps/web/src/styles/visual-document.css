@@ -142,6 +142,39 @@
   color: #475569;
 }
 
+/* Title alternatives (`<titlealts>`) — secondary metadata, not a second headline */
+.dita-prosemirror-doc [data-dita-tag="titlealts"] {
+  margin: 0.15rem 0 0.85rem 0;
+  font-size: 0.8rem;
+  line-height: 1.55;
+  color: #64748b;
+}
+
+.dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="navtitle"],
+.dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="searchtitle"] {
+  display: inline-block;
+  margin: 0 0.5rem 0.15rem 0;
+  border: 1px solid #e2e8f0;
+  border-radius: 999px;
+  background: #f8fafc;
+  padding: 0 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: #64748b;
+}
+
+.dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="navtitle"]::before,
+.dita-prosemirror-doc [data-dita-tag="titlealts"] [data-dita-tag="searchtitle"]::before {
+  content: attr(data-dita-tag);
+  margin-right: 0.35rem;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #94a3b8;
+}
+
 /* Paragraphs & virtual mixed-content blocks */
 .dita-prosemirror-doc p[data-dita-tag="p"],
 .dita-prosemirror-doc div[data-dita-tag="p"] {

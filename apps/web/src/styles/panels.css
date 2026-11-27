@@ -114,18 +114,27 @@
   outline-offset: -2px;
 }
 
-/* Active tab indicator via border on ::after pseudo-element (WCAG 1.4.1 & forced-colors safe) */
+/* Active tab indicator via border on ::after pseudo-element (WCAG 1.4.1 & forced-colors safe).
+   Document tabs sit above their content, so their indicator hugs the bottom edge; the sidebar rail
+   sits at the bottom of its column, so its indicator flips to the top edge and points up into the
+   panel it describes. */
 .dita-tab-btn[aria-selected="true"],
 .dita-sidebar-tab[aria-selected="true"] {
   color: #1e3a8a;
 }
 
-.dita-tab-btn[aria-selected="true"]::after,
-.dita-sidebar-tab[aria-selected="true"]::after {
+.dita-tab-btn[aria-selected="true"]::after {
   content: "";
   position: absolute;
   inset: auto 0 0;
   border-block-end: 2px solid #2563eb;
+}
+
+.dita-sidebar-tab[aria-selected="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  border-block-start: 2px solid #2563eb;
 }
 
 /* --------------------------------------------------------------------------

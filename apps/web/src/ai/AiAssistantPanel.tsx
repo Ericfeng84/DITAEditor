@@ -13,7 +13,6 @@ import {
   Sparkles,
   Square,
   Wand2,
-  X,
 } from 'lucide-react';
 import type { AiTargetMode, AiTargetSpec } from '@dita/core';
 import type { WorkspaceDiagnostic } from '../services/workspace-api';
@@ -83,6 +82,40 @@ const TARGET_MODE_LABEL_KEYS: Record<AiTargetMode, MessageKey> = {
   'line-window': 'ai.targetMode.lineWindow',
   'full-document': 'ai.targetMode.fullDocument',
 };
+
+/**
+ * Empty-state nudges: each one only *prepares* the composer (task, task text, scope) — it never
+ * sends, so the author always reviews the instruction before spending a model call.
+ */
+const QUICK_PROMPTS: Array<{
+  id: string;
+  labelKey: MessageKey;
+  promptKey: MessageKey;
+  taskType: AiTaskType;
+  scope: AiTargetScope;
+}> = [
+  {
+    id: 'structure',
+    labelKey: 'ai.quick.structure',
+    promptKey: 'ai.quick.structurePrompt',
+    taskType: 'ask',
+    scope: 'document',
+  },
+  {
+    id: 'shortdesc',
+    labelKey: 'ai.quick.shortdesc',
+    promptKey: 'ai.quick.shortdescPrompt',
+    taskType: 'authoring',
+    scope: 'fragment',
+  },
+  {
+    id: 'summary',
+    labelKey: 'ai.quick.summary',
+    promptKey: 'ai.quick.summaryPrompt',
+    taskType: 'ask',
+    scope: 'document',
+  },
+];
 
 function defaultInstruction(taskType: AiTaskType, subAction?: AiSubAction): string {
   const tr = (key: MessageKey, params?: MessageParams) => translate(getCurrentLocale(), key, params);
@@ -183,12 +216,12 @@ export function AiAssistantPanel({
   const send = useAiStore((state) => state.send);
   const cancel = useAiStore((state) => state.cancel);
   const dismissProposal = useAiStore((state) => state.dismissProposal);
-  const closePanel = useAiStore((state) => state.closePanel);
 
   const [taskType, setTaskType] = useState<AiTaskType>(intent?.taskType ?? 'ask');
   const [showHistory, setShowHistory] = useState(false);
   const autoSentIntentRef = useRef<AiPanelIntent | null>(null);
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  const composerRef = useRef<HTMLTextAreaElement | null>(null);
 
   const [lastTarget, setLastTarget] = useState<AiTargetSpec | null>(null);
   const effectiveTarget = intent?.target ?? lastTarget ?? target;
@@ -325,40 +358,10 @@ export function AiAssistantPanel({
     ];
   }, [proposal, t]);
 
+  const modelLabel = meta?.model ?? config?.model ?? null;
+
   return (
     <div className="flex h-full min-h-0 flex-col bg-white text-xs" data-testid="ai-assistant-panel">
-      <div className="flex h-9 shrink-0 items-center gap-1.5 border-b border-slate-200 bg-gradient-to-r from-blue-50 to-white px-2.5">
-        <Sparkles className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
-        <span className="shrink-0 whitespace-nowrap font-semibold text-slate-800">{t('ai.title')}</span>
-        {meta?.model ?? config?.model ? (
-          <span className="min-w-0 flex-1 truncate rounded bg-white/80 px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500">
-            {meta?.model ?? config?.model}
-          </span>
-        ) : null}
-        <div className="ml-auto flex shrink-0 items-center gap-0.5">
-          {onOpenSettings ? (
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="rounded p-1 text-slate-500 hover:bg-white hover:text-blue-700"
-              title={t('ai.settings')}
-              aria-label={t('ai.settings')}
-            >
-              <Settings2 className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={closePanel}
-            className="rounded p-1 text-slate-400 hover:bg-white hover:text-slate-700"
-            title={t('ai.close')}
-            aria-label={t('ai.close')}
-          >
-            <X className="h-3.5 w-3.5" aria-hidden="true" />
-          </button>
-        </div>
-      </div>
-
       {showConfigWarning ? (
         <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-2.5 py-2 text-[10.5px] text-amber-900">
           <p className="flex items-start gap-1.5">
@@ -401,14 +404,49 @@ export function AiAssistantPanel({
             </button>
           ))}
         </div>
-        <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 font-medium text-blue-800">
-          <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
-          {scope === 'document'
-            ? t('ai.scopeBanner.document')
-            : effectiveTarget && effectiveTarget.mode !== 'full-document'
+        {/* Model + settings live in this row: a dedicated title bar only repeated the panel
+            heading and cost a full row of the inspector's vertical budget. */}
+        {modelLabel ? (
+          onOpenSettings ? (
+            <button
+              type="button"
+              onClick={onOpenSettings}
+              title={t('ai.modelPill')}
+              aria-label={t('ai.settings')}
+              data-testid="ai-model-pill"
+              className="inline-flex min-w-0 max-w-[180px] items-center gap-1 rounded-full border border-slate-200 bg-white px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500 transition-colors hover:border-blue-200 hover:text-blue-700"
+            >
+              <Sparkles className="h-2.5 w-2.5 shrink-0 text-blue-600" aria-hidden="true" />
+              <span className="truncate">{modelLabel}</span>
+              <Settings2 className="h-2.5 w-2.5 shrink-0 opacity-70" aria-hidden="true" />
+            </button>
+          ) : (
+            <span className="inline-flex min-w-0 max-w-[180px] items-center gap-1 rounded-full bg-white px-1.5 py-0.5 font-mono text-[9.5px] text-slate-500">
+              <Sparkles className="h-2.5 w-2.5 shrink-0 text-blue-600" aria-hidden="true" />
+              <span className="truncate">{modelLabel}</span>
+            </span>
+          )
+        ) : onOpenSettings ? (
+          <button
+            type="button"
+            onClick={onOpenSettings}
+            title={t('ai.settings')}
+            aria-label={t('ai.settings')}
+            className="rounded-full border border-slate-200 bg-white p-1 text-slate-500 transition-colors hover:border-blue-200 hover:text-blue-700"
+          >
+            <Settings2 className="h-3 w-3" aria-hidden="true" />
+          </button>
+        ) : null}
+        {/* Whole-topic mode is the default: saying "full Topic" on every send is noise. Only the
+            fragment scope needs to state which slice the request will target. */}
+        {scope === 'fragment' ? (
+          <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 px-1.5 py-0.5 font-medium text-blue-800">
+            <Sparkles className="h-2.5 w-2.5" aria-hidden="true" />
+            {effectiveTarget && effectiveTarget.mode !== 'full-document'
               ? `${t(TARGET_MODE_LABEL_KEYS[effectiveTarget.mode])} · ${targetLabel(effectiveTarget)}`
               : t('ai.scopeBanner.fallback')}
-        </span>
+          </span>
+        ) : null}
         {scope === 'fragment' && meta?.targetTag ? (
           <span className="rounded bg-slate-200 px-1.5 py-0.5 font-mono text-slate-700">
             &lt;{meta.targetTag}&gt;
@@ -451,6 +489,30 @@ export function AiAssistantPanel({
             <p className="mt-1 text-slate-400">
               {t('ai.empty.tip')}
             </p>
+            <div className="mt-2 space-y-1" data-testid="ai-quick-prompts">
+              <p className="text-[9px] font-semibold uppercase tracking-wide text-blue-700/70">
+                {t('ai.quick.title')}
+              </p>
+              <div className="flex flex-wrap gap-1">
+                {QUICK_PROMPTS.map((quick) => (
+                  <button
+                    key={quick.id}
+                    type="button"
+                    title={t(quick.promptKey)}
+                    onClick={() => {
+                      // Prepare only: the author reviews/edits the instruction and presses send.
+                      setTaskType(quick.taskType);
+                      setScope(quick.scope);
+                      setDraft(t(quick.promptKey));
+                      composerRef.current?.focus();
+                    }}
+                    className="rounded-full border border-blue-200 bg-white px-2 py-0.5 text-[10px] font-medium text-blue-800 transition-colors hover:bg-blue-100"
+                  >
+                    {t(quick.labelKey)}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         ) : null}
 
@@ -707,6 +769,7 @@ export function AiAssistantPanel({
           </span>
         </div>
         <textarea
+          ref={composerRef}
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           onKeyDown={(event) => {

@@ -186,13 +186,53 @@ export function LeftSidebar({
         </div>
       </div>
 
+      {/* Single stacked grid cell holds all panels cleanly without padding/border on tabpanel */}
+      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 overflow-hidden">
+        <div
+          ref={mapPanelRef}
+          role="tabpanel"
+          aria-labelledby={mapTabId}
+          className="dita-sidebar-panel col-start-1 row-start-1"
+        >
+          <div className="h-full w-full overflow-hidden">{mapTreeSlot}</div>
+        </div>
+        <div
+          ref={filesPanelRef}
+          role="tabpanel"
+          aria-labelledby={filesTabId}
+          hidden
+          className="dita-sidebar-panel col-start-1 row-start-1"
+        >
+          <div className="h-full w-full overflow-hidden">{fileExplorerSlot}</div>
+        </div>
+        <div
+          ref={gitPanelRef}
+          role="tabpanel"
+          aria-labelledby={gitTabId}
+          hidden
+          className="dita-sidebar-panel col-start-1 row-start-1"
+        >
+          <div className="h-full w-full overflow-hidden">{gitSlot}</div>
+        </div>
+        <div
+          ref={assignmentsPanelRef}
+          role="tabpanel"
+          aria-labelledby={assignmentsTabId}
+          hidden
+          className="dita-sidebar-panel col-start-1 row-start-1"
+        >
+          <div className="h-full w-full overflow-hidden">{assignmentsSlot ?? null}</div>
+        </div>
+      </div>
+
       <div
         ref={tablistRef}
         {...({ focusgroup: 'tablist nomemory' } as Record<string, string>)}
         aria-label={t('sidebar.viewGroup')}
-        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-[0.9fr_1.2fr_0.75fr_1.15fr] border-b border-slate-200 bg-slate-50 text-[10.5px]"
+        className="dita-sidebar-tablist grid h-9 shrink-0 grid-cols-[0.9fr_1.2fr_0.75fr_1.15fr] border-t border-slate-200 bg-slate-50 text-[10.5px]"
       >
-        {/* Four tabs in a 256px rail: text-only labels plus a wider last column so
+        {/* The rail sits at the bottom edge: the panel content owns the top of the column, and the
+            active tab's indicator points up into the panel it describes. Four tabs in a 256px rail: text-only labels plus a wider last column so
             "Assignments" also fits in English without truncating. */}
         <button
           type="button"
@@ -246,45 +286,6 @@ export function LeftSidebar({
             </span>
           ) : null}
         </button>
-      </div>
-
-      {/* Single stacked grid cell holds all panels cleanly without padding/border on tabpanel */}
-      <div className="grid min-h-0 flex-1 grid-cols-1 grid-rows-1 overflow-hidden">
-        <div
-          ref={mapPanelRef}
-          role="tabpanel"
-          aria-labelledby={mapTabId}
-          className="dita-sidebar-panel col-start-1 row-start-1"
-        >
-          <div className="h-full w-full overflow-hidden">{mapTreeSlot}</div>
-        </div>
-        <div
-          ref={filesPanelRef}
-          role="tabpanel"
-          aria-labelledby={filesTabId}
-          hidden
-          className="dita-sidebar-panel col-start-1 row-start-1"
-        >
-          <div className="h-full w-full overflow-hidden">{fileExplorerSlot}</div>
-        </div>
-        <div
-          ref={gitPanelRef}
-          role="tabpanel"
-          aria-labelledby={gitTabId}
-          hidden
-          className="dita-sidebar-panel col-start-1 row-start-1"
-        >
-          <div className="h-full w-full overflow-hidden">{gitSlot}</div>
-        </div>
-        <div
-          ref={assignmentsPanelRef}
-          role="tabpanel"
-          aria-labelledby={assignmentsTabId}
-          hidden
-          className="dita-sidebar-panel col-start-1 row-start-1"
-        >
-          <div className="h-full w-full overflow-hidden">{assignmentsSlot ?? null}</div>
-        </div>
       </div>
     </aside>
   );

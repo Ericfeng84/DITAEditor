@@ -12,6 +12,7 @@ import {
   cancelOverlayRefresh,
 } from '../internals.js';
 import type { EditorWorkbenchState, StoreGet, StoreSet, TagDisplayMode } from '../types.js';
+import { TAG_DISPLAY_MODE_STORAGE_KEYS, persistTagDisplayMode } from '../initial-state.js';
 import type { StoreRuntime } from '../runtime.js';
 
 /** Workbench state slice: see `EditorWorkbenchState` in `../types.ts`. */
@@ -234,13 +235,29 @@ export function createEditorSyncSlice(
       return true;
     },
 
-    setTagDisplayMode(tagDisplayMode) {
+    setTagDisplayMode(tagDisplayMode, scope) {
       const labelMap: Record<TagDisplayMode, string> = {
         none: t('status.tags.none'),
         tags: t('status.tags.tags'),
         full: t('status.tags.full'),
       };
-      set({ tagDisplayMode, statusMessage: labelMap[tagDisplayMode] });
+      if (scope === 'readOnly' || scope === undefined) {
+        persistTagDisplayMode(TAG_DISPLAY_MODE_STORAGE_KEYS.readOnly, tagDisplayMode);
+      }
+      if (scope === 'edit' || scope === undefined) {
+        persistTagDisplayMode(TAG_DISPLAY_MODE_STORAGE_KEYS.edit, tagDisplayMode);
+      }
+      // Legacy callers (and the read-only confirmation chip) read `tagDisplayMode` directly, so it
+      // mirrors whichever slot was just written; with no scope both slots move together.
+      set({
+        tagDisplayMode,
+        ...(scope === 'readOnly'
+          ? { readOnlyTagDisplayMode: tagDisplayMode }
+          : scope === 'edit'
+            ? { editTagDisplayMode: tagDisplayMode }
+            : { readOnlyTagDisplayMode: tagDisplayMode, editTagDisplayMode: tagDisplayMode }),
+        statusMessage: labelMap[tagDisplayMode],
+      });
     },
 
     setTaskModelSetting(taskModelSetting) {

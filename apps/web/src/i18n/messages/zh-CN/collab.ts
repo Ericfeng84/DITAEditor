@@ -31,6 +31,8 @@ export const zhCNCollab = {
   'lock.checkoutAndSave': '检出并保存',
   'lock.checkoutAndSaveHint': '先检出这些文件，再重试保存',
   'lock.dismissAlert': '关闭提示',
+  // 只读画布提示：按键被丢弃时指向检出按钮。
+  'readOnly.editAttemptHint': '当前文件为只读，请先「检出」再编辑。',
 
   // --- git panel ----------------------------------------------------------
   'git.panelTitle': '本地 Git 与检出',

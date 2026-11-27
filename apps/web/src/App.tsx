@@ -121,6 +121,7 @@ import {
   selectActiveTab,
   useEditorStore,
   type EditorViewMode,
+  type TagDisplayMode,
 } from './store/editor-store';
 import { useAssignmentStore } from './store/assignment-store';
 import { useGitStore } from './store/git-store';
@@ -190,7 +191,8 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const inspectorTarget = useEditorStore((s) => s.inspectorTarget);
   const selectedMapNode = useEditorStore((s) => s.selectedMapNode);
   const problemsOpen = useEditorStore((s) => s.problemsOpen);
-  const tagDisplayMode = useEditorStore((s) => s.tagDisplayMode);
+  const readOnlyTagDisplayMode = useEditorStore((s) => s.readOnlyTagDisplayMode);
+  const editTagDisplayMode = useEditorStore((s) => s.editTagDisplayMode);
   const taskModelSetting = useEditorStore((s) => s.taskModelSetting);
   const setTaskModelSetting = useEditorStore((s) => s.setTaskModelSetting);
   const statusMessage = useEditorStore((s) => s.statusMessage);
@@ -504,6 +506,16 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [currentUser?.role, currentUser?.id, activeTabPath, locks, locale],
   );
   const canEdit = workspaceMode === 'memory' ? true : editability.editable;
+  /**
+   * Tag chrome is mode-adaptive: readers get a clean page (`none` by default), authors get the
+   * structural tags they need to steer the DITA model (`tags` by default). Both preferences are
+   * persisted separately, so checking a file out never silently changes the reading view.
+   */
+  const activeTagDisplayMode = canEdit ? editTagDisplayMode : readOnlyTagDisplayMode;
+  const changeTagDisplayMode = useCallback(
+    (next: TagDisplayMode) => setTagDisplayMode(next, canEdit ? 'edit' : 'readOnly'),
+    [canEdit, setTagDisplayMode],
+  );
   // Key CRUD writes the `.ditamap`, so it must not follow the open topic's check-out state; the
   // store actions check the map out themselves through `ensureMapEditable(mapPath)`.
   const canManageKeys = canManageMapKeys({ workspaceMode, role: currentUser?.role });
@@ -1568,12 +1580,11 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     Boolean(activeTab) &&
     editability.editable &&
     editability.state !== 'admin';
-  /** Locks + guide toggle still need a home when the visual toolbar is hidden (source mode, read-only). */
-  const showActionRow =
-    (showTopicVisual && canEdit) || showGuideChip || showLockStatus || dirtyCount > 0;
   /** In-memory dirty state of the active tab (not the git diff) drives save-active vs save-all. */
   const activeTabDirty = Boolean(activeTab && activeTab.xml !== activeTab.baselineXml);
-  const saveControlsNode = showActionRow ? (
+  // `SaveControls` hides itself when a read-only view has nothing to save, so the element can be
+  // handed to every host slot unconditionally.
+  const saveControlsNode = (
     <SaveControls
       dirtyCount={dirtyCount}
       isCurrentDirty={activeTabDirty}
@@ -1585,7 +1596,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
       }}
       onResetBaseline={resetCurrentToBaseline}
     />
-  ) : null;
+  );
   const lockStatusNode =
     showLockStatus && activeTab ? (
       <LockStatusBar
@@ -1620,7 +1631,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
 
   /**
    * Lock state, assignment chip and the "委派" entry share one slot so they ride on the
-   * topic toolbar (visual sub-header, or the action row when there is no visual toolbar).
+   * topic toolbar (visual sub-header, or the compact document bar when there is no visual pane).
    */
   const showTopicAssignment = Boolean(
     workspaceMode === 'api' && activeTab && activeTab.kind === 'topic',
@@ -1650,6 +1661,25 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
       {lockStatusNode}
     </>
   );
+
+  /**
+   * Source-only / map-overview layouts have no visual sub-header, so their document bar lives
+   * inside `center-workbench-pane`. It only renders when it has something to say — an empty strip
+   * under the tab bar is pure noise.
+   */
+  const showDocumentBar =
+    !showVisualPane &&
+    (showGuideChip || showLockStatus || dirtyCount > 0 || showTopicAssignment || showDelegateButton);
+
+  /**
+   * Read-only canvas nudge: typing into a non-editable document does nothing, so the banner's
+   * `检出` button pulses and the hint is announced instead of silently swallowing keystrokes.
+   */
+  const [readOnlyNudgeToken, setReadOnlyNudgeToken] = useState(0);
+  const handleReadOnlyEditAttempt = useCallback(() => {
+    setReadOnlyNudgeToken((token) => token + 1);
+    announce(t('readOnly.editAttemptHint'));
+  }, [announce, t]);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-slate-50 text-slate-900">
@@ -1829,52 +1859,10 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
               onToggleProblems={() => setProblemsOpen(!problemsOpen)}
               showInspectorExpand={!showRightInspector && canShowInspector}
               onExpandInspector={() => setInspectorOpen(true)}
+              onOpenPublish={() => setPublishOpen(true)}
               manualName={manualName}
             />
 
-        {/* Single editor action row: formatting toolbar + authoring guide toggle + lock state */}
-        {showActionRow ? (
-          <div className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-1">
-            {showTopicVisual && canEdit ? (
-              <EditorToolbar
-                snapshot={snapshot}
-                canUndo={historyFlags.canUndo}
-                canRedo={historyFlags.canRedo}
-                canInsertBlock={(tag) => visualRef.current?.canInsertBlock(tag) ?? false}
-                canInsertInline={(tag) => visualRef.current?.canInsertInline(tag) ?? false}
-                onUndo={() => visualRef.current?.undo()}
-                onRedo={() => visualRef.current?.redo()}
-                onOpenInsertMenu={(el) => visualRef.current?.openInsertMenuAtElement(el)}
-                onToggleInline={(tag) => visualRef.current?.toggleInline(tag)}
-                onOpenXrefDialog={() => setRefDialogMode('xref')}
-                onOpenImageDialog={() => setRefDialogMode('image')}
-                onOpenKeyrefDialog={() => setKeyrefDialogOpen(true)}
-                onOpenConrefDialog={openReuseTab}
-                onTableAction={(action) => visualRef.current?.runTableAction(action)}
-              />
-            ) : (
-              <div className="min-w-0 flex-1" />
-            )}
-            <div className="ml-auto flex shrink-0 items-center gap-2">
-              {/* The save affordance lives on the document toolbar, next to the guide toggle. */}
-              {!showVisualPane ? saveControlsNode : null}
-              {/* In visual mode the guide toggle lives in the editor sub-header toolbar; the
-                  action row only hosts it when there is no visual pane to attach it to. */}
-              {showGuideChip && activeTab && !showVisualPane ? (
-                <TopicGuideChip
-                  docType={activeTab.docType}
-                  expanded={guideExpanded}
-                  onToggle={toggleGuideExpanded}
-                  structureIssueCount={activeStructureIssueCount}
-                  onOpenProblems={() => setProblemsOpen(true)}
-                />
-              ) : null}
-              {/* The visual editor hosts the lock/assignment/delegate cluster in its sub-header;
-                  the action row only shows it when there is no visual toolbar to attach it to. */}
-              {!showVisualPane ? topicContextNode : null}
-            </div>
-          </div>
-        ) : null}
 
             <main className="min-h-0 flex-1 overflow-hidden">
               <Group
@@ -1945,7 +1933,26 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                             : undefined
                         }
                         onRefresh={() => void refreshLocksGit()}
+                        nudgeToken={readOnlyNudgeToken}
                       />
+                    ) : null}
+
+                    {/* Source-only / map-overview layouts get a compact document bar here, since
+                        they have no visual sub-header to host the guide, lock and save controls. */}
+                    {showDocumentBar ? (
+                      <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-b border-slate-200 bg-white px-3 py-1">
+                        {showGuideChip && activeTab ? (
+                          <TopicGuideChip
+                            docType={activeTab.docType}
+                            expanded={guideExpanded}
+                            onToggle={toggleGuideExpanded}
+                            structureIssueCount={activeStructureIssueCount}
+                            onOpenProblems={() => setProblemsOpen(true)}
+                          />
+                        ) : null}
+                        {topicContextNode}
+                        {saveControlsNode}
+                      </div>
                     ) : null}
 
                     {/* Source-only layouts have no visual sub-header to host the expanded guide card. */}
@@ -2067,8 +2074,8 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                             ref={visualRef}
                                             xml={activeTab.xml}
                                             reloadToken={activeTab.visualReloadToken}
-                                            tagDisplayMode={tagDisplayMode}
-                                            onChangeTagDisplayMode={setTagDisplayMode}
+                                            tagDisplayMode={activeTagDisplayMode}
+                                            onChangeTagDisplayMode={changeTagDisplayMode}
                                             taskModelSetting={taskModelSetting}
                                             resolvedTaskModel={resolvedTaskModel}
                                             onChangeTaskModelSetting={setTaskModelSetting}
@@ -2106,6 +2113,35 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                             }
                                             saveSlot={saveControlsNode}
                                             contextSlot={topicContextNode}
+                                            formattingBarSlot={
+                                              showTopicVisual && canEdit ? <EditorToolbar
+                                                snapshot={snapshot}
+                                                canUndo={historyFlags.canUndo}
+                                                canRedo={historyFlags.canRedo}
+                                                canInsertBlock={(tag) =>
+                                                  visualRef.current?.canInsertBlock(tag) ?? false
+                                                }
+                                                canInsertInline={(tag) =>
+                                                  visualRef.current?.canInsertInline(tag) ?? false
+                                                }
+                                                onUndo={() => visualRef.current?.undo()}
+                                                onRedo={() => visualRef.current?.redo()}
+                                                onOpenInsertMenu={(el) =>
+                                                  visualRef.current?.openInsertMenuAtElement(el)
+                                                }
+                                                onToggleInline={(tag) =>
+                                                  visualRef.current?.toggleInline(tag)
+                                                }
+                                                onOpenXrefDialog={() => setRefDialogMode('xref')}
+                                                onOpenImageDialog={() => setRefDialogMode('image')}
+                                                onOpenKeyrefDialog={() => setKeyrefDialogOpen(true)}
+                                                onOpenConrefDialog={openReuseTab}
+                                                onTableAction={(action) =>
+                                                  visualRef.current?.runTableAction(action)
+                                                }
+                                              /> : null
+                                            }
+                                            onReadOnlyEditAttempt={handleReadOnlyEditAttempt}
                                             guidePanel={
                                               activeTab?.kind === 'topic' && guideExpanded ? (
                                                 <TopicAuthoringGuide docType={activeTab.docType} />
