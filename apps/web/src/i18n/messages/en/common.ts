@@ -178,11 +178,18 @@ export const enCommon = {
   'status.mapTitleUpdated': 'Updated the map title',
   'status.nodeRemoved': 'Removed the node from the map',
   'status.created': 'Created {path}',
+  'status.warehouseCreated': 'Created the reuse warehouse topic {path}',
   'status.createdActive': 'Created and activated {path}',
   'status.imported': 'Imported {path}',
   'status.createdDir': 'Created folder {path}',
   'status.renamed': 'Renamed {from} -> {to}',
   'status.deleted': 'Deleted {path}',
+
+  'reuse.invalidKeyName': 'The key name {key} is invalid: use letters, digits, underscores, dots, and hyphens, and do not start with a dot or hyphen.',
+  'reuse.checkoutBlocked': 'Cannot check out {path}: {message}',
+  'reuse.readFailed': 'Could not read {path}: {message}',
+  'reuse.fileMissing': 'Cannot find the file {path}',
+  'reuse.saveFailed': 'Could not save {path}',
 
   // --- file explorer + keyspace -------------------------------------------
   'files.setRootTooltip': 'Set as the active root map',

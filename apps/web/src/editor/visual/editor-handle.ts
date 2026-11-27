@@ -10,11 +10,14 @@ import {
   insertBlockDitaElement,
   insertBlockDitaElementAtPos,
   insertReuseElementAtPos,
+  insertReuseReferenceAtPos,
   moveDitaNodeByOutline,
   moveDitaNodeSibling,
+  replaceBlockWithReuseAtPos,
   selectNodeAtPos,
   toggleInlineDitaElement,
   updateNodeRawAttr,
+  type ReuseAttrName,
 } from './commands';
 import { DITA_DECORATIONS_KEY } from './decorations';
 import type { ConrefDragPayload } from './conref-drag.js';
@@ -56,6 +59,22 @@ export interface VisualEditorHandle {
     clientY: number,
     payload: ConrefDragPayload,
   ) => boolean;
+  /**
+   * Insert an empty `conref` / `conkeyref` element at an explicit document offset — the `/` insert
+   * menu and the reusable-snippet dialog both target a pinned position instead of the live cursor.
+   * Returns false when no container at that offset accepts the element.
+   */
+  insertReuseAtPos: (
+    tagName: string,
+    insertPos: number,
+    attrName: ReuseAttrName,
+    value: string,
+  ) => boolean;
+  /**
+   * Replace one block with an empty reuse reference in a single transaction (one undo restores the
+   * original block). Profiling attributes survive; `@id` and the opposite reuse attribute do not.
+   */
+  replaceBlockWithReuse: (blockPos: number, attrName: ReuseAttrName, value: string) => boolean;
   updateAttr: (nodePos: number, attrName: string, value: string | null) => void;
   deleteNode: (nodePos: number) => void;
   moveNode: (nodePos: number, direction: 'up' | 'down') => void;
@@ -191,6 +210,29 @@ export function createVisualEditorHandle(deps: VisualEditorHandleDeps): VisualEd
         ok ? 'visual.announce.conrefDropped' : 'visual.announce.conrefDropBlocked',
         { tag: payload.tagName },
       );
+      return ok;
+    },
+    insertReuseAtPos(tagName, insertPos, attrName, value) {
+      const ok = applyCommand(insertReuseReferenceAtPos(tagName, insertPos, attrName, value));
+      announce(
+        deps,
+        ok ? 'visual.announce.reuseReferenceInserted' : 'visual.announce.reuseReferenceBlocked',
+        { tag: tagName },
+      );
+      return ok;
+    },
+    replaceBlockWithReuse(blockPos, attrName, value) {
+      const view = viewRef.current;
+      if (!view) return false;
+      const node = view.state.doc.nodeAt(blockPos);
+      const tagName = node ? (getPmNodeTagName(node) ?? '') : '';
+      const ok = applyCommand(replaceBlockWithReuseAtPos(blockPos, attrName, value));
+      if (ok) {
+        pinnedPosRef.current = null;
+        announce(deps, 'visual.announce.reuseBlockReplaced', { tag: tagName });
+      } else {
+        announce(deps, 'visual.announce.reuseReplaceBlocked');
+      }
       return ok;
     },
     updateAttr(nodePos, attrName, value) {

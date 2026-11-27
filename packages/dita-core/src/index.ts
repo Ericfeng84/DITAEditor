@@ -45,6 +45,8 @@ export * from './semantics/keyspace.js';
 export * from './semantics/conref.js';
 export * from './semantics/semantic-engine.js';
 
+export * from './semantics/warehouse.js';
+
 // AI assistance fragment engine (target extraction, constraint prompts, verified splicing)
 export * from './ai/index.js';
 

@@ -390,6 +390,33 @@ export interface EditorWorkbenchState {
   renameWorkspaceFile: (fromPath: string, toPath: string) => Promise<void>;
   deleteWorkspaceFile: (filePath: string) => Promise<void>;
 
+  // Reuse warehouse (snippet creation + extraction)
+  /**
+   * Create a resource-only reuse warehouse topic (`reuse/common-snippets.dita` by default) and,
+   * optionally, mount a `keydef` for it in the active root map so `conkeyref` works right away.
+   */
+  createWarehouseTopic: (options: {
+    filePath?: string;
+    title?: string;
+    keyName?: string;
+    lang?: string;
+    mountKeyInRootMap?: boolean;
+  }) => Promise<{ ok: boolean; filePath?: string; keyName?: string }>;
+  /**
+   * Append a reusable element (with a stable semantic id) to a topic and persist it — the caller's
+   * open tab when the file is open, otherwise a single hash-guarded save.
+   */
+  addReusableFragmentToTopic: (options: {
+    targetFilePath: string;
+    tagName: string;
+    elementId: string;
+    textContent?: string;
+    fragmentXml?: string;
+  }) => Promise<
+    | { ok: true; filePath: string; topicId: string; elementId: string; tagName: string }
+    | { ok: false; error: string }
+  >;
+
   // Layout & Cursor Jump UI state
   setLeftSidebarOpen: (open: boolean) => void;
   setLeftSidebarTab: (tab: LeftSidebarTab) => void;

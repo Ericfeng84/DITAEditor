@@ -15,6 +15,7 @@ import {
   CheckCircle2,
   CopyPlus,
   GripVertical,
+  Plus,
   RotateCcw,
   Search,
   ShieldAlert,
@@ -48,6 +49,8 @@ export interface ConrefReusePanelProps {
    * element was inserted so the panel can show inline feedback instead of failing silently.
    */
   onDropAtPoint?: (clientX: number, clientY: number, payload: ConrefDragPayload) => boolean;
+  /** Open the reusable-snippet dialog (create a warehouse topic + snippet in one step). */
+  onCreateSnippet?: () => void;
 }
 
 const MODES = [
@@ -71,6 +74,7 @@ export function ConrefReusePanel({
   onConfirm,
   onConfirmed,
   onDropAtPoint,
+  onCreateSnippet,
 }: ConrefReusePanelProps) {
   const { t } = useI18n();
   const [mode, setMode] = useState<'conkeyref' | 'conref'>('conkeyref');
@@ -265,6 +269,17 @@ export function ConrefReusePanel({
             <CopyPlus className="h-3.5 w-3.5 text-teal-600" aria-hidden="true" />
             {t('conref.title')}
           </h2>
+          {onCreateSnippet ? (
+            <button
+              type="button"
+              onClick={onCreateSnippet}
+              title={t('conref.newSnippetHint')}
+              className="inline-flex shrink-0 items-center gap-0.5 rounded border border-teal-200 bg-white px-1.5 py-0.5 text-[10px] font-medium text-teal-700 hover:bg-teal-50"
+            >
+              <Plus className="h-3 w-3" aria-hidden="true" />
+              {t('conref.newSnippet')}
+            </button>
+          ) : null}
           <span
             className="truncate font-mono text-[10px] text-slate-500"
             title={
@@ -357,10 +372,22 @@ export function ConrefReusePanel({
             </select>
           )}
           {noKeyBoundTopics ? (
-            <p className="mt-1 flex items-start gap-1 text-[10px] leading-snug text-amber-700">
-              <ShieldAlert className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
-              {t('conref.bindHint')}
-            </p>
+            <>
+              <p className="mt-1 flex items-start gap-1 text-[10px] leading-snug text-amber-700">
+                <ShieldAlert className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                {t('conref.bindHint')}
+              </p>
+              {onCreateSnippet ? (
+                <button
+                  type="button"
+                  onClick={onCreateSnippet}
+                  className="mt-1 inline-flex w-full items-center justify-center gap-1 rounded-md border border-dashed border-teal-300 px-2 py-1 text-[10px] font-medium text-teal-700 hover:bg-teal-50"
+                >
+                  <Plus className="h-3 w-3" aria-hidden="true" />
+                  {t('conref.emptyCreateCta')}
+                </button>
+              ) : null}
+            </>
           ) : null}
         </section>
 
@@ -394,9 +421,19 @@ export function ConrefReusePanel({
 
           <div className="dita-scroller min-h-0 flex-1 overflow-y-auto rounded-md border border-slate-200 divide-y divide-slate-100">
             {candidateElements.length === 0 ? (
-              <p className="px-3 py-4 text-center text-[11px] text-slate-400">
-                {t('conref.noCandidates')}
-              </p>
+              <div className="px-3 py-4 text-center">
+                <p className="text-[11px] text-slate-400">{t('conref.noCandidates')}</p>
+                {onCreateSnippet ? (
+                  <button
+                    type="button"
+                    onClick={onCreateSnippet}
+                    className="mt-2 inline-flex items-center justify-center gap-1 rounded-md border border-dashed border-teal-300 px-2 py-1 text-[10px] font-medium text-teal-700 hover:bg-teal-50"
+                  >
+                    <Plus className="h-3 w-3" aria-hidden="true" />
+                    {t('conref.emptyCreateCta')}
+                  </button>
+                ) : null}
+              </div>
             ) : (
               candidateElements.map((el) => {
                 const isPicked =

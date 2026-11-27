@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { DitaElementSpec } from '@dita/core';
-import { CornerDownLeft, Search, X } from 'lucide-react';
+import { CopyPlus, CornerDownLeft, Search, X } from 'lucide-react';
 import type { InsertContextGroup } from './selection-info';
 import { useI18n } from '../../i18n/index.js';
 import { getElementDescription, getElementLabel } from '@dita/core';
@@ -21,8 +21,24 @@ export interface InsertElementMenuProps {
   anchorRect: { top: number; left: number } | null;
   isSlashTrigger?: boolean;
   explicitInsertPos?: number | null;
+  /**
+   * Non-structural entries that always sit at the top of the menu (e.g. "insert reusable
+   * content"). They stay searchable with the same haystack as element specs but never depend on
+   * the selection's content model.
+   */
+  specialActions?: InsertMenuSpecialAction[];
+  onSelectSpecialAction?: (action: InsertMenuSpecialAction) => void;
   onSelect: (choice: InsertElementChoice) => void;
   onClose: () => void;
+}
+
+/** A menu entry that opens a dialog or panel instead of inserting an XML element. */
+export interface InsertMenuSpecialAction {
+  id: string;
+  label: string;
+  hint?: string;
+  /** Extra search tokens (usually translated) matched together with the label. */
+  keywords?: string[];
 }
 
 export function InsertElementMenu({
@@ -31,6 +47,8 @@ export function InsertElementMenu({
   anchorRect,
   isSlashTrigger = false,
   explicitInsertPos = null,
+  specialActions,
+  onSelectSpecialAction,
   onSelect,
   onClose,
 }: InsertElementMenuProps) {
@@ -70,6 +88,18 @@ export function InsertElementMenu({
     return out;
   }, [groups, query, explicitInsertPos]);
 
+  const filteredActions = useMemo<InsertMenuSpecialAction[]>(() => {
+    const list = specialActions ?? [];
+    const q = query.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter((action) =>
+      [action.label, action.hint ?? '', ...(action.keywords ?? [])]
+        .join(' ')
+        .toLowerCase()
+        .includes(q),
+    );
+  }, [specialActions, query]);
+
   useEffect(() => {
     if (!open) return;
     setQuery('');
@@ -81,11 +111,11 @@ export function InsertElementMenu({
     return () => window.cancelAnimationFrame(raf);
   }, [open]);
 
+  const totalCount = filteredActions.length + flattened.length;
+
   useEffect(() => {
-    setActiveIndex((prev) =>
-      flattened.length === 0 ? 0 : Math.min(prev, flattened.length - 1),
-    );
-  }, [flattened.length]);
+    setActiveIndex((prev) => (totalCount === 0 ? 0 : Math.min(prev, totalCount - 1)));
+  }, [totalCount]);
 
   useEffect(() => {
     if (!open) return;
@@ -118,21 +148,26 @@ export function InsertElementMenu({
     }
     if (e.key === 'ArrowDown') {
       e.preventDefault();
-      if (flattened.length > 0) {
-        setActiveIndex((i) => (i + 1) % flattened.length);
+      if (totalCount > 0) {
+        setActiveIndex((i) => (i + 1) % totalCount);
       }
       return;
     }
     if (e.key === 'ArrowUp') {
       e.preventDefault();
-      if (flattened.length > 0) {
-        setActiveIndex((i) => (i - 1 + flattened.length) % flattened.length);
+      if (totalCount > 0) {
+        setActiveIndex((i) => (i - 1 + totalCount) % totalCount);
       }
       return;
     }
     if (e.key === 'Enter') {
       e.preventDefault();
-      const chosen = flattened[activeIndex];
+      if (activeIndex < filteredActions.length) {
+        const action = filteredActions[activeIndex];
+        if (action) onSelectSpecialAction?.(action);
+        return;
+      }
+      const chosen = flattened[activeIndex - filteredActions.length];
       if (chosen) {
         onSelect(chosen);
       }
@@ -187,12 +222,68 @@ export function InsertElementMenu({
       </div>
 
       <div className="dita-scroller min-h-0 flex-1 overflow-y-auto p-1.5">
-        {groupedSections.length === 0 ? (
+        {totalCount === 0 ? (
           <div className="px-3 py-6 text-center text-xs text-slate-400">
             {t('insertMenu.empty')}
           </div>
-        ) : (
-          groupedSections.map((section) => (
+        ) : null}
+        {filteredActions.length > 0 ? (
+          <div className="mb-2">
+            <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+              <span>{t('insertMenu.specialSection')}</span>
+              <span className="rounded bg-teal-50 px-1.5 py-0.5 text-teal-700">
+                {t('insertMenu.specialBadge')}
+              </span>
+            </div>
+            <div className="space-y-0.5">
+              {filteredActions.map((action, actionIndex) => {
+                const isActive = actionIndex === activeIndex;
+                return (
+                  <button
+                    key={action.id}
+                    type="button"
+                    role="option"
+                    aria-selected={isActive}
+                    onMouseEnter={() => setActiveIndex(actionIndex)}
+                    onClick={() => onSelectSpecialAction?.(action)}
+                    className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors ${
+                      isActive ? 'bg-teal-600 text-white' : 'text-slate-700 hover:bg-slate-100'
+                    }`}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-1.5">
+                      <CopyPlus
+                        className={`h-3.5 w-3.5 shrink-0 ${
+                          isActive ? 'text-white' : 'text-teal-600'
+                        }`}
+                        aria-hidden="true"
+                      />
+                      <div className="min-w-0">
+                        <span className="block truncate text-xs font-medium">{action.label}</span>
+                        {action.hint ? (
+                          <p
+                            className={`mt-0.5 truncate text-[11px] ${
+                              isActive ? 'text-teal-100' : 'text-slate-500'
+                            }`}
+                          >
+                            {action.hint}
+                          </p>
+                        ) : null}
+                      </div>
+                    </div>
+                    {isActive ? (
+                      <CornerDownLeft
+                        className="h-3.5 w-3.5 shrink-0 text-teal-200"
+                        aria-hidden="true"
+                      />
+                    ) : null}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+        {groupedSections.length > 0
+          ? groupedSections.map((section) => (
             <div key={section.label} className="mb-2 last:mb-0">
               <div className="flex items-center justify-between px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
                 <span>{section.label}</span>
@@ -208,14 +299,15 @@ export function InsertElementMenu({
               </div>
               <div className="space-y-0.5">
                 {section.items.map(({ choice, flatIndex }) => {
-                  const isActive = flatIndex === activeIndex;
+                  const absoluteIndex = flatIndex + filteredActions.length;
+                  const isActive = absoluteIndex === activeIndex;
                   return (
                     <button
                       key={`${choice.insertKind}-${choice.containerDepth}-${choice.spec.tag}`}
                       type="button"
                       role="option"
                       aria-selected={isActive}
-                      onMouseEnter={() => setActiveIndex(flatIndex)}
+                      onMouseEnter={() => setActiveIndex(absoluteIndex)}
                       onClick={() => onSelect(choice)}
                       className={`flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left transition-colors ${
                         isActive
@@ -259,7 +351,7 @@ export function InsertElementMenu({
               </div>
             </div>
           ))
-        )}
+          : null}
       </div>
 
       <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50 px-3 py-1.5 text-[10px] text-slate-500">

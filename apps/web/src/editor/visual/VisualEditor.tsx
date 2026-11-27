@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
   type ReactNode,
@@ -14,6 +15,9 @@ import type { Node as PMNode } from 'prosemirror-model';
 import {
   checkChildRemoval,
   getPmChildTags,
+  getPmNodeRawAttrs,
+  getRawAttr,
+  serializePmBlockToXml,
   type DitavalDisplayMode,
   type DocumentSemanticOverlay,
   type ParsedDitaval,
@@ -25,6 +29,7 @@ import {
 import type { TagDisplayMode } from '../../store/editor-store';
 import { getCurrentLocale, translate, useI18n } from '../../i18n/index.js';
 import {
+  REUSE_EXCLUDED_BLOCK_TAGS,
   convertDitaBlockAtPos,
   deleteDitaNodeAtPos,
   duplicateDitaBlockAtPos,
@@ -38,7 +43,7 @@ import { DITA_DECORATIONS_KEY, type BlockGapOpenMenuPayload } from './decoration
 import { DITA_STRUCTURE_KEY } from './structure-decorations';
 import { resolveTaskModelForDocument } from '../structure-options';
 import { SemanticViewRegistry } from './node-views';
-import { InsertElementMenu, type InsertElementChoice } from './InsertElementMenu';
+import { InsertElementMenu, type InsertElementChoice, type InsertMenuSpecialAction } from './InsertElementMenu';
 import { InlineBubbleToolbar } from './InlineBubbleToolbar';
 import { BlockHandle } from './BlockHandle';
 import { buildBlockInsertGroups, readGapContainerChildTags } from './insert-context';
@@ -65,6 +70,17 @@ import {
 
 export type { VisualEditorHandle };
 
+/**
+ * Blocks that carry a topic's identity or its structural skeleton: turning one of them into a
+ * `conref` / `conkeyref` reference would break the topic, so they are never offered as snippets.
+ */
+const NON_REUSABLE_BLOCK_TAGS: ReadonlySet<string> = REUSE_EXCLUDED_BLOCK_TAGS;
+
+/** Flatten a block's text into a short single-line preview for the snippet dialog. */
+function previewTextOf(node: PMNode): string {
+  return node.textContent.replace(/\s+/g, ' ').trim().slice(0, 120);
+}
+
 export interface VisualEditorProps {
   xml: string;
   reloadToken: number;
@@ -90,6 +106,21 @@ export interface VisualEditorProps {
     },
   ) => void;
   onOpenXrefDialog: () => void;
+  /**
+   * Open the reuse inspector tab. `insertContext.insertPos` pins the insertion offset when the
+   * request came from the `/` or `+` insert menu, so the confirmed snippet lands there instead of
+   * at the live caret.
+   */
+  onOpenConrefDialog?: (insertContext?: { insertPos?: number }) => void;
+  /** "Make Reusable (Assign ID)": the host assigns a semantic id and opens the snippet dialog. */
+  onMakeBlockReusable?: (payload: { pos: number; tagName: string; previewText: string }) => void;
+  /** "Extract to Reuse Warehouse…": the host opens the snippet dialog pre-filled with the XML. */
+  onExtractBlockToReuse?: (payload: {
+    pos: number;
+    tagName: string;
+    previewText: string;
+    fragmentXml: string;
+  }) => void;
   onAiRequest?: (kind: 'rewrite' | 'ask') => void;
   onAnnounce?: (msg: string) => void;
   resolveImageSrc?: (href: string) => string | null;
@@ -132,6 +163,9 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       onDocChange,
       onSnapshotChange,
       onOpenXrefDialog,
+      onOpenConrefDialog,
+      onMakeBlockReusable,
+      onExtractBlockToReuse,
       onAiRequest,
       onAnnounce,
       resolveImageSrc,
@@ -176,12 +210,16 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     const onDocChangeRef = useRef(onDocChange);
     const onSnapshotRef = useRef(onSnapshotChange);
     const onXrefRef = useRef(onOpenXrefDialog);
+    const onMakeReusableRef = useRef(onMakeBlockReusable);
+    const onExtractReuseRef = useRef(onExtractBlockToReuse);
     const onAnnounceRef = useRef(onAnnounce);
     const resolveImageSrcRef = useRef(resolveImageSrc);
     onXmlChangeRef.current = onXmlChange;
     onDocChangeRef.current = onDocChange;
     onSnapshotRef.current = onSnapshotChange;
     onXrefRef.current = onOpenXrefDialog;
+    onMakeReusableRef.current = onMakeBlockReusable;
+    onExtractReuseRef.current = onExtractBlockToReuse;
     onAnnounceRef.current = onAnnounce;
     resolveImageSrcRef.current = resolveImageSrc;
 
@@ -575,6 +613,35 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       setBlockHandle(null);
     }, [blockHandle]);
 
+    const makeBlockReusable = useCallback(() => {
+      const view = viewRef.current;
+      const target = blockHandle?.target;
+      if (!view || !target) return;
+      const node = view.state.doc.nodeAt(target.blockPos) ?? target.blockNode;
+      setBlockMenuOpen(false);
+      setBlockHandle(null);
+      onMakeReusableRef.current?.({
+        pos: target.blockPos,
+        tagName: target.blockTag,
+        previewText: previewTextOf(node),
+      });
+    }, [blockHandle]);
+
+    const extractBlockToReuse = useCallback(() => {
+      const view = viewRef.current;
+      const target = blockHandle?.target;
+      if (!view || !target) return;
+      const node = view.state.doc.nodeAt(target.blockPos) ?? target.blockNode;
+      setBlockMenuOpen(false);
+      setBlockHandle(null);
+      onExtractReuseRef.current?.({
+        pos: target.blockPos,
+        tagName: target.blockTag,
+        previewText: previewTextOf(node),
+        fragmentXml: serializePmBlockToXml(node),
+      });
+    }, [blockHandle]);
+
     const deleteBlock = useCallback(() => {
       const view = viewRef.current;
       const target = blockHandle?.target;
@@ -750,26 +817,30 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       [emitSnapshot],
     );
 
+    // Remove the leading `/` trigger character once a menu entry is consumed (slash command).
+    const consumeSlashTrigger = useCallback(() => {
+      const view = viewRef.current;
+      if (!view) return;
+      if (slashPosRef.current === null) return;
+      const sPos = slashPosRef.current;
+      slashPosRef.current = null;
+      if (
+        sPos >= 0 &&
+        sPos + 1 <= view.state.doc.content.size &&
+        view.state.doc.textBetween(sPos, sPos + 1) === '/'
+      ) {
+        const tr = view.state.tr.delete(sPos, sPos + 1);
+        tr.setSelection(TextSelection.create(tr.doc, sPos));
+        view.dispatch(tr);
+      }
+    }, []);
+
     const handleInsertChoice = (choice: InsertElementChoice) => {
       const view = viewRef.current;
       setInsertMenuOpen(false);
       setGapInsertContext(null);
+      if (view) consumeSlashTrigger();
       if (!view) return;
-
-      // Remove leading `/` trigger character if opened via slash command
-      if (slashPosRef.current !== null) {
-        const sPos = slashPosRef.current;
-        slashPosRef.current = null;
-        if (
-          sPos >= 0 &&
-          sPos + 1 <= view.state.doc.content.size &&
-          view.state.doc.textBetween(sPos, sPos + 1) === '/'
-        ) {
-          const tr = view.state.tr.delete(sPos, sPos + 1);
-          tr.setSelection(TextSelection.create(tr.doc, sPos));
-          view.dispatch(tr);
-        }
-      }
 
       if (choice.insertPos !== undefined) {
         insertBlockDitaElementAtPos(choice.spec.tag, choice.insertPos)(
@@ -791,6 +862,36 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       view.focus();
       onAnnounceRef.current?.(translate(getCurrentLocale(), 'visual.announce.insertedTag', { tag: choice.spec.tag }));
     };
+
+    const handleInsertSpecialAction = (action: InsertMenuSpecialAction) => {
+      const explicitPos = gapInsertContext?.insertPos ?? null;
+      setInsertMenuOpen(false);
+      setGapInsertContext(null);
+      setInsertMenuInlineOnly(false);
+      consumeSlashTrigger();
+      if (action.id === 'reuse') {
+        onOpenConrefDialog?.(explicitPos !== null ? { insertPos: explicitPos } : undefined);
+        return;
+      }
+      viewRef.current?.focus();
+    };
+
+    // Reuse entry points are always offered next to the element list: authors who think in
+    // "insert the note I already wrote" should not have to guess the conref/copy-workflow.
+    const insertMenuSpecialActions = useMemo<InsertMenuSpecialAction[]>(() => {
+      if (readOnly || !onOpenConrefDialog) return [];
+      return [
+        {
+          id: 'reuse',
+          label: t('insertMenu.reuseSnippet'),
+          hint: t('insertMenu.reuseSnippetHint'),
+          keywords: t('insertMenu.reuseKeywords')
+            .split(',')
+            .map((token) => token.trim())
+            .filter(Boolean),
+        },
+      ];
+    }, [readOnly, onOpenConrefDialog, t]);
 
     const activeMenuGroups = insertMenuInlineOnly
       ? (gapInsertContext?.groups ?? latestSnapshot?.insertGroups ?? [])
@@ -850,6 +951,22 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             ? t('block.deleteBlockedLast', { tag: blockDeleteObstacle.childTag, parent: blockDeleteObstacle.parentTag })
             : t('block.deleteBlockedRequired', { tag: blockDeleteObstacle.childTag, parent: blockDeleteObstacle.parentTag })
       : null;
+    const blockLiveNode =
+      blockHandle && viewRef.current
+        ? (viewRef.current.state.doc.nodeAt(blockHandle.target.blockPos) ??
+          blockHandle.target.blockNode)
+        : null;
+    const blockLiveAttrs = blockLiveNode ? getPmNodeRawAttrs(blockLiveNode) : [];
+    const blockHasId = Boolean(getRawAttr(blockLiveAttrs, 'id'));
+    const blockCanMakeReusable = Boolean(
+      blockHandle &&
+        blockLiveNode &&
+        !readOnly &&
+        blockHandle.target.blockPos > 0 &&
+        !getRawAttr(blockLiveAttrs, 'conref') &&
+        !getRawAttr(blockLiveAttrs, 'conkeyref') &&
+        !NON_REUSABLE_BLOCK_TAGS.has(blockHandle.target.blockTag),
+    );
     const blockMenuOptions =
       blockMenuOpen && blockHandle
         ? getBlockConvertOptions(
@@ -896,6 +1013,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             anchorRect={insertMenuAnchor}
             isSlashTrigger={insertIsSlash}
             explicitInsertPos={gapInsertContext?.insertPos ?? null}
+            specialActions={insertMenuSpecialActions}
+            onSelectSpecialAction={handleInsertSpecialAction}
             onSelect={handleInsertChoice}
             onClose={() => {
               slashPosRef.current = null;
@@ -939,6 +1058,10 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
               canDuplicate={blockCanDuplicate}
               canDelete={blockDeleteObstacle === null}
               deleteBlockedReason={blockDeleteBlockedReason}
+              canMakeReusable={blockCanMakeReusable}
+              hasId={blockHasId}
+              onMakeReusable={makeBlockReusable}
+              onExtractToReuse={extractBlockToReuse}
               onInsert={openInsertMenuAfterBlock}
               onToggleMenu={() => setBlockMenuOpen((open) => !open)}
               onStartDrag={startBlockDrag}

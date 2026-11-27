@@ -14,6 +14,7 @@ import {
   getPmChildTags,
   getRawAttr,
   makeConrefOverlayKey,
+  serializePmBlockToXml,
   type DitaAttributeGroup,
   type DitaAttributeSpec,
   type DitaProfilingAttrName,
@@ -28,6 +29,7 @@ import {
   ArrowDown,
   ArrowUp,
   ArrowUpLeft,
+  Archive,
   ChevronDown,
   ChevronRight,
   CopyPlus,
@@ -58,6 +60,15 @@ export interface AttributesPanelProps {
   profilingCatalog?: Partial<Record<DitaProfilingAttrName, string[]>>;
   onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
   onOpenConrefDialog?: () => void;
+  /** "Make Reusable (Assign ID)" for the selected block (opens the snippet dialog). */
+  onMakeReusable?: (payload: { pos: number; tagName: string; previewText: string }) => void;
+  /** "Extract to Reuse Warehouse…" for the selected block. */
+  onExtractToReuse?: (payload: {
+    pos: number;
+    tagName: string;
+    previewText: string;
+    fragmentXml: string;
+  }) => void;
   onUpdateAttr: (nodePos: number, attrName: string, value: string | null) => void;
   onSelectBreadcrumb: (pos: number) => void;
   onMoveNode: (nodePos: number, direction: 'up' | 'down') => void;
@@ -98,6 +109,8 @@ export function AttributesPanel({
   profilingCatalog = {},
   onJumpToSource,
   onOpenConrefDialog,
+  onMakeReusable,
+  onExtractToReuse,
   onUpdateAttr,
   onSelectBreadcrumb,
   onMoveNode,
@@ -186,6 +199,8 @@ export function AttributesPanel({
 
   const conkeyrefVal = getRawAttr(rawAttrs, 'conkeyref')?.trim();
   const conrefVal = getRawAttr(rawAttrs, 'conref')?.trim();
+  const idVal = getRawAttr(rawAttrs, 'id')?.trim() ?? '';
+  const blockPreviewText = activeItem.node.textContent.replace(/\s+/g, ' ').trim().slice(0, 120);
   const conrefendVal = getRawAttr(rawAttrs, 'conrefend')?.trim() || undefined;
   const activeConrefAttr = conkeyrefVal ? 'conkeyref' : conrefVal ? 'conref' : null;
   const activeConrefVal = conkeyrefVal ?? conrefVal ?? '';
@@ -633,6 +648,43 @@ export function AttributesPanel({
                             <KeyRound className="h-3.5 w-3.5" aria-hidden="true" />
                             {t('attributes.newFileKey')}
                           </button>
+                        ) : null}
+                        {!activeConrefAttr && !isRootElement && (onMakeReusable || onExtractToReuse) ? (
+                          <div className="flex flex-wrap gap-1.5">
+                            {onMakeReusable && !idVal ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onMakeReusable({
+                                    pos: activeItem.pos,
+                                    tagName,
+                                    previewText: blockPreviewText,
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <Tag className="h-3 w-3" aria-hidden="true" />
+                                {t('block.makeReusable')}
+                              </button>
+                            ) : null}
+                            {onExtractToReuse ? (
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  onExtractToReuse({
+                                    pos: activeItem.pos,
+                                    tagName,
+                                    previewText: blockPreviewText,
+                                    fragmentXml: serializePmBlockToXml(activeItem.node),
+                                  })
+                                }
+                                className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-700 hover:bg-slate-50"
+                              >
+                                <Archive className="h-3 w-3" aria-hidden="true" />
+                                {t('block.extractToReuse')}
+                              </button>
+                            ) : null}
+                          </div>
                         ) : null}
                         {resolvedConref ? (
                           <div

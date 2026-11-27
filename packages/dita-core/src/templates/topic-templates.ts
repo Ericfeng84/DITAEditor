@@ -282,6 +282,63 @@ export function createTopicTemplate(
   }
 }
 
+/**
+ * Generate a Reuse Warehouse `<topic>`: a resource-only container for shared `conref` fragments.
+ *
+ * Per `docs/dita/dita_topic.md` §7 the body stays deliberately empty (no demo sections that would
+ * pollute reuse candidate lists) and carries an explanatory XML comment instead: every reusable
+ * element needs a globally unique, self-describing `@id` plus a comment describing its usage, and
+ * the topic must be mounted with `processing-role="resource-only"` so it never reaches the TOC.
+ */
+export function createWarehouseTopicTemplate(
+  options: CreateTopicTemplateOptions = {},
+): string {
+  const lang = options.lang ?? 'zh-CN';
+  const id = sanitizeId(options.id ?? 'topic_warehouse', 'topic_warehouse');
+
+  if (/^en\b/i.test(lang)) {
+    const title = escapeText(options.title ?? 'Reuse Warehouse Topic');
+    const shortdesc = escapeText(
+      options.shortdesc ??
+        'Stores fragments reused across topics (note, ph, table, section) for conref/conkeyref only; never published as a page.',
+    );
+    return [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">',
+      `<topic id="${id}" xml:lang="${lang}">`,
+      `  <title>${title}</title>`,
+      `  <shortdesc>${shortdesc}</shortdesc>`,
+      '  <body>',
+      '    <!-- Reusable fragments: give every fragment a globally unique, self-describing id (for example',
+      '         note_restart_required) and a comment above it describing when to reuse it. Mount this topic in',
+      '         the DITA Map with processing-role="resource-only" so it never appears in navigation or output. -->',
+      '  </body>',
+      '</topic>',
+      '',
+    ].join('\n');
+  }
+
+  const title = escapeText(options.title ?? '复用仓库主题');
+  const shortdesc = escapeText(
+    options.shortdesc ??
+      '集中存放跨主题复用的片段（note、ph、table、section），仅供 conref/conkeyref 引用，不作为独立页面发布。',
+  );
+  return [
+    '<?xml version="1.0" encoding="UTF-8"?>',
+    '<!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">',
+    `<topic id="${id}" xml:lang="${lang}">`,
+    `  <title>${title}</title>`,
+    `  <shortdesc>${shortdesc}</shortdesc>`,
+    '  <body>',
+    '    <!-- 复用片段说明：每个可复用元素都必须有全局唯一、自解释的语义 id（例如 note_restart_required），',
+    '         并在其上方用 XML 注释写明适用场景。本主题请在 DITA Map 中以',
+    '         <keydef keys="..." processing-role="resource-only"/> 引入，避免进入目录与最终输出。 -->',
+    '  </body>',
+    '</topic>',
+    '',
+  ].join('\n');
+}
+
 export const DITA_SAMPLE_DOCUMENTS: readonly DitaSampleDocument[] = [
   {
     id: 'sample-concept',

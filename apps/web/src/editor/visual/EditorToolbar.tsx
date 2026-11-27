@@ -283,7 +283,7 @@ export function EditorToolbar({
               onClick={() => invokeIfEnabled(false, onOpenConrefDialog)}
             >
               <CopyPlus className="h-3.5 w-3.5" aria-hidden="true" />
-              <span className="hidden 2xl:inline">{t('toolbar.reuse')}</span>
+              <span className="hidden lg:inline">{t('toolbar.reuse')}</span>
             </button>
           ) : null}
         </div>

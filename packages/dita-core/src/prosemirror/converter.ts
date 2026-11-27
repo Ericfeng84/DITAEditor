@@ -732,6 +732,17 @@ export function xmlToPmDoc(
 }
 
 /**
+ * Serialize a single ProseMirror block node (a `dita_p`, `dita_note`, `dita_table`, …) into a
+ * standalone deterministic XML string — the shape AI proposals, `conref` fragments and warehouse
+ * snippets need. `rawAttrs` order and nested inline nodes are preserved verbatim.
+ */
+export function serializePmBlockToXml(node: PMNode): string {
+  const doc = new slimdom.Document();
+  appendPmNodeToDom(doc, doc, node);
+  return serializeXml(doc, { includeXmlDeclaration: false, trailingNewline: false });
+}
+
+/**
  * Convenience pipeline: ProseMirror Doc -> slimdom -> deterministic XML string.
  */
 export function pmDocToXml(pmDoc: PMNode, options?: SerializeXmlOptions): string {

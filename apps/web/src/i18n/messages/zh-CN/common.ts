@@ -176,11 +176,18 @@ export const zhCNCommon = {
   'status.mapTitleUpdated': '已更新 Map 标题',
   'status.nodeRemoved': '已从 Map 中移除节点',
   'status.created': '已新建 {path}',
+  'status.warehouseCreated': '已创建复用仓库 Topic {path}',
   'status.createdActive': '已新建并激活 {path}',
   'status.imported': '已导入 {path}',
   'status.createdDir': '已创建目录 {path}',
   'status.renamed': '已重命名 {from} -> {to}',
   'status.deleted': '已删除 {path}',
+
+  'reuse.invalidKeyName': 'Key 名称 {key} 不合法：只能包含字母、数字、下划线、点和连字符，且不能以点或连字符开头。',
+  'reuse.checkoutBlocked': '无法签出 {path}：{message}',
+  'reuse.readFailed': '读取 {path} 失败：{message}',
+  'reuse.fileMissing': '找不到文件 {path}',
+  'reuse.saveFailed': '保存 {path} 失败',
 
   // --- file explorer + keyspace -------------------------------------------
   'files.setRootTooltip': '设为当前激活 Root Map',

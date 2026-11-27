@@ -9,3 +9,4 @@ export * from './block-commands.js';
 export * from './drop-commands.js';
 export * from './enter-commands.js';
 export * from './node-edit-commands.js';
+export * from './reuse-commands.js';

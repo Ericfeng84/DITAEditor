@@ -1,5 +1,5 @@
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
-import { Copy, GripVertical, Plus, Trash2 } from 'lucide-react';
+import { Archive, Copy, GripVertical, Plus, Tag, Trash2 } from 'lucide-react';
 import type { BlockConvertOption } from './block-transforms';
 import { useI18n } from '../../i18n/index.js';
 import type { MessageKey } from '../../i18n/messages/index.js';
@@ -23,6 +23,14 @@ export interface BlockHandleProps {
   canDelete: boolean;
   /** Localized explanation shown while the delete action is refused. */
   deleteBlockedReason: string | null;
+  /** Whether this block can become a warehouse snippet (structural blocks and reuse refs cannot). */
+  canMakeReusable?: boolean;
+  /** Whether the block already carries an `@id` (then only "extract" makes sense). */
+  hasId?: boolean;
+  /** Assign a semantic id to this block (first step of "make reusable"). */
+  onMakeReusable?: () => void;
+  /** Save this block to the reuse warehouse and optionally swap in a conref reference. */
+  onExtractToReuse?: () => void;
   onInsert: () => void;
   onToggleMenu: () => void;
   onStartDrag: (event: React.PointerEvent<HTMLButtonElement>) => void;
@@ -59,6 +67,10 @@ export function BlockHandle({
   canDuplicate,
   canDelete,
   deleteBlockedReason,
+  canMakeReusable = false,
+  hasId = false,
+  onMakeReusable,
+  onExtractToReuse,
   onInsert,
   onToggleMenu,
   onStartDrag,
@@ -184,6 +196,23 @@ export function BlockHandle({
             ) : null}
           </div>
           <div className="dita-block-menu-sep" role="separator" />
+          {canMakeReusable && !hasId && onMakeReusable ? (
+            <button type="button" role="menuitem" className="dita-block-menu-action" onClick={onMakeReusable}>
+              <Tag size={12} aria-hidden />
+              {t('block.makeReusable')}
+            </button>
+          ) : null}
+          {canMakeReusable && onExtractToReuse ? (
+            <button
+              type="button"
+              role="menuitem"
+              className="dita-block-menu-action"
+              onClick={onExtractToReuse}
+            >
+              <Archive size={12} aria-hidden />
+              {t('block.extractToReuse')}
+            </button>
+          ) : null}
           <button
             type="button"
             role="menuitem"

@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type PointerEvent as
 import { Group, Panel, Separator } from 'react-resizable-panels';
 import {
   checkXmlWellFormed,
+  collectTopicElementIds,
   detectTaskContentModel,
   dirnamePosix,
   findDomElementByPath,
   findElementPathAtOffset,
+  generateSemanticElementId,
   getNodeSourceRange,
   getPmDocTitle,
   getPmNodeTagName,
@@ -36,6 +38,13 @@ import { LockStatusBar } from './components/LockStatusBar';
 import { ReadOnlyBanner } from './components/ReadOnlyBanner';
 import { NewMapDialog } from './components/NewMapDialog';
 import { NewTopicDialog, type NewTopicMountContext } from './components/NewTopicDialog';
+import {
+  CreateReusableSnippetDialog,
+  resolveWarehouseTargetValue,
+  type ReuseSnippetMode,
+  type ReuseSnippetExtractSource,
+  type ReuseSnippetSubmission,
+} from './components/CreateReusableSnippetDialog';
 import { ProblemsPanel } from './components/ProblemsPanel';
 import { PublishDialog } from './components/publish/PublishDialog';
 import { StrictValidationDialog } from './components/publish/StrictValidationDialog';
@@ -241,6 +250,8 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const createWorkspaceFolder = useEditorStore((s) => s.createWorkspaceFolder);
   const renameWorkspaceFile = useEditorStore((s) => s.renameWorkspaceFile);
   const deleteWorkspaceFile = useEditorStore((s) => s.deleteWorkspaceFile);
+  const createWarehouseTopic = useEditorStore((s) => s.createWarehouseTopic);
+  const addReusableFragmentToTopic = useEditorStore((s) => s.addReusableFragmentToTopic);
 
   const setLeftSidebarOpen = useEditorStore((s) => s.setLeftSidebarOpen);
   const setLeftSidebarTab = useEditorStore((s) => s.setLeftSidebarTab);
@@ -772,6 +783,22 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [fileTree],
   );
 
+  /** Reuse target candidates + the ids already taken in each of them (dialog-side validation). */
+  const reuseTopicFiles = useMemo(
+    () =>
+      workspaceTopics.map((path) =>
+        topicTitles[path] ? { path, title: topicTitles[path] } : { path },
+      ),
+    [workspaceTopics, topicTitles],
+  );
+  const reuseExistingIdsByFile = useMemo(() => {
+    const out: Record<string, string[]> = {};
+    for (const entry of topicIndices) {
+      out[entry.filePath] = entry.elements.map((element) => element.elementId);
+    }
+    return out;
+  }, [topicIndices]);
+
   const visualRef = useRef<VisualEditorHandle | null>(null);
   const sourceCursorOffsetRef = useRef<number>(0);
 
@@ -798,6 +825,12 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const [refDialogMode, setRefDialogMode] = useState<'xref' | 'image' | null>(null);
   const [keyrefDialogOpen, setKeyrefDialogOpen] = useState(false);
   const [inspectorTab, setInspectorTab] = useState<InspectorTab>('attributes');
+  const [reuseDialog, setReuseDialog] = useState<{
+    mode: ReuseSnippetMode;
+    source?: ReuseSnippetExtractSource;
+  } | null>(null);
+  /** Caret the `/` insert menu was opened at, so a snippet lands there instead of the selection. */
+  const pendingReuseInsertPosRef = useRef<number | null>(null);
 
   const {
     computeAiTarget,
@@ -965,12 +998,26 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [],
   );
 
-  /** Right-inspector "复用" tab is the single entry point for conref / conkeyref work. */
-  const openReuseTab = useCallback(() => {
-    setInspectorOpen(true);
-    setInspectorTarget('topic');
-    setInspectorTab('reuse');
-  }, [setInspectorOpen, setInspectorTarget]);
+  /**
+   * Right-inspector "复用" tab is the single entry point for conref / conkeyref work. When the
+   * caller already knows where the reference belongs (the `/` insert menu), that caret is
+   * remembered so the dialog inserts there rather than at the live selection.
+   */
+  const openReuseTab = useCallback(
+    (insertContext?: { insertPos?: number }) => {
+      pendingReuseInsertPosRef.current = insertContext?.insertPos ?? null;
+      setInspectorOpen(true);
+      setInspectorTarget('topic');
+      setInspectorTab('reuse');
+    },
+    [setInspectorOpen, setInspectorTarget],
+  );
+
+  // Leaving the reuse tab (or re-selecting something) drops the remembered caret: it only ever
+  // belongs to the insert-menu invocation that opened the tab.
+  useEffect(() => {
+    if (inspectorTab !== 'reuse') pendingReuseInsertPosRef.current = null;
+  }, [inspectorTab]);
 
   const handleConfirmConref = useCallback(
     (opts: {
@@ -988,8 +1035,21 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         return;
       }
 
-      const initialAttrs: RawAttrs = [{ name: opts.attrName, value: opts.value, namespaceURI: null }];
       const editor = visualRef.current;
+      const pendingPos = pendingReuseInsertPosRef.current;
+      pendingReuseInsertPosRef.current = null;
+      if (pendingPos !== null) {
+        const insertedAtPos =
+          editor?.insertReuseAtPos(opts.tagName, pendingPos, opts.attrName, opts.value) ?? false;
+        announce(
+          insertedAtPos
+            ? t('app.conrefInserted', { tag: opts.tagName, attr: opts.attrName, value: opts.value })
+            : t('app.conrefCannotInsert', { tag: opts.tagName }),
+        );
+        return;
+      }
+
+      const initialAttrs: RawAttrs = [{ name: opts.attrName, value: opts.value, namespaceURI: null }];
       const inserted =
         editor === null
           ? false
@@ -1003,7 +1063,146 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
       }
       announce(t('app.conrefInserted', { tag: opts.tagName, attr: opts.attrName, value: opts.value }));
     },
-    [snapshot, announce],
+    [snapshot, announce, t],
+  );
+
+  /** "Make reusable" assigns a unique semantic id, then leaves the attributes panel open for refining. */
+  const handleMakeBlockReusable = useCallback(
+    (payload: { pos: number; tagName: string; previewText: string }) => {
+      const editor = visualRef.current;
+      if (!editor) return;
+      // One click must produce a usable reuse target: assign a unique semantic id derived from the
+      // block's own text, then keep the attributes panel open so the author can refine it.
+      const existingIds = collectTopicElementIds(activeTab?.xml ?? '');
+      const nextId = generateSemanticElementId(payload.tagName, payload.previewText, existingIds);
+      if (!nextId) {
+        announce(t('visual.announce.reuseIdPrompt', { tag: payload.tagName }));
+        return;
+      }
+      editor.updateAttr(payload.pos, 'id', nextId);
+      editor.selectNode(payload.pos, true);
+      setInspectorOpen(true);
+      setInspectorTarget('topic');
+      setInspectorTab('attributes');
+      announce(t('visual.announce.reuseIdAssigned', { tag: payload.tagName, id: nextId }));
+    },
+    [activeTab, announce, setInspectorOpen, setInspectorTarget, t],
+  );
+
+  const handleExtractBlockToReuse = useCallback(
+    (payload: { pos: number; tagName: string; previewText: string; fragmentXml: string }) => {
+      setReuseDialog({ mode: 'extract', source: payload });
+    },
+    [],
+  );
+
+  const handleOpenCreateSnippet = useCallback(() => {
+    setReuseDialog({ mode: 'create' });
+  }, []);
+
+  /** The key (if any) the current Root Map binds to `filePath`, so `conkeyref` wins over `conref`. */
+  const keyForFile = useCallback(
+    (filePath: string): string | null => {
+      if (!keyspace) return null;
+      const normalize = (value: string) => value.replace(/^\.\//, '').replace(/\\/g, '/');
+      const target = normalize(filePath);
+      for (const key of Object.values(keyspace.keys)) {
+        if (key.isExternal || !key.resolvedHref) continue;
+        if (normalize(key.resolvedHref) === target) return key.qualifiedKey;
+      }
+      return null;
+    },
+    [keyspace],
+  );
+
+  const handleSubmitReuseSnippet = useCallback(
+    async (payload: ReuseSnippetSubmission): Promise<{ ok: boolean; error?: string }> => {
+      let targetFilePath: string;
+      let keyName: string | null = null;
+
+      if (payload.target.kind === 'new') {
+        const created = await createWarehouseTopic({
+          filePath: payload.target.filePath,
+          mountKeyInRootMap: payload.target.mountKeyInRootMap,
+          ...(payload.target.title ? { title: payload.target.title } : {}),
+          ...(payload.target.keyName ? { keyName: payload.target.keyName } : {}),
+        });
+        if (!created.ok || !created.filePath) {
+          return { ok: false, error: t('reuseDialog.errorGeneric') };
+        }
+        targetFilePath = created.filePath;
+        keyName = created.keyName ?? (payload.target.keyName || null);
+      } else {
+        targetFilePath = payload.target.filePath;
+        keyName = keyForFile(targetFilePath);
+      }
+
+      // A reference inserted into the file we are about to rewrite must go in *before* the write:
+      // saving an open tab reloads the ProseMirror doc, which would invalidate a remembered caret.
+      let insertedBeforeSave = false;
+      if (
+        payload.mode === 'create' &&
+        payload.insertReference &&
+        payload.target.kind === 'existing' &&
+        targetFilePath === activeTabPath
+      ) {
+        const handle = visualRef.current;
+        const pendingPos = pendingReuseInsertPosRef.current;
+        pendingReuseInsertPosRef.current = null;
+        const insertPos = pendingPos ?? handle?.getCurrentPmState()?.selection.from ?? null;
+        if (handle && insertPos !== null) {
+          const early = resolveWarehouseTargetValue({
+            keyName,
+            activeDocPath: activeTabPath,
+            targetFilePath,
+            elementId: payload.elementId,
+          });
+          insertedBeforeSave = handle.insertReuseAtPos(
+            payload.tagName,
+            insertPos,
+            early.attrName,
+            early.value,
+          );
+        }
+      }
+
+      const saved = await addReusableFragmentToTopic({
+        targetFilePath,
+        tagName: payload.tagName,
+        elementId: payload.elementId,
+        ...(payload.textContent ? { textContent: payload.textContent } : {}),
+        ...(payload.fragmentXml ? { fragmentXml: payload.fragmentXml } : {}),
+      });
+      if (!saved.ok) return { ok: false, error: saved.error };
+
+      const { attrName, value } = resolveWarehouseTargetValue({
+        keyName,
+        activeDocPath: activeTabPath,
+        targetFilePath: saved.filePath,
+        elementId: saved.elementId,
+      });
+
+      if (payload.mode === 'extract') {
+        if (payload.extractAction === 'replace' && payload.sourcePos !== undefined) {
+          visualRef.current?.replaceBlockWithReuse(payload.sourcePos, attrName, value);
+        }
+        return { ok: true };
+      }
+
+      if (payload.insertReference && !insertedBeforeSave && visualRef.current) {
+        const handle = visualRef.current;
+        const pendingPos = pendingReuseInsertPosRef.current;
+        pendingReuseInsertPosRef.current = null;
+        const caret = handle.getCurrentPmState()?.selection.from ?? null;
+        const insertPos = pendingPos ?? caret;
+        if (insertPos !== null) {
+          handle.insertReuseAtPos(saved.tagName, insertPos, attrName, value);
+        }
+      }
+
+      return { ok: true };
+    },
+    [addReusableFragmentToTopic, activeTabPath, createWarehouseTopic, keyForFile, t],
   );
 
   const handleSelectBreadcrumb = useCallback((crumb: BreadcrumbItem) => {
@@ -1874,6 +2073,9 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                             onDocChange={setVisualDoc}
                                             onAiRequest={handleVisualAiRequest}
                                             onOpenXrefDialog={() => setRefDialogMode('xref')}
+                                            onOpenConrefDialog={openReuseTab}
+                                            onMakeBlockReusable={handleMakeBlockReusable}
+                                            onExtractBlockToReuse={handleExtractBlockToReuse}
                                             onAnnounce={announce}
                                             resolveImageSrc={resolveImageSrcForActiveTab}
                                             semanticOverlay={documentOverlays[activeTab.path] ?? null}
@@ -2063,6 +2265,8 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                               onJumpToSource: (filePath, line, elementId) =>
                                 void jumpToSemanticLocation(filePath, { line, elementId }),
                               onOpenConrefDialog: openReuseTab,
+                              onMakeReusable: handleMakeBlockReusable,
+                              onExtractToReuse: handleExtractBlockToReuse,
                               onUpdateAttr: (pos, name, val) =>
                                 visualRef.current?.updateAttr(pos, name, val),
                               onSelectBreadcrumb: (pos) => visualRef.current?.selectNode(pos, true),
@@ -2100,6 +2304,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                               onResolvePreview: resolveConrefPreview,
                               onConfirm: handleConfirmConref,
                               onConfirmed: () => setInspectorTab('attributes'),
+                              onCreateSnippet: handleOpenCreateSnippet,
                               onDropAtPoint: (clientX, clientY, payload) =>
                                 visualRef.current?.insertReuseAtPoint(clientX, clientY, payload) ??
                                 false,
@@ -2169,6 +2374,23 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         open={newMapOpen}
         onClose={() => setNewMapOpen(false)}
         onCreate={(opts) => void createNewMapFile(opts)}
+      />
+
+      <CreateReusableSnippetDialog
+        open={reuseDialog !== null}
+        mode={reuseDialog?.mode ?? 'create'}
+        source={reuseDialog?.source ?? null}
+        activeDocPath={activeTabPath}
+        topicFiles={reuseDialog?.mode === 'extract'
+          ? reuseTopicFiles.filter((file) => file.path !== activeTabPath)
+          : reuseTopicFiles}
+        existingIdsByFile={reuseExistingIdsByFile}
+        canInsertInActiveDoc={canEdit && Boolean(activeTab) && !isActiveMapTab}
+        readOnly={!canEdit}
+        activeRootMapPath={activeRootMapPath}
+        canManageKeys={canManageKeys}
+        onClose={() => setReuseDialog(null)}
+        onSubmit={handleSubmitReuseSnippet}
       />
 
       <WorkspaceDialog
