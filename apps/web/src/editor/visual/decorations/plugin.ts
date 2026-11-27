@@ -12,6 +12,7 @@ export function createDitaDecorationsPlugin(
   callbacks: DitaDecorationsCallbacks,
   initialSemantic?: VisualSemanticContext,
   initialLocale: UiLocale = getCurrentLocale(),
+  initialReadOnly = false,
 ): Plugin<DitaDecorationPluginState> {
   return new Plugin<DitaDecorationPluginState>({
     key: DITA_DECORATIONS_KEY,
@@ -22,6 +23,7 @@ export function createDitaDecorationsPlugin(
           locale: initialLocale,
           activeNodePos: null,
           semantic: initialSemantic,
+          readOnly: initialReadOnly,
           decorations: collectDitaDecorations(
             state.doc,
             initialTagMode,
@@ -30,6 +32,7 @@ export function createDitaDecorationsPlugin(
             state.selection.from,
             initialSemantic,
             initialLocale,
+            initialReadOnly,
           ),
         };
       },
@@ -40,6 +43,10 @@ export function createDitaDecorationsPlugin(
           meta && 'activeNodePos' in meta ? (meta.activeNodePos ?? null) : prev.activeNodePos;
         const nextSemantic = meta && 'semantic' in meta ? meta.semantic : prev.semantic;
         const nextLocale = meta?.locale ?? prev.locale;
+        // `readOnly` is sticky: only an explicit boolean flips it, so unrelated metas that reuse
+        // this plugin key (tag mode, locale, semantic overlays) never revive the inserters.
+        const nextReadOnly =
+          meta && typeof meta.readOnly === 'boolean' ? meta.readOnly : prev.readOnly;
 
         if (
           !tr.docChanged &&
@@ -47,7 +54,8 @@ export function createDitaDecorationsPlugin(
           nextTagMode === prev.tagMode &&
           nextActivePos === prev.activeNodePos &&
           nextSemantic === prev.semantic &&
-          nextLocale === prev.locale
+          nextLocale === prev.locale &&
+          nextReadOnly === prev.readOnly
         ) {
           return prev;
         }
@@ -57,6 +65,7 @@ export function createDitaDecorationsPlugin(
           locale: nextLocale,
           activeNodePos: nextActivePos,
           semantic: nextSemantic,
+          readOnly: nextReadOnly,
           decorations: collectDitaDecorations(
             newState.doc,
             nextTagMode,
@@ -65,6 +74,7 @@ export function createDitaDecorationsPlugin(
             newState.selection.from,
             nextSemantic,
             nextLocale,
+            nextReadOnly,
           ),
         };
       },

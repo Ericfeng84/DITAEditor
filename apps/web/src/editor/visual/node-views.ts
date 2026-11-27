@@ -65,9 +65,17 @@ class DitaNoteNodeView implements NodeView {
   contentDOM: HTMLElement;
   private selectEl: HTMLSelectElement;
   private node: PMNode;
+  private readonly isReadOnly?: () => boolean;
+  private readonly unsubscribe?: () => void;
 
-  constructor(node: PMNode, view: EditorView, getPos: () => number | undefined) {
+  constructor(
+    node: PMNode,
+    view: EditorView,
+    getPos: () => number | undefined,
+    options: { isReadOnly?: () => boolean; semanticRegistry?: SemanticViewRegistry } = {},
+  ) {
     this.node = node;
+    this.isReadOnly = options.isReadOnly;
     const rawAttrs = getPmNodeRawAttrs(node);
     const noteType = getRawAttr(rawAttrs, 'type') ?? 'note';
 
@@ -99,6 +107,11 @@ class DitaNoteNodeView implements NodeView {
 
     this.selectEl.addEventListener('change', (ev) => {
       ev.stopPropagation();
+      // Never mutate the XML of a read-only / not-checked-out document.
+      if (this.isReadOnly?.()) {
+        this.syncDisabled();
+        return;
+      }
       const pos = getPos();
       if (pos === undefined) return;
       updateNodeRawAttr(pos, 'type', this.selectEl.value)(view.state, view.dispatch);
@@ -116,6 +129,22 @@ class DitaNoteNodeView implements NodeView {
 
     this.dom.appendChild(header);
     this.dom.appendChild(this.contentDOM);
+
+    this.syncDisabled();
+    // Check-out state changes outside ProseMirror (lock refresh), so the host pings the registry
+    // instead of recreating the view.
+    this.unsubscribe = options.semanticRegistry?.subscribe(() => {
+      this.syncDisabled();
+    });
+  }
+
+  /** The note-type selector is an editing affordance: disable it for read-only documents. */
+  private syncDisabled(): void {
+    this.selectEl.disabled = Boolean(this.isReadOnly?.());
+  }
+
+  destroy(): void {
+    this.unsubscribe?.();
   }
 
   update(node: PMNode): boolean {
@@ -126,6 +155,7 @@ class DitaNoteNodeView implements NodeView {
     this.selectEl.value = NOTE_TYPES.includes(noteType as (typeof NOTE_TYPES)[number])
       ? noteType
       : 'note';
+    this.syncDisabled();
     const chip = this.dom.querySelector('.dita-nv-tag-chip');
     if (chip) chip.textContent = `<note type="${noteType}">`;
     return true;
@@ -796,6 +826,8 @@ export interface CreateDitaNodeViewsOptions {
   resolveImageSrc?: (href: string) => string | null;
   getSemanticOverlay?: () => DocumentSemanticOverlay | null;
   semanticRegistry?: SemanticViewRegistry;
+  /** True while the document is not editable (not checked out / viewer / foreign lock). */
+  isReadOnly?: () => boolean;
   onJumpToSource?: (filePath: string, line?: number, elementId?: string) => void;
 }
 
@@ -803,7 +835,11 @@ export function createDitaNodeViews(
   options: CreateDitaNodeViewsOptions = {},
 ): Record<string, NodeViewConstructor> {
   return {
-    dita_note: (node, view, getPos) => new DitaNoteNodeView(node, view, getPos),
+    dita_note: (node, view, getPos) =>
+      new DitaNoteNodeView(node, view, getPos, {
+        isReadOnly: options.isReadOnly,
+        semanticRegistry: options.semanticRegistry,
+      }),
     dita_codeblock: (node) => new DitaCodeblockNodeView(node, 'codeblock'),
     dita_pre: (node) => new DitaCodeblockNodeView(node, 'pre'),
     dita_prolog: (node, view, getPos) => new DitaPrologNodeView(node, view, getPos),

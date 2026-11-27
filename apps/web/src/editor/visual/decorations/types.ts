@@ -29,6 +29,8 @@ export interface DitaDecorationPluginState {
   locale: UiLocale;
   activeNodePos: number | null;
   semantic?: VisualSemanticContext;
+  /** Read-only documents show no authoring affordances (no `+` gap inserters, no gap highlight). */
+  readOnly: boolean;
   decorations: DecorationSet;
 }
 
@@ -37,6 +39,7 @@ export interface DitaDecorationMeta {
   locale?: UiLocale;
   activeNodePos?: number | null;
   semantic?: VisualSemanticContext;
+  readOnly?: boolean;
 }
 
 export const DITA_DECORATIONS_KEY = new PluginKey<DitaDecorationPluginState>('ditaDecorations');

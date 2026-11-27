@@ -18,12 +18,18 @@ export function collectDitaDecorations(
   selectionPos: number | null = null,
   semantic?: VisualSemanticContext,
   locale: UiLocale = getCurrentLocale(),
+  readOnly = false,
 ): DecorationSet {
   const decorations: Decoration[] = [];
 
   // Deepest block containing the selection whose parent hosts `+` gap inserters.
   // It gets `dita-gap-active` so the gaps directly above/below it stay visible.
-  if (selectionPos !== null && selectionPos >= 0 && selectionPos <= doc.content.size) {
+  if (
+    !readOnly &&
+    selectionPos !== null &&
+    selectionPos >= 0 &&
+    selectionPos <= doc.content.size
+  ) {
     const $sel = doc.resolve(selectionPos);
     for (let d = $sel.depth; d >= 2; d--) {
       const candidate = $sel.node(d);
@@ -291,7 +297,8 @@ export function collectDitaDecorations(
     }
 
     // 2. Jupyter Notebook-style between-block `+` inserters for legal block containers
-    if (tagName && !node.isInline && !node.isTextblock) {
+    // Read-only documents keep the tag chrome / semantic overlays but lose every editing affordance.
+    if (!readOnly && tagName && !node.isInline && !node.isTextblock) {
       const configuredQuick = CONTAINER_QUICK_BLOCK_TAGS[tagName];
       if (configuredQuick && configuredQuick.length > 0) {
         const allLegalBlocks = getAllowedChildElements(tagName, 'block');

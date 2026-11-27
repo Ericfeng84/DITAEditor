@@ -222,6 +222,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
               ditavalDisplayMode: ditavalModeRef.current,
             },
             localeRef.current,
+            readOnlyRef.current,
           ),
           // Guide + (non-blocking) diagnose: ordered DITA content models never reject transactions,
           // they only mark out-of-order / over-cardinality children inline.
@@ -243,6 +244,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
           resolveImageSrc: (href) => resolveImageSrcRef.current?.(href) ?? null,
           getSemanticOverlay: () => semanticOverlayRef.current,
           semanticRegistry: semanticRegistryRef.current,
+          isReadOnly: () => readOnlyRef.current,
           onJumpToSource: (filePath, line, elementId) =>
             onJumpToSourceRef.current?.(filePath, line, elementId),
         }),
@@ -252,6 +254,9 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
         },
         editable: () => !readOnlyRef.current,
         handleTextInput(editorView, from, to, text) {
+          // Read-only documents never open the `/` insert menu (the view is not editable, but the
+          // handler is kept honest for IME / programmatic input paths).
+          if (readOnlyRef.current) return false;
           // Trigger floating Context-Aware Insert Menu when typing `/` at start of textblock or after space
           if (text === '/') {
             const $pos = editorView.state.doc.resolve(from);
@@ -276,6 +281,8 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
           return false;
         },
         handleClickOn(editorView, pos, node, nodePos) {
+          // Read-only documents must never be mutated by a stray click.
+          if (readOnlyRef.current) return false;
           // Never hydrate empty containers carrying conref/conkeyref so source XML stays untouched
           const rawAttrs = getPmNodeRawAttrs(node);
           if (getRawAttr(rawAttrs, 'conref') || getRawAttr(rawAttrs, 'conkeyref')) {
@@ -293,6 +300,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
         // copy cursor. `handleDrop` then inserts the element instead of the payload's XML text.
         handleDOMEvents: {
           dragover(_editorView, event) {
+            if (readOnlyRef.current) return false;
             if (!hasConrefDragPayload(event.dataTransfer)) return false;
             event.preventDefault();
             if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
@@ -344,6 +352,7 @@ export function useVisualEditorView(deps: VisualEditorViewDeps): void {
       window.addEventListener('resize', handleViewportChange);
 
       const onContainerDragOver = (event: DragEvent) => {
+        if (readOnlyRef.current) return;
         if (!hasConrefDragPayload(event.dataTransfer)) return;
         event.preventDefault();
         if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';

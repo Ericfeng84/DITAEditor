@@ -543,7 +543,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const aiApplyOutcome = useAiStore((state) => state.applyOutcome);
   const loadAiConfig = useAiStore((state) => state.loadConfig);
   const aiConfigured = aiConfig?.configured ?? false;
-  const aiPanelOpen = useAiStore((state) => state.panelOpen);
   const currentUserId = currentUser?.id;
   useEffect(() => {
     if (import.meta.env.VITE_STATIC_DEMO === 'true') return;
@@ -824,7 +823,9 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   } | null>(null);
   const [refDialogMode, setRefDialogMode] = useState<'xref' | 'image' | null>(null);
   const [keyrefDialogOpen, setKeyrefDialogOpen] = useState(false);
-  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('attributes');
+  // The AI assistant is the default inspector tab: it is the first thing a returning author
+  // wants, and the attributes / reuse tabs stay one click away.
+  const [inspectorTab, setInspectorTab] = useState<InspectorTab>('ai');
   const [reuseDialog, setReuseDialog] = useState<{
     mode: ReuseSnippetMode;
     source?: ReuseSnippetExtractSource;
@@ -1541,8 +1542,14 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
    */
   const canShowInspector = inspectorTarget === 'map-node' || activeTab?.kind === 'topic';
   const showRightInspector = inspectorOpen && canShowInspector;
-  /** The floating launcher must stay available whenever the panel is not actually on screen. */
-  const aiPanelVisible = aiPanelOpen && showRightInspector && inspectorTab === 'ai';
+  /**
+   * The floating launcher must stay available whenever the panel is not actually on screen.
+   * Derived from the inspector layout instead of the AI store's `panelOpen` flag: the AI tab can
+   * be mounted without ever calling `openPanel()` (it is the default tab), and a map-node
+   * inspector renders `MapNodeInspector` even when `inspectorTab === 'ai'`.
+   */
+  const aiPanelVisible =
+    showRightInspector && inspectorTarget !== 'map-node' && inspectorTab === 'ai';
 
   /** Persisted expand/collapse state of the DITA 1.3 authoring-guide panel. */
   const [guideExpanded, toggleGuideExpanded] = useAuthoringGuideExpanded();

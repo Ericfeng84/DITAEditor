@@ -277,6 +277,127 @@ describe('Oxygen-style Element Tag Decorations & Jupyter Between-Block Inserters
   });
 });
 
+describe('Read-only documents suppress every authoring affordance', () => {
+  const conceptSample = DITA_SAMPLE_DOCUMENTS.find((d) => d.id === 'sample-concept')!;
+
+  /** Caret offset inside the first `<p>` so the gap-active highlight has something to attach to. */
+  function caretInsideFirstParagraph(doc: PMNode): number {
+    let caret = -1;
+    doc.descendants((node, pos) => {
+      if (caret !== -1) return false;
+      if (node.type.name === 'dita_p') {
+        caret = pos + 2;
+        return false;
+      }
+      return true;
+    });
+    return caret;
+  }
+
+  function keysOf(deco: ReturnType<typeof collectDitaDecorations>): string[] {
+    return deco.find().map((d) => String(d.spec.key ?? ''));
+  }
+
+  function hasGapActive(deco: ReturnType<typeof collectDitaDecorations>): boolean {
+    // `prosemirror-view` stores node-decoration attributes on the internal decoration type, not on
+    // `spec` (which is only the caller-supplied spec object).
+    return deco.find().some((d) => {
+      const attrs = (d as unknown as { type?: { attrs?: { class?: string } } }).type?.attrs;
+      return attrs?.class === 'dita-gap-active';
+    });
+  }
+
+  it('drops all between-block "+" widgets and the dita-gap-active highlight when readOnly', () => {
+    const { pmDoc } = xmlToPmDoc(conceptSample.xml);
+    const caret = caretInsideFirstParagraph(pmDoc);
+    expect(caret).toBeGreaterThan(0);
+
+    const editable = collectDitaDecorations(pmDoc, 'none', null, noopCallbacks, caret);
+    expect(keysOf(editable).some((key) => key.startsWith('gap-'))).toBe(true);
+    expect(hasGapActive(editable)).toBe(true);
+
+    const readOnlyDeco = collectDitaDecorations(
+      pmDoc,
+      'none',
+      null,
+      noopCallbacks,
+      caret,
+      undefined,
+      undefined,
+      true,
+    );
+    const readOnlyKeys = keysOf(readOnlyDeco);
+    expect(readOnlyKeys.some((key) => key.startsWith('gap-'))).toBe(false);
+    expect(hasGapActive(readOnlyDeco)).toBe(false);
+    // Read-only chrome (Oxygen tags, profiling badges, conref/DITAVAL overlays) must survive.
+    const readOnlyFull = collectDitaDecorations(
+      pmDoc,
+      'full',
+      null,
+      noopCallbacks,
+      null,
+      undefined,
+      undefined,
+      true,
+    );
+    const fullKeys = keysOf(readOnlyFull);
+    expect(fullKeys.some((key) => key.startsWith('ox-open-'))).toBe(true);
+    expect(fullKeys.some((key) => key.startsWith('gap-'))).toBe(false);
+  });
+
+  it('toggles readOnly live via DITA_DECORATIONS_KEY meta without recreating the view', () => {
+    const { pmDoc } = xmlToPmDoc(conceptSample.xml);
+    let state = EditorState.create({
+      doc: pmDoc,
+      plugins: [createDitaDecorationsPlugin('none', noopCallbacks)],
+    });
+
+    const pluginState = () => DITA_DECORATIONS_KEY.getState(state);
+    const gapCount = () =>
+      (pluginState()?.decorations.find() ?? []).filter((d) =>
+        String(d.spec.key ?? '').startsWith('gap-'),
+      ).length;
+
+    expect(pluginState()?.readOnly).toBe(false);
+    expect(gapCount()).toBeGreaterThan(0);
+
+    state = state.apply(state.tr.setMeta(DITA_DECORATIONS_KEY, { readOnly: true }));
+    expect(pluginState()?.readOnly).toBe(true);
+    expect(gapCount()).toBe(0);
+
+    // Unrelated metas reuse the same plugin key and must not revive the inserters.
+    state = state.apply(state.tr.setMeta(DITA_DECORATIONS_KEY, { tagMode: 'full' }));
+    expect(pluginState()?.readOnly).toBe(true);
+    expect(gapCount()).toBe(0);
+
+    state = state.apply(
+      state.tr.setMeta(DITA_DECORATIONS_KEY, { activeNodePos: null, locale: 'en' }),
+    );
+    expect(gapCount()).toBe(0);
+
+    // Check-out regained: inserters come back for the same document.
+    state = state.apply(state.tr.setMeta(DITA_DECORATIONS_KEY, { readOnly: false }));
+    expect(pluginState()?.readOnly).toBe(false);
+    expect(gapCount()).toBeGreaterThan(0);
+    expect(pmDocToXml(state.doc)).toBe(conceptSample.xml);
+  });
+
+  it('respects the initial readOnly flag passed to createDitaDecorationsPlugin', () => {
+    const { pmDoc } = xmlToPmDoc(conceptSample.xml);
+    const state = EditorState.create({
+      doc: pmDoc,
+      plugins: [createDitaDecorationsPlugin('none', noopCallbacks, undefined, undefined, true)],
+    });
+    const pluginState = DITA_DECORATIONS_KEY.getState(state);
+    expect(pluginState?.readOnly).toBe(true);
+    expect(
+      (pluginState?.decorations.find() ?? []).some((d) =>
+        String(d.spec.key ?? '').startsWith('gap-'),
+      ),
+    ).toBe(false);
+  });
+});
+
 describe('Gap inserter position freshness (no stale gapPos / getPos closures)', () => {
   it('keys between-block "+" widgets with pos+index+gapPos so a growing <cmd> invalidates them', () => {
     const taskSample = DITA_SAMPLE_DOCUMENTS.find((d) => d.id === 'sample-task')!;

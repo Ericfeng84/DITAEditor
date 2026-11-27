@@ -68,6 +68,14 @@
   cursor: pointer;
 }
 
+/* Read-only / not-checked-out documents keep the note look but lose the editing affordance. */
+.dita-nv-note-select:disabled {
+  cursor: default;
+  opacity: 0.55;
+  border-color: transparent;
+  background: transparent;
+}
+
 .dita-nv-tag-chip {
   margin-left: auto;
   font-family: var(--font-mono);

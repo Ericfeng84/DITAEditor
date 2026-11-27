@@ -243,6 +243,11 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     /** Recompute the floating inline-element bubble against the current viewport geometry. */
     const syncInlineBubble = useCallback((view: EditorView) => {
+      // Read-only documents expose no inline formatting affordance at all.
+      if (readOnlyRef.current) {
+        setInlineBubble(null);
+        return;
+      }
       const info = getInlineBubbleInfo(view.state);
       if (!info.visible) {
         setInlineBubble(null);
@@ -280,6 +285,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     }, []);
 
     const openInsertMenuAtCaret = useCallback((slashMode: boolean) => {
+      if (readOnlyRef.current) return;
       const view = viewRef.current;
       if (!view) return;
       setGapInsertContext(null);
@@ -311,6 +317,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     );
 
     const handleGapQuickInsert = useCallback((tagName: string, insertPos: number) => {
+      if (readOnlyRef.current) return;
       const view = viewRef.current;
       if (!view) return;
       if (insertBlockDitaElementAtPos(tagName, insertPos)(view.state, view.dispatch)) {
@@ -320,6 +327,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     }, []);
 
     const handleOpenGapInsertMenu = useCallback((payload: BlockGapOpenMenuPayload) => {
+      if (readOnlyRef.current) return;
       slashPosRef.current = null;
       const rect = payload.anchorEl.getBoundingClientRect();
       setGapInsertContext({
@@ -410,6 +418,11 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
      */
     const syncBlockHandle = useCallback(
       (view: EditorView) => {
+        // Read-only documents never show the gutter handle / drag affordance.
+        if (readOnlyRef.current) {
+          setBlockHandle(null);
+          return;
+        }
         if (blockDragRef.current) return;
         const pinned = pinnedPosRef.current;
         const target =
@@ -505,6 +518,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     const startBlockDrag = useCallback(
       (event: React.PointerEvent<HTMLButtonElement>) => {
+        if (readOnlyRef.current) return;
         const view = viewRef.current;
         if (!view || !blockHandle) return;
         event.preventDefault();
@@ -566,6 +580,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
     );
 
     const openInsertMenuAfterBlock = useCallback(() => {
+      if (readOnlyRef.current) return;
       const target = blockHandle?.target;
       if (!target) return;
       // Read the live node: the header text may have grown since the handle was resolved, so the
@@ -717,11 +732,26 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       const view = viewRef.current;
       if (!view) return;
       view.setProps({ editable: () => !readOnlyRef.current });
+      // Rebuild decorations in place so the between-block `+` inserters disappear (and reappear)
+      // without recreating the ProseMirror view / losing undo history.
+      view.dispatch(view.state.tr.setMeta(DITA_DECORATIONS_KEY, { readOnly }));
+      // NodeViews (e.g. the note-type `<select>`) cannot read the ref themselves on every state
+      // change, so ping the registry to re-sync their disabled state.
+      semanticRegistryRef.current.notifyAll();
       setInlineBubble(null);
       setBlockHandle(null);
       setBlockMenuOpen(false);
       setBlockDropGap(null);
-    }, [readOnly]);
+      setInsertMenuOpen(false);
+      setGapInsertContext(null);
+      if (readOnly) {
+        setBlockDragging(false);
+        return;
+      }
+      // Checked out again: restore the editable affordances for the current selection immediately.
+      syncBlockHandle(view);
+      syncInlineBubble(view);
+    }, [readOnly, syncBlockHandle, syncInlineBubble]);
 
     // Live-update Oxygen tag display mode WITHOUT recreating ProseMirror view or losing undo history!
     useEffect(() => {
@@ -1008,7 +1038,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
           </div>
 
           <InsertElementMenu
-            open={insertMenuOpen}
+            open={!readOnly && insertMenuOpen}
             groups={activeMenuGroups}
             anchorRect={insertMenuAnchor}
             isSlashTrigger={insertIsSlash}
@@ -1025,7 +1055,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             }}
           />
 
-          {inlineBubble && !insertMenuOpen && dismissedBubbleKey !== bubbleKey ? (
+          {!readOnly && inlineBubble && !insertMenuOpen && dismissedBubbleKey !== bubbleKey ? (
             <InlineBubbleToolbar
               anchor={{ top: inlineBubble.top, left: inlineBubble.left }}
               contextTag={inlineBubble.info.contextTag}
@@ -1045,7 +1075,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             />
           ) : null}
 
-          {blockHandle && !insertMenuOpen ? (
+          {!readOnly && blockHandle && !insertMenuOpen ? (
             <BlockHandle
               top={blockHandle.top}
               left={blockHandle.left}
@@ -1072,7 +1102,7 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
             />
           ) : null}
 
-          {blockDropGap ? (
+          {!readOnly && blockDropGap ? (
             <div
               className="dita-block-drop-indicator"
               style={{ top: blockDropGap.top, left: blockDropGap.left, width: blockDropGap.width }}
