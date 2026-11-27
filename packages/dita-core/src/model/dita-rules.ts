@@ -37,6 +37,7 @@ export interface DitaElementSpec {
 export type DitaAttributeGroup =
   | 'element'
   | 'core'
+  | 'localization'
   | 'profiling'
   | 'reuse'
   | 'presentation';
@@ -55,6 +56,16 @@ export interface DitaAttributeSpec {
   /** English placeholder. */
   placeholder?: string;
   placeholderZh?: string;
+  /** English real-world usage scenario (falls back to `dita-attr-docs.ts`). */
+  usage?: string;
+  /** Chinese real-world usage scenario (falls back to `dita-attr-docs.ts`). */
+  usageZh?: string;
+  /** Concrete English value/XML example (falls back to `dita-attr-docs.ts`). */
+  example?: string;
+  /** Concrete Chinese value/XML example (falls back to `dita-attr-docs.ts`). */
+  exampleZh?: string;
+  /** Human-readable labels overriding `DITA_ATTR_VALUE_LABELS` per attribute. */
+  valueLabels?: Readonly<Record<string, { label: string; labelZh: string }>>;
 }
 
 export const DITA_CORE_INLINE_TAGS: readonly string[] = [
@@ -690,7 +701,7 @@ const ATTRIBUTE_DESCRIPTIONS_ZH: Readonly<Record<string, string>> = {
   platform: '目标操作系统或运行时平台',
   product: '目标产品版本或 SKU',
   otherprops: '自定义条件筛选标记',
-  props: '基础条件属性',
+  props: '条件过滤的基础属性，供特化元素扩展自定义筛选维度',
   rev: '用于变更标记的产品/文档修订标识',
   conref: '直接内容引用（file.dita#topicId/elemId）',
   conkeyref: '基于 key 的内容引用（key/elemId）',
@@ -704,8 +715,8 @@ const ATTRIBUTE_DESCRIPTIONS_ZH: Readonly<Record<string, string>> = {
   format: '目标文档格式',
   scope: '目标资源范围',
   type: '目标主题或元素类型',
-  'processing-role': '条目出现在正常输出中或仅作为资源',
-  toc: '条目是否包含在目录中',
+  'processing-role': '条目出现在正常输出中，还是仅作为 key 解析用的资源',
+  toc: '条目是否包含在目录与导航中',
   linking: '控制自动相关链接的生成方式',
   'collection-type': '子主题引用之间的同级关系语义',
   chunk: '输出分块指令（例如 to-content、by-topic）',
@@ -720,8 +731,8 @@ const ATTRIBUTE_DESCRIPTIONS_ZH: Readonly<Record<string, string>> = {
   width: '显示宽度（例如 480px、80%）',
   height: '显示高度',
   scalefit: '按容器边界缩放图片',
-  'xml:space': '空白处理模式',
-  scale: '相对字号百分比',
+  'xml:space': '空白处理模式（preserve 原样保留空格与换行）',
+  scale: '代码块字号的相对缩放百分比',
   frame: '边框样式',
   importance: '将步骤标记为可选或必需',
   relcolwidth: '空格分隔的比例列宽（例如 1* 2* 3*）',
@@ -805,14 +816,35 @@ export function getAllowedChildElements(
 // DITA 1.3 Attribute Metadata Registry
 // ---------------------------------------------------------------------------
 
+/**
+ * High-frequency universal attributes (rendered in the always-expanded "common" group).
+ */
 const UNIVERSAL_CORE_ATTRS: readonly DitaAttributeSpec[] = [
-  { name: 'id', label: 'ID', group: 'core', description: 'Unique identifier for cross-references (xref) and reuse (conref)', placeholder: 'e.g. sec_overview' },
-  { name: 'outputclass', label: 'Output Class', group: 'core', description: 'CSS/publishing role hint passed through to HTML5/PDF output', placeholder: 'e.g. highlight' },
-  { name: 'xml:lang', label: 'Language', group: 'core', description: 'BCP-47 language tag (e.g. zh-CN, en-US)', values: ['zh-CN', 'en-US', 'ja-JP', 'de-DE'] },
-  { name: 'translate', label: 'Translate', group: 'core', description: 'Indicates whether element text should be localized', values: ['yes', 'no'] },
-  { name: 'status', label: 'Status', group: 'core', description: 'Editorial revision status', values: ['new', 'changed', 'deleted', 'unchanged'] },
-  { name: 'dir', label: 'Text Direction', group: 'core', description: 'Bidirectional text override', values: ['ltr', 'rtl', 'lro', 'rlo'] },
+  { name: 'id', label: 'ID', group: 'core', description: 'Unique anchor for cross-references (xref) and reuse (conref)', descriptionZh: '用于交叉引用（xref）与内容复用（conref）的唯一锚点标识', placeholder: 'e.g. sec_overview' },
+  { name: 'outputclass', label: 'Output Class', group: 'core', description: 'CSS class or publishing role hint passed through to HTML5/PDF output', descriptionZh: '传递给 HTML5/PDF 输出的 CSS 类名或发布角色提示', placeholder: 'e.g. highlight' },
 ];
+
+/**
+ * Localization & editorial-revision attributes. Collapsed by default in the attribute
+ * panels because single-language documents rarely touch them; document roots still promote
+ * `xml:lang` into the always-visible `element` group (see `ROOT_LANG_ATTR`).
+ */
+const LOCALIZATION_ATTRS: readonly DitaAttributeSpec[] = [
+  { name: 'xml:lang', label: 'Language', group: 'localization', description: 'BCP-47 language tag of the element content (e.g. zh-CN, en-US)', descriptionZh: '元素内容的 BCP-47 语言标签（例如 zh-CN、en-US）', values: ['zh-CN', 'en-US', 'ja-JP', 'de-DE'] },
+  { name: 'translate', label: 'Translate', group: 'localization', description: 'Whether the element text participates in localization', descriptionZh: '元素文本是否参与本地化翻译', values: ['yes', 'no'] },
+  { name: 'status', label: 'Status', group: 'localization', description: 'Editorial revision state of the element (new, changed, deleted)', descriptionZh: '元素的编辑修订状态（新增、已修改、已删除）', values: ['new', 'changed', 'deleted', 'unchanged'] },
+  { name: 'dir', label: 'Text Direction', group: 'localization', description: 'Bidirectional text direction override (ltr, rtl, lro, rlo)', descriptionZh: '双向文本的方向覆盖设置（ltr、rtl、lro、rlo）', values: ['ltr', 'rtl', 'lro', 'rlo'] },
+];
+
+/** `xml:lang` spec reused on document roots so the language shows in the first group. */
+const ROOT_LANG_ATTR: DitaAttributeSpec = {
+  name: 'xml:lang',
+  label: 'Language',
+  group: 'element',
+  description: 'BCP-47 language of the whole document (required in practice for publishing)',
+  descriptionZh: '整个文档的 BCP-47 语言（发布时实际必填）',
+  values: ['zh-CN', 'en-US', 'ja-JP', 'de-DE'],
+};
 
 const PROFILING_ATTRS: readonly DitaAttributeSpec[] = [
   { name: 'audience', label: 'Audience', group: 'profiling', description: 'Target reader role for DITAVAL filtering (space-separated)', placeholder: 'e.g. admin developer' },
@@ -851,7 +883,8 @@ const MAP_ENTRY_COMMON_ATTRS: readonly DitaAttributeSpec[] = [
 const ELEMENT_SPECIFIC_ATTRS: Readonly<Record<string, readonly DitaAttributeSpec[]>> = {
   map: [
     { name: 'id', label: 'Map ID', group: 'element', description: 'Root map identifier', placeholder: 'product_manual' },
-    { name: 'title', label: 'Map Title Attr', group: 'element', description: 'Legacy @title attribute (prefer <title> element)', placeholder: 'Product Guide' },
+    ROOT_LANG_ATTR,
+    { name: 'title', label: 'Map Title Attr', group: 'element', description: 'Legacy @title attribute (prefer the <title> element)', descriptionZh: '旧式 @title 属性（建议改用 <title> 元素）', placeholder: 'Product Guide' },
     { name: 'collection-type', label: 'Collection Type', group: 'element', description: 'Default sibling linking behavior', values: ['unordered', 'sequence', 'choice', 'family'] },
     { name: 'linking', label: 'Linking', group: 'element', description: 'Default linking rule', values: ['normal', 'targetonly', 'sourceonly', 'none'] },
     { name: 'chunk', label: 'Chunk', group: 'element', description: 'Root chunking directive', values: ['to-content', 'to-navigation', 'by-topic', 'by-document'] },
@@ -889,16 +922,20 @@ const ELEMENT_SPECIFIC_ATTRS: Readonly<Record<string, readonly DitaAttributeSpec
     { name: 'navtitle', label: 'Navigation Title', group: 'element', description: 'Optional descriptive label' },
   ],
   topic: [
-    { name: 'id', label: 'Topic ID', group: 'element', required: true, description: 'Required root topic identifier', placeholder: 'topic_id' },
+    { name: 'id', label: 'Topic ID', group: 'element', required: true, description: 'Required root topic identifier', descriptionZh: '主题根元素必需的标识符', placeholder: 'topic_id' },
+    ROOT_LANG_ATTR,
   ],
   concept: [
-    { name: 'id', label: 'Concept ID', group: 'element', required: true, description: 'Required concept topic identifier', placeholder: 'concept_id' },
+    { name: 'id', label: 'Concept ID', group: 'element', required: true, description: 'Required concept topic identifier', descriptionZh: '概念主题必需的标识符', placeholder: 'concept_id' },
+    ROOT_LANG_ATTR,
   ],
   task: [
-    { name: 'id', label: 'Task ID', group: 'element', required: true, description: 'Required task topic identifier', placeholder: 'task_id' },
+    { name: 'id', label: 'Task ID', group: 'element', required: true, description: 'Required task topic identifier', descriptionZh: '任务主题必需的标识符', placeholder: 'task_id' },
+    ROOT_LANG_ATTR,
   ],
   reference: [
-    { name: 'id', label: 'Reference ID', group: 'element', required: true, description: 'Required reference topic identifier', placeholder: 'ref_id' },
+    { name: 'id', label: 'Reference ID', group: 'element', required: true, description: 'Required reference topic identifier', descriptionZh: '参考主题必需的标识符', placeholder: 'ref_id' },
+    ROOT_LANG_ATTR,
   ],
   note: [
     {
@@ -997,15 +1034,17 @@ const ELEMENT_SPECIFIC_ATTRS: Readonly<Record<string, readonly DitaAttributeSpec
 };
 
 /**
- * Return deduplicated attribute metadata specs for a given DITA element tag,
- * ordered by element-specific -> core -> profiling -> reuse.
+ * Return deduplicated attribute metadata specs for a given DITA element tag, ordered by
+ * element-specific -> core -> profiling -> reuse -> localization. The first spec seen for a
+ * name wins, so a document root's `xml:lang` stays in the `element` group while inner
+ * elements fall back to the collapsed `localization` group.
  */
 export function getAttributesForElement(tagName: string): DitaAttributeSpec[] {
   const specific = ELEMENT_SPECIFIC_ATTRS[tagName] ?? [];
   const seen = new Set<string>();
   const merged: DitaAttributeSpec[] = [];
 
-  for (const list of [specific, UNIVERSAL_CORE_ATTRS, PROFILING_ATTRS, REUSE_ATTRS]) {
+  for (const list of [specific, UNIVERSAL_CORE_ATTRS, PROFILING_ATTRS, REUSE_ATTRS, LOCALIZATION_ATTRS]) {
     for (const spec of list) {
       if (seen.has(spec.name)) continue;
       seen.add(spec.name);
@@ -1056,3 +1095,10 @@ export function removeRawAttr(
 ): XmlAttributeEntry[] {
   return rawAttrs.filter((a) => a.name !== name);
 }
+
+// ---------------------------------------------------------------------------
+// Bilingual attribute knowledge base (group blurbs, usage scenarios, examples,
+// enum value labels) — re-exported here so callers keep importing from `dita-rules`.
+// ---------------------------------------------------------------------------
+
+export * from './dita-attr-docs.js';

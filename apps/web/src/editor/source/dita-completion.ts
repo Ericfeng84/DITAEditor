@@ -6,6 +6,7 @@ import {
   DITA_PROFILING_ATTRS,
   getAllowedChildElementTags,
   getAttributeDescription,
+  getAttributeGroupMeta,
   getAttributeLabel,
   getAttributesForElement,
   getElementDescription,
@@ -379,7 +380,10 @@ export function createDitaXmlCompletionSource(
       const options: Completion[] = attrSpecs.map((spec, idx) => ({
         label: spec.name,
         type: 'property',
-        detail: spec.group === 'element' ? getAttributeLabel(spec, getCurrentLocale()) : `${spec.group} · ${getAttributeLabel(spec, getCurrentLocale())}`,
+        detail:
+          spec.group === 'element'
+            ? getAttributeLabel(spec, getCurrentLocale())
+            : `${getAttributeGroupMeta(spec.group, getCurrentLocale()).title} · ${getAttributeLabel(spec, getCurrentLocale())}`,
         info: spec ? getAttributeDescription(spec, getCurrentLocale()) : undefined,
         apply: `${spec.name}=""`,
         boost: spec.group === 'element' ? 50 - idx : 10,

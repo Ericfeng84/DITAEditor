@@ -4,8 +4,8 @@ import {
   DITA_KEY_NAME_PATTERN,
   DITA_MAP_CONTAINER_NODE_TAGS,
   evaluateElementConditions,
+  getAttributeGroupMeta,
   getAttributesForElement,
-  getAttributeDescription,
   getAttributeLabel,
   getAttributePlaceholder,
   getElementLabel,
@@ -23,17 +23,18 @@ import {
 } from '@dita/core';
 import {
   BookOpen,
-  ChevronDown,
-  ChevronRight,
   Code2,
   KeyRound,
-  Plus,
   ShieldCheck,
   Tag,
   Trash2,
-  X,
 } from 'lucide-react';
 import { ProfilingAttrEditor } from '../components/ProfilingAttrEditor';
+import { AttributeField } from '../components/attributes/AttributeField';
+import { AttributeFilterBar } from '../components/attributes/AttributeFilterBar';
+import { AttributeGroupSection } from '../components/attributes/AttributeGroupSection';
+import { RawAttributesSection } from '../components/attributes/RawAttributesSection';
+import { filterGroupedAttributes } from '../components/attributes/filter-attrs';
 import { useI18n } from '../i18n/index.js';
 import type { MessageKey } from '../i18n/messages/index.js';
 import type { MapBufferState } from './map-tree-utils';
@@ -72,13 +73,13 @@ export interface MapNodeInspectorProps {
   onOpenKeysView?: () => void;
 }
 
-const GROUP_SUBTITLES: Record<DitaAttributeGroup, string> = {
-  element: 'Element',
-  core: 'Universal',
-  profiling: 'Profiling',
-  reuse: 'Reuse',
-  presentation: 'Display',
-};
+const GROUP_ORDER: readonly DitaAttributeGroup[] = [
+  'element',
+  'core',
+  'profiling',
+  'reuse',
+  'localization',
+];
 
 const GROUP_TITLE_KEYS: Record<DitaAttributeGroup, MessageKey> = {
   element: 'mapNodeInspector.group.element',
@@ -86,6 +87,17 @@ const GROUP_TITLE_KEYS: Record<DitaAttributeGroup, MessageKey> = {
   profiling: 'attributes.group.profiling',
   reuse: 'attributes.group.reuse',
   presentation: 'attributes.group.presentation',
+  localization: 'attributes.group.localization',
+};
+
+const DEFAULT_EXPANDED_GROUPS: Record<string, boolean> = {
+  element: true,
+  core: true,
+  profiling: false,
+  reuse: false,
+  presentation: false,
+  localization: false,
+  raw: false,
 };
 
 function findTreeNodeByPath(
@@ -127,15 +139,11 @@ export function MapNodeInspector({
 }: MapNodeInspectorProps) {
   const { t, locale } = useI18n();
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
-    element: true,
-    core: true,
-    profiling: false,
-    reuse: false,
-    presentation: false,
-    raw: true,
+    ...DEFAULT_EXPANDED_GROUPS,
   });
-  const [customAttrName, setCustomAttrName] = useState('');
-  const [customAttrValue, setCustomAttrValue] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [onlySet, setOnlySet] = useState(false);
+  const [openHelp, setOpenHelp] = useState<ReadonlySet<string>>(() => new Set<string>());
 
   // `node` is resolved first so the drafts below can start from the real XML value on the very
   // first render (the sync effect then keeps them aligned when the selection or file changes).
@@ -177,6 +185,11 @@ export function MapNodeInspector({
     setInlineMessage(null);
     setInlineSaving(false);
   }, [selectionKey, node?.keys, node?.inlineText, node?.inlineTextSource]);
+
+  // Per-attribute help disclosures must not leak across map nodes / files.
+  useEffect(() => {
+    setOpenHelp(new Set<string>());
+  }, [selectionKey]);
 
   if (!selected || !parsedMap) {
     return (
@@ -228,6 +241,14 @@ export function MapNodeInspector({
     grouped.set(attrSpec.group, list);
   }
 
+  const isFiltering = searchQuery.trim() !== '' || onlySet;
+  const filtered = filterGroupedAttributes(grouped, rawAttrs, {
+    query: searchQuery,
+    onlySet,
+    locale,
+  });
+  const setCount = allAttrSpecs.filter((a) => getRawAttr(rawAttrs, a.name) !== undefined).length;
+
   const currentHref = getRawAttr(rawAttrs, 'href') ?? '';
   const resolvedTarget = currentHref ? resolveDitaHref(selected.mapPath, currentHref) : null;
   const canOpenTarget = Boolean(
@@ -238,13 +259,18 @@ export function MapNodeInspector({
     setExpandedGroups((prev) => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const handleAddCustomAttr = (e: React.FormEvent) => {
-    e.preventDefault();
-    const name = customAttrName.trim();
-    if (!name || !/^[A-Za-z_][\w:.-]*$/.test(name)) return;
-    onUpdateAttr(selected.mapPath, selected.elementPath, name, customAttrValue);
-    setCustomAttrName('');
-    setCustomAttrValue('');
+  const toggleHelp = (attrName: string) => {
+    setOpenHelp((prev) => {
+      const next = new Set(prev);
+      if (next.has(attrName)) next.delete(attrName);
+      else next.add(attrName);
+      return next;
+    });
+  };
+
+  const resetFilters = () => {
+    setSearchQuery('');
+    setOnlySet(false);
   };
 
   const commitKeysAttr = () => {
@@ -276,6 +302,25 @@ export function MapNodeInspector({
       text: ok ? t('mapNodeInspector.inlineTextSaved') : t('mapNodeInspector.inlineTextFailed'),
     });
   };
+
+  const conditionBadge =
+    conditionEval !== null ? (
+      <span
+        className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
+          conditionEval.status === 'exclude'
+            ? 'bg-rose-100 text-rose-800'
+            : conditionEval.status === 'flag'
+              ? 'bg-blue-100 text-blue-800'
+              : 'bg-emerald-100 text-emerald-800'
+        }`}
+      >
+        {conditionEval.status === 'exclude'
+          ? t('attributes.condition.excluded')
+          : conditionEval.status === 'flag'
+            ? t('attributes.condition.flagged')
+            : t('attributes.condition.included')}
+      </span>
+    ) : null;
 
   return (
     <aside
@@ -361,6 +406,14 @@ export function MapNodeInspector({
           ) : null}
         </div>
       </div>
+
+      <AttributeFilterBar
+        query={searchQuery}
+        onQueryChange={setSearchQuery}
+        onlySet={onlySet}
+        onToggleOnlySet={() => setOnlySet((prev) => !prev)}
+        setCount={setCount}
+      />
 
       <div className="dita-scroller min-h-0 flex-1 overflow-y-auto divide-y divide-slate-100">
         {/* Title / Navtitle quick editor */}
@@ -543,264 +596,139 @@ export function MapNodeInspector({
           )}
         </section>
 
-        {/* Raw Attributes in exact XML order */}
-        <section className="p-3">
-          <button
-            type="button"
-            onClick={() => toggleGroup('raw')}
-            className="flex w-full items-center justify-between text-left text-[11px] font-semibold uppercase tracking-wide text-slate-600"
-          >
-            <span className="flex items-center gap-1">
-              {expandedGroups.raw ? (
-                <ChevronDown className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-              ) : (
-                <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-              )}
-              {t('attributes.rawTitle')}
-            </span>
-            <span className="rounded-full bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
-              {rawAttrs.length}
-            </span>
-          </button>
+        {isFiltering && filtered.total === 0 ? (
+          <div className="flex flex-col items-center gap-2 p-6 text-center text-xs text-slate-500">
+            <p>{t('attributes.noMatches')}</p>
+            <button
+              type="button"
+              onClick={resetFilters}
+              className="rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+            >
+              {t('attributes.resetFilter')}
+            </button>
+          </div>
+        ) : (
+          GROUP_ORDER.map((groupKey) => {
+            const attrs = isFiltering ? filtered.groups.get(groupKey) : grouped.get(groupKey);
+            if (!attrs || attrs.length === 0) return null;
+            const isOpen = isFiltering ? true : Boolean(expandedGroups[groupKey]);
+            const filledCount = attrs.filter((a) => getRawAttr(rawAttrs, a.name) !== undefined).length;
+            const meta = getAttributeGroupMeta(groupKey, locale);
 
-          {expandedGroups.raw ? (
-            <div className="mt-2 space-y-1.5">
-              {rawAttrs.length === 0 ? (
-                <p className="text-[11px] text-slate-400">{t('mapNodeInspector.noAttrs')}</p>
-              ) : (
-                rawAttrs.map((entry) => (
-                  <div
-                    key={entry.name}
-                    className="flex items-center gap-1.5 rounded border border-slate-200/80 bg-slate-50 px-2 py-1"
-                  >
-                    <span
-                      className={`shrink-0 font-mono text-[11px] font-medium ${
-                        knownNames.has(entry.name) ? 'text-blue-700' : 'text-amber-700'
-                      }`}
-                    >
-                      {entry.name}
-                    </span>
-                    <span className="text-slate-400">=</span>
-                    <input
-                      type="text"
-                      aria-label={t('attributes.attrAria', { name: entry.name })}
-                      value={entry.value}
-                      onChange={(e) =>
-                        onUpdateAttr(selected.mapPath, selected.elementPath, entry.name, e.target.value)
-                      }
-                      className="min-w-0 flex-1 rounded bg-white px-1.5 py-0.5 font-mono text-[11px] text-slate-800 ring-1 ring-slate-200 focus:ring-blue-500 focus:outline-none"
-                    />
-                    <button
-                      type="button"
-                      onClick={() =>
-                        onUpdateAttr(selected.mapPath, selected.elementPath, entry.name, null)
-                      }
-                      aria-label={t('attributes.removeAria', { name: entry.name })}
-                      className="rounded p-0.5 text-slate-400 hover:bg-rose-50 hover:text-rose-600"
-                    >
-                      <X className="h-3 w-3" aria-hidden="true" />
-                    </button>
-                  </div>
-                ))
-              )}
-
-              <form onSubmit={handleAddCustomAttr} className="mt-2 flex items-center gap-1">
-                <input
-                  type="text"
-                  value={customAttrName}
-                  onChange={(e) => setCustomAttrName(e.target.value)}
-                  placeholder={t('attributes.namePlaceholder')}
-                  aria-label={t('attributes.nameAria')}
-                  className="w-24 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
-                />
-                <input
-                  type="text"
-                  value={customAttrValue}
-                  onChange={(e) => setCustomAttrValue(e.target.value)}
-                  placeholder={t('attributes.valuePlaceholder')}
-                  aria-label={t('attributes.valueAria')}
-                  className="min-w-0 flex-1 rounded border border-slate-200 px-1.5 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
-                />
-                <button
-                  type="submit"
-                  aria-label={t('mapNodeInspector.addAttr')}
-                  className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-800 text-white hover:bg-slate-700"
-                >
-                  <Plus className="h-3.5 w-3.5" aria-hidden="true" />
-                </button>
-              </form>
-            </div>
-          ) : null}
-        </section>
-
-        {/* Schema-guided groups */}
-        {(['element', 'core', 'profiling', 'reuse'] as DitaAttributeGroup[]).map((groupKey) => {
-          const attrs = grouped.get(groupKey);
-          if (!attrs || attrs.length === 0) return null;
-          const isOpen = Boolean(expandedGroups[groupKey]);
-          const filledCount = attrs.filter((a) => getRawAttr(rawAttrs, a.name) !== undefined).length;
-
-          return (
-            <section key={groupKey} className="p-3">
-              <button
-                type="button"
-                onClick={() => toggleGroup(groupKey)}
-                className="flex w-full items-center justify-between text-left text-[11px] font-semibold text-slate-700"
+            return (
+              <AttributeGroupSection
+                key={groupKey}
+                group={groupKey}
+                title={t(GROUP_TITLE_KEYS[groupKey])}
+                description={meta.description}
+                subtitle={meta.subtitle}
+                isOpen={isOpen}
+                onToggle={() => toggleGroup(groupKey)}
+                filledCount={filledCount}
+                rightBadge={groupKey === 'profiling' ? conditionBadge : undefined}
               >
-                <span className="flex items-center gap-1">
-                  {isOpen ? (
-                    <ChevronDown className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                  ) : (
-                    <ChevronRight className="h-3.5 w-3.5 text-slate-400" aria-hidden="true" />
-                  )}
-                  {t(GROUP_TITLE_KEYS[groupKey])}
-                </span>
-                {groupKey === 'profiling' && conditionEval ? (
-                  <span
-                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${
-                      conditionEval.status === 'exclude'
-                        ? 'bg-rose-100 text-rose-800'
-                        : conditionEval.status === 'flag'
-                          ? 'bg-blue-100 text-blue-800'
-                          : 'bg-emerald-100 text-emerald-800'
-                    }`}
-                  >
-                    {conditionEval.status === 'exclude'
-                      ? t('attributes.condition.excluded')
-                      : conditionEval.status === 'flag'
-                        ? t('attributes.condition.flagged')
-                        : t('attributes.condition.included')}
-                  </span>
-                ) : filledCount > 0 ? (
-                  <span className="rounded-full bg-blue-50 px-1.5 py-0.5 font-mono text-[10px] font-semibold text-blue-700">
-                    {filledCount}
-                  </span>
-                ) : (
-                  <span className="text-[10px] font-normal text-slate-400">{GROUP_SUBTITLES[groupKey]}</span>
-                )}
-              </button>
+                {attrs.map((attr) => {
+                  const currentVal = getRawAttr(rawAttrs, attr.name) ?? '';
+                  const hasValue = getRawAttr(rawAttrs, attr.name) !== undefined;
+                  const inputId = `map-attr-${tagName}-${attr.name}`;
+                  const placeholder =
+                    getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale);
+                  const showHrefPicker = attr.name === 'href' && availableFiles.length > 0;
 
-              {isOpen ? (
-                <div className="mt-2.5 space-y-2.5">
-                  {attrs.map((attr) => {
-                    const currentVal = getRawAttr(rawAttrs, attr.name) ?? '';
-                    const hasValue = getRawAttr(rawAttrs, attr.name) !== undefined;
-                    const inputId = `map-attr-${tagName}-${attr.name}`;
-
-                    return (
-                      <div key={attr.name}>
-                        <div className="mb-1 flex items-center justify-between">
-                          <label
-                            htmlFor={inputId}
-                            className="flex items-center gap-1 text-[11px] font-medium text-slate-700"
-                            title={getAttributeDescription(attr, locale)}
-                          >
-                            <code className="font-mono text-slate-900">{attr.name}</code>
-                          </label>
-                          {hasValue ? (
-                            <button
-                              type="button"
-                              onClick={() =>
-                                onUpdateAttr(selected.mapPath, selected.elementPath, attr.name, null)
-                              }
-                              className="text-[10px] text-slate-400 hover:text-rose-600"
-                            >
-                              {t('attributes.clear')}
-                            </button>
-                          ) : null}
-                        </div>
-
-                        {groupKey === 'profiling' ? (
-                          <ProfilingAttrEditor
-                            attrName={attr.name as DitaProfilingAttrName}
-                            inputId={inputId}
-                            value={currentVal}
-                            suggestions={profilingCatalog[attr.name as DitaProfilingAttrName] ?? []}
-                            placeholder={getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale)}
-                            onChange={(nextVal) =>
-                              onUpdateAttr(selected.mapPath, selected.elementPath, attr.name, nextVal)
-                            }
-                          />
-                        ) : attr.values && attr.values.length > 0 ? (
-                          <select
-                            id={inputId}
-                            value={currentVal}
-                            onChange={(e) =>
-                              onUpdateAttr(
-                                selected.mapPath,
-                                selected.elementPath,
-                                attr.name,
-                                e.target.value === '' ? null : e.target.value,
+                  return (
+                    <AttributeField
+                      key={attr.name}
+                      attr={attr}
+                      locale={locale}
+                      inputId={inputId}
+                      value={currentVal}
+                      hasValue={hasValue}
+                      helpOpen={openHelp.has(attr.name)}
+                      onToggleHelp={() => toggleHelp(attr.name)}
+                      onClear={() =>
+                        onUpdateAttr(selected.mapPath, selected.elementPath, attr.name, null)
+                      }
+                      onChange={(nextVal) =>
+                        onUpdateAttr(selected.mapPath, selected.elementPath, attr.name, nextVal)
+                      }
+                      renderControl={
+                        groupKey === 'profiling'
+                          ? (ctx) => (
+                              <ProfilingAttrEditor
+                                attrName={attr.name as DitaProfilingAttrName}
+                                inputId={ctx.inputId}
+                                value={currentVal}
+                                suggestions={profilingCatalog[attr.name as DitaProfilingAttrName] ?? []}
+                                placeholder={placeholder}
+                                onChange={(nextVal) =>
+                                  onUpdateAttr(selected.mapPath, selected.elementPath, attr.name, nextVal)
+                                }
+                              />
+                            )
+                          : showHrefPicker
+                            ? (ctx) => (
+                                <div className="space-y-1">
+                                  <input
+                                    id={ctx.inputId}
+                                    type="text"
+                                    value={currentVal}
+                                    placeholder={placeholder}
+                                    aria-describedby={ctx.describedBy}
+                                    onChange={(e) =>
+                                      onUpdateAttr(
+                                        selected.mapPath,
+                                        selected.elementPath,
+                                        'href',
+                                        e.target.value === '' ? null : e.target.value,
+                                      )
+                                    }
+                                    className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] text-slate-800 placeholder:font-sans placeholder:text-slate-400 focus:border-blue-500 focus:outline-none"
+                                  />
+                                  <select
+                                    aria-label={t('mapNodeInspector.quickPickAria')}
+                                    value=""
+                                    onChange={(e) => {
+                                      if (!e.target.value) return;
+                                      onUpdateAttr(
+                                        selected.mapPath,
+                                        selected.elementPath,
+                                        'href',
+                                        computeRelativeDitaHref(selected.mapPath, e.target.value),
+                                      );
+                                    }}
+                                    className="w-full rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10.5px] text-slate-600 focus:border-blue-500 focus:outline-none"
+                                  >
+                                    <option value="">{t('mapNodeInspector.quickPick')}</option>
+                                    {availableFiles
+                                      .filter((f) => f !== selected.mapPath)
+                                      .map((f) => (
+                                        <option key={f} value={f}>
+                                          {f}
+                                        </option>
+                                      ))}
+                                  </select>
+                                </div>
                               )
-                            }
-                            className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
-                          >
-                            <option value="">{t('attributes.unset')}</option>
-                            {currentVal && !attr.values.includes(currentVal) ? (
-                              <option value={currentVal}>{currentVal}</option>
-                            ) : null}
-                            {attr.values.map((v) => (
-                              <option key={v} value={v}>
-                                {v}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <div className="space-y-1">
-                            <input
-                              id={inputId}
-                              type="text"
-                              value={currentVal}
-                              placeholder={getAttributePlaceholder(attr, locale) ?? getAttributeLabel(attr, locale)}
-                              onChange={(e) =>
-                                onUpdateAttr(
-                                  selected.mapPath,
-                                  selected.elementPath,
-                                  attr.name,
-                                  e.target.value === '' ? null : e.target.value,
-                                )
-                              }
-                              className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 font-mono text-[11px] focus:border-blue-500 focus:outline-none"
-                            />
-                            {attr.name === 'href' && availableFiles.length > 0 ? (
-                              <select
-                                aria-label={t('mapNodeInspector.quickPickAria')}
-                                value=""
-                                onChange={(e) => {
-                                  if (!e.target.value) return;
-                                  const rel = computeRelativeDitaHref(
-                                    selected.mapPath,
-                                    e.target.value,
-                                  );
-                                  onUpdateAttr(
-                                    selected.mapPath,
-                                    selected.elementPath,
-                                    'href',
-                                    rel,
-                                  );
-                                }}
-                                className="w-full rounded border border-dashed border-slate-200 bg-slate-50 px-2 py-0.5 font-mono text-[10.5px] text-slate-600 focus:border-blue-500 focus:outline-none"
-                              >
-                                <option value="">{t('mapNodeInspector.quickPick')}</option>
-                                {availableFiles
-                                  .filter((f) => f !== selected.mapPath)
-                                  .map((f) => (
-                                    <option key={f} value={f}>
-                                      {f}
-                                    </option>
-                                  ))}
-                              </select>
-                            ) : null}
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </section>
-          );
-        })}
+                            : undefined
+                      }
+                    />
+                  );
+                })}
+              </AttributeGroupSection>
+            );
+          })
+        )}
+
+        <RawAttributesSection
+          rawAttrs={rawAttrs}
+          knownNames={knownNames}
+          isOpen={Boolean(expandedGroups.raw)}
+          onToggle={() => toggleGroup('raw')}
+          onUpdateAttr={(name, value) =>
+            onUpdateAttr(selected.mapPath, selected.elementPath, name, value)
+          }
+          emptyText={t('mapNodeInspector.noAttrs')}
+        />
 
         {/* Lossless Metadata Card */}
         <section className="bg-emerald-50/40 p-3">

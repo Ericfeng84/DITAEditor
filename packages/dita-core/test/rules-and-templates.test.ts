@@ -8,6 +8,13 @@ import {
   getAllowedChildElements,
   getAllowedChildElementTags,
   getAttributesForElement,
+  getAttributeDescription,
+  getAttributeExample,
+  getAttributeGroupMeta,
+  getAttributeLabel,
+  getAttributeUsage,
+  getAttributeValueLabel,
+  formatAttributeOptionLabel,
   getNodeSourceRange,
   getPmNodeTagName,
   getRawAttr,
@@ -129,5 +136,179 @@ describe('DITA 1.3 Rules, Templates, and Bidirectional Path Mapping', () => {
     expect(resolvedPmPos).not.toBeNull();
     const $resolved = pmDoc.resolve(resolvedPmPos!);
     expect(getPmNodeTagName($resolved.parent)).toBe('entry');
+  });
+});
+
+const ATTRIBUTE_GROUPS = ['element', 'core', 'localization', 'profiling', 'reuse', 'presentation'] as const;
+
+/** Representative elements covering every registered attribute group and element-specific spec. */
+const REPRESENTATIVE_ELEMENTS: readonly string[] = [
+  'topic',
+  'concept',
+  'task',
+  'reference',
+  'map',
+  'topicref',
+  'mapref',
+  'topichead',
+  'topicgroup',
+  'keydef',
+  'note',
+  'xref',
+  'link',
+  'image',
+  'codeblock',
+  'pre',
+  'keyword',
+  'ph',
+  'term',
+  'step',
+  'simpletable',
+  'table',
+  'tgroup',
+  'colspec',
+  'entry',
+  'fn',
+  'p',
+];
+
+const DOCUMENT_ROOTS: readonly string[] = ['topic', 'concept', 'task', 'reference', 'map'];
+
+function groupOf(tagName: string, attrName: string): string | undefined {
+  return getAttributesForElement(tagName).find((a) => a.name === attrName)?.group;
+}
+
+describe('DITA attribute grouping (core vs localization, root xml:lang promotion)', () => {
+  it('keeps only id and outputclass in the high-frequency core group', () => {
+    for (const tagName of ['p', 'note', 'topicref', 'step', 'entry', 'keyword']) {
+      const coreNames = getAttributesForElement(tagName)
+        .filter((a) => a.group === 'core')
+        .map((a) => a.name);
+      expect(coreNames).toEqual(['id', 'outputclass']);
+    }
+
+    // `codeblock` narrows outputclass to a syntax-highlighting language hint.
+    const codeblockAttrs = getAttributesForElement('codeblock');
+    expect(codeblockAttrs.filter((a) => a.name === 'outputclass')).toHaveLength(1);
+    expect(groupOf('codeblock', 'outputclass')).toBe('element');
+
+    // Document roots own their required `id`, so it is promoted to the element group.
+    for (const tagName of DOCUMENT_ROOTS) {
+      const attrs = getAttributesForElement(tagName);
+      expect(attrs.filter((a) => a.group === 'core').map((a) => a.name)).toEqual(['outputclass']);
+      expect(attrs.filter((a) => a.name === 'id' && a.group === 'element')).toHaveLength(1);
+    }
+  });
+
+  it('moves xml:lang, translate, status, and dir into the localization group on inner elements', () => {
+    for (const tagName of ['p', 'note', 'topicref', 'xref', 'entry', 'codeblock']) {
+      for (const attrName of ['xml:lang', 'translate', 'status', 'dir']) {
+        expect(groupOf(tagName, attrName)).toBe('localization');
+      }
+    }
+  });
+
+  it('promotes xml:lang into the element group on document roots without duplicates', () => {
+    for (const tagName of DOCUMENT_ROOTS) {
+      const attrs = getAttributesForElement(tagName);
+      const langAttrs = attrs.filter((a) => a.name === 'xml:lang');
+      expect(langAttrs).toHaveLength(1);
+      expect(langAttrs[0]?.group).toBe('element');
+      // The promoted root spec still exposes the language enum for the select control.
+      expect(langAttrs[0]?.values).toContain('zh-CN');
+      expect(attrs.filter((a) => a.name === 'translate')[0]?.group).toBe('localization');
+      // No attribute name may be returned twice for any element.
+      const names = attrs.map((a) => a.name);
+      expect(new Set(names).size).toBe(names.length);
+    }
+  });
+
+  it('returns deduplicated attributes for every representative element', () => {
+    for (const tagName of REPRESENTATIVE_ELEMENTS) {
+      const names = getAttributesForElement(tagName).map((a) => a.name);
+      expect(names.length).toBeGreaterThan(0);
+      expect(new Set(names).size).toBe(names.length);
+    }
+  });
+});
+
+describe('Bilingual attribute documentation coverage', () => {
+  const locales = ['zh-CN', 'en'] as const;
+
+  it('has non-empty label, description, and usage for every attribute in both locales', () => {
+    for (const tagName of REPRESENTATIVE_ELEMENTS) {
+      for (const spec of getAttributesForElement(tagName)) {
+        for (const locale of locales) {
+          const where = `${tagName}/@${spec.name} (${locale})`;
+          expect(getAttributeLabel(spec, locale).length, where).toBeGreaterThan(0);
+          expect(getAttributeDescription(spec, locale).length, where).toBeGreaterThan(0);
+          const usage = getAttributeUsage(spec, locale);
+          expect(usage?.length ?? 0, where).toBeGreaterThan(0);
+          // Usage scenarios come from the knowledge base, never a verbatim description fallback.
+          expect(usage, where).not.toBe(spec.description);
+          expect(usage, where).not.toBe(spec.descriptionZh);
+        }
+      }
+    }
+  });
+
+  it('provides a concrete example for the most common attributes', () => {
+    const samples = getAttributesForElement('topicref');
+    for (const attrName of ['href', 'navtitle', 'keys', 'keyref', 'chunk', 'processing-role']) {
+      const spec = samples.find((a) => a.name === attrName)!;
+      expect(getAttributeExample(spec, 'zh-CN')?.length ?? 0).toBeGreaterThan(0);
+      expect(getAttributeExample(spec, 'en')?.length ?? 0).toBeGreaterThan(0);
+    }
+  });
+
+  it('labels every enum value and renders readable select options in both locales', () => {
+    const seen = new Set<string>();
+    for (const tagName of REPRESENTATIVE_ELEMENTS) {
+      for (const spec of getAttributesForElement(tagName)) {
+        const values = spec.values ?? [];
+        for (const value of values) {
+          for (const locale of locales) {
+            const where = `${tagName}/@${spec.name}="${value}" (${locale})`;
+            const label = getAttributeValueLabel(spec, value, locale);
+            expect(label?.length ?? 0, where).toBeGreaterThan(0);
+            expect(label, where).not.toBe(value);
+            const optionLabel = formatAttributeOptionLabel(spec, value, locale);
+            expect(optionLabel, where).toContain(value);
+            expect(optionLabel.length, where).toBeGreaterThan(value.length);
+          }
+        }
+        for (const value of values) seen.add(`${spec.name}=${value}`);
+      }
+    }
+    // Sanity: the representative set really does exercise the enum dictionaries.
+    expect(seen.size).toBeGreaterThan(70);
+  });
+
+  it('renders the documented option label format', () => {
+    const dirSpec = getAttributesForElement('p').find((a) => a.name === 'dir')!;
+    expect(formatAttributeOptionLabel(dirSpec, 'lro', 'zh-CN')).toBe('强制左到右覆盖 (lro)');
+    expect(formatAttributeOptionLabel(dirSpec, 'lro', 'en')).toBe('Force LTR override (lro)');
+
+    const processingRole = getAttributesForElement('topicref').find((a) => a.name === 'processing-role')!;
+    expect(formatAttributeOptionLabel(processingRole, 'resource-only', 'zh-CN')).toBe(
+      '仅作资源（不进正文） (resource-only)',
+    );
+    // Unknown/specialized values fall back to the raw XML value.
+    expect(formatAttributeOptionLabel(dirSpec, 'custom-dir', 'zh-CN')).toBe('custom-dir');
+  });
+
+  it('returns group metadata for all six groups in both locales', () => {
+    for (const group of ATTRIBUTE_GROUPS) {
+      for (const locale of locales) {
+        const meta = getAttributeGroupMeta(group, locale);
+        expect(meta.title.length, `${group}/${locale}`).toBeGreaterThan(0);
+        expect(meta.subtitle.length, `${group}/${locale}`).toBeGreaterThan(0);
+        expect(meta.description.length, `${group}/${locale}`).toBeGreaterThan(0);
+      }
+      expect(getAttributeGroupMeta(group, 'zh-CN').title).not.toBe(getAttributeGroupMeta(group, 'en').title);
+    }
+    expect(getAttributeGroupMeta('localization', 'zh-CN').title).toBe('本地化与修订');
+    expect(getAttributeGroupMeta('localization', 'en').title).toBe('Localization & status');
+    expect(getAttributeGroupMeta('core', 'zh-CN').title).toBe('常用通用属性');
   });
 });
