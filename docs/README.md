@@ -15,6 +15,7 @@
 | [design/dita-authoring-compliance.md](./design/dita-authoring-compliance.md) | **DITA 1.3 结构化写作合规实现**：规则单一来源、引导式插入与三处同源结构诊断 |
 | [design/content-reuse-workflow.md](./design/content-reuse-workflow.md) | **内容复用工作流设计**：Warehouse 复用仓库、新建/提取复用片段与全入口插入闭环 |
 | [design/ai-contract.md](./design/ai-contract.md) | **AI 辅助跨包接口契约**：`@dita/core` / `@dita/api` / `@dita/web` 间的类型、SSE 协议与安全边界真相源 |
+| [design/help-center.md](./design/help-center.md) | **应用内帮助中心与 DITA 规范文档**：七章信息架构、派生式速查（`DITA_SEQUENCE_MODEL`）、外链/离线降级与文档站两页扩展 |
 
 ## 二、架构决策记录（ADR）
 
