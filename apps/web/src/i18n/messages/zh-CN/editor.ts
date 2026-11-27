@@ -6,7 +6,7 @@ export const zhCNEditor = {
   'breadcrumb.aria': 'DITA 元素层级面包屑',
   'breadcrumb.sourceMode': 'XML 源码模式 · 切换至可视化或双栏视图可浏览交互式元素路径',
   'breadcrumb.empty': '点击文档内任意元素查看层级路径',
-  'breadcrumb.selectTitle': '点击选中并检查 <{tag}> 属性',
+  'breadcrumb.selectTitle': '点击选中 <{tag}>，并在大纲中定位到它',
   'breadcrumb.diagnostics': '诊断: {count}',
   'breadcrumb.diffNone': '与基线 0 行差异',
   'breadcrumb.diff': 'Diff: {count} 行变动',

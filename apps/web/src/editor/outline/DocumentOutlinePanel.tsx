@@ -25,6 +25,7 @@ import {
 } from 'lucide-react';
 import { useI18n } from '../../i18n/index.js';
 import {
+  collectOutlineAncestorIds,
   filterOutlineTree,
   type OutlineDensity,
   type OutlineNode,
@@ -160,6 +161,22 @@ export function DocumentOutlinePanel({
     const element = listRef.current?.querySelector<HTMLElement>(`[data-outline-id="${activeNodeId}"]`);
     element?.scrollIntoView({ block: 'nearest' });
   }, [activeNodeId, draggingPos, rows.length]);
+
+  // Reveal the followed node before scrolling to it: a click on a footer breadcrumb level can
+  // target a branch the user had collapsed, and `scrollIntoView` cannot reach a row that is not
+  // in the DOM. Expanding ancestors keeps "jump to this level" working for every entry point,
+  // without the caller having to know the panel's collapse state.
+  useEffect(() => {
+    if (!activeNodeId) return;
+    const ancestors = collectOutlineAncestorIds(nodes, activeNodeId);
+    if (ancestors.length === 0) return;
+    setCollapsed((prev) => {
+      if (!ancestors.some((id) => prev.has(id))) return prev;
+      const next = new Set(prev);
+      for (const id of ancestors) next.delete(id);
+      return next;
+    });
+  }, [activeNodeId, nodes]);
 
   const toggleCollapsed = useCallback((id: string) => {
     setCollapsed((prev) => {

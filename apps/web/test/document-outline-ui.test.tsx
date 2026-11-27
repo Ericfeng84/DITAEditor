@@ -263,6 +263,42 @@ describe('locate', () => {
   });
 });
 
+describe('following the active node', () => {
+  it('reveals a collapsed branch when the followed node moves inside it', () => {
+    const nodes = outlineFor(TASK_XML);
+    const steps = findNode(nodes, (node) => node.tagName === 'steps')!;
+    const step = findNode(nodes, (node) => node.tagName === 'step')!;
+    const { rerender } = renderPanel({ nodes });
+
+    // Collapse the container the way an author would, so its steps leave the DOM.
+    const caret = rowFor(steps).querySelector('button');
+    expect(caret).not.toBeNull();
+    fireEvent.click(caret!);
+    expect(rowFor(steps).getAttribute('aria-expanded')).toBe('false');
+    expect(document.querySelector(`[data-outline-id="${step.id}"]`)).toBeNull();
+
+    // A breadcrumb click hands the panel a node it cannot scroll to while the branch is closed.
+    rerender({ activeNodeId: step.id });
+    expect(rowFor(steps).getAttribute('aria-expanded')).toBe('true');
+    expect(document.querySelector(`[data-outline-id="${step.id}"]`)).not.toBeNull();
+    expect(rowFor(step).getAttribute('aria-selected')).toBe('true');
+  });
+
+  it('leaves unrelated collapsed branches alone', () => {
+    const nodes = outlineFor(TASK_XML);
+    const context = findNode(nodes, (node) => node.tagName === 'context')!;
+    const step = findNode(nodes, (node) => node.tagName === 'step')!;
+    const { rerender } = renderPanel({ nodes });
+
+    fireEvent.click(rowFor(context).querySelector('button')!);
+    expect(rowFor(context).getAttribute('aria-expanded')).toBe('false');
+
+    rerender({ activeNodeId: step.id });
+    // Navigating to one branch must not expand every branch — the reading position stays legible.
+    expect(rowFor(context).getAttribute('aria-expanded')).toBe('false');
+  });
+});
+
 describe('read-only mode', () => {
   it('hides drag handles and shows the read-only footer hint', () => {
     const nodes = outlineFor(TASK_XML);

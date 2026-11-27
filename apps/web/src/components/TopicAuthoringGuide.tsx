@@ -209,7 +209,8 @@ export interface TopicGuideChipProps {
 
 /**
  * Single-line authoring-guide summary + expand toggle. It is intentionally NOT a strip of its
- * own: it lives at the end of the editor action row, so the guide costs zero extra chrome height.
+ * own: it sits on the left edge of the workbench footer bar (`BreadcrumbBar`), so the guide costs
+ * zero extra chrome height and stays out of the toolbar row that the canvas needs for writing.
  */
 export function TopicGuideChip({
   docType,
@@ -271,7 +272,8 @@ export interface TopicAuthoringGuideProps {
  * Expanded DITA 1.3 authoring specification for the active topic type: a clickable tag
  * hierarchy (required vs optional, spec order) plus a detail pane (allowed children, required
  * attributes, authoring rules). Mounted only while expanded — the toggle lives in
- * `TopicGuideChip`, inside the editor action row.
+ * `TopicGuideChip` on the left edge of the workbench footer bar, and the card unfolds upward from
+ * it because the footer sits on the bottom edge of the workbench.
  */
 export function TopicAuthoringGuide({ docType }: TopicAuthoringGuideProps) {
   const { t } = useI18n();
@@ -280,10 +282,12 @@ export function TopicAuthoringGuide({ docType }: TopicAuthoringGuideProps) {
   const spec = TOPIC_AUTHORING_GUIDES[docType];
 
   return (
+    // The frame belongs to the host (the footer popover draws the border, radius and shadow), so the
+    // card itself only paints its accent header and clips its rounded corner.
     <section
       aria-label={t('guide.aria')}
       data-topic-guide-type={spec.type}
-      className={`shrink-0 border-b border-slate-200/90 ${spec.accent.barBg}`}
+      className={`shrink-0 overflow-hidden ${spec.accent.barBg}`}
     >
       <TopicGuidePanel key={spec.type} spec={spec} />
     </section>

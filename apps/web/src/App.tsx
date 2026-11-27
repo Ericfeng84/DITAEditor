@@ -19,7 +19,7 @@ import {
   type XmlPrologItem,
   type IngestJobResult,
 } from '@dita/core';
-import { FilePlus2, FolderOpen, ListTree, Network, PanelRightClose, Sparkles } from 'lucide-react';
+import { FilePlus2, FolderOpen, Network, PanelRightClose, Sparkles } from 'lucide-react';
 import {
   CheckinDialog,
   collectCheckinIssues,
@@ -30,6 +30,7 @@ import { EditorTabBar } from './components/EditorTabBar';
 import { FileExplorerPanel } from './components/FileExplorerPanel';
 import { GitPanel } from './components/GitPanel';
 import { MergeDialog } from './components/MergeDialog';
+import { TaskModelSwitch } from './components/TaskModelSwitch';
 import { InsertKeyrefDialog } from './components/InsertKeyrefDialog';
 import { NewKeyDialog, type NewKeyDialogContext } from './components/NewKeyDialog';
 import { KeyspacePanel } from './components/KeyspacePanel';
@@ -124,6 +125,7 @@ import {
   type TagDisplayMode,
 } from './store/editor-store';
 import { useAssignmentStore } from './store/assignment-store';
+import { useWorkbenchStore } from './store/workbench-store';
 import { useGitStore } from './store/git-store';
 import {
   setDetectedTaskContentModel,
@@ -139,6 +141,8 @@ export interface AppProps {
   branch: string | null;
   /** Deep link from the hub or an assignment card (`?topic=…`). */
   topicPath: string | null;
+  /** Manual-level default root map (`manual.defaultRootMap`), used to boot the tree. */
+  defaultRootMap?: string | null;
   assignmentId: string | null;
   /** Leaves the session back to the workbench hub; the shell owns the actual navigation. */
   onLeaveSession: () => void;
@@ -149,7 +153,15 @@ const OUTLINE_MIN_WIDTH = 180;
 const OUTLINE_MAX_WIDTH = 420;
 const OUTLINE_DEFAULT_WIDTH = 240;
 
-export function App({ manualId, manualName, branch, topicPath, assignmentId, onLeaveSession }: AppProps) {
+export function App({
+  manualId,
+  manualName,
+  branch,
+  topicPath,
+  defaultRootMap = null,
+  assignmentId,
+  onLeaveSession,
+}: AppProps) {
   const { t, locale } = useI18n();
   const workspaceMode = useEditorStore((s) => s.workspaceMode);
   const workspaceRootDir = useEditorStore((s) => s.workspaceRootDir);
@@ -305,9 +317,13 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const loadGitDiff = useGitStore((s) => s.loadDiff);
   const clearGitDiff = useGitStore((s) => s.clearDiff);
 
-  // Initialize workspace on mount. A deep-linked topic (`?topic=…`) wins over the first topic.
+  // Initialize workspace on mount. A deep-linked topic (`?topic=…`) wins over the first topic, and
+  // the manual's default root map wins over the folder-top-level heuristic. The default is read
+  // through a ref so pinning a new one later does not re-run the whole boot (that would close tabs).
+  const initialRootMapRef = useRef<string | null>(defaultRootMap);
+  const [manualRootMap, setManualRootMap] = useState<string | null>(defaultRootMap);
   useEffect(() => {
-    void initWorkspace({ topicPath });
+    void initWorkspace({ topicPath, rootMapPath: initialRootMapRef.current });
   }, [initWorkspace, topicPath]);
 
   // Phase 10: assignment state is scoped to this session's manual + branch by the shell headers.
@@ -1220,7 +1236,10 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
 
   const handleSelectBreadcrumb = useCallback((crumb: BreadcrumbItem) => {
     visualRef.current?.selectNode(crumb.pos, true);
-  }, []);
+    // Every hierarchy level in the footer doubles as the outline entry point: the pane opens on
+    // that element (the panel follows `activeOutlineId`) instead of on a fixed toggle button.
+    setOutlineOpen(true);
+  }, [setOutlineOpen]);
 
   const resolveImageSrcForActiveTab = useCallback(
     (href: string) => {
@@ -1305,6 +1324,24 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
 
   const canIngestDocument =
     import.meta.env.VITE_STATIC_DEMO !== 'true' && (currentUser ? currentUser.role !== 'viewer' : false);
+
+  /** Manual-level settings (default root map) need a non-viewer session on the real API. */
+  const canEditManualSettings = canIngestDocument;
+
+  const handleSetDefaultRootMap = useCallback(
+    async (mapPath: string) => {
+      const updated = await useWorkbenchStore
+        .getState()
+        .updateManual(manualId, { defaultRootMap: mapPath });
+      if (!updated) {
+        announce(t('status.defaultRootMapFailed'));
+        return;
+      }
+      setManualRootMap(updated.defaultRootMap ?? mapPath);
+      announce(t('status.defaultRootMapSet', { path: mapPath }));
+    },
+    [announce, manualId, t],
+  );
 
   /* Editor-wide shortcut: Ctrl/Cmd + Shift + I opens the import wizard. */
   useEffect(() => {
@@ -1524,29 +1561,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     ],
   );
 
-  /* Two button skins: the visual sub-header sits on a light bar, the source toolbar is slate-900. */
-  const renderOutlineToggle = (variant: 'light' | 'dark') =>
-    activeTab?.kind === 'topic' ? (
-      <button
-        type="button"
-        aria-pressed={outlineOpen}
-        aria-label={t('outline.toggle')}
-        title={t('outline.toggleTitle')}
-        onClick={() => setOutlineOpen(!outlineOpen)}
-        className={`inline-flex shrink-0 items-center gap-1 rounded border px-1.5 py-0.5 text-[11px] font-medium transition-colors ${
-          variant === 'dark'
-            ? outlineOpen
-              ? 'border-sky-500/60 bg-sky-500/15 text-sky-300'
-              : 'border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700'
-            : outlineOpen
-              ? 'border-blue-300 bg-blue-50 text-blue-700'
-              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100 hover:text-slate-900'
-        }`}
-      >
-        <ListTree className="h-3 w-3" aria-hidden="true" />
-        <span>{t('outline.toggle')}</span>
-      </button>
-    ) : null;
   /**
    * The inspector is reachable for any open topic tab — including source-only mode, where the
    * AI tab still works on the raw buffer — so collapsing and expanding never dead-ends on a
@@ -1721,6 +1735,12 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                     onSelectDitaval={(ditavalPath) => void selectDitaval(ditavalPath)}
                     onChangeDitavalDisplayMode={setDitavalDisplayMode}
                     onSelectMapNode={(ref) => selectMapNode(ref, true)}
+                    maps={workspaceMaps}
+                    onSelectRootMap={(mapPath) => void selectRootMap(mapPath)}
+                    defaultRootMap={manualRootMap}
+                    {...(canEditManualSettings
+                      ? { onSetDefaultRootMap: (mapPath: string) => void handleSetDefaultRootMap(mapPath) }
+                      : {})}
                     onMoveNodes={moveMapTreeNodes}
                     onOpenTopicOrMap={(path) => void openFileTab(path)}
                     onJumpToSource={(mapPath, line) => void jumpToMapNodeSource(mapPath, line)}
@@ -1938,26 +1958,14 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                     ) : null}
 
                     {/* Source-only / map-overview layouts get a compact document bar here, since
-                        they have no visual sub-header to host the guide, lock and save controls. */}
+                        they have no visual sub-header to host the lock and save controls. The
+                        authoring-guide chip lives on the footer's right edge (see BreadcrumbBar),
+                        so it is never repeated in this strip. */}
                     {showDocumentBar ? (
                       <div className="flex shrink-0 flex-wrap items-center justify-end gap-2 border-b border-slate-200 bg-white px-3 py-1">
-                        {showGuideChip && activeTab ? (
-                          <TopicGuideChip
-                            docType={activeTab.docType}
-                            expanded={guideExpanded}
-                            onToggle={toggleGuideExpanded}
-                            structureIssueCount={activeStructureIssueCount}
-                            onOpenProblems={() => setProblemsOpen(true)}
-                          />
-                        ) : null}
                         {topicContextNode}
                         {saveControlsNode}
                       </div>
-                    ) : null}
-
-                    {/* Source-only layouts have no visual sub-header to host the expanded guide card. */}
-                    {showGuideChip && guideExpanded && !showVisualPane ? (
-                      <TopicAuthoringGuide docType={activeTab?.docType ?? 'topic'} />
                     ) : null}
 
                     <div className="min-h-0 flex-1 overflow-hidden">
@@ -2003,7 +2011,10 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                               <div className="flex h-full w-full overflow-hidden">
                                 {showOutlinePane && activeTab ? (
                                   <>
-                                    <div className="h-full shrink-0 overflow-hidden" style={{ width: outlineWidth }}>
+                                    <div
+                                      className="h-full shrink-0 overflow-hidden"
+                                      style={{ width: outlineWidth }}
+                                    >
                                       <DocumentOutlinePanel
                                         nodes={outlineNodes}
                                         activeNodeId={activeOutlineId}
@@ -2077,9 +2088,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                             tagDisplayMode={activeTagDisplayMode}
                                             onChangeTagDisplayMode={changeTagDisplayMode}
                                             taskModelSetting={taskModelSetting}
-                                            resolvedTaskModel={resolvedTaskModel}
-                                            onChangeTaskModelSetting={setTaskModelSetting}
-                                            showTaskModelSwitch={showTaskModelSwitch}
                                             pendingJumpPos={pendingVisualPmPos}
                                             onJumpHandled={clearPendingVisualPmPos}
                                             onXmlChange={updateXmlFromVisual}
@@ -2100,21 +2108,11 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                               void jumpToSemanticLocation(filePath, { line, elementId })
                                             }
                                             readOnly={!canEdit}
-                                            guideSlot={
-                                              showGuideChip && activeTab ? (
-                                                <TopicGuideChip
-                                                  docType={activeTab.docType}
-                                                  expanded={guideExpanded}
-                                                  onToggle={toggleGuideExpanded}
-                                                  structureIssueCount={activeStructureIssueCount}
-                                                  onOpenProblems={() => setProblemsOpen(true)}
-                                                />
-                                              ) : null
-                                            }
                                             saveSlot={saveControlsNode}
                                             contextSlot={topicContextNode}
                                             formattingBarSlot={
                                               showTopicVisual && canEdit ? <EditorToolbar
+                                                singleLine
                                                 snapshot={snapshot}
                                                 canUndo={historyFlags.canUndo}
                                                 canRedo={historyFlags.canRedo}
@@ -2142,12 +2140,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                               /> : null
                                             }
                                             onReadOnlyEditAttempt={handleReadOnlyEditAttempt}
-                                            guidePanel={
-                                              activeTab?.kind === 'topic' && guideExpanded ? (
-                                                <TopicAuthoringGuide docType={activeTab.docType} />
-                                              ) : null
-                                            }
-                                            outlineSlot={renderOutlineToggle('light')}
                                           />
                                         )}
                                       </Panel>
@@ -2180,11 +2172,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                               setOutlineSourceCursorOffset(offset);
                                             }
                                           }}
-                                          outlineSlot={
-                                            !showVisualPane && activeTab?.kind === 'topic'
-                                              ? renderOutlineToggle('dark')
-                                              : null
-                                          }
                                           replacementXml={sourceReplacementXml}
                                           onReplacementApplied={handleSourceReplacementApplied}
                                           onAiFixXmlError={handleAiFixXmlError}
@@ -2193,9 +2180,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
                                           topicIndices={topicIndices}
                                           profilingCatalog={profilingCatalog}
                                           taskModelSetting={taskModelSetting}
-                                          resolvedTaskModel={resolvedTaskModel}
-                                          onChangeTaskModelSetting={setTaskModelSetting}
-                                          showTaskModelSwitch={showTaskModelSwitch}
                                           readOnly={!canEdit}
                                         />
                                       </Panel>
@@ -2395,6 +2379,34 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
               activePath={activeTab?.path ?? activeRootMapPath}
               diagnosticsCount={diagnostics.length}
               onToggleProblems={() => setProblemsOpen(!problemsOpen)}
+              guideChip={
+                showGuideChip && activeTab ? (
+                  <TopicGuideChip
+                    docType={activeTab.docType}
+                    expanded={guideExpanded}
+                    onToggle={toggleGuideExpanded}
+                    structureIssueCount={activeStructureIssueCount}
+                    onOpenProblems={() => setProblemsOpen(true)}
+                  />
+                ) : null
+              }
+              topicModelSlot={
+                // Placed right of the topic-type chip: "which kind of topic" and "which content
+                // model it follows" answer the same question, and one shared home covers visual,
+                // split and source modes alike (the source toolbar no longer repeats it).
+                showTaskModelSwitch && activeTab ? (
+                  <TaskModelSwitch
+                    setting={taskModelSetting}
+                    resolved={resolvedTaskModel}
+                    onChange={setTaskModelSetting}
+                  />
+                ) : null
+              }
+              guidePanel={
+                showGuideChip && activeTab && guideExpanded ? (
+                  <TopicAuthoringGuide docType={activeTab.docType} />
+                ) : null
+              }
             />
           </div>
         </Panel>

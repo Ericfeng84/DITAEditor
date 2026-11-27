@@ -137,6 +137,8 @@ export const enCommon = {
   'status.importedMemory': 'Imported project into the offline memory workspace: {name}',
   'status.restoredDemo': 'Restored the built-in multi-file offline sample workspace',
   'status.rootMapActivated': 'Activated root map: {path}',
+  'status.defaultRootMapSet': 'Set {path} as the manual default root map',
+  'status.defaultRootMapFailed': 'Failed to set the manual default root map',
   'status.ditavalOff': 'DITAVAL filtering disabled (full document shown)',
   'status.ditavalNotFound': 'DITAVAL file not found: {path}',
   'status.ditavalParseFailed': 'Failed to parse DITAVAL: {message}',

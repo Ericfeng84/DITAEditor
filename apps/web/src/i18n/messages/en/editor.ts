@@ -6,7 +6,7 @@ export const enEditor = {
   'breadcrumb.aria': 'DITA element hierarchy breadcrumb',
   'breadcrumb.sourceMode': 'XML Source mode · switch to Visual or Split to browse the interactive element path',
   'breadcrumb.empty': 'Click any element in the document to inspect its hierarchy',
-  'breadcrumb.selectTitle': 'Click to select and inspect the attributes of <{tag}>',
+  'breadcrumb.selectTitle': 'Click to select <{tag}> and reveal it in the outline',
   'breadcrumb.diagnostics': 'Diagnostics: {count}',
   'breadcrumb.diffNone': '0 line difference from baseline',
   'breadcrumb.diff': 'Diff: {count} changed line(s)',

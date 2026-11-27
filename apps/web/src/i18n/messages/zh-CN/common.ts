@@ -135,6 +135,8 @@ export const zhCNCommon = {
   'status.importedMemory': '已在离线内存工作区导入项目：{name}',
   'status.restoredDemo': '已恢复内置多文件离线示例工作区',
   'status.rootMapActivated': '已激活 Root Map：{path}',
+  'status.defaultRootMapSet': '已将 {path} 设为手册默认 Root Map',
+  'status.defaultRootMapFailed': '设置手册默认 Root Map 失败',
   'status.ditavalOff': '已关闭 DITAVAL 条件过滤（显示完整文档）',
   'status.ditavalNotFound': '未找到 DITAVAL 文件：{path}',
   'status.ditavalParseFailed': 'DITAVAL 解析失败：{message}',

@@ -52,6 +52,12 @@ export interface EditorToolbarProps {
       | 'splitCell',
   ) => void;
   disabled?: boolean;
+  /**
+   * Render the controls on a single line (no wrapping) so the toolbar can live in a fixed-height
+   * chrome row. The merged document bar gives it an `overflow-x-auto` track, so a pane too narrow
+   * for every button scrolls instead of pushing the row into a second and third line.
+   */
+  singleLine?: boolean;
 }
 
 /**
@@ -76,6 +82,7 @@ export function EditorToolbar({
   onOpenConrefDialog,
   onTableAction,
   disabled = false,
+  singleLine = false,
 }: EditorToolbarProps) {
   const { t } = useI18n();
   const toolbarRef = useRef<HTMLDivElement | null>(null);
@@ -163,7 +170,9 @@ export function EditorToolbar({
         role="toolbar"
         aria-label={t('toolbar.aria')}
         {...({ focusgroup: 'toolbar wrap' } as Record<string, string>)}
-        className="dita-toolbar flex min-w-0 flex-wrap items-center gap-1"
+        className={`dita-toolbar flex min-w-0 items-center gap-1 ${
+          singleLine ? 'min-w-max flex-nowrap' : 'flex-wrap'
+        }`}
       >
         {/* History group */}
         <div role="group" aria-label={t('toolbar.undoGroup')} className="flex items-center gap-0.5">

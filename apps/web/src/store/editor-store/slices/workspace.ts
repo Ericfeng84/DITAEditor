@@ -56,7 +56,12 @@ export function createWorkspaceSlice(
       try {
         const snapshot = await fetchWorkspace();
         const fSet = runtime.applySnapshotToState(snapshot);
+        // The manual's default root map wins over the folder-top-level heuristic, so a manual
+        // authored under `maps/` (or with several submaps) reopens on the map its team picked.
+        const preferredMap =
+          options?.rootMapPath && fSet.has(options.rootMapPath) ? options.rootMapPath : null;
         const firstMap =
+          preferredMap ??
           snapshot.maps.find((m) => m.path.endsWith('.ditamap') && !m.path.includes('/'))?.path ??
           snapshot.maps[0]?.path ??
           null;

@@ -5,7 +5,7 @@ export interface TaskModelSwitchProps {
   setting: TaskContentModelSetting;
   resolved: TaskContentModel;
   disabled?: boolean;
-  /** `light` matches the visual sub-header, `dark` the source editor toolbar. */
+  /** `light` matches the workbench footer strip, `dark` the source editor toolbar. */
   variant?: 'light' | 'dark';
   onChange: (next: TaskContentModelSetting) => void;
 }
@@ -13,9 +13,10 @@ export interface TaskModelSwitchProps {
 /**
  * Task content-model switch (`auto` / `strict` / `general`).
  *
- * Rendered next to the topic-type badge in the visual sub-header bar and in the source toolbar
- * (never in the editing toolbar), and only for `<task>` documents — style it through `variant` so
- * it blends with each surface.
+ * Rendered once on the workbench footer strip, immediately right of the topic-type chip (see
+ * `BreadcrumbBar`'s `topicModelSlot`), and only for `<task>` documents — it is deliberately kept
+ * out of the editing toolbar so formatting controls stay contiguous. Style it through `variant` to
+ * blend with whichever surface hosts it.
  */
 export function TaskModelSwitch({
   setting,

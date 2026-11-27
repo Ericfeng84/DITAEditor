@@ -50,7 +50,8 @@ import { buildBlockInsertGroups, readGapContainerChildTags } from './insert-cont
 import { createVisualEditorHandle, type VisualEditorHandle } from './editor-handle';
 import { useVisualEditorView } from './use-visual-editor-view';
 import { summarizeDitavalTopics } from './ditaval-summary';
-import { VisualEditorSubHeader } from './VisualEditorSubHeader';
+import { VisualEditorSubHeader, type VisualEditorSubHeaderProps } from './VisualEditorSubHeader';
+import { TagModeSwitch } from './TagModeSwitch';
 import {
   blockIndexInContainer,
   canDuplicateBlock,
@@ -129,21 +130,10 @@ export interface VisualEditorProps {
   readOnly?: boolean;
   /** User preference for the task content model (`auto` reads the document DOCTYPE). */
   taskModelSetting?: TaskContentModelSetting;
-  /** Model `auto` currently resolves to for this document (shown next to the switch). */
-  resolvedTaskModel?: TaskContentModel;
-  onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
-  /** Only `<task>` topics expose the strict / general switch. */
-  showTaskModelSwitch?: boolean;
-  /** Collapsible document outline toggle, pinned to the far left of the sub-header. */
-  outlineSlot?: ReactNode;
-  /** Authoring-guide toggle, placed at the end of the sub-header toolbar. */
-  guideSlot?: ReactNode;
-  /** Save affordance, placed on the sub-header toolbar next to the guide toggle. */
+  /** Save affordance, pinned with the topic actions on the far right of the sub-header. */
   saveSlot?: ReactNode;
   /** Lock state + assignment chip for the open topic, on the sub-header toolbar. */
   contextSlot?: ReactNode;
-  /** Expanded authoring-guide panel, rendered directly under the sub-header. */
-  guidePanel?: ReactNode;
   /**
    * Formatting toolbar (undo / insert / table…), rendered directly under the sub-header so the
    * document tooling stays inside the visual pane instead of spanning both sidebar and canvas.
@@ -179,14 +169,8 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
       resolveImageSrc,
       readOnly = false,
       taskModelSetting = 'auto',
-      resolvedTaskModel = 'strict',
-      onChangeTaskModelSetting,
-      showTaskModelSwitch = false,
-      outlineSlot,
-      guideSlot,
       saveSlot,
       contextSlot,
-      guidePanel,
       formattingBarSlot,
       onReadOnlyEditAttempt,
     },
@@ -1018,125 +1002,131 @@ export const VisualEditor = forwardRef<VisualEditorHandle, VisualEditorProps>(
 
     const ditavalTopicSummary = summarizeDitavalTopics(activeDitaval, viewRef.current);
 
-    return (
-      <div className="flex h-full flex-col bg-slate-100/80">
-        <VisualEditorSubHeader
+    const subHeaderProps = {
+      activeDitaval,
+      activeDitavalPath: activeDitavalPath ?? null,
+      ditavalTopicSummary,
+      tagModeSlot: (
+        <TagModeSwitch
           tagDisplayMode={tagDisplayMode}
           onChangeTagDisplayMode={onChangeTagDisplayMode}
-          activeDitaval={activeDitaval}
-          activeDitavalPath={activeDitavalPath ?? null}
-          ditavalTopicSummary={ditavalTopicSummary}
-          showTaskModelSwitch={showTaskModelSwitch}
-          taskModelSetting={taskModelSetting}
-          resolvedTaskModel={resolvedTaskModel}
-          onChangeTaskModelSetting={onChangeTaskModelSetting}
-          guideSlot={guideSlot}
-          outlineSlot={outlineSlot}
-          saveSlot={saveSlot}
-          contextSlot={contextSlot}
         />
+      ),
+      saveSlot,
+      contextSlot,
+    } satisfies VisualEditorSubHeaderProps;
 
-        {/* The toolbar root uses `flex-1` for its horizontal groups; keeping this wrapper a
-            non-shrinking ROW is what stops `flex-col` from stretching it to half the viewport. */}
+    return (
+      <div className="flex h-full flex-col bg-slate-100/80">
+        {/* One chrome row: the display strip (tag disclosure) and the topic actions
+            (delegation / lock / save) share the formatting bar's border and padding instead of
+            stacking a second bar above it. Only the toolbar track shrinks — it scrolls sideways —
+            so the row stays one line tall. Read-only topics have no formatting bar to merge with,
+            so the strip keeps its own row there. */}
         {formattingBarSlot ? (
           <div
             data-testid="visual-formatting-bar"
-            className="flex shrink-0 items-center border-b border-slate-200 bg-white px-3 py-1"
+            className="flex shrink-0 items-center gap-2 border-b border-slate-200 bg-white px-3 py-1"
           >
-            {formattingBarSlot}
+            <VisualEditorSubHeader {...subHeaderProps} merged toolbarSlot={formattingBarSlot} />
           </div>
-        ) : null}
+        ) : (
+          <VisualEditorSubHeader {...subHeaderProps} />
+        )}
 
-        {guidePanel}
-
-        <div
-          className="dita-scroller relative min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"
-          onKeyDown={
-            readOnly && onReadOnlyEditAttempt
-              ? (event) => {
-                  if (isReadOnlyEditKeystroke(event)) onReadOnlyEditAttempt();
-                }
-              : undefined
-          }
-        >
+        {/* The document canvas. The tag-disclosure switch sits in the chrome row above (wired through
+            `subHeaderProps`), and the outline toggle lives on the stage's left edge, so nothing overlays
+            the paper. */}
+        <div className="relative flex min-h-0 flex-1 flex-col">
           <div
-            className={`dita-paper dita-tag-mode-${tagDisplayMode} mx-auto min-h-[calc(100%-0.5rem)] max-w-[880px] rounded-xl border border-slate-200/90 bg-white px-7 py-7 shadow-sm sm:px-10 sm:py-9`}
+            className="dita-scroller relative min-h-0 flex-1 overflow-y-auto px-4 py-5 sm:px-8"
+            onKeyDown={
+              readOnly && onReadOnlyEditAttempt
+                ? (event) => {
+                    if (isReadOnlyEditKeystroke(event)) onReadOnlyEditAttempt();
+                  }
+                : undefined
+            }
           >
-            <div ref={mountRef} />
-          </div>
-
-          <InsertElementMenu
-            open={!readOnly && insertMenuOpen}
-            groups={activeMenuGroups}
-            anchorRect={insertMenuAnchor}
-            isSlashTrigger={insertIsSlash}
-            explicitInsertPos={gapInsertContext?.insertPos ?? null}
-            specialActions={insertMenuSpecialActions}
-            onSelectSpecialAction={handleInsertSpecialAction}
-            onSelect={handleInsertChoice}
-            onClose={() => {
-              slashPosRef.current = null;
-              setGapInsertContext(null);
-              setInsertMenuInlineOnly(false);
-              setInsertMenuOpen(false);
-              viewRef.current?.focus();
-            }}
-          />
-
-          {!readOnly && inlineBubble && !insertMenuOpen && dismissedBubbleKey !== bubbleKey ? (
-            <InlineBubbleToolbar
-              anchor={{ top: inlineBubble.top, left: inlineBubble.left }}
-              contextTag={inlineBubble.info.contextTag}
-              items={inlineBubble.info.items}
-              activeTags={inlineBubble.info.activeTags}
-              onApply={applyInlineBubbleTag}
-              onOpenMore={openInlineMoreMenu}
-              onClose={() => setDismissedBubbleKey(bubbleKey)}
-              onAiRequest={
-                readOnly
-                  ? undefined
-                  : (kind) => {
-                      setDismissedBubbleKey(bubbleKey);
-                      onAiRequest?.(kind);
-                    }
-              }
-            />
-          ) : null}
-
-          {!readOnly && blockHandle && !insertMenuOpen ? (
-            <BlockHandle
-              top={blockHandle.top}
-              left={blockHandle.left}
-              blockTag={blockHandle.target.blockTag}
-              containerTag={blockHandle.target.containerTag}
-              dragging={blockDragging}
-              menuOptions={blockMenuOptions}
-              canInsert={blockCanInsert}
-              canMove={blockHandle.target.movable}
-              canDuplicate={blockCanDuplicate}
-              canDelete={blockDeleteObstacle === null}
-              deleteBlockedReason={blockDeleteBlockedReason}
-              canMakeReusable={blockCanMakeReusable}
-              hasId={blockHasId}
-              onMakeReusable={makeBlockReusable}
-              onExtractToReuse={extractBlockToReuse}
-              onInsert={openInsertMenuAfterBlock}
-              onToggleMenu={() => setBlockMenuOpen((open) => !open)}
-              onStartDrag={startBlockDrag}
-              onConvert={convertBlockTo}
-              onDuplicate={duplicateBlock}
-              onDelete={deleteBlock}
-              onCloseMenu={() => setBlockMenuOpen(false)}
-            />
-          ) : null}
-
-          {!readOnly && blockDropGap ? (
             <div
-              className="dita-block-drop-indicator"
-              style={{ top: blockDropGap.top, left: blockDropGap.left, width: blockDropGap.width }}
-              aria-hidden
+              className={`dita-paper dita-tag-mode-${tagDisplayMode} mx-auto min-h-[calc(100%-0.5rem)] max-w-[880px] rounded-xl border border-slate-200/90 bg-white px-7 py-7 shadow-sm sm:px-10 sm:py-9`}
+            >
+              <div ref={mountRef} />
+            </div>
+
+            <InsertElementMenu
+              open={!readOnly && insertMenuOpen}
+              groups={activeMenuGroups}
+              anchorRect={insertMenuAnchor}
+              isSlashTrigger={insertIsSlash}
+              explicitInsertPos={gapInsertContext?.insertPos ?? null}
+              specialActions={insertMenuSpecialActions}
+              onSelectSpecialAction={handleInsertSpecialAction}
+              onSelect={handleInsertChoice}
+              onClose={() => {
+                slashPosRef.current = null;
+                setGapInsertContext(null);
+                setInsertMenuInlineOnly(false);
+                setInsertMenuOpen(false);
+                viewRef.current?.focus();
+              }}
             />
-          ) : null}
+
+            {!readOnly && inlineBubble && !insertMenuOpen && dismissedBubbleKey !== bubbleKey ? (
+              <InlineBubbleToolbar
+                anchor={{ top: inlineBubble.top, left: inlineBubble.left }}
+                contextTag={inlineBubble.info.contextTag}
+                items={inlineBubble.info.items}
+                activeTags={inlineBubble.info.activeTags}
+                onApply={applyInlineBubbleTag}
+                onOpenMore={openInlineMoreMenu}
+                onClose={() => setDismissedBubbleKey(bubbleKey)}
+                onAiRequest={
+                  readOnly
+                    ? undefined
+                    : (kind) => {
+                        setDismissedBubbleKey(bubbleKey);
+                        onAiRequest?.(kind);
+                      }
+                }
+              />
+            ) : null}
+
+            {!readOnly && blockHandle && !insertMenuOpen ? (
+              <BlockHandle
+                top={blockHandle.top}
+                left={blockHandle.left}
+                blockTag={blockHandle.target.blockTag}
+                containerTag={blockHandle.target.containerTag}
+                dragging={blockDragging}
+                menuOptions={blockMenuOptions}
+                canInsert={blockCanInsert}
+                canMove={blockHandle.target.movable}
+                canDuplicate={blockCanDuplicate}
+                canDelete={blockDeleteObstacle === null}
+                deleteBlockedReason={blockDeleteBlockedReason}
+                canMakeReusable={blockCanMakeReusable}
+                hasId={blockHasId}
+                onMakeReusable={makeBlockReusable}
+                onExtractToReuse={extractBlockToReuse}
+                onInsert={openInsertMenuAfterBlock}
+                onToggleMenu={() => setBlockMenuOpen((open) => !open)}
+                onStartDrag={startBlockDrag}
+                onConvert={convertBlockTo}
+                onDuplicate={duplicateBlock}
+                onDelete={deleteBlock}
+                onCloseMenu={() => setBlockMenuOpen(false)}
+              />
+            ) : null}
+
+            {!readOnly && blockDropGap ? (
+              <div
+                className="dita-block-drop-indicator"
+                style={{ top: blockDropGap.top, left: blockDropGap.left, width: blockDropGap.width }}
+                aria-hidden
+              />
+            ) : null}
+          </div>
         </div>
       </div>
     );

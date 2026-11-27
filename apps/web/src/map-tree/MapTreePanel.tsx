@@ -19,7 +19,7 @@ import {
   Search,
   Undo2,
 } from 'lucide-react';
-import type { WorkspaceDitavalSummary } from '../services/workspace-api';
+import type { WorkspaceDitavalSummary, WorkspaceMapSummary } from '../services/workspace-api';
 import {
   buildCompositeMapTree,
   stripKeydefNodes,
@@ -28,6 +28,7 @@ import {
 } from './map-tree-utils';
 import { MapNodeContextMenu, type MapNodeMenuTarget } from './MapNodeContextMenu';
 import { MapTargetFixPopover, type MapTargetFixTarget } from './MapTargetFixPopover';
+import { RootMapSwitcher } from './RootMapSwitcher';
 import { createMapTreeNodeRenderer } from './MapTreeNodeRenderer';
 
 export interface MapTreePanelProps {
@@ -44,6 +45,14 @@ export interface MapTreePanelProps {
   onChangeDitavalDisplayMode: (mode: DitavalDisplayMode) => void;
   selectedMapNode: { mapPath: string; elementPath: number[] | null } | null;
   onSelectMapNode: (ref: { mapPath: string; elementPath: number[] | null }) => void;
+  /** Every map of the workspace, offered by the header dropdown (switch + set as default). */
+  maps?: WorkspaceMapSummary[];
+  /** Activates another map as the tree root; omit to keep the header switcher read-only. */
+  onSelectRootMap?: (mapPath: string) => void;
+  /** Manual-level default root map (the map the workbench opens with). */
+  defaultRootMap?: string | null;
+  /** Pins `defaultRootMap`; omitted for viewers, read-only sessions and the offline demo. */
+  onSetDefaultRootMap?: (mapPath: string) => void;
   onMoveNodes: (
     dragNodes: CompositeMapTreeNode[],
     targetParent: CompositeMapTreeNode | null,
@@ -221,6 +230,10 @@ export function MapTreePanel({
   onChangeDitavalDisplayMode,
   selectedMapNode,
   onSelectMapNode,
+  maps = [],
+  onSelectRootMap,
+  defaultRootMap = null,
+  onSetDefaultRootMap,
   onMoveNodes,
   onOpenTopicOrMap,
   onJumpToSource,
@@ -254,6 +267,7 @@ export function MapTreePanel({
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const groupMenuRef = useRef<HTMLDivElement | null>(null);
   const [mountMenuOpen, setMountMenuOpen] = useState(false);
+  const [rootMapMenuOpen, setRootMapMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!groupMenuOpen) return;
@@ -354,31 +368,27 @@ export function MapTreePanel({
   return (
     <div className="flex h-full flex-col bg-white">
       {/* Root Map Header & Quick Actions */}
-      <div className="border-b border-slate-100 px-2.5 py-2">
+      {/* `relative z-20` keeps the root-map dropdown above the tab strip and the tree it overlays. */}
+      <div className="relative z-20 border-b border-slate-100 px-2.5 py-2">
         <div className="flex items-center justify-between gap-1">
-          <button
-            type="button"
-            onClick={() => onSelectMapNode({ mapPath: rootMapPath, elementPath: null })}
-            className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-1.5 py-1 text-left transition-colors ${
-              isRootSelected
-                ? 'bg-blue-50 text-blue-900 ring-1 ring-blue-300'
-                : 'hover:bg-slate-100'
-            }`}
-            title={t('mapTree.rootTooltip', { path: rootMapPath })}
-          >
-            <span className="shrink-0 rounded bg-sky-100 px-1 py-0.5 font-mono text-[9.5px] font-bold text-sky-800 uppercase">
-              map
-            </span>
-            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800">
-              {treeResult.parsedRoot?.title ?? rootMapPath}
-            </span>
-            {isRootDirty ? (
-              <span
-                className="h-2 w-2 shrink-0 rounded-full bg-amber-500"
-                title={t('mapTree.dirtyTooltip')}
-              />
-            ) : null}
-          </button>
+          <RootMapSwitcher
+            rootMapPath={rootMapPath}
+            rootTitle={treeResult.parsedRoot?.title ?? rootMapPath}
+            isDirty={isRootDirty}
+            isRootSelected={isRootSelected}
+            maps={maps}
+            open={rootMapMenuOpen}
+            onOpenChange={setRootMapMenuOpen}
+            onSelectRootMap={(mapPath) => {
+              // Activating a root map reloads buffers and semantics, so it belongs to the store;
+              // without a host handler the header still moves the tree selection.
+              if (onSelectRootMap) onSelectRootMap(mapPath);
+              else onSelectMapNode({ mapPath, elementPath: null });
+            }}
+            onInspectRoot={() => onSelectMapNode({ mapPath: rootMapPath, elementPath: null })}
+            defaultRootMap={defaultRootMap}
+            {...(onSetDefaultRootMap ? { onSetDefaultRootMap } : {})}
+          />
 
           <button
             type="button"

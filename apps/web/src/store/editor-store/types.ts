@@ -184,8 +184,12 @@ export interface EditorWorkbenchState {
   /**
    * Boot the session. `options.topicPath` is the Phase 10 deep link target
    * (`/manuals/:id?topic=…`); the manual/branch themselves arrive via request headers.
+   * `options.rootMapPath` is the manual's default root map, preferred over the first map found.
    */
-  initWorkspace: (options?: { topicPath?: string | null }) => Promise<void>;
+  initWorkspace: (options?: {
+    topicPath?: string | null;
+    rootMapPath?: string | null;
+  }) => Promise<void>;
   refreshWorkspaceTree: () => Promise<void>;
   reloadWorkspaceFromSnapshot: (snapshot: WorkspaceSnapshot, statusMessage?: string) => Promise<void>;
   reloadFilesFromDisk: (filePaths: string[]) => Promise<void>;

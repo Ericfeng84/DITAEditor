@@ -634,6 +634,28 @@ export interface OutlineBreadcrumbLike {
 }
 
 /**
+ * Ids of every expandable ancestor of `targetId`, outermost first.
+ * Returns `[]` when the target is a root node or not part of the tree, so callers can treat
+ * "nothing to reveal" and "nothing found" the same way.
+ */
+export function collectOutlineAncestorIds(
+  nodes: readonly OutlineNode[],
+  targetId: string,
+): string[] {
+  const ancestors: string[] = [];
+  const walk = (list: readonly OutlineNode[]): boolean => {
+    for (const node of list) {
+      if (node.id === targetId) return true;
+      ancestors.push(node.id);
+      if (walk(node.children)) return true;
+      ancestors.pop();
+    }
+    return false;
+  };
+  return walk(nodes) ? ancestors : [];
+}
+
+/**
  * Resolve the nearest visible outline node for the current cursor breadcrumbs.
  * Breadcrumbs run root -> deepest, so walking backwards finds the closest visible ancestor
  * (e.g. the enclosing `<section>` when the caret sits in a `<p>` that `structure` density hides).

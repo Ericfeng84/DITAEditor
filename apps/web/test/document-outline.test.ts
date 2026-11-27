@@ -15,6 +15,7 @@ import {
 } from '@dita/core';
 import {
   buildDocumentOutline,
+  collectOutlineAncestorIds,
   filterOutlineTree,
   indexOutlineNodes,
   resolveActiveOutlineId,
@@ -474,6 +475,14 @@ describe('active outline resolution', () => {
     expect(resolveActiveOutlineIdByPath([...section.elementPath, 1], nodeMap)).toBe(section.id);
     // The root element path ([]) is a prefix of every path, so unknown paths fall back to root.
     expect(resolveActiveOutlineIdByPath([7, 7], nodeMap)).toBe('root');
+  });
+
+  it('collects the ancestors needed to reveal a followed node', () => {
+    expect(collectOutlineAncestorIds(nodes, root.id)).toEqual([]);
+    expect(collectOutlineAncestorIds(nodes, conbody.id)).toEqual([root.id]);
+    expect(collectOutlineAncestorIds(nodes, section.id)).toEqual([root.id, conbody.id]);
+    // A detached id has nothing to reveal, so callers can skip the expand pass entirely.
+    expect(collectOutlineAncestorIds(nodes, 'missing')).toEqual([]);
   });
 });
 

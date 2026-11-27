@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { autocompletion } from '@codemirror/autocomplete';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { xml as xmlLang } from '@codemirror/lang-xml';
@@ -25,7 +25,6 @@ import {
 import type {
   DitaProfilingAttrName,
   KeyspaceResult,
-  TaskContentModel,
   TaskContentModelSetting,
   TopicIdIndexEntry,
   XmlParseError,
@@ -38,7 +37,6 @@ import {
   readConrefDragPayload,
 } from '../visual/conref-drag.js';
 import { getCurrentLocale, translate, useI18n } from '../../i18n/index.js';
-import { TaskModelSwitch } from '../../components/TaskModelSwitch';
 import {
   createDitaXmlCompletionSource,
   type SourceSemanticCompletionContext,
@@ -66,17 +64,10 @@ export interface SourceEditorProps {
   onAiFixXmlError?: () => void;
   /**
    * Task content-model preference; `auto` follows this document's DOCTYPE.
-   * The switch itself (`TaskModelSwitch`) is rendered in this toolbar for `<task>` topics only;
-   * changing it also forces a re-lint of the buffer.
+   * The switch itself (`TaskModelSwitch`) lives on the workbench footer strip next to the topic-type
+   * chip, shared by both modes; changing it also forces a re-lint of this buffer.
    */
   taskModelSetting?: TaskContentModelSetting;
-  /** Model `auto` currently resolves to for this document (shown next to the switch). */
-  resolvedTaskModel?: TaskContentModel;
-  onChangeTaskModelSetting?: (next: TaskContentModelSetting) => void;
-  /** Only `<task>` topics expose the strict / general switch. */
-  showTaskModelSwitch?: boolean;
-  /** Collapsible document outline toggle, pinned to the left of the Source toolbar. */
-  outlineSlot?: ReactNode;
 }
 
 const sourceEditorTheme = EditorView.theme({
@@ -156,10 +147,6 @@ export function SourceEditor({
   onReplacementApplied,
   onAiFixXmlError,
   taskModelSetting = 'auto',
-  resolvedTaskModel = 'strict',
-  onChangeTaskModelSetting,
-  showTaskModelSwitch = false,
-  outlineSlot,
 }: SourceEditorProps) {
   const { t, locale } = useI18n();
   const hostRef = useRef<HTMLDivElement | null>(null);
@@ -424,21 +411,12 @@ export function SourceEditor({
       {/* Compact Source Toolbar */}
       <div className="@container flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-b border-slate-800 bg-slate-900/95 px-3 py-1.5 text-xs">
         <div className="flex min-w-0 flex-1 items-center gap-2">
-          {outlineSlot}
           <span className="shrink-0 font-mono font-medium text-sky-400">{t('source.title')}</span>
           <span className="hidden shrink-0 text-slate-500 @[560px]:inline">·</span>
           <span className="hidden truncate text-slate-400 @[560px]:inline">{t('source.completionReady')}</span>
         </div>
 
         <div className="ml-auto flex shrink-0 items-center gap-2">
-          {showTaskModelSwitch && onChangeTaskModelSetting ? (
-            <TaskModelSwitch
-              setting={taskModelSetting}
-              resolved={resolvedTaskModel}
-              variant="dark"
-              onChange={onChangeTaskModelSetting}
-            />
-          ) : null}
           <span className="hidden rounded bg-slate-800 px-2 py-0.5 font-mono text-[11px] text-slate-300 @[460px]:inline">
             Ln {cursorPos.line}, Col {cursorPos.col}
           </span>

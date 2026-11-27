@@ -38,10 +38,10 @@ flowchart TB
   subgraph Shell["三栏工作台主体（紧贴顶栏，无跨列工具条）"]
     direction LR
     L["左侧导航栏 LeftSidebar<br/>Map 树: Root 标题+源码 → 二级 Tab(目录/Keys) → 树操作(挂载/分组/撤销重做/展开收起) → 搜索+按需 DITAVAL 过滤 → 目录树<br/>底部一级 Tab 栏: 文件 / Map 树 / 版本 / 任务"]
-    C["中栏文档工作区<br/>EditorTabBar → ReadOnlyBanner(含只读轻引导高亮)<br/>→ VisualEditorSubHeader(大纲 · 合并规范胶囊 | 标签模式 · 委派 · 锁状态单图标下拉 · 保存)<br/>→ EditorToolbar(仅可视化可编辑态) → 层次化标签画布"]
+    C["中栏文档工作区<br/>EditorTabBar → ReadOnlyBanner(含只读轻引导高亮)<br/>→ 画布（大纲无常驻按钮，由底栏面包屑层级唤起）<br/>→ VisualEditorSubHeader(标签模式下拉 · 合并规范胶囊 | 委派 · 锁状态单图标下拉 · 保存)<br/>→ EditorToolbar(仅可视化可编辑态) → 层次化标签画布"]
     R["右侧检查器 TopicInspector<br/>唯一顶栏: AI / 属性 / 复用 + 折叠按钮<br/>AI 面板: 单行模型/设置与范围条(片段时才显靶向) → 对话/空态快捷提示词 → 底部输入区"]
   end
-  F["底栏状态条 BreadcrumbBar<br/>DITA 元素路径面包屑 | 当前文件路径 · 基线行差异 · 无损内核图标(Tooltip)"]
+  F["底栏状态条 BreadcrumbBar<br/>主题类型规范胶囊 · 任务内容模型下拉 | DITA 元素路径面包屑 | 当前文件路径 · 基线行差异 · 无损内核图标(Tooltip)"]
   H --> Shell --> F
 ```
 
@@ -70,6 +70,7 @@ flowchart TB
    - 顺序调整为：**Root Map 标题行** → **`目录结构 | Keys (N)` 二级 Tab** → **树操作与搜索区（仅 `tree` 视图渲染）**，切换 `Keys` 视图时二级 Tab 位置固定不跳动。
    - `发布` 按钮移至 `WorkbenchHeader`，树操作条仅保留 `挂载 v`、`分组 v` 与右侧 `撤销/重做/展开/收起`。
    - 搜索框与 DITAVAL 过滤触发器合并为同一行：未选择 DITAVAL 时右侧仅展示紧凑的过滤选择触发器（不渲染 3 个禁用的 `全显/淡化/隐藏` 按钮）；选择 DITAVAL 或展开过滤面板后，再显示青色激活条（含 `全显/淡化/隐藏` 与排除/标记统计）。
+   - `RootMapSwitcher`（`apps/web/src/map-tree/RootMapSwitcher.tsx`）把 Root Map 标题行升级为下拉菜单：①列出工作区全部 `.ditamap` 并激活为目标根 Map（`selectRootMap` 重载缓冲/语义/诊断）；②保留原“查看根元素属性”动作；③`设为手册默认 Root Map` 写入手册元数据 `defaultRootMap`（非 viewer 且 API 模式可用）。`MapTreePanel` 启动即按手册默认 Map 定根（`initWorkspace({ rootMapPath })` 优先于“顶层首个 Map”启发式），设置的默认 Map 以琥珀色图钉标记。
    - 移除底部常驻静态提示行，释放目录树可视高度；将操作提示保留在空态与树标题 Tooltip 中。
 2. **`IdentitySwitcher` 去重**
    - 保留 `<select>` 内的 `{displayName} · {roleLabel}` 清晰展示，移除右侧重复的灰色角色小标签。
@@ -79,12 +80,14 @@ flowchart TB
 4. **`BreadcrumbBar` 精简**
    - 移除重复的 `诊断: 0` 入口（由顶栏统一承接）。
    - 将静态文字 `@dita/core 无损内核` 收敛为带 `title` 与 `aria-label` 的紧凑绿色 `ShieldCheck` 状态图标，为左侧 DITA 元素路径面包屑腾出横向空间。
+   - 底栏左侧构成一枚“当前在看什么”的控制簇：主题类型规范胶囊（`任务主题 <task>`）+ `TopicModelSlot`（任务正文内容模型下拉 `自动/严格/通用`，仅在 `<task>` 主题出现，由 `BreadcrumbBar` 的 `topicModelSlot` 渲染在规范胶囊右侧）。该类控件不再占用文档工具条行：可视化子头部与源码工具条均不再重复渲染，拆分视图下也不会出现两份。
 
 ### 4.3 P2：自适应标签默认态、视觉层次与交互引导
 
 1. **按编辑权限自适应与持久化的 `tagDisplayMode`**
    - 在 `editor-store` 中维护 `readOnlyTagDisplayMode`（默认 `'none'`，持久化键 `ditaeditor.tagDisplayMode.readOnly`）与 `editTagDisplayMode`（默认 `'tags'`，持久化键 `ditaeditor.tagDisplayMode.edit`），同时保留 `tagDisplayMode` 字段与 `setTagDisplayMode(mode, scope?)` 向后兼容。
    - `App.tsx` 根据 `canEdit` 自动映射当前生效模式：`canEdit ? editTagDisplayMode : readOnlyTagDisplayMode`。用户签出文件时自动从“无标签阅读”切入“仅标签编辑”；签入/释放锁回退只读时自动恢复纯净阅读；用户在任一模式下手动切换标签档位均被持久记住。
+   - 控件形态：文档工具条最左侧的单枚下拉胶囊（标签图标与原生 `<select>` 同在一个边框内，`apps/web/src/styles/primitives.css` 的 `.dita-tag-mode` 负责边框/悬停/蓝色激活态，内部 `select` 无边框），三档一次可见、一击可达；大纲开关已移出该行（见 P3 大纲书签把手）。
 2. **标签视觉权重分级与 `titlealts` 轻量化**
    - `.dita-ox-strip:not([data-ox-selected="true"])` 降低非焦点容器开/闭标签的视觉噪音（更柔和边框与 `opacity: 0.72`，悬停恢复 `1`），聚焦与祖先选中态保持蓝色高亮。
    - 弱化 `titlealts` / `navtitle` 区域字号与灰度，避免与文档主标题 `<h1>` 争夺第一视觉焦点。
@@ -92,6 +95,19 @@ flowchart TB
    - 当对话为空且无待处理提案时，在说明卡片下方提供 3 个一键填入的常用提示词按钮（检查 DITA 1.3 结构规范 / 润色 `<shortdesc>` 摘要 / 提炼本主题要点），点击自动选择对应任务类型、填入输入框并聚焦文本框（不自动消耗 Token）。
 4. **只读画布键入轻引导**
    - 当 `VisualEditor` 处于 `readOnly` 状态且用户在画布内敲击可打印字符或退格/删除键（忽略方向键、Esc 及复制/全选/查找快捷键）时，触发 `onReadOnlyEditAttempt`，短时高亮 `ReadOnlyBanner` 的 `检出` 按钮并播报无障碍状态提示，消除“敲键盘无响应”的困惑。
+
+### 4.4 P3：文档大纲由底栏面包屑层级唤起（无常驻按钮）
+
+1. **删掉常驻开关**
+   - 文档大纲是**导航面板**，不是渲染偏好，因此工具条里不该有它的位置；迭代后连“画布左缘书签把手”（`OutlineEdgeTab`）也一并删除 —— 那仍是第二套导航入口，只是换了个壳。现在可视化 / 双栏 / 纯源码三种布局都没有大纲按钮。
+2. **面包屑层级即入口**
+   - 底栏 `BreadcrumbBar` 的每一层（`topic › title › p`）本来就回答“我现在在哪”，点击它同时做两件事：选中该元素（`visualRef.selectNode(crumb.pos, true)`），并把大纲打开定位到这一层（`handleSelectBreadcrumb` 里调用 `setOutlineOpen(true)`）。
+   - 定位链路复用现有机制：`activeOutlineId` 由 `resolveActiveOutlineId(snapshot.breadcrumbs, outlineNodeMap)` 从最深的面包屑回溯到最近的可见大纲节点；`DocumentOutlinePanel` 已有的 `scrollIntoView({ block: 'nearest' })` 负责滚到该行。
+3. **折叠分支必须自动展开**
+   - 新增 `collectOutlineAncestorIds(nodes, targetId)`（`outline-model.ts`）：返回目标节点的全部祖先 id。面板在 `activeNodeId` 变化时把这些 id 从 `collapsed` 集合里剔除 —— 否则用户折叠过的分支里 `scrollIntoView` 找不到行（行根本不在 DOM 中），“跳到这一层”会静默失效。只展开目标路径，其他折叠分支保持不变。
+4. **可达性与退路**
+   - 面包屑按钮 `title` 改为 `breadcrumb.selectTitle`（zh：`点击选中 <{tag}>，并在大纲中定位到它`；en：`Click to select <{tag}> and reveal it in the outline`），让“点层级会开大纲”可见。
+   - 面板头部 `PanelLeftClose` 仍负责关闭；纯源码模式（底栏不渲染面包屑）仍可用快捷键 `Ctrl/Cmd+Shift+O` 随时开关。
 
 ---
 
@@ -101,7 +117,7 @@ flowchart TB
 - 国际化契约守护：`i18n-parity.test.ts` 与 `no-hardcoded-cjk.test.ts` 零报错。
 - 核心 UI 回归测试覆盖：
   - `WorkbenchHeader` 左栏按钮对称性与顶栏 `发布` 按钮；
-  - `MapTreePanel` 二级 Tab 顺序、DITAVAL 未激活时不渲染禁用模式按钮；
+  - `MapTreePanel` 二级 Tab 顺序、DITAVAL 未激活时不渲染禁用模式按钮、Root Map 下拉的切换/设为默认动作；
   - `createOxygenTagDom` 属性无前导空格与 CSS `gap` 协作；
   - `editor-store` 只读/编辑两套 `tagDisplayMode` 默认值与 `localStorage` 持久化；
   - `SaveControls` 只读干净态隐藏、`AiAssistantPanel` 无冗余关闭按钮与空态快捷提示词、`BreadcrumbBar` 去重。

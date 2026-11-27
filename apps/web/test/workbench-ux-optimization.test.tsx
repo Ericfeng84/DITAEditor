@@ -27,8 +27,11 @@ import type { CompositeMapTreeNode, MapBufferState } from '../src/map-tree/map-t
 import { BreadcrumbBar } from '../src/editor/visual/BreadcrumbBar';
 import { IdentitySwitcher } from '../src/components/IdentitySwitcher';
 import { MapTreePanel } from '../src/map-tree/MapTreePanel';
+import { RootMapSwitcher } from '../src/map-tree/RootMapSwitcher';
 import { SaveControls } from '../src/components/SaveControls';
 import { TopicGuideChip } from '../src/components/TopicAuthoringGuide';
+import { TagModeSwitch } from '../src/editor/visual/TagModeSwitch';
+import type { TagDisplayMode } from '../src/store/editor-store';
 import { LeftSidebar } from '../src/components/LeftSidebar';
 import { WorkbenchHeader } from '../src/components/WorkbenchHeader';
 import { isReadOnlyEditKeystroke } from '../src/editor/visual/readonly-nudge';
@@ -313,6 +316,157 @@ describe('BreadcrumbBar: decluttering', () => {
     // The permanent text label would compete with the breadcrumb trail.
     expect(html).not.toContain(`>${t('breadcrumb.kernel')}<`);
   });
+
+  it('pins the authoring-guide chip to the footer far left, before the trail', () => {
+    const html = render({ guideChip: <span>GUIDE-CHIP</span> });
+    const chip = html.indexOf('GUIDE-CHIP');
+    expect(chip).toBeGreaterThan(-1);
+    // Left of the breadcrumb trail, the diff counter and the kernel marker.
+    expect(chip).toBeLessThan(html.indexOf(t('breadcrumb.diffNone')));
+    expect(chip).toBeLessThan(html.indexOf(t('breadcrumb.kernel')));
+    // Nothing is rendered when the host has no topic open.
+    expect(render()).not.toContain('GUIDE-CHIP');
+  });
+
+  it('pins the task content-model switch right after the guide chip', () => {
+    const html = render({
+      guideChip: <span>GUIDE-CHIP</span>,
+      topicModelSlot: <span>MODEL-SLOT</span>,
+    });
+    const chip = html.indexOf('GUIDE-CHIP');
+    const model = html.indexOf('MODEL-SLOT');
+    expect(model).toBeGreaterThan(chip);
+    // Still ahead of the trail, the diff counter and the kernel marker: the footer keeps one
+    // "what am I looking at" cluster on the left.
+    expect(model).toBeLessThan(html.indexOf(t('breadcrumb.diffNone')));
+    expect(model).toBeLessThan(html.indexOf(t('breadcrumb.kernel')));
+    expect(render()).not.toContain('MODEL-SLOT');
+  });
+
+  it('opens the guide card upward out of the footer instead of dropping it off-screen', () => {
+    const html = render({ guideChip: <span>GUIDE-CHIP</span>, guidePanel: <p>GUIDE-PANEL</p> });
+    expect(html).toContain('data-testid="topic-guide-popover"');
+    const popover = html.indexOf('data-testid="topic-guide-popover"');
+    // Anchored above the footer's top edge, so it never leaves the viewport.
+    expect(html.slice(popover, popover + 260)).toContain('bottom-full');
+    expect(html).toContain('GUIDE-PANEL');
+    // The card is rendered before the footer content, i.e. it is not a downward sibling.
+    expect(popover).toBeLessThan(html.indexOf('GUIDE-CHIP'));
+    // Collapsed: no popover at all.
+    expect(render({ guideChip: <span>GUIDE-CHIP</span> })).not.toContain('topic-guide-popover');
+  });
+});
+
+// The tag-disclosure switch is a preference for the canvas, so it rides the document chrome row as
+// one compact dropdown immediately right of the outline toggle instead of occupying a three-segment
+// strip or floating over the paper.
+describe('TagModeSwitch: compact dropdown', () => {
+  const render = (tagDisplayMode: TagDisplayMode = 'none') =>
+    renderToStaticMarkup(
+      <TagModeSwitch tagDisplayMode={tagDisplayMode} onChangeTagDisplayMode={() => {}} />,
+    );
+
+  it('offers the three modes as one select, not as buttons', () => {
+    const html = render('tags');
+    expect(html.split('<select').length - 1).toBe(1);
+    expect(html).not.toContain('<button');
+    expect(html).not.toContain('role="group"');
+    // All three options stay visible in the menu, the current one is selected.
+    for (const mode of ['none', 'tags', 'full'] as const) {
+      expect(html).toContain(`value="${mode}"`);
+    }
+    expect(html).toContain(`<option value="tags" selected="">`);
+    expect(html).toContain(t('visual.tagModeGroupAria'));
+    expect(html).toContain(t('visual.tagMode.tagsTitle'));
+  });
+
+  it('accents itself only once markup is disclosed, and marks the current mode', () => {
+    expect(render('none')).toContain('data-tag-mode="none"');
+    for (const mode of ['tags', 'full'] as const) {
+      expect(render(mode)).toContain(`data-tag-mode="${mode}"`);
+    }
+    // The icon and the select share one pill, so the accent lives on the wrapper.
+    const css = readFileSync(
+      fileURLToPath(new URL('../src/styles/primitives.css', import.meta.url)),
+      'utf8',
+    );
+    expect(css).toContain(".dita-tag-mode[data-tag-mode='tags']");
+    // The icon is *inside* the control: the wrapper draws the frame, the select is borderless.
+    const inner = css.indexOf('.dita-tag-mode .dita-tb-select {');
+    expect(inner).toBeGreaterThan(-1);
+    expect(css.slice(inner, inner + 220)).toContain('border: 0;');
+  });
+});
+
+describe('Workbench: chrome row and footer own the moved controls', () => {
+  const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+
+  it('keeps the tag switch as the only display option in the chrome row', () => {
+    const visualSource = read('../src/editor/visual/VisualEditor.tsx');
+    // Nothing floats over the paper any more.
+    expect(visualSource).not.toContain('pointer-events-none absolute left-2 top-1 z-10');
+    // The switch is handed to the sub-header, which renders it as the display group.
+    expect(visualSource).toContain('tagModeSlot: (');
+    expect(visualSource).toContain('<TagModeSwitch');
+    const subHeaderSource = read('../src/editor/visual/VisualEditorSubHeader.tsx');
+    const tagMode = subHeaderSource.indexOf('{tagModeSlot}');
+    expect(tagMode).toBeGreaterThan(-1);
+    // The document outline is a navigation pane, so it has no control in this row at all.
+    expect(subHeaderSource).not.toContain('outlineSlot');
+    expect(visualSource).not.toContain('outlineSlot');
+    // The task-model switch left the row entirely, so nothing follows the tag switch there.
+    const displayGroup = subHeaderSource.slice(tagMode);
+    expect(displayGroup.slice(0, displayGroup.indexOf('</div>'))).not.toContain('TaskModelSwitch');
+  });
+
+  it('opens the outline from the footer breadcrumb levels instead of a toolbar toggle', () => {
+    const appSource = read('../src/App.tsx');
+    // No persistent outline control anywhere in the chrome: no edge tab, no sub-header slot.
+    expect(appSource).not.toContain('OutlineEdgeTab');
+    expect(appSource).not.toContain('document-outline-pane');
+    expect(read('../src/editor/source/SourceEditor.tsx')).not.toContain('outlineSlot');
+    // Clicking a hierarchy level both selects it and reveals it in the outline.
+    const selectCrumb = appSource.slice(appSource.indexOf('const handleSelectBreadcrumb'));
+    const body = selectCrumb.slice(0, selectCrumb.indexOf('}, ['));
+    expect(body).toContain('selectNode(crumb.pos, true)');
+    expect(body).toContain('setOutlineOpen(true)');
+    // The panel reveals (expands) the followed node, so a collapsed branch cannot swallow it.
+    expect(read('../src/editor/outline/DocumentOutlinePanel.tsx')).toContain(
+      'collectOutlineAncestorIds(nodes, activeNodeId)',
+    );
+  });
+
+  it('moves the task content-model switch onto the footer strip, right of the topic-type chip', () => {
+    const appSource = read('../src/App.tsx');
+    expect(appSource).toContain('topicModelSlot={');
+    // Exactly one render site in the workbench chrome, so split view cannot show it twice.
+    expect(appSource.split('<TaskModelSwitch').length - 1).toBe(1);
+    // Gated on `<task>` documents, like the switch itself.
+    expect(appSource).toContain('showTaskModelSwitch && activeTab ? (');
+    const breadcrumbSource = read('../src/editor/visual/BreadcrumbBar.tsx');
+    const guide = breadcrumbSource.indexOf('{guideChip ?');
+    const model = breadcrumbSource.indexOf('{topicModelSlot ?');
+    expect(guide).toBeGreaterThan(-1);
+    expect(model).toBeGreaterThan(guide);
+    expect(breadcrumbSource.indexOf('{guidePanel ?')).toBeGreaterThan(-1);
+    // Neither the visual sub-header nor the source toolbar repeats it now.
+    for (const rel of ['../src/editor/visual/VisualEditorSubHeader.tsx', '../src/editor/source/SourceEditor.tsx']) {
+      expect(read(rel)).not.toContain('<TaskModelSwitch');
+    }
+  });
+
+  it('moves the authoring-guide chip and card to the footer, exactly once', () => {
+    const appSource = read('../src/App.tsx');
+    expect(appSource).toContain('guideChip={');
+    expect(appSource).toContain('guidePanel={');
+    expect(appSource).not.toContain('guideSlot=');
+    expect(appSource.split('<TopicGuideChip').length - 1).toBe(1);
+    expect(appSource.split('<TopicAuthoringGuide').length - 1).toBe(1);
+    // The canvas no longer hosts the card, so nothing can unfold downward inside the pane.
+    const visualSource = read('../src/editor/visual/VisualEditor.tsx');
+    expect(visualSource).not.toContain('guideSlot');
+    expect(visualSource).not.toContain('guidePanel');
+  });
 });
 
 describe('MapTreePanel: left sidebar chrome', () => {
@@ -400,6 +554,82 @@ describe('MapTreePanel: left sidebar chrome', () => {
   });
 });
 
+describe('MapTreePanel: root map switcher', () => {
+  const MAPS = [
+    {
+      path: MAP_PATH,
+      name: 'product-manual',
+      kind: 'ditamap' as const,
+      title: 'Product Manual',
+      topicrefCount: 4,
+    },
+    {
+      path: 'maps/subsystem.ditamap',
+      name: 'subsystem',
+      kind: 'ditamap' as const,
+      title: 'Subsystem Guide',
+      topicrefCount: 2,
+    },
+  ];
+
+  const renderSwitcher = (overrides: Partial<React.ComponentProps<typeof RootMapSwitcher>> = {}) =>
+    renderToStaticMarkup(
+      <RootMapSwitcher
+        rootMapPath={MAP_PATH}
+        rootTitle="Product Manual"
+        isDirty={false}
+        isRootSelected={false}
+        maps={MAPS}
+        open
+        onOpenChange={() => {}}
+        onSelectRootMap={() => {}}
+        onInspectRoot={() => {}}
+        {...overrides}
+      />,
+    );
+
+  it('lists every workspace map plus the set-as-default action in the open menu', () => {
+    const html = renderSwitcher({
+      defaultRootMap: 'maps/subsystem.ditamap',
+      onSetDefaultRootMap: () => {},
+    });
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('role="menu"');
+    expect(html).toContain(t('mapTree.switchRootMap'));
+    // Both maps are selectable, the active one is checked.
+    expect(html).toContain('maps/subsystem.ditamap');
+    expect(html).toContain('role="menuitemradio"');
+    expect(html).toContain('aria-checked="true"');
+    // The current map is not the default yet, so pinning it stays available.
+    expect(html).toContain(t('mapTree.setDefaultRootMap'));
+    expect(html).toContain(t('mapTree.defaultRootMapActive'));
+    // The old header behaviour survives as an explicit menu item.
+    expect(html).toContain(t('mapTree.inspectRoot'));
+  });
+
+  it('collapses the pin action into a disabled state once the current map is the default', () => {
+    const html = renderSwitcher({ defaultRootMap: MAP_PATH, onSetDefaultRootMap: () => {} });
+    const labelAt = html.lastIndexOf(t('mapTree.defaultRootMapActive'));
+    expect(labelAt).toBeGreaterThan(-1);
+    // The focused action carries the label, so `disabled` must sit on that same opening tag
+    // (the inline lucide SVG between them is a few hundred characters long).
+    const before = html.slice(Math.max(0, labelAt - 1600), labelAt);
+    expect(before).toContain('role="menuitem" disabled=""');
+    expect(html).not.toContain(t('mapTree.setDefaultRootMap'));
+  });
+
+  it('forwards the switcher props from MapTreePanel', () => {
+    const html = renderToStaticMarkup(
+      <MapTreePanel {...mapTreeProps({ maps: MAPS, onSelectRootMap: () => {} })} />,
+    );
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain(t('mapTree.rootTooltip', { path: MAP_PATH }));
+    // Closed menu renders no rows.
+    expect(html).not.toContain('role="menu"');
+  });
+});
+
 describe('isReadOnlyEditKeystroke', () => {
   it('flags typing, Backspace, Delete and Enter as edit intent', () => {
     expect(isReadOnlyEditKeystroke({ key: 'a' })).toBe(true);
@@ -465,7 +695,7 @@ describe('VisualEditor: formatting bar containment', () => {
   it('wraps formattingBarSlot in a flex shrink-0 row instead of a bare flex-col child', () => {
     const start = source.indexOf('{formattingBarSlot ? (');
     expect(start).toBeGreaterThan(-1);
-    const end = source.indexOf('{guidePanel}', start);
+    const end = source.indexOf('{/* The document canvas', start);
     expect(end).toBeGreaterThan(start);
     const block = source.slice(start, end);
 
@@ -479,7 +709,87 @@ describe('VisualEditor: formatting bar containment', () => {
     expect(className).not.toContain('flex-col');
 
     expect(block).toContain('{formattingBarSlot}');
-    // Nothing renders at all when no toolbar is supplied (source-only / map layouts).
-    expect(block).toContain(') : null}');
+    // Without a toolbar the strip still needs a row of its own (read-only / source-only layouts).
+    expect(block).toContain(') : (\n          <VisualEditorSubHeader {...subHeaderProps} />');
+  });
+
+  it('merges the visual sub-header into the formatting bar instead of stacking a second row', () => {
+    const start = source.indexOf('{formattingBarSlot ? (');
+    const end = source.indexOf('{/* The document canvas', start);
+    const block = source.slice(start, end);
+    const className = /data-testid="visual-formatting-bar"\s+className="([^"]+)"/.exec(block)?.[1];
+
+    // The toolbar is handed to the strip as its middle track, so both share one bordered row.
+    expect(block).toContain(
+      '<VisualEditorSubHeader {...subHeaderProps} merged toolbarSlot={formattingBarSlot} />',
+    );
+    // Wrapping is what turned the merged row into a 85px-tall block of stacked lines.
+    expect(className).not.toContain('flex-wrap');
+    expect(className).not.toContain('flex-col');
+    // No standalone sub-header bar is rendered above the toolbar any more.
+    const beforeFormatting = source.slice(0, source.indexOf('{formattingBarSlot ? ('));
+    expect(beforeFormatting.split('<VisualEditorSubHeader').length - 1).toBe(0);
+  });
+});
+
+// The merged bar has to stay exactly one row tall: display options stay whole on the left, the
+// formatting toolbar is the only shrinking track (it scrolls sideways), and the topic actions
+// (delegation / lock / save) sit pinned to the far right edge. Asserted against the JSX sources
+// because both components need a live ProseMirror view to mount.
+describe('VisualEditor: merged document bar grouping', () => {
+  const read = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), 'utf8');
+  const subHeaderSource = read('../src/editor/visual/VisualEditorSubHeader.tsx');
+  const toolbarSource = read('../src/editor/visual/EditorToolbar.tsx');
+  const appSource = read('../src/App.tsx');
+
+  const subHeaderRender = () => {
+    const start = subHeaderSource.indexOf('  return (\n    <div');
+    expect(start).toBeGreaterThan(-1);
+    return subHeaderSource.slice(start);
+  };
+
+  it('puts the display options on the left and the topic actions on the far right', () => {
+    const render = subHeaderRender();
+    const displayGroup = render.indexOf('merged\n            ? \'flex shrink-0 items-center gap-2.5\'');
+    expect(displayGroup).toBeGreaterThan(-1);
+
+    // Only the tag-disclosure dropdown stays on the left; the guide chip and the task-model switch
+    // sit in the footer, and the outline toggle moved to the editor stage edge.
+    const groups = render.slice(displayGroup);
+    expect(groups.indexOf('{tagModeSlot}')).toBeGreaterThan(-1);
+    expect(groups.indexOf('{tagModeSlot}')).toBeLessThan(groups.indexOf('{toolbarSlot}'));
+    expect(render).not.toContain('{tagModeGroup}');
+    expect(render).not.toContain('{guideSlot}');
+    expect(subHeaderSource).not.toContain('tagDisplayMode');
+
+    // Actions are a non-shrinking group justified to the end of the row.
+    const actionsGroup = render.indexOf('flex shrink-0 items-center justify-end gap-2');
+    expect(actionsGroup).toBeGreaterThan(render.indexOf('{toolbarSlot}'));
+    const actions = render.slice(actionsGroup);
+    expect(actions).toContain('{contextSlot}');
+    expect(actions).toContain('{saveSlot}');
+    // Delegation / save must follow the DITAVAL badge at the right edge.
+    expect(actions.indexOf('{contextSlot}')).toBeLessThan(actions.indexOf('{activeDitaval'));
+    expect(actions.indexOf('{activeDitaval')).toBeLessThan(actions.indexOf('{saveSlot}'));
+  });
+
+  it('lets only the toolbar track shrink, by scrolling instead of wrapping', () => {
+    const render = subHeaderRender();
+    const track = render.indexOf('flex min-w-0 flex-1 items-center overflow-x-auto');
+    expect(track).toBeGreaterThan(-1);
+    expect(render.slice(track, track + 200)).toContain('{toolbarSlot}');
+    // The display group never shrinks in merged mode — only the toolbar track gives way.
+    expect(render).toContain("'flex shrink-0 items-center gap-2.5'");
+  });
+
+  it('renders the merged toolbar on a single line from the visual pane', () => {
+    expect(toolbarSource).toContain('singleLine?: boolean;');
+    // No wrapping (which would grow the row) and no compression (which squeezed the insert label
+    // into a vertical stack of characters): the row keeps its max-content width and scrolls.
+    expect(toolbarSource).toContain("'min-w-max flex-nowrap'");
+    // App wires the pane's formatting bar with `singleLine` so the merged row cannot grow.
+    const visualToolbar = appSource.indexOf('showTopicVisual && canEdit ? <EditorToolbar');
+    expect(visualToolbar).toBeGreaterThan(-1);
+    expect(appSource.slice(visualToolbar, visualToolbar + 120)).toContain('singleLine');
   });
 });

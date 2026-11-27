@@ -120,6 +120,7 @@ export function AppShell() {
       manualName={editor.manual.name}
       branch={branch}
       topicPath={topicPath}
+      defaultRootMap={editor.manual.defaultRootMap ?? null}
       assignmentId={assignmentId}
       onLeaveSession={() => {
         clearActiveScope();

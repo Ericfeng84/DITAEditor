@@ -120,6 +120,61 @@ dialog.dita-dialog::backdrop {
   font-size: 11px;
 }
 
+/* Tag disclosure dropdown (`none` / `tags` / `full`) beside the outline toggle. The wrapper *is*
+   the control — icon and native select share one bordered pill — so the icon reads as part of the
+   dropdown instead of floating next to it. */
+.dita-tag-mode {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-block-size: 24px;
+  padding-inline: 0.3rem 0.15rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  background-color: #fff;
+  color: #475569;
+}
+
+.dita-tag-mode:hover {
+  background-color: #f1f5f9;
+}
+
+.dita-tag-mode:focus-within {
+  outline: 2px solid #2563eb;
+  outline-offset: 1px;
+}
+
+/* Borderless inside the pill: the wrapper owns the frame, the hover fill and the accent. */
+.dita-tag-mode .dita-tb-select {
+  min-inline-size: 3.5rem;
+  padding-inline: 0 0.05rem;
+  border: 0;
+  background-color: transparent;
+  color: inherit;
+  font-size: 11px;
+}
+
+.dita-tag-mode .dita-tb-select:focus-visible {
+  outline: none;
+}
+
+.dita-tag-mode:hover .dita-tb-select {
+  background-color: transparent;
+}
+
+/* `none` is the neutral reading state; any disclosure gets the outline's blue accent. */
+.dita-tag-mode[data-tag-mode='tags'],
+.dita-tag-mode[data-tag-mode='full'] {
+  border-color: #93c5fd;
+  background-color: #eff6ff;
+  color: #1d4ed8;
+}
+
+.dita-tag-mode[data-tag-mode='tags'] > svg,
+.dita-tag-mode[data-tag-mode='full'] > svg {
+  color: #2563eb;
+}
+
 /* ---- Task content-model switch (strict task.dtd vs general generalTask.dtd) ---- */
 .dita-task-model {
   display: inline-flex;
