@@ -12,6 +12,9 @@ export const enStructure = {
   'mapTree.createMounted': 'New & Mount',
   'mapTree.mountExistingTooltip': 'Mount an existing topic or submap from the workspace',
   'mapTree.mountExisting': 'Mount Existing',
+  'mapTree.mountMenu': 'Mount',
+  'mapTree.mountMenuTooltip': 'Mount content: create a new topic, or mount an existing topic / submap',
+  'mapTree.mountMenuAria': 'Choose how to mount',
   'mapTree.insertChapterTooltip': 'Insert an empty chapter <chapter>',
   'mapTree.insertGroupTooltip': 'Insert a grouping heading <topichead>',
   'mapTree.chapter': 'Chapter',
@@ -52,7 +55,7 @@ export const enStructure = {
   'mapTree.parseFailed': 'Failed to parse the map XML',
   'mapTree.fixInSource': 'Fix in Source',
   'mapTree.empty': 'This map has no displayable outline nodes yet.',
-  'mapTree.emptyHint': 'Use "New & Mount" above, or adjust the DITAVAL conditional filter.',
+  'mapTree.emptyHint': 'Use "Mount" above, or adjust the DITAVAL conditional filter.',
   'mapTree.footerHint': 'Drag nodes to re-level or move across submaps · Double-click to open a topic · Right-click for more actions',
 
   'mapNode.collapse': 'Collapse children',

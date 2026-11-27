@@ -12,6 +12,9 @@ export const zhCNStructure = {
   'mapTree.createMounted': '新建挂载',
   'mapTree.mountExistingTooltip': '挂载工作区中已有的 Topic 或子 Map',
   'mapTree.mountExisting': '挂载已有',
+  'mapTree.mountMenu': '挂载',
+  'mapTree.mountMenuTooltip': '挂载内容：新建 Topic 挂载，或挂载已有的 Topic / 子 Map',
+  'mapTree.mountMenuAria': '选择挂载方式',
   'mapTree.insertChapterTooltip': '插入空章 <chapter>',
   'mapTree.insertGroupTooltip': '插入分组标题 <topichead>',
   'mapTree.chapter': '章',
@@ -52,7 +55,7 @@ export const zhCNStructure = {
   'mapTree.parseFailed': 'Map XML 解析失败',
   'mapTree.fixInSource': '切到源码修复',
   'mapTree.empty': '当前 Map 暂无可显示的目录节点。',
-  'mapTree.emptyHint': '点击上方“新建挂载”或调整 DITAVAL 条件过滤。',
+  'mapTree.emptyHint': '点击上方“挂载”或调整 DITAVAL 条件过滤。',
   'mapTree.footerHint': '提示：拖拽节点可调整层级与跨子图移动 · 双击打开 Topic · 右键更多操作',
 
   'mapNode.collapse': '折叠子节点',

@@ -35,7 +35,7 @@ import { InsertKeyrefDialog } from '../src/components/InsertKeyrefDialog';
 import { KeyspacePanel } from '../src/components/KeyspacePanel';
 import { LeftSidebar } from '../src/components/LeftSidebar';
 import { MapNodeInspector } from '../src/map-tree/MapNodeInspector';
-import { MapTreePanel } from '../src/map-tree/MapTreePanel';
+import { MapTreePanel, MountMenu } from '../src/map-tree/MapTreePanel';
 import { useEditorStore } from '../src/store/editor-store';
 import { useGitStore } from '../src/store/git-store';
 import type { FileLock } from '../src/services/git-api';
@@ -311,7 +311,58 @@ describe('map panel hosts the keyspace behind a two-segment toggle', () => {
     const html = renderToStaticMarkup(<MapTreePanel {...mapTreeProps({ viewMode: 'keys' })} />);
     expect(html).toContain('keyspace-slot');
     expect(html).not.toContain(t('mapTree.createMounted'));
+    expect(html).not.toContain(t('mapTree.mountMenuTooltip'));
     expect(html).toContain(t('mapPanel.keys', { count: 1 }));
+  });
+
+  it('renders one merged Mount dropdown trigger in tree mode', () => {
+    const html = renderToStaticMarkup(<MapTreePanel {...mapTreeProps()} />);
+    // Trigger: the single entry point that replaced the old create/mount button pair.
+    expect(html).toContain(`title="${t('mapTree.mountMenuTooltip')}"`);
+    expect(html).toContain(`<span>${t('mapTree.mountMenu')}</span>`);
+    expect(html).toContain('aria-haspopup="menu"');
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).toContain('dita-mini-btn px-1.5 py-0.5 text-blue-700');
+    // The dropdown is closed by default: neither action leaks into the strip as its own button.
+    expect(html).not.toContain(`title="${t('mapTree.createMountedTooltip')}"`);
+    expect(html).not.toContain(`title="${t('mapTree.mountExistingTooltip')}"`);
+  });
+});
+
+describe('merged Mount dropdown', () => {
+  const render = (open: boolean) =>
+    renderToStaticMarkup(
+      <MountMenu
+        open={open}
+        onOpenChange={() => {}}
+        mapPath={MAP_PATH}
+        parentLabel="Product manual"
+        onCreateAndMount={() => {}}
+        onMountExisting={() => {}}
+      />,
+    );
+
+  it('renders only the trigger while closed', () => {
+    const html = render(false);
+    expect(html).toContain(`<span>${t('mapTree.mountMenu')}</span>`);
+    expect(html).toContain('aria-expanded="false"');
+    expect(html).not.toContain('role="menu"');
+    expect(html).not.toContain('role="menuitem"');
+  });
+
+  it('exposes create-and-mount and mount-existing as menu items when open', () => {
+    const html = render(true);
+    expect(html).toContain('aria-expanded="true"');
+    expect(html).toContain('role="menu"');
+    expect(html).toContain(`aria-label="${t('mapTree.mountMenuAria')}"`);
+    expect(html.match(/role="menuitem"/g) ?? []).toHaveLength(2);
+    expect(html).toContain(`<span>${t('mapTree.createMounted')}</span>`);
+    expect(html).toContain(t('mapTree.createMountedTooltip'));
+    expect(html).toContain(`<span>${t('mapTree.mountExisting')}</span>`);
+    expect(html).toContain(t('mapTree.mountExistingTooltip'));
+    // Anchored left so the menu never clips off the sidebar's left edge.
+    expect(html).toContain('absolute top-full left-0');
+    expect(html).toContain('dita-ctx-menu');
   });
 });
 

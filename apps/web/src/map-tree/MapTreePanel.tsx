@@ -98,6 +98,116 @@ function useContainerDimensions(ref: React.RefObject<HTMLDivElement | null>) {
   return size;
 }
 
+export interface MountMenuTarget {
+  mapPath: string;
+  parentPath: number[] | null;
+  parentLabel: string;
+}
+
+export interface MountMenuProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  mapPath: string;
+  parentLabel: string;
+  onCreateAndMount: (target: MountMenuTarget) => void;
+  onMountExisting: (target: MountMenuTarget) => void;
+}
+
+/**
+ * Merged "Mount" entry point: creating a topic and mounting an existing one answer the same
+ * question, so they live in one dropdown instead of two competing buttons in the action strip.
+ * The component owns its outside-pointerdown / Escape dismissal; the panel only tracks *which*
+ * sibling menu (mount vs. group) is open.
+ */
+export function MountMenu({
+  open,
+  onOpenChange,
+  mapPath,
+  parentLabel,
+  onCreateAndMount,
+  onMountExisting,
+}: MountMenuProps) {
+  const { t } = useI18n();
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointerDown = (event: PointerEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        onOpenChange(false);
+      }
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onOpenChange(false);
+    };
+    window.addEventListener('pointerdown', onPointerDown, true);
+    window.addEventListener('keydown', onKeyDown);
+    return () => {
+      window.removeEventListener('pointerdown', onPointerDown, true);
+      window.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open, onOpenChange]);
+
+  const target: MountMenuTarget = { mapPath, parentPath: null, parentLabel };
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => onOpenChange(!open)}
+        title={t('mapTree.mountMenuTooltip')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
+      >
+        <FilePlus2 className="h-3 w-3" aria-hidden="true" />
+        <span>{t('mapTree.mountMenu')}</span>
+        <ChevronDown className="h-3 w-3 text-slate-400" aria-hidden="true" />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          aria-label={t('mapTree.mountMenuAria')}
+          className="dita-ctx-menu absolute top-full left-0 z-40 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onOpenChange(false);
+              onCreateAndMount(target);
+            }}
+          >
+            <FilePlus2 className="dita-ctx-icon text-blue-700" aria-hidden="true" />
+            <span className="flex flex-col">
+              <span>{t('mapTree.createMounted')}</span>
+              <span className="text-[10px] leading-tight text-slate-500">
+                {t('mapTree.createMountedTooltip')}
+              </span>
+            </span>
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              onOpenChange(false);
+              onMountExisting(target);
+            }}
+          >
+            <Link2 className="dita-ctx-icon text-slate-600" aria-hidden="true" />
+            <span className="flex flex-col">
+              <span>{t('mapTree.mountExisting')}</span>
+              <span className="text-[10px] leading-tight text-slate-500">
+                {t('mapTree.mountExistingTooltip')}
+              </span>
+            </span>
+          </button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 export function MapTreePanel({
   rootMapPath,
   mapBuffers,
@@ -139,6 +249,7 @@ export function MapTreePanel({
   const [fixTarget, setFixTarget] = useState<MapTargetFixTarget | null>(null);
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
   const groupMenuRef = useRef<HTMLDivElement | null>(null);
+  const [mountMenuOpen, setMountMenuOpen] = useState(false);
 
   useEffect(() => {
     if (!groupMenuOpen) return;
@@ -279,40 +390,26 @@ export function MapTreePanel({
         {/* Action Strip is tree-mode only: the Keys view is driven by the keyspace panel. */}
         {viewMode === 'tree' ? (
           <div className="mt-1.5 flex flex-wrap items-center gap-1">
-            <button
-              type="button"
-              onClick={() =>
-                onOpenCreateAndMount({
-                  mapPath: rootMapPath,
-                  parentPath: null,
-                  parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
-                })
-              }
-              title={t('mapTree.createMountedTooltip')}
-              className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
-            >
-              <FilePlus2 className="h-3 w-3" aria-hidden="true" />
-              <span>{t('mapTree.createMounted')}</span>
-            </button>
-            <button
-              type="button"
-              onClick={() =>
-                onOpenMountExisting({
-                  mapPath: rootMapPath,
-                  parentPath: null,
-                  parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
-                })
-              }
-              title={t('mapTree.mountExistingTooltip')}
-              className="dita-mini-btn px-1.5 py-0.5"
-            >
-              <Link2 className="h-3 w-3 text-slate-600" aria-hidden="true" />
-              <span>{t('mapTree.mountExisting')}</span>
-            </button>
+            {/* One "Mount" entry point: creating a topic and mounting an existing one are two
+                answers to the same question, so they live in one menu instead of two buttons. */}
+            <MountMenu
+              open={mountMenuOpen}
+              onOpenChange={(next) => {
+                setMountMenuOpen(next);
+                if (next) setGroupMenuOpen(false);
+              }}
+              mapPath={rootMapPath}
+              parentLabel={treeResult.parsedRoot?.title ?? rootMapPath}
+              onCreateAndMount={onOpenCreateAndMount}
+              onMountExisting={onOpenMountExisting}
+            />
             <div ref={groupMenuRef} className="relative">
               <button
                 type="button"
-                onClick={() => setGroupMenuOpen((prev) => !prev)}
+                onClick={() => {
+                  setMountMenuOpen(false);
+                  setGroupMenuOpen((prev) => !prev);
+                }}
                 title={t('mapTree.groupMenuTooltip')}
                 aria-haspopup="menu"
                 aria-expanded={groupMenuOpen}
