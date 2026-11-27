@@ -20,6 +20,8 @@ import { ParserSettingsTab } from '../ingest/ParserSettingsTab.js';
 export interface AiSettingsDialogProps {
   open: boolean;
   onClose: () => void;
+  /** Pane to show when the dialog opens (the desktop plugin guide jumps straight to parsers). */
+  initialTab?: AiSettingsTab;
 }
 
 const DEFAULT_TEMPERATURE = 0.2;
@@ -36,7 +38,7 @@ function formatNumber(value: number): string {
  * Admin-only provider configuration plus read-only usage statistics. Writer/viewer
  * identities can inspect the active model but all mutation controls stay disabled.
  */
-export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
+export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettingsDialogProps) {
   const { t } = useI18n();
   const config = useAiStore((state) => state.config);
   const configLoading = useAiStore((state) => state.configLoading);
@@ -75,8 +77,8 @@ export function AiSettingsDialog({ open, onClose }: AiSettingsDialogProps) {
   }, [open, config]);
 
   useEffect(() => {
-    if (open) setTab('llm');
-  }, [open]);
+    if (open) setTab(initialTab);
+  }, [open, initialTab]);
 
   useEffect(() => {
     if (open && config?.canEdit) void loadUsage(30, 20);

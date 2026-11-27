@@ -1,6 +1,7 @@
 import { FolderInput, FolderPlus, Loader2, Pencil, X } from 'lucide-react';
 import { useEffect, useId, useRef, useState } from 'react';
 import { useI18n } from '../i18n/index.js';
+import { DesktopBrowseButton } from '../desktop/DesktopSettingsDialog.js';
 import type { Manual, ManualCreateInput, ManualUpdateInput } from '../services/manuals-api.js';
 
 export type ManualFormMode = 'create' | 'attach' | 'edit';
@@ -194,14 +195,22 @@ export function ManualFormDialog({
             <label htmlFor="manual-form-rootdir" className="mb-1 block font-medium text-slate-700">
               {t('workbench.formRootDir')}
             </label>
-            <input
-              id="manual-form-rootdir"
-              value={rootDir}
-              onChange={(event) => setRootDir(event.target.value)}
-              placeholder={t('workbench.formRootDirPlaceholder')}
-              spellCheck={false}
-              className="h-8 w-full rounded-md border border-slate-300 px-2 font-mono text-[11.5px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                id="manual-form-rootdir"
+                value={rootDir}
+                onChange={(event) => setRootDir(event.target.value)}
+                placeholder={t('workbench.formRootDirPlaceholder')}
+                spellCheck={false}
+                className="h-8 w-full rounded-md border border-slate-300 px-2 font-mono text-[11.5px] outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+              <DesktopBrowseButton
+                value={rootDir}
+                onPicked={(picked) => setRootDir(picked)}
+                disabled={busy}
+                testId="manual-form-rootdir-browse"
+              />
+            </div>
             <p className="mt-1 text-[10.5px] text-slate-500">{t('workbench.formRootDirHint')}</p>
           </div>
         ) : null}

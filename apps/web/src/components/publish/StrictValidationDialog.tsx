@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ExternalLink,
   Loader2,
   RefreshCw,
   ShieldCheck,
@@ -23,6 +24,8 @@ export interface StrictValidationDialogProps {
   onAiFixDiagnostic?: (diagnostic: PublishDiagnostic) => void;
   /** Shows the "proposal applied, re-run validation" hint after an AI fix. */
   aiApplied?: boolean;
+  /** Desktop shell only: jump to the plugin install guide when DITA-OT / Java is missing. */
+  onOpenPluginGuide?: (() => void) | undefined;
 }
 
 export function StrictValidationDialog({
@@ -33,6 +36,7 @@ export function StrictValidationDialog({
   onJumpToFile,
   onAiFixDiagnostic,
   aiApplied = false,
+  onOpenPluginGuide,
 }: StrictValidationDialogProps) {
   const { t } = useI18n();
   const runtime = usePublishStore((state) => state.runtime);
@@ -153,8 +157,18 @@ export function StrictValidationDialog({
 
             {unavailable ? (
               <div className="shrink-0 border-b border-amber-200 bg-amber-50 px-4 py-2 text-[11px] text-amber-900">
-                {strictResult.message ??
-                  t('strict.noCli')}
+                <p>{strictResult.message ?? t('strict.noCli')}</p>
+                {onOpenPluginGuide ? (
+                  <button
+                    type="button"
+                    onClick={onOpenPluginGuide}
+                    data-testid="strict-open-plugin-guide"
+                    className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2 py-1 text-[10.5px] font-medium text-amber-900 transition-colors hover:bg-amber-100"
+                  >
+                    <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                    {t('desktop.shortcut.openGuide')}
+                  </button>
+                ) : null}
               </div>
             ) : null}
 

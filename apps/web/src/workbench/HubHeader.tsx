@@ -3,6 +3,7 @@ import { useI18n } from '../i18n/index.js';
 import type { IdentityResponse, IdentityUser } from '../services/identity-api';
 import { IdentitySwitcher } from '../components/IdentitySwitcher';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
+import { DesktopSettingsButton } from '../desktop/DesktopSettingsDialog.js';
 
 export interface HubHeaderProps {
   identity: IdentityResponse | null;
@@ -62,6 +63,7 @@ export function HubHeader({
               <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
             )}
           </button>
+          <DesktopSettingsButton />
           <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
           <LocaleSwitcher />
         </div>

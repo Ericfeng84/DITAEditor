@@ -11,6 +11,10 @@ import { ManualListSection } from './ManualListSection';
 import { MyAssignmentsPanel } from './MyAssignmentsPanel';
 import { AiSettingsDialog } from '../ai/AiSettingsDialog';
 import { DocumentIngestDialog } from '../ingest/DocumentIngestDialog.js';
+import { DesktopPluginBanner } from '../desktop/DesktopPluginBanner.js';
+import { DesktopSettingsDialog } from '../desktop/DesktopSettingsDialog.js';
+import { isDesktopApp } from '../services/desktop-bridge.js';
+import { useDesktopStore } from '../store/desktop-store.js';
 
 const FOCUS_REFRESH_THROTTLE_MS = 3000;
 
@@ -54,8 +58,24 @@ export function WorkbenchHubPage() {
   const [formBusy, setFormBusy] = useState(false);
   const [ingestOpen, setIngestOpen] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [aiSettingsTab, setAiSettingsTab] = useState<'llm' | 'parsers'>('llm');
 
   const lastFocusRefresh = useRef(0);
+  const desktop = isDesktopApp();
+  const openDesktopDialog = useDesktopStore((state) => state.openDialog);
+
+  // Electron menu item (CmdOrCtrl+,) must reach this page even when a dialog is on top.
+  useEffect(() => {
+    if (!desktop) return;
+    const bridge = window.ditaDesktop;
+    if (!bridge) return;
+    return bridge.onOpenDesktopSettings(() => openDesktopDialog('storage'));
+  }, [desktop, openDesktopDialog]);
+
+  const openParserSettings = () => {
+    setAiSettingsTab('parsers');
+    setAiSettingsOpen(true);
+  };
 
   // Identity first: the manual list is per-user (assignment counts), so load it after.
   useEffect(() => {
@@ -169,6 +189,12 @@ export function WorkbenchHubPage() {
           <p className="mt-0.5 text-[11.5px] text-slate-500">{t('workbench.subtitle')}</p>
         </div>
 
+        {desktop ? (
+          <div className="mb-3">
+            <DesktopPluginBanner />
+          </div>
+        ) : null}
+
         {offline ? (
           <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-[11.5px] text-amber-800">
             <span className="font-semibold">{t('workbench.offlineTitle')}</span> ·{' '}
@@ -255,12 +281,21 @@ export function WorkbenchHubPage() {
           origin="hub"
           defaultTargetMode="new_manual"
           onClose={() => setIngestOpen(false)}
-          onOpenSettings={() => setAiSettingsOpen(true)}
+          onOpenSettings={openParserSettings}
           onManualCreated={handleIngestManualCreated}
         />
       ) : null}
 
-      <AiSettingsDialog open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} />
+      <AiSettingsDialog
+        open={aiSettingsOpen}
+        initialTab={aiSettingsTab}
+        onClose={() => {
+          setAiSettingsOpen(false);
+          setAiSettingsTab('llm');
+        }}
+      />
+
+      {desktop ? <DesktopSettingsDialog onOpenParserSettings={openParserSettings} /> : null}
     </div>
   );
 }

@@ -59,6 +59,9 @@ import { AiAssistantPanel } from './ai/AiAssistantPanel';
 import { AiDiffDialog } from './ai/AiDiffDialog';
 import { AiSettingsDialog } from './ai/AiSettingsDialog';
 import { DocumentIngestDialog } from './ingest/DocumentIngestDialog';
+import { DesktopSettingsDialog } from './desktop/DesktopSettingsDialog.js';
+import { isDesktopApp } from './services/desktop-bridge.js';
+import { useDesktopStore } from './store/desktop-store.js';
 import type { IngestMountContext } from './ingest/types';
 import { applyDocumentLocale, useI18n } from './i18n/index.js';
 import type { AiTargetSpec } from './ai/ai-types';
@@ -400,6 +403,22 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   const [strictLabel, setStrictLabel] = useState('');
   const [strictAiApplied, setStrictAiApplied] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
+  const [aiSettingsTab, setAiSettingsTab] = useState<'llm' | 'parsers'>('llm');
+  /** Desktop shell only: the storage/plugin dialog and the Electron menu shortcut. */
+  const desktop = isDesktopApp();
+  const openDesktopDialog = useDesktopStore((state) => state.openDialog);
+  const openPluginGuide = useCallback(() => openDesktopDialog('plugins'), [openDesktopDialog]);
+  const openParserSettings = useCallback(() => {
+    setAiSettingsTab('parsers');
+    setAiSettingsOpen(true);
+  }, []);
+
+  useEffect(() => {
+    if (!desktop) return;
+    const bridge = window.ditaDesktop;
+    if (!bridge) return;
+    return bridge.onOpenDesktopSettings(() => openDesktopDialog('storage'));
+  }, [desktop, openDesktopDialog]);
   /** Phase 14 — document ingest wizard (targets the current manual). */
   const [ingestOpen, setIngestOpen] = useState(false);
   const [ingestMount, setIngestMount] = useState<IngestMountContext | null>(null);
@@ -2285,6 +2304,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         activeDitavalPath={activeDitavalPath}
         role={currentUser?.role ?? null}
         onClose={() => setPublishOpen(false)}
+        onOpenPluginGuide={desktop ? openPluginGuide : undefined}
       />
 
       <StrictValidationDialog
@@ -2295,9 +2315,19 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
         onJumpToFile={handleJumpFromStrictValidation}
         onAiFixDiagnostic={(diagnostic) => void handleAiFixStrictDiagnostic(diagnostic)}
         aiApplied={strictAiApplied}
+        onOpenPluginGuide={desktop ? openPluginGuide : undefined}
       />
 
-      <AiSettingsDialog open={aiSettingsOpen} onClose={() => setAiSettingsOpen(false)} />
+      <AiSettingsDialog
+        open={aiSettingsOpen}
+        initialTab={aiSettingsTab}
+        onClose={() => {
+          setAiSettingsOpen(false);
+          setAiSettingsTab('llm');
+        }}
+      />
+
+      {desktop ? <DesktopSettingsDialog onOpenParserSettings={openParserSettings} /> : null}
 
       {canIngestDocument ? (
         <DocumentIngestDialog
@@ -2313,7 +2343,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
           }}
           onOpenSettings={() => {
             setIngestOpen(false);
-            setAiSettingsOpen(true);
+            openParserSettings();
           }}
           onTopicsMaterialized={(result) => void handleIngestMaterialized(result)}
           onOpenTopic={(filePath) => void openFileTab(filePath)}

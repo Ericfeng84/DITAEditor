@@ -1,4 +1,5 @@
-import { cpSync, existsSync, mkdirSync } from 'node:fs';
+import { accessSync, constants, cpSync, existsSync, mkdirSync, statSync } from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 export interface DesktopPathInput {
@@ -74,6 +75,198 @@ export function ensureInitialWorkspace(sampleTemplateDir: string, workspaceDir: 
     filter: (src) => path.basename(src) !== '.git' && path.basename(src) !== '.DS_Store',
   });
   return true;
+}
+
+/** Directories copied by `migrateDesktopDataDir` when they exist inside the data root. */
+export const DESKTOP_DATA_SUB_ITEMS = [
+  'dita-editor.sqlite',
+  'demo-dita-project',
+  'workspaces',
+  'publishes',
+] as const;
+
+/** Marker entries whose presence means `targetDir` already holds a DITAEditor data root. */
+const EXISTING_DATA_MARKERS = ['dita-editor.sqlite', 'workspaces', 'demo-dita-project'] as const;
+
+function pathDelimiterFor(platform: NodeJS.Platform): string {
+  return platform === 'win32' ? ';' : ':';
+}
+
+function joinerFor(platform: NodeJS.Platform): (...parts: string[]) => string {
+  return platform === 'win32' ? path.win32.join : path.join;
+}
+
+/**
+ * Normalizes one PATH segment into a comparison key so we never append a duplicate
+ * directory. Windows PATH lookups are case-insensitive, POSIX ones are not.
+ */
+function pathSetKey(entry: string, platform: NodeJS.Platform): string {
+  const normalized = path.normalize(entry.trim());
+  const trimmed =
+    normalized.length > 1 ? normalized.replace(/[\\/]+$/, '') : normalized;
+  return platform === 'win32' ? trimmed.toLowerCase() : trimmed;
+}
+
+function normalizePathSet(
+  entries: readonly string[],
+  platform: NodeJS.Platform,
+): Set<string> {
+  const set = new Set<string>();
+  for (const entry of entries) {
+    const trimmed = entry.trim();
+    if (!trimmed) continue;
+    set.add(pathSetKey(trimmed, platform));
+  }
+  return set;
+}
+
+/**
+ * GUI apps launched from Finder / Start Menu inherit a minimal PATH that usually lacks
+ * Homebrew, `/usr/local/bin` or user-local package managers, so `git`, `java`, `dita`,
+ * `docling` and `markitdown` would all look "missing". Append the standard user binary
+ * directories (deduplicated, preserving the caller's original order) so the embedded
+ * server finds the same tools the user's terminal does.
+ */
+export function augmentDesktopPath(
+  currentPath: string | undefined,
+  platform: NodeJS.Platform = process.platform,
+  homeDir: string = os.homedir(),
+): string {
+  const delimiter = pathDelimiterFor(platform);
+  const join = joinerFor(platform);
+  const current = (currentPath ?? '')
+    .split(delimiter)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0);
+  const seen = normalizePathSet(current, platform);
+
+  const candidates: string[] =
+    platform === 'win32'
+      ? [
+          join(homeDir, '.local', 'bin'),
+          join(
+            process.env.LOCALAPPDATA ?? join(homeDir, 'AppData', 'Local'),
+            'Programs',
+            'Git',
+            'cmd',
+          ),
+        ]
+      : [
+          '/opt/homebrew/bin',
+          '/opt/homebrew/sbin',
+          '/usr/local/bin',
+          join(homeDir, '.local', 'bin'),
+          join(homeDir, '.cargo', 'bin'),
+        ];
+
+  const appended: string[] = [];
+  for (const candidate of candidates) {
+    const key = pathSetKey(candidate, platform);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    appended.push(candidate);
+  }
+
+  return [...current, ...appended].join(delimiter);
+}
+
+export interface DesktopDirInspection {
+  path: string;
+  exists: boolean;
+  writable: boolean;
+  hasExistingData: boolean;
+  isSameAsCurrent: boolean;
+  isNestedConflict: boolean;
+  error?: string;
+}
+
+function isStrictlyInside(parent: string, candidate: string, platform: NodeJS.Platform): boolean {
+  const parentKey = pathSetKey(parent, platform);
+  const candidateKey = pathSetKey(candidate, platform);
+  const separator = platform === 'win32' ? '\\' : '/';
+  return candidateKey.startsWith(`${parentKey}${separator}`);
+}
+
+function checkDirectoryWritable(
+  targetDir: string,
+): { writable: boolean; error?: string } {
+  let probe = targetDir;
+  while (!existsSync(probe)) {
+    const parent = path.dirname(probe);
+    if (parent === probe) {
+      return { writable: false, error: `No existing parent directory for "${targetDir}".` };
+    }
+    probe = parent;
+  }
+  try {
+    if (!statSync(probe).isDirectory()) {
+      return { writable: false, error: `"${probe}" is not a directory.` };
+    }
+  } catch (error) {
+    return { writable: false, error: toErrorMessage(error) };
+  }
+  try {
+    accessSync(probe, constants.W_OK);
+  } catch (error) {
+    return { writable: false, error: toErrorMessage(error) };
+  }
+  return { writable: true };
+}
+
+function toErrorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * Pre-flight inspection for the "change data folder" dialog. Crucially it detects
+ * `isNestedConflict` (target inside current or vice versa) so a migration can never
+ * recursively copy a directory into itself.
+ */
+export function inspectDataDirCandidate(
+  targetDir: string,
+  currentDataDir: string,
+  platform: NodeJS.Platform = process.platform,
+): DesktopDirInspection {
+  const trimmed = targetDir?.trim() ?? '';
+  if (!trimmed) {
+    return {
+      path: '',
+      exists: false,
+      writable: false,
+      hasExistingData: false,
+      isSameAsCurrent: false,
+      isNestedConflict: false,
+      error: 'A target directory is required.',
+    };
+  }
+
+  const resolvedTarget = path.resolve(trimmed);
+  const resolvedCurrent = path.resolve(currentDataDir);
+  const exists = existsSync(resolvedTarget);
+  const hasExistingData = EXISTING_DATA_MARKERS.some((marker) =>
+    existsSync(path.join(resolvedTarget, marker)),
+  );
+  const targetKey = pathSetKey(resolvedTarget, platform);
+  const currentKey = pathSetKey(resolvedCurrent, platform);
+  const isSameAsCurrent = targetKey === currentKey;
+  const isNestedConflict =
+    !isSameAsCurrent &&
+    (isStrictlyInside(resolvedCurrent, resolvedTarget, platform) ||
+      isStrictlyInside(resolvedTarget, resolvedCurrent, platform));
+  const writableCheck = checkDirectoryWritable(resolvedTarget);
+
+  const inspection: DesktopDirInspection = {
+    path: resolvedTarget,
+    exists,
+    writable: writableCheck.writable,
+    hasExistingData,
+    isSameAsCurrent,
+    isNestedConflict,
+  };
+  if (writableCheck.error) {
+    inspection.error = writableCheck.error;
+  }
+  return inspection;
 }
 
 const SEMVER_PATTERN = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;

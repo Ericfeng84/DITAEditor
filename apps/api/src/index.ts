@@ -40,7 +40,21 @@ import { ParserSettingsService } from './modules/ingest/parser-settings-service.
 import { registerIngestRoutes } from './modules/ingest/routes.js';
 import type { IngestStrictValidator } from './modules/ingest/agent/types.js';
 import type { CommandRunner } from './modules/ingest/parsers/types.js';
-import type { DitaRuntimeOptions } from './modules/dita-ot/dita-runtime.js';
+import { registerRuntimeEnvironmentRoutes } from './modules/runtime/routes.js';
+import {
+  resetDitaRuntimeCache,
+  type DitaRuntimeInfo,
+  type DitaRuntimeOptions,
+} from './modules/dita-ot/dita-runtime.js';
+
+/**
+ * Desktop settings mutate `ditaRuntime` in place and must drop the 30 s DITA-OT detection
+ * cache so `PublishService`, `validateStrict`, `IngestService` and `/api/runtime/environment`
+ * pick up the new `ditaHome` / `notoFontDir` immediately.
+ */
+export { resetDitaRuntimeCache };
+export type { DitaRuntimeInfo, DitaRuntimeOptions };
+export type { BinaryProbeResult, RuntimeEnvironmentReport } from './modules/runtime/environment-service.js';
 
 export interface CreateServerOptions {
   workspaceDir?: string;
@@ -369,6 +383,15 @@ export function createServer(options: CreateServerOptions = {}) {
     context,
     ...(options.ingestFetchImpl ? { fetchImpl: options.ingestFetchImpl } : {}),
     ...(options.ingestCommandRunner ? { commandRunner: options.ingestCommandRunner } : {}),
+  });
+  // Unified runtime & plugin readiness (Git, Java, DITA-OT + CJK fonts, Docling, MarkItDown).
+  // `options.ditaRuntime` is passed by reference on purpose: mutating `ditaHome` /
+  // `notoFontDir` on that object must be visible here without a server restart.
+  registerRuntimeEnvironmentRoutes(app, {
+    ditaRuntime: options.ditaRuntime,
+    parserSettings,
+    fetchImpl: options.ingestFetchImpl,
+    commandRunner: options.ingestCommandRunner,
   });
   registerWebStaticRoutes(app, options.webDistDir ?? defaultWebDistDir());
 

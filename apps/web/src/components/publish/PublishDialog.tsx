@@ -53,6 +53,8 @@ export interface PublishDialogProps {
   activeDitavalPath: string | null;
   role: IdentityUser['role'] | null;
   onClose: () => void;
+  /** Desktop shell only: jump to the plugin install guide when DITA-OT is missing. */
+  onOpenPluginGuide?: (() => void) | undefined;
 }
 
 const STATUS_META: Record<PublishStatus, { labelKey: MessageKey; className: string; icon: typeof Clock }> = {
@@ -148,6 +150,7 @@ export function PublishDialog({
   activeDitavalPath,
   role,
   onClose,
+  onOpenPluginGuide,
 }: PublishDialogProps) {
   const { t } = useI18n();
   const runtime = usePublishStore((state) => state.runtime);
@@ -416,6 +419,17 @@ export function PublishDialog({
               <code className="ml-1 font-mono">{runtime?.command ?? 'dita'}</code>
               {runtime?.error ? <span className="ml-2 text-rose-700">{runtime.error}</span> : null}
             </p>
+            {onOpenPluginGuide ? (
+              <button
+                type="button"
+                onClick={onOpenPluginGuide}
+                data-testid="publish-open-plugin-guide"
+                className="mt-1.5 inline-flex items-center gap-1 rounded-md border border-amber-300 bg-white px-2 py-1 text-[10.5px] font-medium text-amber-900 transition-colors hover:bg-amber-100"
+              >
+                <ExternalLink className="h-3 w-3" aria-hidden="true" />
+                {t('desktop.shortcut.openGuide')}
+              </button>
+            ) : null}
           </div>
         ) : runtime?.available && !runtime.pluginInstalled ? (
           <div className="shrink-0 border-b border-sky-200 bg-sky-50 px-4 py-1.5 text-[11px] text-sky-900">

@@ -20,6 +20,8 @@ import {
   Upload,
 } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
+import { isDesktopApp } from '../services/desktop-bridge.js';
+import { useDesktopStore } from '../store/desktop-store.js';
 import type {
   IngestEngineChoice,
   IngestJobUpload,
@@ -243,6 +245,12 @@ export function IngestUploadStep({
       : 'disabled'
     : 'unknown';
 
+  const desktop = isDesktopApp();
+  const openDesktopDialog = useDesktopStore((state) => state.openDialog);
+  const parsersMissing = ['off', 'disabled'].includes(doclingServeState)
+    && ['off', 'disabled'].includes(doclingCliState)
+    && ['off', 'disabled'].includes(markitdownState);
+
   return (
     <div className="space-y-3">
       <section className="rounded-lg border border-slate-200 bg-slate-50/70 p-2.5">
@@ -251,20 +259,33 @@ export function IngestUploadStep({
             <PlugZap className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
             {t('ingest.readiness.title')}
           </h3>
-          <button
-            type="button"
-            disabled={probing || !config?.canEdit}
-            onClick={onProbe}
-            title={config?.canEdit ? undefined : t('ingest.readiness.adminOnly')}
-            className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            {probing ? (
-              <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-            ) : (
-              <ScanText className="h-3 w-3" aria-hidden="true" />
-            )}
-            {probing ? t('ingest.readiness.probing') : t('ingest.readiness.probe')}
-          </button>
+          <div className="flex shrink-0 items-center gap-1.5">
+            {desktop && parsersMissing ? (
+              <button
+                type="button"
+                onClick={() => openDesktopDialog('plugins')}
+                data-testid="ingest-open-plugin-guide"
+                className="inline-flex items-center gap-1 rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9.5px] font-medium text-amber-800 hover:bg-amber-100"
+              >
+                <PlugZap className="h-2.5 w-2.5" aria-hidden="true" />
+                {t('desktop.shortcut.installGuide')}
+              </button>
+            ) : null}
+            <button
+              type="button"
+              disabled={probing || !config?.canEdit}
+              onClick={onProbe}
+              title={config?.canEdit ? undefined : t('ingest.readiness.adminOnly')}
+              className="inline-flex items-center gap-1 rounded border border-slate-300 bg-white px-2 py-0.5 text-[10px] text-slate-700 hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              {probing ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <ScanText className="h-3 w-3" aria-hidden="true" />
+              )}
+              {probing ? t('ingest.readiness.probing') : t('ingest.readiness.probe')}
+            </button>
+          </div>
         </div>
 
         <div className="mt-1.5 grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">

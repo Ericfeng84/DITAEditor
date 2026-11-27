@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import type { WorkspaceListItem, WorkspaceScaffold } from '../services/workspace-api';
 import { formatRelativeTime, useI18n } from '../i18n/index.js';
+import { DesktopBrowseButton } from '../desktop/DesktopSettingsDialog.js';
 import type { MessageKey } from '../i18n/messages/index.js';
 
 export interface WorkspaceDialogProps {
@@ -517,16 +518,24 @@ export function WorkspaceDialog({
                       >
                         {t('workspaceDialog.parentDir')}
                       </label>
-                      <input
-                        id="ws-new-parent"
-                        type="text"
-                        value={parentDir}
-                        onChange={(e) => setParentDir(e.target.value)}
-                        placeholder={importsRootDir || defaultRootDir}
-                        title={baseParentDir}
-                        disabled={!canWrite}
-                        className={`${FIELD_CLASS} truncate font-mono text-[11px]`}
-                      />
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          id="ws-new-parent"
+                          type="text"
+                          value={parentDir}
+                          onChange={(e) => setParentDir(e.target.value)}
+                          placeholder={importsRootDir || defaultRootDir}
+                          title={baseParentDir}
+                          disabled={!canWrite}
+                          className={`${FIELD_CLASS} truncate font-mono text-[11px]`}
+                        />
+                        <DesktopBrowseButton
+                          value={baseParentDir}
+                          onPicked={setParentDir}
+                          disabled={!canWrite}
+                          testId="ws-new-parent-browse"
+                        />
+                      </div>
                       <p className="mt-1 text-[10.5px] leading-relaxed text-slate-500">
                         {t('workspaceDialog.parentDirHint')}
                       </p>
@@ -681,6 +690,12 @@ export function WorkspaceDialog({
                       title={dirInput}
                       disabled={!canWrite}
                       className={`${FIELD_CLASS} min-w-0 flex-1 truncate font-mono text-[11px]`}
+                    />
+                    <DesktopBrowseButton
+                      value={dirInput}
+                      onPicked={setDirInput}
+                      disabled={!canWrite}
+                      testId="ws-dir-input-browse"
                     />
                     <button
                       type="submit"

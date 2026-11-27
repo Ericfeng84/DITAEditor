@@ -14,6 +14,7 @@ import type { IdentityResponse, IdentityUser } from '../services/identity-api';
 import { useI18n } from '../i18n/index.js';
 import { IdentitySwitcher } from './IdentitySwitcher';
 import { LocaleSwitcher } from './LocaleSwitcher';
+import { DesktopSettingsButton } from '../desktop/DesktopSettingsDialog.js';
 
 export interface WorkbenchHeaderProps {
   /** Brand lockup is rendered in the sidebar strip while it is open; the header takes over when collapsed. */
@@ -181,6 +182,7 @@ export function WorkbenchHeader({
           </span>
         ) : null}
 
+        <DesktopSettingsButton />
         <LocaleSwitcher />
         <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
         {dirtyCount > 0 ? (
