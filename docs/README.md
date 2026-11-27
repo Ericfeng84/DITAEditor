@@ -16,6 +16,7 @@
 | [design/content-reuse-workflow.md](./design/content-reuse-workflow.md) | **内容复用工作流设计**：Warehouse 复用仓库、新建/提取复用片段与全入口插入闭环 |
 | [design/ai-contract.md](./design/ai-contract.md) | **AI 辅助跨包接口契约**：`@dita/core` / `@dita/api` / `@dita/web` 间的类型、SSE 协议与安全边界真相源 |
 | [design/help-center.md](./design/help-center.md) | **应用内帮助中心与 DITA 规范文档**：七章信息架构、派生式速查（`DITA_SEQUENCE_MODEL`）、外链/离线降级与文档站两页扩展 |
+| [design/workbench-ux-architecture.md](./design/workbench-ux-architecture.md) | **工作台信息结构与交互设计规范**：壳层包含层级、左栏降噪、自适应标签显示模式（只读无标签/编辑仅标签）、单一信源与 AI/只读交互引导 |
 
 ## 二、架构决策记录（ADR）
 
