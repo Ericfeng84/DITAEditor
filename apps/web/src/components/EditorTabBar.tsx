@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
 import {
   AlertCircle,
-  BookMarked,
   FileCode2,
   FileText,
   FolderKanban,
@@ -25,7 +24,6 @@ const TAB_TYPE_BADGE: Record<string, string> = {
   reference: 'text-amber-600',
   topic: 'text-slate-600',
   map: 'text-sky-600',
-  bookmap: 'text-blue-600',
   ditaval: 'text-teal-600',
 };
 
@@ -152,13 +150,11 @@ export function EditorTabBar({
           const isActive = tab.path === activeTabPath;
           const isDirty = tab.xml !== tab.baselineXml;
           const Icon =
-            tab.kind === 'bookmap'
-              ? BookMarked
-              : tab.kind === 'ditamap'
-                ? FolderKanban
-                : tab.kind === 'ditaval'
-                  ? FileCode2
-                  : FileText;
+            tab.kind === 'ditamap'
+              ? FolderKanban
+              : tab.kind === 'ditaval'
+                ? FileCode2
+                : FileText;
           const iconColor = TAB_TYPE_BADGE[tab.docType] ?? 'text-slate-500';
 
           return (

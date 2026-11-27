@@ -77,7 +77,7 @@ const topicSchema: z.ZodType<RawPlannedTopic, ZodTypeDef, unknown> = z.lazy(() =
 const planSchema: z.ZodType<RawPlanShape, ZodTypeDef, unknown> = z.object({
   title: z.string().min(1).max(400),
   language: z.string().max(40).optional(),
-  mapKind: z.enum(['map', 'bookmap']).optional(),
+  mapKind: z.enum(['map']).optional(),
   rootMapPath: z.string().max(600).optional(),
   topicType: z.enum(['concept', 'task', 'reference', 'topic', 'auto']).optional(),
   summary: z.string().max(4_000).optional(),
@@ -431,7 +431,7 @@ function buildPlannerSystemPrompt(input: PlanOutlineInput, language: string): st
     '{',
     '  "title": "Manual or topic title",',
     `  "language": "${language}",`,
-    '  "mapKind": "map" | "bookmap",',
+    '  "mapKind": "map",',
     '  "rootMapPath": "product-manual.ditamap",',
     '  "topicType": "concept" | "task" | "reference" | "topic" | "auto",',
     '  "summary": "one sentence",',

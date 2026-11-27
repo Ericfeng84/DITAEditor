@@ -23,7 +23,7 @@ export * from './model/dita-structure.js';
 export * from './templates/topic-templates.js';
 export * from './templates/map-templates.js';
 
-// Map/Bookmap tree engine & isomorphic POSIX path utils
+// DITA Map tree engine & isomorphic POSIX path utils
 export * from './map/path-utils.js';
 export * from './map/dita-map.js';
 

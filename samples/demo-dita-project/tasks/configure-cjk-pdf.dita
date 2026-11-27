@@ -12,7 +12,7 @@
         <cmd>配置 DITA-OT 定制字体映射插件的 <filepath>fop.xconf</filepath> 与 <filepath>font-mappings.xml</filepath>。</cmd>
       </step>
       <step>
-        <cmd>使用 <cmdname>dita --input=admin-book.bookmap --format=pdf</cmdname> 验证导出结果无 <codeph>###</codeph> 缺字。</cmd>
+        <cmd>使用 <cmdname>dita --input=admin-book.ditamap --format=pdf</cmdname> 验证导出结果无 <codeph>###</codeph> 缺字。</cmd>
       </step>
     </steps>
   </taskbody>

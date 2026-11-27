@@ -3,6 +3,15 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [Unreleased]
+
+### Removed
+
+- **移除 Bookmap（书籍地图）支持**：`<bookmap>`、`<booktitle>` / `<mainbooktitle>`、`<bookmeta>`、`<frontmatter>` / `<backmatter>`、`<booklists>`、`<part>`、`<chapter>`、`<appendix>`、`<preface>`、`<notices>` 等 BookMap 专属元素从 DITA 元素注册表、内容模型、属性规格、模板、Map 树引擎、文件类型识别、发布与样例数据中全部移除。
+  - 新建 Map 对话框只保留**标准 DITA Map**（`.ditamap`），不再提供 Bookmap 选项；导入向导的 `mapKind` 也固定为标准 Map。
+  - 内置示例项目 `samples/demo-dita-project/admin-book.bookmap` 改为标准 `admin-book.ditamap`（`<title>` + `<topichead>` 取代 `part` / `chapter` / `appendix`），演示工作区与测试同步更新。
+  - 既有 `.bookmap` 文件不再被识别为地图：文件树按普通文件处理、不再进入 Map 树或发布流程，XML 源码仍可无损查看编辑，建议先转换为标准 `<map>` 后纳入工作台。
+
 ## [1.5.0] — 2026-11-26
 
 新增**编辑器文档大纲视图（Document Outline View）**（支持「结构骨架 / 全部块级」粒度切换、双向定位平滑滚动与 DITA 1.3 约束校验下的同级/跨容器无损拖拽重排），整合 **Keyspace 管理与新建 Key 工作流**，完善**检入校验门禁与 AI 修复闭环**，并修复可视化 `+` 插入拆段及多项版本管理体验问题。全仓测试 719 项全绿（`@dita/core` 208 / `@dita/web` 353 / `@dita/api` 124 / `@dita/site` 30 / `@dita/desktop` 4）。

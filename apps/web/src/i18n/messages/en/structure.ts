@@ -2,7 +2,7 @@
 
 export const enStructure = {
   // --- map tree -----------------------------------------------------------
-  'mapTree.noMaps': 'This workspace has no .ditamap or .bookmap files yet',
+  'mapTree.noMaps': 'This workspace has no .ditamap files yet',
   'mapTree.noMapsHint': 'Use the Files tab to create a new map.',
   'mapTree.rootTooltip': 'Click to select the root node: {path}',
   'mapTree.dirtyTooltip': 'The map has unsaved structural changes',
@@ -113,7 +113,6 @@ export const enStructure = {
   'mapNodeInspector.structuralNode': 'Map structural node',
   'mapNodeInspector.openTarget': 'Open Target',
   'mapNodeInspector.locateSource': 'Locate in Source',
-  'mapNodeInspector.bookTitle': 'Book main title (<mainbooktitle>)',
   'mapNodeInspector.mapTitle': 'Map title (<title>)',
   'mapNodeInspector.navtitle': 'Navigation title (navtitle)',
   'mapNodeInspector.navtitlePlaceholder': 'Inherits the target topic <title> by default',
@@ -125,12 +124,10 @@ export const enStructure = {
   'mapNodeInspector.metaLine': 'DOCTYPE: {doctype} · Comments: {comments} · PIs: {pis}',
   'mapNodeInspector.preserved': 'preserved',
   'mapNodeInspector.hasReltable': ' · contains <reltable> relationship table',
-  'mapNodeInspector.hasBookmeta': ' · contains <bookmeta>',
 
   // --- map overview + mount dialog ----------------------------------------
   'mapOverview.parseErrorTitle': 'The map XML has a syntax error',
   'mapOverview.fixInSource': 'Fix in XML Source',
-  'mapOverview.bookTitle': 'Book title (<booktitle>/<mainbooktitle>)',
   'mapOverview.mapTitle': 'Map title (<title>)',
   'mapOverview.openInTree': 'Open in the map tree',
   'mapOverview.editSource': 'Edit XML Source',
@@ -393,15 +390,12 @@ export const enStructure = {
   'keyref.submit': 'Insert',
 
   // --- new map dialog -----------------------------------------------------
-  'newMap.bookmapDefaultTitle': 'New Product Handbook',
   'newMap.mapDefaultTitle': 'New DITA Map',
-  'newMap.title': 'New DITA Map / Bookmap',
+  'newMap.title': 'New DITA Map',
   'newMap.subtitle': 'Create a standard structured map and make it the active root map',
   'newMap.closeAria': 'Close dialog',
   'newMap.standard': 'Standard Map',
   'newMap.standardDesc': '.ditamap with a generic hierarchical outline and submaps',
-  'newMap.bookmap': 'Bookmap',
-  'newMap.bookmapDesc': '.bookmap with front matter, parts/chapters, and appendices',
   'newMap.titleLabel': 'Map title',
   'newMap.titlePlaceholder': 'e.g. Product Deployment and Operations Guide',
   'newMap.fileName': 'File name',

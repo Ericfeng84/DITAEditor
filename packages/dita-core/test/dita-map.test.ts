@@ -68,29 +68,7 @@ const SAMPLE_DITAMAP = `<?xml version="1.0" encoding="UTF-8"?>
 </map>
 `;
 
-const SAMPLE_BOOKMAP = `<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE bookmap PUBLIC "-//OASIS//DTD DITA BookMap//EN" "bookmap.dtd">
-<bookmap id="admin_book" xml:lang="zh-CN">
-  <booktitle>
-    <mainbooktitle>企业管理手册</mainbooktitle>
-    <booktitlealt>v2.0</booktitlealt>
-  </booktitle>
-  <bookmeta>
-    <author>Platform Docs</author>
-  </bookmeta>
-  <frontmatter>
-    <booklists>
-      <toc/>
-    </booklists>
-  </frontmatter>
-  <part navtitle="核心概念篇">
-    <chapter href="concepts/dita-architecture.dita" navtitle="架构原理"/>
-  </part>
-  <appendix href="references/server-sizing-cals.dita" navtitle="附录：服务器规格"/>
-</bookmap>
-`;
-
-describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
+describe('DITA Map Lossless Engine & Path Utils', () => {
   it('resolves and computes POSIX relative DITA href paths safely', () => {
     expect(normalizePosixPath('maps\\sub/../guide.ditamap')).toBe('maps/guide.ditamap');
 
@@ -121,16 +99,15 @@ describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
       'tasks/deploy-worker.dita',
     );
 
-    expect(classifyDitaFileKind('admin.bookmap')).toBe('bookmap');
+    expect(classifyDitaFileKind('admin.bookmap')).toBe('other');
     expect(classifyDitaFileKind('root.ditamap')).toBe('ditamap');
     expect(classifyDitaFileKind('intro.dita')).toBe('topic');
     expect(classifyDitaFileKind('cloud.ditaval')).toBe('ditaval');
     expect(classifyDitaFileKind('images/arch.svg')).toBe('image');
   });
 
-  it('parses .ditamap and .bookmap trees with metadata summary and source locations', () => {
+  it('parses .ditamap trees with metadata summary and source locations', () => {
     expect(isDitaMapXml(SAMPLE_DITAMAP)).toBe(true);
-    expect(isDitaMapXml(SAMPLE_BOOKMAP)).toBe(true);
     expect(isDitaMapXml('<topic id="t1"><title>T</title></topic>')).toBe(false);
 
     const parsedMap = parseDitaMap(SAMPLE_DITAMAP);
@@ -153,18 +130,10 @@ describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
       commentCount: 1,
       piCount: 1,
       hasReltable: true,
-      hasBookmeta: false,
       hasTopicmeta: true,
     });
     // Includes reltable topicrefs as well as main tree nodes
     expect(parsedMap.references.length).toBeGreaterThanOrEqual(6);
-
-    const parsedBook = parseDitaMap(SAMPLE_BOOKMAP);
-    expect(parsedBook.kind).toBe('bookmap');
-    expect(parsedBook.title).toBe('企业管理手册');
-    expect(parsedBook.nodes.map((n) => n.tagName)).toEqual(['frontmatter', 'part', 'appendix']);
-    expect(parsedBook.preservedMetaSummary.hasBookmeta).toBe(true);
-    expect(extractDitaDocumentTitle(SAMPLE_BOOKMAP)).toBe('企业管理手册');
   });
 
   it('detects the topic type from the root element and reports null for non-topic roots', () => {
@@ -268,10 +237,6 @@ describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
 
     const titleUpdated = updateMapTitle(navUpdated.xml, '新版产品手册 v2');
     expect(parseDitaMap(titleUpdated.xml).title).toBe('新版产品手册 v2');
-
-    // Bookmap title update targets <booktitle>/<mainbooktitle>
-    const bookTitleUpdated = updateMapTitle(SAMPLE_BOOKMAP, '企业管理手册（修订版）');
-    expect(parseDitaMap(bookTitleUpdated.xml).title).toBe('企业管理手册（修订版）');
 
     // Delete inserted node
     const deleted = deleteMapNode(titleUpdated.xml, newNode.elementPath);
@@ -377,18 +342,12 @@ describe('DITA Map / Bookmap Lossless Engine & Path Utils', () => {
     expect(updateMapKeyValueText(xml, legacyDef.elementPath, 'linktext', 'x').changed).toBe(false);
   });
 
-  it('creates clean lossless .ditamap and .bookmap templates', () => {
+  it('creates clean lossless .ditamap templates', () => {
     const mapXml = createMapTemplate('map', { id: 'my_map', title: '测试地图' });
     const parsedMap = parseDitaMap(mapXml);
     expect(parsedMap.kind).toBe('map');
     expect(parsedMap.title).toBe('测试地图');
     expect(serializeXml(parseXml(mapXml))).toBe(mapXml);
-
-    const bookXml = createMapTemplate('bookmap', { id: 'my_book', title: '测试手册' });
-    const parsedBook = parseDitaMap(bookXml);
-    expect(parsedBook.kind).toBe('bookmap');
-    expect(parsedBook.title).toBe('测试手册');
-    expect(serializeXml(parseXml(bookXml))).toBe(bookXml);
   });
 
   it('transfers a map subtree across two maps while rewriting relative hrefs losslessly', () => {

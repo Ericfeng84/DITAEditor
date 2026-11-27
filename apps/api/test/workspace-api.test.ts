@@ -96,9 +96,9 @@ function buildScaleDitaProject(rootDir: string): void {
   ].join('\n');
   writeFileSync(path.join(rootDir, 'root-manual.ditamap'), rootMap, 'utf8');
 
-  // Root bookmap
-  const bookmap = createMapTemplate('bookmap', { id: 'scale_book', title: '55-Topic Bookmap' });
-  writeFileSync(path.join(rootDir, 'admin-guide.bookmap'), bookmap, 'utf8');
+  // Root secondary map
+  const adminGuide = createMapTemplate('map', { id: 'scale_book', title: '55-Topic Admin Guide' });
+  writeFileSync(path.join(rootDir, 'admin-guide.ditamap'), adminGuide, 'utf8');
 }
 
 describe('Phase 2 Fastify Workspace, Map Persistence & Asset API', () => {

@@ -170,7 +170,7 @@ export async function countManualFiles(rootDir: string): Promise<ManualStats> {
       if (!entry.isFile()) continue;
       const lower = entry.name.toLowerCase();
       if (lower.endsWith('.dita')) stats.totalTopics += 1;
-      else if (lower.endsWith('.ditamap') || lower.endsWith('.bookmap')) stats.totalMaps += 1;
+      else if (lower.endsWith('.ditamap')) stats.totalMaps += 1;
     }
   };
 

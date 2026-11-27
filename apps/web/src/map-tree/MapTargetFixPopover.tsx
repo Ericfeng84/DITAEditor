@@ -19,7 +19,7 @@ export interface MapTargetFixPopoverProps {
   onRemoveNode: (node: CompositeMapTreeNode) => void;
 }
 
-const MAP_EXTENSIONS = /\.(ditamap|bookmap)$/i;
+const MAP_EXTENSIONS = /\.ditamap$/i;
 
 /**
  * Quick fix for a `topicref` whose target file does not exist yet.

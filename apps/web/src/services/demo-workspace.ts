@@ -26,7 +26,7 @@ import type {
  * intentionally written in Chinese regardless of the UI locale. UI chrome must never be added
  * to this module: `apps/web/test/no-hardcoded-cjk.test.ts` allow-lists it for exactly that reason.
  */
-const DEMO_ARCH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200"><rect width="640" height="200" rx="12" fill="#f8fafc" stroke="#bfdbfe"/><text x="24" y="34" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#1e293b">DITAEditor Phase 2 Offline Demo Workspace</text><rect x="24" y="56" width="180" height="110" rx="8" fill="#eff6ff" stroke="#60a5fa"/><text x="38" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">Map / Bookmap Tree</text><text x="38" y="114" font-family="monospace" font-size="11" fill="#1d4ed8">react-arborist</text><rect x="230" y="56" width="180" height="110" rx="8" fill="#0f172a"/><text x="246" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#38bdf8">@dita/core</text><text x="246" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#cbd5e1">Lossless XML DOM</text><rect x="436" y="56" width="180" height="110" rx="8" fill="#ecfdf5" stroke="#34d399"/><text x="452" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#065f46">Multi-Tab Editor</text><text x="452" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#047857">Visual &lt;-&gt; Source</text></svg>`;
+const DEMO_ARCH_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 200" width="640" height="200"><rect width="640" height="200" rx="12" fill="#f8fafc" stroke="#bfdbfe"/><text x="24" y="34" font-family="system-ui,sans-serif" font-size="14" font-weight="700" fill="#1e293b">DITAEditor Phase 2 Offline Demo Workspace</text><rect x="24" y="56" width="180" height="110" rx="8" fill="#eff6ff" stroke="#60a5fa"/><text x="38" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#1e3a8a">DITA Map Tree</text><text x="38" y="114" font-family="monospace" font-size="11" fill="#1d4ed8">react-arborist</text><rect x="230" y="56" width="180" height="110" rx="8" fill="#0f172a"/><text x="246" y="88" font-family="monospace" font-size="12" font-weight="700" fill="#38bdf8">@dita/core</text><text x="246" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#cbd5e1">Lossless XML DOM</text><rect x="436" y="56" width="180" height="110" rx="8" fill="#ecfdf5" stroke="#34d399"/><text x="452" y="88" font-family="system-ui,sans-serif" font-size="12" font-weight="700" fill="#065f46">Multi-Tab Editor</text><text x="452" y="114" font-family="system-ui,sans-serif" font-size="11" fill="#047857">Visual &lt;-&gt; Source</text></svg>`;
 
 /**
  * Fallback in-memory multi-file project used when `@dita/api` is not running.
@@ -109,38 +109,38 @@ export function createInMemoryDemoWorkspace(): InMemoryDemoWorkspace {
     '',
   ].join('\n');
 
-  const bookMapXml = [
+  const adminMapXml = [
     '<?xml version="1.0" encoding="UTF-8"?>',
-    '<!DOCTYPE bookmap PUBLIC "-//OASIS//DTD DITA BookMap//EN" "bookmap.dtd">',
-    '<bookmap id="admin_book" xml:lang="zh-CN">',
-    '  <booktitle>',
-    '    <mainbooktitle>平台部署与管理员手册</mainbooktitle>',
-    '  </booktitle>',
-    '  <frontmatter>',
-    '    <keydef keys="prod_name" processing-role="resource-only">',
-    '      <topicmeta><keywords><keyword>DITAEditor 私有化平台版</keyword></keywords></topicmeta>',
+    '<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">',
+    '<map id="admin_book" xml:lang="zh-CN">',
+    '  <title>平台部署与管理员手册</title>',
+    '  <keydef keys="prod_name" processing-role="resource-only">',
+    '    <topicmeta><keywords><keyword>DITAEditor 私有化平台版</keyword></keywords></topicmeta>',
+    '  </keydef>',
+    '  <keydef keys="api_version" processing-role="resource-only">',
+    '    <topicmeta><keywords><keyword>v2.4-LTS</keyword></keywords></topicmeta>',
+    '  </keydef>',
+    '  <keydef keys="deployment_mode" processing-role="resource-only">',
+    '    <topicmeta><keywords><keyword>私有化内网集群</keyword></keywords></topicmeta>',
+    '  </keydef>',
+    '  <keydef keys="common_reuse" href="shared/common-reuse.dita" processing-role="resource-only"/>',
+    '  <keydef keys="gloss_dita" processing-role="resource-only">',
+    '    <topicmeta><keywords><keyword>DITA 1.3</keyword></keywords></topicmeta>',
+    '  </keydef>',
+    '  <topicgroup keyscope="cloud">',
+    '    <keydef keys="endpoint_url" processing-role="resource-only">',
+    '      <topicmeta><keywords><keyword>https://intranet.corp.local/dita-api</keyword></keywords></topicmeta>',
     '    </keydef>',
-    '    <keydef keys="api_version" processing-role="resource-only">',
-    '      <topicmeta><keywords><keyword>v2.4-LTS</keyword></keywords></topicmeta>',
-    '    </keydef>',
-    '    <keydef keys="deployment_mode" processing-role="resource-only">',
-    '      <topicmeta><keywords><keyword>私有化内网集群</keyword></keywords></topicmeta>',
-    '    </keydef>',
-    '    <keydef keys="common_reuse" href="shared/common-reuse.dita" processing-role="resource-only"/>',
-    '    <keydef keys="gloss_dita" processing-role="resource-only">',
-    '      <topicmeta><keywords><keyword>DITA 1.3</keyword></keywords></topicmeta>',
-    '    </keydef>',
-    '    <topicgroup keyscope="cloud">',
-    '      <keydef keys="endpoint_url" processing-role="resource-only">',
-    '        <topicmeta><keywords><keyword>https://intranet.corp.local/dita-api</keyword></keywords></topicmeta>',
-    '      </keydef>',
-    '    </topicgroup>',
-    '  </frontmatter>',
-    '  <chapter href="concepts/dita-architecture.dita" navtitle="第 1 章 结构化写作架构">',
-    '    <topicref href="concepts/single-sourcing.dita" type="concept" navtitle="单一信息源模型" rev="2.4"/>',
-    '  </chapter>',
-    '  <chapter href="tasks/deploy-worker.dita" navtitle="第 2 章 部署 Worker" audience="admin"/>',
-    '</bookmap>',
+    '  </topicgroup>',
+    '  <topichead navtitle="第一篇 架构基础">',
+    '    <topicref href="concepts/dita-architecture.dita" navtitle="第 1 章 结构化写作架构">',
+    '      <topicref href="concepts/single-sourcing.dita" type="concept" navtitle="单一信息源模型" rev="2.4"/>',
+    '    </topicref>',
+    '  </topichead>',
+    '  <topichead navtitle="第二篇 部署与编排指南">',
+    '    <topicref href="tasks/deploy-worker.dita" navtitle="第 2 章 部署 Worker" audience="admin"/>',
+    '  </topichead>',
+    '</map>',
     '',
   ].join('\n');
 
@@ -217,7 +217,7 @@ export function createInMemoryDemoWorkspace(): InMemoryDemoWorkspace {
 
   const files: Record<string, string> = {
     'product-manual.ditamap': rootMapXml,
-    'admin-book.bookmap': bookMapXml,
+    'admin-book.ditamap': adminMapXml,
     'maps/getting-started.ditamap': subMapXml,
     'concepts/dita-architecture.dita': conceptXml,
     'concepts/single-sourcing.dita': singleSourcingXml,
@@ -288,7 +288,7 @@ export function buildSnapshotFromMemoryFiles(
 
     stats.totalFiles++;
     const content = files[filePath];
-    if (kind === 'ditamap' || kind === 'bookmap') {
+    if (kind === 'ditamap') {
       stats.totalMaps++;
       if (content !== undefined) {
         try {

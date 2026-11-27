@@ -8,7 +8,7 @@
 
 **English** · [简体中文](README.md)
 
-A **web-based DITA 1.3 structured authoring workbench** for technical documentation teams: ProseMirror visual editing paired with CodeMirror 6 XML source, a collapsible **document outline** with drag-and-drop reordering constrained by DITA 1.3 content models, a visual Map / Bookmap workbench, a single-sourcing semantic engine (keyspace key management / Conref / DITAVAL), local Git with a **clean baseline plus per-user draft overlay**, check-out locks and visual diffs, authoritative DITA-OT 4.x validation with themed HTML5 / Chinese PDF publishing, fragment-scoped AI assistance, and manual-level topic assignment — all keeping standard DITA XML as the single source of truth with 100% lossless round-trips and minimal Git diffs.
+A **web-based DITA 1.3 structured authoring workbench** for technical documentation teams: ProseMirror visual editing paired with CodeMirror 6 XML source, a collapsible **document outline** with drag-and-drop reordering constrained by DITA 1.3 content models, a visual DITA Map workbench, a single-sourcing semantic engine (keyspace key management / Conref / DITAVAL), local Git with a **clean baseline plus per-user draft overlay**, check-out locks and visual diffs, authoritative DITA-OT 4.x validation with themed HTML5 / Chinese PDF publishing, fragment-scoped AI assistance, and manual-level topic assignment — all keeping standard DITA XML as the single source of truth with 100% lossless round-trips and minimal Git diffs.
 
 > **v1.5.0** (Phase 0–13) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE) · [Architecture baseline and roadmap](docs/architecture-and-plan.md) · [Engineering conventions](AGENTS.md)
 
@@ -131,15 +131,15 @@ A collapsible outline rail (`apps/web/src/editor/outline/`) renders the current 
 
 </details>
 
-### 4. Visual Map / Bookmap tree and multi-file workbench
+### 4. Visual DITA Map tree and multi-file workbench
 
-A three-pane resizable workbench plus a lossless Map / Bookmap DOM engine: drag to reorder and re-nest `topicref` / `mapref` / `topichead` / `chapter` / `keydef` while keeping `<reltable>`, `<topicmeta>`, comments and PIs in place — with multi-tab editing and a project-level problems panel.
+A three-pane resizable workbench plus a lossless DITA Map DOM engine: drag to reorder and re-nest `topicref` / `mapref` / `topichead` / `topicgroup` / `keydef` while keeping `<reltable>`, `<topicmeta>`, comments and PIs in place — with multi-tab editing and a project-level problems panel.
 
 <details>
 <summary>Implementation details</summary>
 
 - **Three-pane resizable workbench** (`react-resizable-panels`): the left pane switches between project files, the Map tree (`react-arborist`) and Keys; the top bar holds the Root Map selector, the DITAVAL configuration selector with its three-state projection switch, and quick new / import / export actions.
-- **Lossless Map / Bookmap DOM engine**: drag to reorder and re-nest, create-and-mount topics from templates, mount existing files, edit node attributes, and open the map source.
+- **Lossless DITA Map DOM engine**: drag to reorder and re-nest, create-and-mount topics from templates, mount existing files, edit node attributes, and open the map source.
 - **Multi-tab editing and diagnostics**: dirty tracking, save-one / save-all, revert to baseline, and a project-level problems panel covering XML well-formedness, broken `href`, recursive `<mapref>`, missing images, undefined `keyref`, invalid or cyclic `conref`, and `.ditaval` syntax errors.
 
 </details>
@@ -165,7 +165,7 @@ Fastify 5 + Zod provide workspace scanning, file CRUD, bulk import and a per-bra
 <details>
 <summary>Implementation details</summary>
 
-- **Bundled demo project**: `samples/demo-dita-project/` (`product-manual.ditamap`, `admin-book.bookmap`, the shared reuse library `shared/common-reuse.dita`, `filters/cloud-edition.ditaval` & `onprem-admin.ditaval`, nested submaps, concept/task/reference documents and SVG diagrams), with the same experience in offline in-memory mode.
+- **Bundled demo project**: `samples/demo-dita-project/` (`product-manual.ditamap`, `admin-book.ditamap`, the shared reuse library `shared/common-reuse.dita`, `filters/cloud-edition.ditaval` & `onprem-admin.ditaval`, nested submaps, concept/task/reference documents and SVG diagrams), with the same experience in offline in-memory mode.
 - **Path safety**: `resolveSafeWorkspacePath` rejects traversal (`..`), absolute paths, NUL bytes and symlink escapes.
 - **Asset pipeline**: multipart image upload (`.png` / `.jpg` / `.jpeg` / `.gif` / `.svg` / `.webp` / `.avif`, 10 MB limit) with automatic document-relative POSIX `href` computation and a preview route.
 
@@ -311,10 +311,10 @@ DITAEditor/
 │       │   ├── xml/            # slimdom parsing, position tracking, deterministic serialization, XPath, DOM diff
 │       │   ├── model/          # DITA 1.3 element metadata, content models, attribute rules
 │       │   ├── cals/           # OASIS CALS table <-> colspan/rowspan adapter
-│       │   ├── map/            # Map/Bookmap DOM engine and POSIX path utilities
+│       │   ├── map/            # DITA Map DOM engine and POSIX path utilities
 │       │   ├── ditaval/        # .ditaval parsing, multi-value/group evaluation, flag merging
 │       │   ├── semantics/      # BFS keyspace, conref/conkeyref resolution, DFS cycles, incremental index
-│       │   ├── templates/      # Topic (concept/task/reference/topic) and Map/Bookmap templates
+│       │   ├── templates/      # Topic (concept/task/reference/topic) and DITA Map templates
 │       │   ├── ai/             # AI target-fragment locator, candidate normalizer, lossless splice+verify
 │       │   └── prosemirror/    # ProseMirror schema and lossless slimdom <-> PM Doc conversion
 │       └── test/fixtures/      # 10 complex DITA 1.3 golden round-trip fixtures
@@ -353,7 +353,7 @@ DITAEditor/
 ├── .github/workflows/          # deploy-site.yml / deploy-hf-space.yml / deploy-cloudrun.yml / release-desktop.yml
 ├── deploy/                     # cloud hosting configs (huggingface/ and gcp/: cloudbuild.yaml, deploy-cloudrun.sh)
 ├── samples/
-│   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/bookmaps/reuse library/DITAVAL/SVG)
+│   └── demo-dita-project/      # ready-to-run multi-variant DITA 1.3 demo (maps/reuse library/DITAVAL/SVG)
 ├── docs/
 │   ├── architecture-and-plan.md # full architecture baseline and phased roadmap
 │   ├── deploy-gcp-cloudrun.md  # low-cost GCP Cloud Run trial, subpath reverse proxy, and WIF auto-deploy guide
@@ -542,7 +542,7 @@ Current coverage (**807/807 Vitest tests passing**):
 <details>
 <summary>Expand per-package test coverage</summary>
 
-- `@dita/core` (232): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless Map/Bookmap operations (including in-place `<keydef>` create/edit), DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, AI fragment targeting/normalization/lossless splice verification, plus Phase 14 Markdown outline slicing, data-URI image extraction and lossless map mounting.
+- `@dita/core` (229): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless DITA Map operations (including in-place `<keydef>` create/edit), DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, AI fragment targeting/normalization/lossless splice verification, plus Phase 14 Markdown outline slicing, data-URI image extraction and lossless map mounting.
 - `@dita/web` (356): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, Phase 10 workbench hub router & unsaved-changes guards, document outline model/DnD, keyspace key management, check-in validation gate UI, and Phase 14 ingest progress stage/error rendering.
 - `@dita/api` (185): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, Phase 10 per-manual isolation & assignment workflows, Phase 13 draft overlay/conflict-free merge/tags/revert/audit and check-in pre-check, plus Phase 14 dual-parser routing, multi-role agent, tool-using DITA-OT repair agent (batch repair, map repair, circuit breaker, deterministic final gate, non-tool fallback) and end-to-end ingest routes.
 - `@dita/site` (30): bilingual dictionary key parity, doc-slug symmetry, `SITE_BASE` / offline workbench route helpers, and `@dita/core` preset round-trip tests.
@@ -571,7 +571,7 @@ Current coverage (**807/807 Vitest tests passing**):
 | `GET /api/files/tree` | Workspace file tree, map summaries, topic title map |
 | `GET /api/files/content?path=...` | Reads a file plus its well-formedness result |
 | `PUT /api/files/content` | Saves content to disk and triggers an incremental semantic re-index |
-| `POST /api/files/create` | Creates a topic / map / bookmap / DITAVAL file from a template |
+| `POST /api/files/create` | Creates a topic / map / DITAVAL file from a template |
 | `POST /api/files/mkdir` / `rename` | Creates a subdirectory / renames or moves a file or directory |
 | `DELETE /api/files?path=...` | Deletes a file or directory |
 | `POST /api/assets/upload` | Uploads an image asset and returns a document-relative DITA `href` |
@@ -635,7 +635,7 @@ Current coverage (**807/807 Vitest tests passing**):
 
 - [x] **Phase 0**: Monorepo foundation, `@dita/core` (`slimdom` + `slimdom-sax-parser` + `fontoxpath` + ProseMirror Schema + CALS adapter) and 10 golden round-trip fixtures.
 - [x] **Phase 1**: Dual-mode topic editor MVP (ProseMirror visual editing + NodeViews + CALS/simpletable editing + `/` context insert menu + attribute panel + breadcrumb + CodeMirror 6 source with completion/lint and switch protection).
-- [x] **Phase 2**: Visual Map / Bookmap tree (`react-arborist`), lossless Map DOM engine, three-pane multi-tab workbench, Fastify workspace/asset APIs and the `samples/demo-dita-project/` demo project.
+- [x] **Phase 2**: Visual DITA Map tree (`react-arborist`), lossless Map DOM engine, three-pane multi-tab workbench, Fastify workspace/asset APIs and the `samples/demo-dita-project/` demo project.
 - [x] **Phase 3**: Root Map cross-file semantic engine (`keydef/keyref` BFS + `keyscope`, `conref/conkeyref`/`conrefend` with DFS cycle detection, DITAVAL three-state filtering and flags, incremental `/api/semantics/*` indexer, Keys panel, reuse/semantic insert UI, profiling attribute editor, CodeMirror 6 semantic completion).
 - [x] **Phase 4**: SQLite + Drizzle identities and three roles, local `simple-git` repository with branch-isolated `git worktree`s, check-out locks / check-in / cancel / admin force-unlock backups, CodeMirror 6 MergeView diffs and the left "Version" panel.
 - [x] **Phase 5**: DITA-OT 4.x CLI runner in `@dita/api` (zero custom Java code; built-in DTD/RNG strict validation + pure-XML Noto CJK PDF plugin), zero-Redis SQLite + in-process concurrency-limited async publish queue with SSE logs, and single-container `Dockerfile` deployment.

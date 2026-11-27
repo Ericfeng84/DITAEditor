@@ -64,7 +64,7 @@ export interface OverlayAsset {
   isDraft: boolean;
 }
 
-const XML_KINDS = new Set<DitaFileKind>(['ditamap', 'bookmap', 'ditaval', 'topic']);
+const XML_KINDS = new Set<DitaFileKind>(['ditamap', 'ditaval', 'topic']);
 
 function countMapTreeNodes(nodes: { children?: unknown[] }[]): number {
   let count = 0;
@@ -88,7 +88,7 @@ function toParseError(err: unknown): XmlParseError {
 
 function mapSummaryFor(
   filePath: string,
-  kind: 'ditamap' | 'bookmap',
+  kind: 'ditamap',
   xml: string,
 ): WorkspaceMapSummary {
   const name = filePath.split('/').pop() ?? filePath;
@@ -255,7 +255,7 @@ function recomputeStats(files: WorkspaceFileNode[]): WorkspaceSnapshot['stats'] 
   for (const node of flat) {
     stats.totalFiles += 1;
     if (node.kind === 'topic') stats.totalTopics += 1;
-    else if (node.kind === 'ditamap' || node.kind === 'bookmap') stats.totalMaps += 1;
+    else if (node.kind === 'ditamap') stats.totalMaps += 1;
     else if (node.kind === 'image') stats.totalImages += 1;
   }
   return stats;
@@ -307,7 +307,7 @@ export async function scanWorkspaceWithOverlay(
       mtimeMs: draft.updatedAt,
     });
 
-    if (kind === 'ditamap' || kind === 'bookmap') {
+    if (kind === 'ditamap') {
       maps.push(mapSummaryFor(filePath, kind, content));
       return;
     }
@@ -496,7 +496,6 @@ export type OverlayCreateKind =
   | 'reference'
   | 'topic'
   | 'map'
-  | 'bookmap'
   | 'ditaval';
 
 const DITAVAL_TEMPLATE = [
@@ -512,7 +511,7 @@ export function buildTemplateContent(
   kind: OverlayCreateKind,
   options: { id?: string; title?: string; lang?: string } = {},
 ): string {
-  if (kind === 'map' || kind === 'bookmap') {
+  if (kind === 'map') {
     return createMapTemplate(kind, options);
   }
   if (kind === 'ditaval') {

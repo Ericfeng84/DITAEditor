@@ -23,7 +23,6 @@ export interface MapNodeMenuTarget {
 
 export interface MapNodeContextMenuProps {
   target: MapNodeMenuTarget | null;
-  isBookmap: boolean;
   onClose: () => void;
   onOpenTarget: (node: CompositeMapTreeNode) => void;
   onViewSource: (node: CompositeMapTreeNode) => void;
@@ -46,7 +45,6 @@ export interface MapNodeContextMenuProps {
  */
 export function MapNodeContextMenu({
   target,
-  isBookmap,
   onClose,
   onOpenTarget,
   onViewSource,
@@ -242,10 +240,7 @@ export function MapNodeContextMenu({
   const node = target?.node ?? null;
   const canNestChildren =
     node !== null &&
-    (node.isSubmapRef ||
-      ['topicref', 'topichead', 'topicgroup', 'chapter', 'part', 'appendix', 'frontmatter', 'backmatter'].includes(
-        node.tagName,
-      ));
+    (node.isSubmapRef || ['topicref', 'topichead', 'topicgroup'].includes(node.tagName));
 
   return (
     <>
@@ -321,14 +316,14 @@ export function MapNodeContextMenu({
             type="button"
             disabled={!canNestChildren}
             onPointerMove={handlePointerMoveItem}
-            onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, isBookmap ? 'chapter' : 'topichead'))}
+            onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, 'topichead'))}
           >
             <FolderPlus className="dita-ctx-icon text-slate-600" aria-hidden="true" />
-            <span>{isBookmap ? t('mapMenu.insertChapter') : t('mapMenu.insertGroup')}</span>
+            <span>{t('mapMenu.insertGroup')}</span>
           </button>
           <button
             type="button"
-            disabled={!canNestChildren || isBookmap}
+            disabled={!canNestChildren}
             onPointerMove={handlePointerMoveItem}
             onClick={(ev) => runAction(ev, (n) => onInsertStructure(n, 'topicgroup'))}
           >

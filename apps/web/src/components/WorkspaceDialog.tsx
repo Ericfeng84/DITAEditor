@@ -44,7 +44,6 @@ export interface WorkspaceDialogProps {
 const RELEVANT_EXTENSIONS = new Set([
   '.dita',
   '.ditamap',
-  '.bookmap',
   '.ditaval',
   '.xml',
   '.png',

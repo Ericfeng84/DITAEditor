@@ -141,8 +141,8 @@ Web DITA 编辑器 80% 的工程风险集中在下面 6 个模块，必须在编
 
 ### 2. Map 可视化树与双栏工作台
 
-- 左侧 Map 编辑器同样基于 `slimdom` 解析 `.ditamap` / `.bookmap`：
-  - 将 `topicref`、`chapter`、`part`、`appendix`、`mapref`、`topichead`、`topicgroup`、`keydef` 映射为树节点模型，保留未建模节点（如 `topicmeta`、`reltable`、`bookmeta`）在 DOM 中原位不动。
+- 左侧 Map 编辑器同样基于 `slimdom` 解析 `.ditamap`：
+  - 将 `topicref`、`mapref`、`topichead`、`topicgroup`、`keydef` 映射为树节点模型，保留未建模节点（如 `topicmeta`、`reltable`）在 DOM 中原位不动。
   - 拖拽重排/调层级直接操作底层 `slimdom` 节点移动并即时写回 Map 缓冲区，支持一键切换查看/编辑该 Map 的 XML 源码。
   - 支持右键“新建 Topic 并挂载”（按 `concept`/`task`/`reference`/`topic` 模板创建标准 `.dita` 文件并自动生成相对路径 `href`）。
   - 顶部提供**当前激活 Root Map 选择器**与 **DITAVAL 预览选择器**，全局驱动右侧所有已打开 Topic 的语义解析。
@@ -153,7 +153,7 @@ Web DITA 编辑器 80% 的工程风险集中在下面 6 个模块，必须在编
 
 ```mermaid
 flowchart LR
-    RootMap["选定 Root Map (.ditamap / .bookmap)"] --> Walker["广度优先 Map 遍历器 (含 mapref 递归)"]
+    RootMap["选定 Root Map (.ditamap)"] --> Walker["广度优先 Map 遍历器 (含 mapref 递归)"]
     Walker --> Keyspace["Keyspace 映射表 (First Definition Wins + keyscope)"]
     Walker --> FileGraph["文件引用图与断链检测"]
     Topics["分支内全部 Topic 文件"] --> IdIndex["ID 索引库 (filePath#topicId/elemId)"]
@@ -260,7 +260,7 @@ DITAEditor/
 │   │   │   │   ├── visual/     # ProseMirror Schema、NodeViews、Toolbar、属性面板
 │   │   │   │   ├── source/     # CodeMirror 6 XML 编辑器、补全、Lint 桥接
 │   │   │   │   └── bridge/     # Visual <-> Source 双模无损同步与光标映射
-│   │   │   ├── map-tree/       # 可视化 Map/Bookmap 树形编辑器
+│   │   │   ├── map-tree/       # 可视化 DITA Map 树形编辑器
 │   │   │   ├── git-panel/      # 分支管理、Check-out 状态、版本历史、Diff 对比、Commit
 │   │   │   ├── publish/        # DITA-OT 发布配置、实时日志抽屉、产物预览
 │   │   │   ├── ai/             # AI 助手面板（TopicInspector 第一 Tab）、Diff 审阅、Admin 设置与用量统计
@@ -338,7 +338,7 @@ DITAEditor/
 ### Phase 2：Map 可视化树与多文件工作台（第 5–6 周）
 > **目标**：从“单文件编辑器”升级为“多文件 DITA 项目工作台”。
 - 搭建三栏可拖拽工作台（左侧 Map 树 / 文件浏览切换，中间多 Tab 编辑器，右侧属性面板，底部问题诊断面板）。
-- 实现 Map / Bookmap 解析与 `react-arborist` 树形编辑器：支持拖拽调整 `topicref`/`mapref`/`topichead`/`chapter` 层级、右键按模板新建并挂载 Topic、编辑 `topicref` 属性、一键切换 Map 源码视图。
+- 实现 DITA Map 解析与 `react-arborist` 树形编辑器：支持拖拽调整 `topicref`/`mapref`/`topichead`/`topicgroup` 层级、右键按模板新建并挂载 Topic、编辑 `topicref` 属性、一键切换 Map 源码视图。
 - 搭建 Fastify 后端与本地项目文件读写 API、图片上传与相对路径引用预览。
 - **验收标准**：导入一份包含 50+ Topic 和嵌套子 Map 的真实 DITA 项目，可完整浏览、拖拽重构目录结构、多 Tab 编辑并保存落盘。
 

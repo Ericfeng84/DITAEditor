@@ -24,7 +24,7 @@ export interface ParseDitaLogOptions {
   fallbackPath?: string;
 }
 
-const DITA_FILE = String.raw`[^\s:<>"']+?\.(?:dita|ditamap|bookmap|ditaval|xml)`;
+const DITA_FILE = String.raw`[^\s:<>"']+?\.(?:dita|ditamap|ditaval|xml)`;
 const LOCATION_PATTERNS: RegExp[] = [
   new RegExp(String.raw`(${DITA_FILE})\s*\(\s*(\d+)\s*,\s*(\d+)\s*\)`, 'i'),
   new RegExp(String.raw`(${DITA_FILE})["']?\s*,?\s+line\s+(\d+)(?:\s*(?:,|:)?\s*(?:column\s*)?(\d+))?`, 'i'),

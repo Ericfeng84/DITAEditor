@@ -177,7 +177,6 @@ export function MapTreePanel({
 
   const activeBuffer = rootMapPath ? mapBuffers[rootMapPath] : undefined;
   const isRootDirty = Boolean(activeBuffer && activeBuffer.xml !== activeBuffer.baselineXml);
-  const isBookmap = treeResult.parsedRoot?.kind === 'bookmap';
   const canUndo = Boolean(activeBuffer && activeBuffer.undoStack.length > 0);
   const canRedo = Boolean(activeBuffer && activeBuffer.redoStack.length > 0);
 
@@ -239,7 +238,8 @@ export function MapTreePanel({
 
   return (
     <div className="flex h-full flex-col bg-white">
-      {/* Root Map Header & Quick Actions */}      <div className="border-b border-slate-100 px-2.5 py-2">
+      {/* Root Map Header & Quick Actions */}
+      <div className="border-b border-slate-100 px-2.5 py-2">
         <div className="flex items-center justify-between gap-1">
           <button
             type="button"
@@ -251,14 +251,8 @@ export function MapTreePanel({
             }`}
             title={t('mapTree.rootTooltip', { path: rootMapPath })}
           >
-            <span
-              className={`shrink-0 rounded px-1 py-0.5 font-mono text-[9.5px] font-bold uppercase ${
-                isBookmap
-                  ? 'bg-blue-100 text-blue-800'
-                  : 'bg-sky-100 text-sky-800'
-              }`}
-            >
-              {isBookmap ? 'bookmap' : 'map'}
+            <span className="shrink-0 rounded bg-sky-100 px-1 py-0.5 font-mono text-[9.5px] font-bold text-sky-800 uppercase">
+              map
             </span>
             <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800">
               {treeResult.parsedRoot?.title ?? rootMapPath}
@@ -284,47 +278,37 @@ export function MapTreePanel({
 
         {/* Action Strip is tree-mode only: the Keys view is driven by the keyspace panel. */}
         {viewMode === 'tree' ? (
-        <div className="mt-1.5 flex flex-wrap items-center gap-1">
-          <button
-            type="button"
-            onClick={() =>
-              onOpenCreateAndMount({
-                mapPath: rootMapPath,
-                parentPath: null,
-                parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
-              })
-            }
-            title={t('mapTree.createMountedTooltip')}
-            className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
-          >
-            <FilePlus2 className="h-3 w-3" aria-hidden="true" />            <span>{t('mapTree.createMounted')}</span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              onOpenMountExisting({
-                mapPath: rootMapPath,
-                parentPath: null,
-                parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
-              })
-            }
-            title={t('mapTree.mountExistingTooltip')}
-            className="dita-mini-btn px-1.5 py-0.5"
-          >
-            <Link2 className="h-3 w-3 text-slate-600" aria-hidden="true" />
-            <span>{t('mapTree.mountExisting')}</span>
-          </button>
-          {isBookmap ? (
+          <div className="mt-1.5 flex flex-wrap items-center gap-1">
             <button
               type="button"
-              onClick={() => onInsertStructure(rootMapPath, null, 'chapter')}
-              title={t('mapTree.insertChapterTooltip')}
+              onClick={() =>
+                onOpenCreateAndMount({
+                  mapPath: rootMapPath,
+                  parentPath: null,
+                  parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
+                })
+              }
+              title={t('mapTree.createMountedTooltip')}
+              className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
+            >
+              <FilePlus2 className="h-3 w-3" aria-hidden="true" />
+              <span>{t('mapTree.createMounted')}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                onOpenMountExisting({
+                  mapPath: rootMapPath,
+                  parentPath: null,
+                  parentLabel: treeResult.parsedRoot?.title ?? rootMapPath,
+                })
+              }
+              title={t('mapTree.mountExistingTooltip')}
               className="dita-mini-btn px-1.5 py-0.5"
             >
-              <FolderPlus className="h-3 w-3 text-slate-500" aria-hidden="true" />
-              <span>{t('mapTree.chapter')}</span>
+              <Link2 className="h-3 w-3 text-slate-600" aria-hidden="true" />
+              <span>{t('mapTree.mountExisting')}</span>
             </button>
-          ) : (
             <div ref={groupMenuRef} className="relative">
               <button
                 type="button"
@@ -379,58 +363,57 @@ export function MapTreePanel({
                 </div>
               ) : null}
             </div>
-          )}
-          <button
-            type="button"
-            onClick={onOpenPublish}
-            title={t('mapTree.publishTooltip')}
-            className="dita-mini-btn px-1.5 py-0.5 text-rose-700"
-          >
-            <Rocket className="h-3 w-3" aria-hidden="true" />
-            <span>{t('mapTree.publish')}</span>
-          </button>
+            <button
+              type="button"
+              onClick={onOpenPublish}
+              title={t('mapTree.publishTooltip')}
+              className="dita-mini-btn px-1.5 py-0.5 text-rose-700"
+            >
+              <Rocket className="h-3 w-3" aria-hidden="true" />
+              <span>{t('mapTree.publish')}</span>
+            </button>
 
-          <div className="ml-auto flex items-center gap-0.5">
-            <button
-              type="button"
-              disabled={!canUndo}
-              onClick={() => onUndoMap(rootMapPath)}
-              title={t('mapTree.undo')}
-              aria-label={t('mapTree.undo')}
-              className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
-            >
-              <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              disabled={!canRedo}
-              onClick={() => onRedoMap(rootMapPath)}
-              title={t('mapTree.redo')}
-              aria-label={t('mapTree.redo')}
-              className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
-            >
-              <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => treeApiRef.current?.openAll()}
-              title={t('mapTree.expandAll')}
-              aria-label={t('mapTree.expandAll')}
-              className="rounded p-1 text-slate-500 hover:bg-slate-100"
-            >
-              <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              onClick={() => treeApiRef.current?.closeAll()}
-              title={t('mapTree.collapseAll')}
-              aria-label={t('mapTree.collapseAll')}
-              className="rounded p-1 text-slate-500 hover:bg-slate-100"
-            >
-              <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden="true" />
-            </button>
+            <div className="ml-auto flex items-center gap-0.5">
+              <button
+                type="button"
+                disabled={!canUndo}
+                onClick={() => onUndoMap(rootMapPath)}
+                title={t('mapTree.undo')}
+                aria-label={t('mapTree.undo')}
+                className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
+              >
+                <Undo2 className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                disabled={!canRedo}
+                onClick={() => onRedoMap(rootMapPath)}
+                title={t('mapTree.redo')}
+                aria-label={t('mapTree.redo')}
+                className="rounded p-1 text-slate-500 hover:bg-slate-100 disabled:opacity-35"
+              >
+                <Redo2 className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => treeApiRef.current?.openAll()}
+                title={t('mapTree.expandAll')}
+                aria-label={t('mapTree.expandAll')}
+                className="rounded p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <ChevronsUpDown className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+              <button
+                type="button"
+                onClick={() => treeApiRef.current?.closeAll()}
+                title={t('mapTree.collapseAll')}
+                aria-label={t('mapTree.collapseAll')}
+                className="rounded p-1 text-slate-500 hover:bg-slate-100"
+              >
+                <ChevronsDownUp className="h-3.5 w-3.5" aria-hidden="true" />
+              </button>
+            </div>
           </div>
-        </div>
         ) : null}
       </div>
 
@@ -665,7 +648,6 @@ export function MapTreePanel({
       {/* Native Popover Context Menu */}
       <MapNodeContextMenu
         target={menuTarget}
-        isBookmap={isBookmap}
         onClose={() => setMenuTarget(null)}
         onOpenTarget={(node) => {
           if (node.resolvedTargetPath) onOpenTopicOrMap(node.resolvedTargetPath);
@@ -699,3 +681,4 @@ export function MapTreePanel({
     </div>
   );
 }
+

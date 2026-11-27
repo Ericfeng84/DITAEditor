@@ -9,7 +9,6 @@ export interface NewTopicMountContext {
   parentLabel: string;
   defaultDir: string;
   defaultTagName: string;
-  isBookmap: boolean;
 }
 
 export interface NewTopicDialogProps {
@@ -329,13 +328,6 @@ export function NewTopicDialog({
                   className="w-full rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 font-mono text-xs focus:border-blue-500 focus:outline-none"
                 >
                   <option value="topicref">&lt;topicref&gt;</option>
-                  {mountContext.isBookmap ? (
-                    <>
-                      <option value="chapter">&lt;chapter&gt;</option>
-                      <option value="appendix">&lt;appendix&gt;</option>
-                      <option value="preface">&lt;preface&gt;</option>
-                    </>
-                  ) : null}
                 </select>
               </div>
             ) : null}

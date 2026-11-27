@@ -68,9 +68,9 @@ Starting from the root map, `keydef` entries (including `keyscope`) are resolved
 
 A `.ditaval` file is parsed into rules and evaluated against profiling attributes, producing `include` / `exclude` / `flag`. The view can show everything, dim exclusions, or hide them; publishing always uses the original XML.
 
-## Maps and bookmaps
+## DITA maps
 
-- A `react-arborist` tree supports `topicref`, `mapref`, `chapter`, `appendix`, and more.
+- A `react-arborist` tree supports `topicref`, `mapref`, `topichead`, `topicgroup`, `keydef` and `<reltable>`.
 - Paths use POSIX semantics for cross-platform consistency.
 - The tree shares a multi-tab workbench with topic editing, so state is not lost.
 

@@ -488,7 +488,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [],
   );
   const availableKeyFiles = useMemo(
-    () => collectWorkspaceFilesByKind(fileTree, new Set(['topic', 'ditamap', 'bookmap', 'image'])),
+    () => collectWorkspaceFilesByKind(fileTree, new Set(['topic', 'ditamap', 'image'])),
     [fileTree],
   );
   const keyCount = keyspace ? Object.keys(keyspace.keys).length : 0;
@@ -749,7 +749,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     [fileTree],
   );
   const workspaceMountables = useMemo(
-    () => collectWorkspaceFilesByKind(fileTree, new Set(['topic', 'ditamap', 'bookmap'])),
+    () => collectWorkspaceFilesByKind(fileTree, new Set(['topic', 'ditamap'])),
     [fileTree],
   );
 
@@ -775,7 +775,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
     mapPath: string;
     parentPath: number[] | null;
     parentLabel: string;
-    isBookmap: boolean;
   } | null>(null);
   const [refDialogMode, setRefDialogMode] = useState<'xref' | 'image' | null>(null);
   const [keyrefDialogOpen, setKeyrefDialogOpen] = useState(false);
@@ -873,7 +872,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
   );
 
   const isActiveMapTab =
-    activeTab?.kind === 'ditamap' || activeTab?.kind === 'bookmap';
+    activeTab?.kind === 'ditamap';
   const mode: EditorViewMode = activeTab?.mode ?? 'visual';
 
   const handleChangeMode = useCallback(
@@ -1002,15 +1001,13 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
 
   const handleOpenCreateAndMount = useCallback(
     (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => {
-      const isBook = parent.mapPath.toLowerCase().endsWith('.bookmap');
       const mapDir = dirnamePosix(parent.mapPath);
       setTopicMountContext({
         mount: {
           mapPath: parent.mapPath,
           parentLabel: parent.parentLabel,
           defaultDir: mapDir ? `${mapDir}/topics` : 'concepts',
-          defaultTagName: isBook && !parent.parentPath ? 'chapter' : 'topicref',
-          isBookmap: isBook,
+          defaultTagName: 'topicref',
         },
         parentPath: parent.parentPath,
       });
@@ -1042,10 +1039,7 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
 
   const handleOpenMountExisting = useCallback(
     (parent: { mapPath: string; parentPath: number[] | null; parentLabel: string }) => {
-      setMountExistingTarget({
-        ...parent,
-        isBookmap: parent.mapPath.toLowerCase().endsWith('.bookmap'),
-      });
+      setMountExistingTarget(parent);
     },
     [],
   );
@@ -2180,7 +2174,6 @@ export function App({ manualId, manualName, branch, topicPath, assignmentId, onL
           open={Boolean(mountExistingTarget)}
           mapPath={mountExistingTarget.mapPath}
           parentLabel={mountExistingTarget.parentLabel}
-          isBookmap={mountExistingTarget.isBookmap}
           availableFiles={workspaceMountables}
           topicTitles={topicTitles}
           onClose={() => setMountExistingTarget(null)}

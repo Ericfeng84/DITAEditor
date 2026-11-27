@@ -36,7 +36,7 @@ export interface WorkspaceFileNode {
 export interface WorkspaceMapSummary {
   path: string;
   name: string;
-  kind: 'ditamap' | 'bookmap';
+  kind: 'ditamap';
   title: string;
   topicrefCount: number;
   parseError?: XmlParseError;
@@ -734,7 +734,7 @@ export class WorkspaceManager {
         const kind = classifyDitaFileKind(entry.name);
         stats.totalFiles++;
 
-        if (kind === 'ditamap' || kind === 'bookmap') {
+        if (kind === 'ditamap') {
           stats.totalMaps++;
           const xml = await fs.readFile(entryAbs, 'utf8');
           const check = checkXmlWellFormed(xml, { position: false });
@@ -865,11 +865,7 @@ export class WorkspaceManager {
 
     const content = await fs.readFile(safe.absPath, 'utf8');
     const kind = classifyDitaFileKind(safe.posixPath);
-    const isXmlFile =
-      kind === 'ditamap' ||
-      kind === 'bookmap' ||
-      kind === 'topic' ||
-      kind === 'ditaval';
+    const isXmlFile = kind === 'ditamap' || kind === 'topic' || kind === 'ditaval';
 
     if (isXmlFile) {
       const check = checkXmlWellFormed(content, { position: false });
@@ -924,7 +920,7 @@ export class WorkspaceManager {
 
     let content = options.content;
     if (content === undefined) {
-      if (options.kind === 'map' || options.kind === 'bookmap') {
+      if (options.kind === 'map') {
         content = createMapTemplate(options.kind, {
           id: options.id,
           title: options.title,
@@ -1034,7 +1030,7 @@ export class WorkspaceManager {
     // 1. Check XML well-formedness & image asset references across all XML/DITA files
     for (const filePath of fileSet) {
       const kind = classifyDitaFileKind(filePath);
-      if (kind !== 'ditamap' && kind !== 'bookmap' && kind !== 'topic' && kind !== 'ditaval') {
+      if (kind !== 'ditamap' && kind !== 'topic' && kind !== 'ditaval') {
         continue;
       }
 

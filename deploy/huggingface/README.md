@@ -20,7 +20,7 @@ A lightweight **Web DITA 1.3 structured authoring workbench** running in a singl
 ## What You Can Try Here / 可体验的核心能力
 
 - **Lossless Dual-Mode Editing（双模无损编辑）**：ProseMirror 可视化结构化编辑 + CodeMirror 6 XML 源码编辑，100% 保留 `<!DOCTYPE>`、XML 注释、PI、CALS 表格与原始属性顺序。
-- **Map / Bookmap Tree（可视化目录树）**：拖拽调整层级、右键新建并挂载 Topic、查看 Map 源码。
+- **DITA Map Tree（可视化目录树）**：拖拽调整层级、右键新建并挂载 Topic、查看 Map 源码。
 - **Single-Sourcing Engine（单一信息源语义引擎）**：Root Map BFS `keydef/keyref`、`conref/conkeyref` 只读展开与环路检测、`.ditaval` 三态实时条件过滤。
 - **Local Git & Check-out Locks（本地 Git 与独占锁）**：工具栏免密码切换身份（管理员 / 写作 / 只读），体验文件检出、工作区 Diff、提交历史与签入。
 - **DITA-OT 4.2.1 Strict Validation & Publishing（官方严格校验与发布）**：一键运行 OASIS DITA 1.3 DTD/RNG 严格校验，并异步发布 **HTML5（在线预览 + ZIP）** 与 **中文无乱码 PDF（Noto CJK）**。

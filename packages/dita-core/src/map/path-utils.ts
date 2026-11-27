@@ -3,7 +3,7 @@
  * Safe to run in both browser (`@dita/web`) and Node.js (`@dita/api`) with zero Node built-ins.
  */
 
-export type DitaFileKind = 'ditamap' | 'bookmap' | 'topic' | 'ditaval' | 'image' | 'other';
+export type DitaFileKind = 'ditamap' | 'topic' | 'ditaval' | 'image' | 'other';
 
 export interface ResolvedDitaHref {
   /** Normalized workspace-relative POSIX path without fragment (empty when external or fragment-only). */
@@ -138,7 +138,6 @@ export function computeRelativeDitaHref(fromFilePath: string, toFilePath: string
  */
 export function classifyDitaFileKind(filePath: string): DitaFileKind {
   const lower = filePath.toLowerCase();
-  if (lower.endsWith('.bookmap')) return 'bookmap';
   if (lower.endsWith('.ditamap')) return 'ditamap';
   if (lower.endsWith('.ditaval')) return 'ditaval';
   if (lower.endsWith('.dita') || lower.endsWith('.xml')) return 'topic';

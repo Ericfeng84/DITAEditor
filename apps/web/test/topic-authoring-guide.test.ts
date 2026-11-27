@@ -14,7 +14,7 @@ describe('TopicAuthoringGuide metadata and bilingual completeness', () => {
     for (const type of topicTypes) {
       expect(isTopicGuideType(type)).toBe(true);
     }
-    for (const nonTopic of ['map', 'bookmap', 'ditaval', 'other', null, undefined]) {
+    for (const nonTopic of ['map', 'ditaval', 'other', null, undefined]) {
       expect(isTopicGuideType(nonTopic)).toBe(false);
     }
   });

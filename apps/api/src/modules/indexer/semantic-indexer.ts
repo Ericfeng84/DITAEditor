@@ -163,7 +163,7 @@ export class WorkspaceSemanticIndexer {
     const allPaths = collectAllFilePaths(snapshot.files);
     for (const posixPath of allPaths) {
       const kind = classifyDitaFileKind(posixPath);
-      if (kind === 'ditamap' || kind === 'bookmap' || kind === 'topic' || kind === 'ditaval') {
+      if (kind === 'ditamap' || kind === 'topic' || kind === 'ditaval') {
         const abs = path.join(snapshot.rootDir, ...posixPath.split('/'));
         try {
           const content = await fs.readFile(abs, 'utf8');
@@ -390,7 +390,7 @@ export class WorkspaceSemanticIndexer {
     if (!state?.initialized) return;
 
     const kind = classifyDitaFileKind(norm);
-    if (kind === 'ditamap' || kind === 'bookmap' || kind === 'topic' || kind === 'ditaval') {
+    if (kind === 'ditamap' || kind === 'topic' || kind === 'ditaval') {
       state.index.updateFile(norm, content);
       if (kind === 'ditaval') {
         state.ditavals.set(norm, summarizeDitaval(norm, content));

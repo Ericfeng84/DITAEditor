@@ -55,7 +55,7 @@ export interface StrictValidationResult {
   message?: string;
 }
 
-const VALIDATABLE_EXTENSIONS = new Set(['.dita', '.ditamap', '.bookmap']);
+const VALIDATABLE_EXTENSIONS = new Set(['.dita', '.ditamap']);
 const DEFAULT_TIMEOUT_MS = 240_000;
 const LOG_TAIL_BYTES = 12_000;
 

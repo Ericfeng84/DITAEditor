@@ -39,15 +39,9 @@ export const DITA_STRUCTURAL_ELEMENT_CONTAINERS = new Set<string>([
   'related-links',
   'linklist',
   'linkpool',
-  // Map & Bookmap element-only containers
+  // Map element-only containers
   'map',
-  'bookmap',
   'topicmeta',
-  'bookmeta',
-  'booktitle',
-  'frontmatter',
-  'backmatter',
-  'booklists',
   'reltable',
   'relheader',
   'relrow',
@@ -64,11 +58,10 @@ export const DITA_TOPIC_ROOT_TAGS = new Set<string>([
 
 export const DITA_MAP_ROOT_TAGS = new Set<string>([
   'map',
-  'bookmap',
 ]);
 
 /**
- * Elements inside a `.ditamap` or `.bookmap` that appear as structural/navigation nodes
+ * Elements inside a `.ditamap` that appear as structural/navigation nodes
  * in the visual Map Tree editor.
  */
 export const DITA_MAP_TREE_NODE_TAGS = new Set<string>([
@@ -77,15 +70,6 @@ export const DITA_MAP_TREE_NODE_TAGS = new Set<string>([
   'topichead',
   'topicgroup',
   'keydef',
-  'chapter',
-  'part',
-  'appendix',
-  'frontmatter',
-  'backmatter',
-  'preface',
-  'notices',
-  'booklists',
-  'glossarylist',
   'topicset',
   'topicsetref',
   'anchorref',
@@ -101,15 +85,6 @@ export const DITA_MAP_CONTAINER_NODE_TAGS = new Set<string>([
   'topicref',
   'topichead',
   'topicgroup',
-  'chapter',
-  'part',
-  'appendix',
-  'frontmatter',
-  'backmatter',
-  'preface',
-  'notices',
-  'booklists',
-  'glossarylist',
   'topicset',
 ]);
 
@@ -124,37 +99,8 @@ export const DITA_BLOCK_TAGS = new Set<string>([
   'concept',
   'task',
   'reference',
-  // Map roots & entries (for map & bookmap XML formatting support)
+  // Map roots & entries (for map XML formatting support)
   'map',
-  'bookmap',
-  'booktitle',
-  'mainbooktitle',
-  'booktitlealt',
-  'booklibrary',
-  'bookmeta',
-  'bookid',
-  'booknumber',
-  'edition',
-  'isbn',
-  'bookrights',
-  'frontmatter',
-  'backmatter',
-  'booklists',
-  'toc',
-  'figurelist',
-  'tablelist',
-  'abbrevlist',
-  'trademarklist',
-  'bibliolist',
-  'glossarylist',
-  'indexlist',
-  'notices',
-  'preface',
-  'colophon',
-  'dedication',
-  'amendments',
-  'draftintro',
-  'bookabstract',
   'topicset',
   'topicsetref',
   'anchorref',
@@ -166,9 +112,6 @@ export const DITA_BLOCK_TAGS = new Set<string>([
   'topichead',
   'topicgroup',
   'keydef',
-  'chapter',
-  'part',
-  'appendix',
   'topicmeta',
   'reltable',
   'relheader',

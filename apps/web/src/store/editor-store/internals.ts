@@ -38,18 +38,16 @@ export function collectFileSetFromTree(nodes: readonly WorkspaceFileNode[]): Set
 }
 
 export function detectTopicTypeFromXml(xml: string, fallbackKind: DitaFileKind): OpenEditorTab['docType'] {
-  if (fallbackKind === 'bookmap') return 'bookmap';
   if (fallbackKind === 'ditamap') return 'map';
   if (fallbackKind === 'ditaval') return 'ditaval';
-  const m = /<(concept|task|reference|topic|map|bookmap)\b/.exec(xml);
+  const m = /<(concept|task|reference|topic|map)\b/.exec(xml);
   if (
     m &&
     (m[1] === 'concept' ||
       m[1] === 'task' ||
       m[1] === 'reference' ||
       m[1] === 'topic' ||
-      m[1] === 'map' ||
-      m[1] === 'bookmap')
+      m[1] === 'map')
   ) {
     return m[1];
   }

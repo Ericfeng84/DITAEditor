@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import type { DitaMapTemplateType } from '@dita/core';
-import { BookMarked, Network, X } from 'lucide-react';
+import { Network, X } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 
 export interface NewMapDialogProps {
@@ -20,7 +20,6 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
   const { t, locale } = useI18n();
   const titleId = useId();
   const dialogRef = useRef<HTMLDialogElement | null>(null);
-  const [kind, setKind] = useState<DitaMapTemplateType>('map');
   const [fileName, setFileName] = useState('');
   const [mapId, setMapId] = useState('');
   const [title, setTitle] = useState('');
@@ -34,7 +33,6 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
     if (!dialog) return;
     if (open) {
       const slug = `map_${Date.now().toString(36).slice(-4)}`;
-      setKind('map');
       setFileName(`${slug}.ditamap`);
       setMapId(slug);
       setTitle('');
@@ -60,10 +58,10 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onCreate({
-      kind,
-      fileName: fileName || `${mapId || 'manual'}.${kind === 'bookmap' ? 'bookmap' : 'ditamap'}`,
+      kind: 'map',
+      fileName: fileName || `${mapId || 'manual'}.ditamap`,
       id: mapId || 'dita_map',
-      title: title || (kind === 'bookmap' ? t('newMap.bookmapDefaultTitle') : t('newMap.mapDefaultTitle')),
+      title: title || t('newMap.mapDefaultTitle'),
       lang,
       targetDir,
     });
@@ -97,43 +95,12 @@ export function NewMapDialog({ open, onClose, onCreate }: NewMapDialogProps) {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3.5 p-5 text-xs">
-        <div className="grid grid-cols-2 gap-2.5">
-          <button
-            type="button"
-            onClick={() => {
-              setKind('map');
-              setFileName((prev) => prev.replace(/\.bookmap$/, '.ditamap'));
-            }}
-            className={`rounded-lg border p-3 text-left ${
-              kind === 'map'
-                ? 'border-blue-500 bg-blue-50/70 ring-1 ring-blue-500'
-                : 'border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <div className="flex items-center gap-1.5 font-semibold">
-              <Network className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
-              <span>{t('newMap.standard')}</span>
-            </div>
-            <p className="mt-1 text-[11px] text-slate-500">{t('newMap.standardDesc')}</p>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setKind('bookmap');
-              setFileName((prev) => prev.replace(/\.ditamap$/, '.bookmap'));
-            }}
-            className={`rounded-lg border p-3 text-left ${
-              kind === 'bookmap'
-                ? 'border-blue-500 bg-blue-50/70 ring-1 ring-blue-500'
-                : 'border-slate-200 hover:bg-slate-50'
-            }`}
-          >
-            <div className="flex items-center gap-1.5 font-semibold">
-              <BookMarked className="h-3.5 w-3.5 text-blue-600" aria-hidden="true" />
-              <span>{t('newMap.bookmap')}</span>
-            </div>
-            <p className="mt-1 text-[11px] text-slate-500">{t('newMap.bookmapDesc')}</p>
-          </button>
+        <div className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+          <div className="flex items-center gap-1.5 font-semibold">
+            <Network className="h-3.5 w-3.5 text-sky-600" aria-hidden="true" />
+            <span>{t('newMap.standard')}</span>
+          </div>
+          <p className="mt-1 text-[11px] text-slate-500">{t('newMap.standardDesc')}</p>
         </div>
 
         <div>

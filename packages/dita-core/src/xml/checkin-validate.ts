@@ -46,7 +46,7 @@ export interface CheckinBatchValidation {
  * Validate one candidate check-in file.
  *
  * - `deleted` / `binary` inputs are exempt (a deletion never parses its historical content).
- * - `topic` / `ditamap` / `bookmap`: XML well-formedness first, then DITA 1.3 structure for topics
+ * - `topic` / `ditamap`: XML well-formedness first, then DITA 1.3 structure for topics
  *   (the task shell is detected from the document `<!DOCTYPE>` so `generalTask.dtd` is not
  *   misreported).
  * - `ditaval`: `parseDitaval()` syntax gate.
@@ -81,7 +81,7 @@ export function validateDitaFileForCheckin(
     }
   }
 
-  if (kind !== 'topic' && kind !== 'ditamap' && kind !== 'bookmap') return [];
+  if (kind !== 'topic' && kind !== 'ditamap') return [];
 
   const wellFormed = checkXmlWellFormed(input.content);
   if (!wellFormed.ok) {

@@ -271,11 +271,9 @@ describe('normalizePlanPaths', () => {
     expect(flat.some((node) => node.filePath.includes('..'))).toBe(false);
   });
 
-  it('enforces the root map extension per mapKind', () => {
-    const plan = normalizePlanPaths(
-      samplePlan({ mapKind: 'bookmap', rootMapPath: 'book.ditamap' }),
-    );
-    expect(plan.rootMapPath).toBe('book.bookmap');
+  it('normalizes the root map extension to .ditamap', () => {
+    const plan = normalizePlanPaths(samplePlan({ rootMapPath: 'book' }));
+    expect(plan.rootMapPath).toBe('book.ditamap');
   });
 });
 
@@ -293,18 +291,6 @@ describe('buildMapXmlFromPlan / buildKeysMapXml', () => {
     expect(xml).toContain('<topicref href="../concepts/overview.dita"/>');
     expect(xml).toContain('<topicref href="../tasks/install.dita">');
     expect(xml).toContain('<topicref href="../tasks/install_linux.dita"/>');
-    expect(() => parseXml(xml)).not.toThrow();
-  });
-
-  it('generates bookmap chapters at the top level', () => {
-    const plan = normalizePlanPaths(samplePlan({ mapKind: 'bookmap' }));
-    const xml = buildMapXmlFromPlan(plan);
-
-    expect(xml).toContain('<!DOCTYPE bookmap PUBLIC "-//OASIS//DTD DITA BookMap//EN" "bookmap.dtd">');
-    expect(xml).toContain('<mainbooktitle>Security Guide</mainbooktitle>');
-    expect(xml).toContain('<chapter href="concepts/overview.dita"/>');
-    expect(xml).toContain('<chapter href="tasks/install.dita">');
-    expect(xml).toContain('<topicref href="tasks/install_linux.dita"/>');
     expect(() => parseXml(xml)).not.toThrow();
   });
 
@@ -398,25 +384,6 @@ describe('mountTopicsIntoExistingMap', () => {
     expect(mounted).toContain('<reltable>');
   });
 
-  it('uses <chapter> at the root of a bookmap', () => {
-    const bookmap = [
-      '<?xml version="1.0" encoding="UTF-8"?>',
-      '<!DOCTYPE bookmap PUBLIC "-//OASIS//DTD DITA BookMap//EN" "bookmap.dtd">',
-      '<bookmap id="book" xml:lang="en">',
-      '  <booktitle>',
-      '    <mainbooktitle>Book</mainbooktitle>',
-      '  </booktitle>',
-      '</bookmap>',
-      '',
-    ].join('\n');
-    const mounted = mountTopicsIntoExistingMap(bookmap, {
-      mapPath: 'book.bookmap',
-      parentElementPath: null,
-      topics: [topics[0]!],
-    });
-    expect(mounted).toContain('<chapter href="concepts/new_topic.dita"/>');
-  });
-
   it('throws for an unresolvable parent path', () => {
     expect(() =>
       mountTopicsIntoExistingMap(existingMap, {
@@ -471,15 +438,5 @@ describe('buildFallbackOutlinePlan', () => {
     expect(plan.title).toBe('notes');
     expect(plan.topics).toHaveLength(1);
     expect(plan.topics[0]!.filePath).toBe('topics/imported/notes.dita');
-  });
-
-  it('honours bookmap kind', () => {
-    const plan = buildFallbackOutlinePlan(markdown, {
-      sourceFilename: 'book.docx',
-      targetMode: 'new_manual',
-      mapKind: 'bookmap',
-    });
-    expect(plan.rootMapPath.endsWith('.bookmap')).toBe(true);
-    expect(buildMapXmlFromPlan(plan)).toContain('<chapter ');
   });
 });

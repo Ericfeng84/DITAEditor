@@ -64,10 +64,10 @@ describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', (
       expect(cleanDiagRes.statusCode).toBe(200);
       expect((cleanDiagRes.json() as { diagnostics: unknown[] }).diagnostics).toEqual([]);
 
-      // 3. Switching Root Map to admin-book.bookmap swaps key values dynamically
+      // 3. Switching Root Map to admin-book.ditamap swaps key values dynamically
       const bookKsRes = await app.inject({
         method: 'GET',
-        url: '/api/semantics/keyspace?rootMap=admin-book.bookmap',
+        url: '/api/semantics/keyspace?rootMap=admin-book.ditamap',
       });
       expect(bookKsRes.statusCode).toBe(200);
       const bookKs = bookKsRes.json() as {

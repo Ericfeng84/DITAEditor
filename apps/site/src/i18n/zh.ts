@@ -272,7 +272,7 @@ export const zh = {
     unresolved: '未解析',
     fullWorkbenchTitle: '这只是官网沙箱',
     fullWorkbenchBody:
-      '完整工作台还提供多文件 Map/Bookmap 树、语义索引、本地 Git 分支与 Check-out 独占锁、DITA-OT 严格校验与 HTML5/PDF 发布、以及带 Diff 审阅的 AI 助手。',
+      '完整工作台还提供多文件 DITA Map 树、语义索引、本地 Git 分支与 Check-out 独占锁、DITA-OT 严格校验与 HTML5/PDF 发布、以及带 Diff 审阅的 AI 助手。',
     fullWorkbenchCta: '查看 5 分钟部署文档',
     stats: { lines: '行 XML', keys: 'keys', changed: '变动行' },
     editingHint: '直接编辑文档；选中后可用工具栏插入新块。',

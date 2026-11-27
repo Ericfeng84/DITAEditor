@@ -157,7 +157,7 @@ export function createDitaXmlCompletionSource(
       const taskModel = resolveTaskModelForXml(context.state.doc.toString());
       const rawAllowedTags = parentTag
         ? getAllowedChildElementTags(parentTag, taskModel)
-        : ['concept', 'task', 'reference', 'topic', 'map', 'bookmap'];
+        : ['concept', 'task', 'reference', 'topic', 'map'];
 
       // Filter out already-filled single-occurrence slots & exclusive alternatives (e.g. steps | steps-unordered)
       const allowedTags =

@@ -5,7 +5,7 @@
   <shortdesc>通过可视化 Map 树拖拽调整章节层级、按模板新建并挂载 Topic，以及切换查看 Map XML 源码。</shortdesc>
   <taskbody>
     <context>
-      <p>左侧边栏支持浏览与编排完整的 <codeph>.ditamap</codeph> 与 <codeph>.bookmap</codeph> 层级结构，包括嵌套的子地图（<codeph>&lt;mapref&gt;</codeph>）。</p>
+      <p>左侧边栏支持浏览与编排完整的 <codeph>.ditamap</codeph> 层级结构，包括嵌套的子地图（<codeph>&lt;mapref&gt;</codeph>）。</p>
       <fig id="fig_workflow">
         <title>Map 树编排与多 Tab 协同流程</title>
         <image href="../images/workflow.svg" placement="break" alt="Map 编排工作流示意图"/>
@@ -13,7 +13,7 @@
     </context>
     <steps>
       <step>
-        <cmd>在顶部选择当前激活的 Root Map（如 <filepath>product-manual.ditamap</filepath> 或 <filepath>admin-book.bookmap</filepath>）。</cmd>
+        <cmd>在顶部选择当前激活的 Root Map（如 <filepath>product-manual.ditamap</filepath> 或 <filepath>admin-book.ditamap</filepath>）。</cmd>
       </step>
 <step>
         <cmd>拖拽树节点调整同级顺序，或拖入其他容器节点下建立子章节。</cmd>

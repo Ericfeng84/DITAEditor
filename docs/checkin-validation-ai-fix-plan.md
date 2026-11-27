@@ -225,7 +225,7 @@ sequenceDiagram
 - 校验规则：
   1. 若 `deleted === true` 或 `binary === true`，直接返回 `[]`；
   2. 通过 `classifyDitaFileKind(filePath)` 分流：
-     - `'topic'` / `'ditamap'` / `'bookmap'`：
+     - `'topic'` / `'ditamap'`：
        - 先运行 `checkXmlWellFormed(content)`；失败则产出 `source: 'xml', severity: 'error'` 并返回；
        - 若为 `'topic'`，运行 `checkXmlStructure(content, { taskModel: 'auto' })`；将每条 `issue` 通过 `formatStructureIssue(issue, locale)` 转为 `CheckinValidationIssue`（沿用 `issue.severity`）；
      - `'ditaval'`：运行 `parseDitaval(content)`，解析抛错则产出 `source: 'ditaval', severity: 'error'`；

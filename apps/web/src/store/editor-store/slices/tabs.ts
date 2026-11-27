@@ -73,7 +73,7 @@ export function createTabsSlice(
       const check = checkXmlWellFormed(xml, { position: false });
       const fileName = filePath.split('/').pop() ?? filePath;
       const docType = detectTopicTypeFromXml(xml, kind);
-      const isMapOrVal = kind === 'ditamap' || kind === 'bookmap' || kind === 'ditaval';
+      const isMapOrVal = kind === 'ditamap' || kind === 'ditaval';
       const defaultMode: EditorViewMode = !check.ok
         ? 'source'
         : options.mode ?? (isMapOrVal ? 'source' : 'visual');
@@ -472,7 +472,7 @@ export function createTabsSlice(
 
       if (state.workspaceMode === 'memory') {
         updateMemoryIndexFile(active.path, active.baselineXml);
-        if (active.kind === 'ditamap' || active.kind === 'bookmap' || active.kind === 'ditaval') {
+        if (active.kind === 'ditamap' || active.kind === 'ditaval') {
           void get().refreshSemantics();
         } else if (active.kind === 'topic') {
           void get().refreshDocumentOverlay(active.path, active.baselineXml);

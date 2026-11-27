@@ -275,7 +275,7 @@ export const en: typeof zh = {
     unresolved: 'unresolved',
     fullWorkbenchTitle: 'This is only the site sandbox',
     fullWorkbenchBody:
-      'The full workbench adds multi-file map and bookmap trees, a semantic index, local Git branches with check-out locks, strict DITA-OT validation with HTML5/PDF publishing, and an AI assistant with diff review.',
+      'The full workbench adds multi-file DITA map trees, a semantic index, local Git branches with check-out locks, strict DITA-OT validation with HTML5/PDF publishing, and an AI assistant with diff review.',
     fullWorkbenchCta: 'Read the five-minute deployment guide',
     stats: { lines: 'XML lines', keys: 'keys', changed: 'changed' },
     editingHint: 'Edit directly; use the toolbar to insert new blocks.',

@@ -118,7 +118,7 @@ export class DitaSemanticIndex {
 
     const kind = classifyDitaFileKind(norm);
     const invalidatedKeyspaces =
-      kind === 'ditamap' || kind === 'bookmap' || this.isTitleReferencedChange(norm);
+      kind === 'ditamap' || this.isTitleReferencedChange(norm);
     // Invalidate keyspaces when any map changes or when any topic title may have changed
     if (invalidatedKeyspaces || kind === 'topic') {
       this.keyspaceCache.clear();
@@ -129,7 +129,7 @@ export class DitaSemanticIndex {
 
   private isTitleReferencedChange(filePath: string): boolean {
     const kind = classifyDitaFileKind(filePath);
-    return kind === 'ditamap' || kind === 'bookmap';
+    return kind === 'ditamap';
   }
 
   removeFile(filePath: string): void {
@@ -245,7 +245,7 @@ export class DitaSemanticIndex {
 
   private indexSingleFile(filePath: string, content: string): void {
     const kind = classifyDitaFileKind(filePath);
-    if (kind !== 'ditamap' && kind !== 'bookmap' && kind !== 'topic' && kind !== 'ditaval') {
+    if (kind !== 'ditamap' && kind !== 'topic' && kind !== 'ditaval') {
       return;
     }
 
@@ -373,7 +373,7 @@ export class DitaSemanticIndex {
     for (const [filePath, parsedDoc] of this.parsedDocs.entries()) {
       if (!parsedDoc) continue;
       const kind = classifyDitaFileKind(filePath);
-      if (kind === 'ditamap' || kind === 'bookmap' || kind === 'ditaval') {
+      if (kind === 'ditamap' || kind === 'ditaval') {
         const root = parsedDoc.document.documentElement;
         if (!root) continue;
         const walk = (el: slimdom.Element) => {
@@ -704,7 +704,7 @@ export class DitaSemanticIndex {
       ? [activeRoot]
       : this.getFilePaths().filter((p) => {
           const k = classifyDitaFileKind(p);
-          return k === 'ditamap' || k === 'bookmap';
+          return k === 'ditamap';
         });
 
     const visitedMaps = new Set<string>();

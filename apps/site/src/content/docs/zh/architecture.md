@@ -41,7 +41,7 @@ Node
 
 ### `@dita/web`
 
-手册工作台与任务面板、Topic 编辑器、NodeViews、DITA 感知命令、Map/Bookmap 树、Keys 面板、发布面板、AI 面板与 Diff。以及覆盖全部界面的 `zh-CN` / `en` 字典。所有写操作最终都落到同一份 XML 字符串。
+手册工作台与任务面板、Topic 编辑器、NodeViews、DITA 感知命令、DITA Map 树、Keys 面板、发布面板、AI 面板与 Diff。以及覆盖全部界面的 `zh-CN` / `en` 字典。所有写操作最终都落到同一份 XML 字符串。
 
 ### `@dita/api`
 

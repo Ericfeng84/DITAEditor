@@ -10,7 +10,7 @@
 
 在 DITAEditor 现有 Phase 0–13 基线之上新增 **Phase 14**：支持将 **PDF、Word (`.docx`)、PowerPoint (`.pptx`)、Excel (`.xlsx` / `.xls`)、HTML、EPUB、CSV、Outlook (`.msg`)、Markdown/纯文本** 等外部文档导入系统，通过 **Docling + Microsoft MarkItDown 统一可插拔文档解析层**先解析为结构化 Markdown 与图片资产，再由复用现有 LangChain.js 底座的 **确定性多角色 AI Agent（Planner → Writer → Validator/Repairer）** 撰写符合 OASIS DITA 1.3 规范的 Topic / Map，并自动完成 **`@dita/core` 良构与结构校验 + 跨文件语义校验 + DITA-OT 严格校验（可用时）** 的自修复闭环，最终产出：
 
-1. **新建项目（Manual，`new_manual`）**：生成完整 Root Map（`.ditamap` / `.bookmap`）、可选 `keys.ditamap`、分层 Topic（`concept` / `task` / `reference` / `topic`）及 `images/*`，自动初始化本地 Git 仓库并完成干净基线提交（`workDir = HEAD` clean）。
+1. **新建项目（Manual，`new_manual`）**：生成完整 Root Map（`.ditamap`）、可选 `keys.ditamap`、分层 Topic（`concept` / `task` / `reference` / `topic`）及 `images/*`，自动初始化本地 Git 仓库并完成干净基线提交（`workDir = HEAD` clean）。
 2. **在现有手册中创建 Topic（`single_topic` 或 `multi_topic`）**：严格遵守 Phase 13 **个人草稿叠加层（Draft Overlay）**不变量，将新建 Topic 与提取的图片写入当前用户的 `working_drafts` + 仓库外草稿二进制资产并加锁，按需无损挂载 `<topicref>` 到当前 Map 草稿中，绝不污染共享 `workDir`。
 
 ### 核心架构决策

@@ -78,9 +78,8 @@ function normalizeTitleText(node: PMNode | null): string {
 
 /**
  * Extract the display title of the DITA document held by a ProseMirror doc,
- * without re-parsing XML. Mirrors `extractDitaDocumentTitle()`: bookmap falls
- * back to `booktitle/mainbooktitle`, then any root `title` child, then a root
- * `title` attribute (maps).
+ * without re-parsing XML. Mirrors `extractDitaDocumentTitle()`: any root `title`
+ * child, then a root `title` attribute (maps).
  *
  * Returns `null` when the document has no title.
  */
@@ -94,13 +93,6 @@ export function getPmDocTitle(doc: PMNode): string | null {
     }
   }
   if (!root) return null;
-
-  if (getPmNodeTagName(root) === 'bookmap') {
-    const booktitle = findDirectPmChildByTag(root, 'booktitle');
-    const mainbooktitle = booktitle ? findDirectPmChildByTag(booktitle, 'mainbooktitle') : null;
-    const mainText = normalizeTitleText(mainbooktitle);
-    if (mainText) return mainText;
-  }
 
   const titleText = normalizeTitleText(findDirectPmChildByTag(root, 'title'));
   if (titleText) return titleText;

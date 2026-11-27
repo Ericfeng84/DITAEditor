@@ -1410,7 +1410,7 @@ export class IngestService {
           await collect(node.children);
           continue;
         }
-        if (!/\.(dita|ditamap|bookmap)$/iu.test(node.path)) continue;
+        if (!/\.(dita|ditamap)$/iu.test(node.path)) continue;
         try {
           const content = await session.workspace.readFile(node.path);
           files[node.path] = content.content;

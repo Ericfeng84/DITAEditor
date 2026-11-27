@@ -1,6 +1,6 @@
 ---
 title: 功能导览
-description: 手册工作台与任务委派、双模编辑、文档大纲与结构重排、无损往返、CALS 表格、键空间与 conref、DITAVAL 投影、Map/Bookmap、Check-out 锁、DITA-OT 发布与 AI 审阅。
+description: 手册工作台与任务委派、双模编辑、文档大纲与结构重排、无损往返、CALS 表格、键空间与 conref、DITAVAL 投影、DITA Map、Check-out 锁、DITA-OT 发布与 AI 审阅。
 updated: '2026-11-26'
 ---
 
@@ -68,9 +68,9 @@ DITAEditor 的功能围绕一条链路组织：**分发 → 编辑 → 语义 �
 
 `.ditaval` 被解析为规则集，对带 profiling 属性的元素求值，得到 `include` / `exclude` / `flag` 三态。视图可以全部显示、淡化排除或隐藏排除；导出与发布仍按原始 XML 进行。
 
-## Map 与 Bookmap
+## DITA Map
 
-- `react-arborist` 驱动的树形结构，支持 `topicref`、`mapref`、`chapter`、`appendix` 等。
+- `react-arborist` 驱动的树形结构，支持 `topicref`、`mapref`、`topichead`、`topicgroup`、`keydef` 与 `<reltable>`。
 - 路径工具为 POSIX 语义，跨平台一致。
 - 与主题编辑共享多标签工作台，状态不丢失。
 

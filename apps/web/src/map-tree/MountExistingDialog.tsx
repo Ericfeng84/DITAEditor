@@ -7,7 +7,6 @@ export interface MountExistingDialogProps {
   open: boolean;
   mapPath: string;
   parentLabel: string;
-  isBookmap: boolean;
   availableFiles: string[];
   topicTitles: Record<string, string>;
   onClose: () => void;
@@ -22,7 +21,6 @@ export function MountExistingDialog({
   open,
   mapPath,
   parentLabel,
-  isBookmap,
   availableFiles,
   topicTitles,
   onClose,
@@ -47,19 +45,13 @@ export function MountExistingDialog({
       const first = mountableFiles[0] ?? '';
       setSelectedFile(first);
       const kind = classifyDitaFileKind(first);
-      setTagName(
-        kind === 'ditamap' || kind === 'bookmap'
-          ? 'mapref'
-          : isBookmap
-            ? 'chapter'
-            : 'topicref',
-      );
+      setTagName(kind === 'ditamap' ? 'mapref' : 'topicref');
       setNavtitle(topicTitles[first] ?? '');
       if (!dialog.open) dialog.showModal();
     } else if (dialog.open) {
       dialog.close();
     }
-  }, [open, mountableFiles, isBookmap, topicTitles]);
+  }, [open, mountableFiles, topicTitles]);
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -124,10 +116,10 @@ export function MountExistingDialog({
               const path = e.target.value;
               setSelectedFile(path);
               const kind = classifyDitaFileKind(path);
-              if (kind === 'ditamap' || kind === 'bookmap') {
+              if (kind === 'ditamap') {
                 setTagName('mapref');
               } else if (tagName === 'mapref') {
-                setTagName(isBookmap ? 'chapter' : 'topicref');
+                setTagName('topicref');
               }
               setNavtitle(topicTitles[path] ?? '');
             }}
@@ -154,13 +146,6 @@ export function MountExistingDialog({
             >
               <option value="topicref">&lt;topicref&gt;</option>
               <option value="mapref">&lt;mapref&gt;</option>
-              {isBookmap ? (
-                <>
-                  <option value="chapter">&lt;chapter&gt;</option>
-                  <option value="appendix">&lt;appendix&gt;</option>
-                  <option value="preface">&lt;preface&gt;</option>
-                </>
-              ) : null}
             </select>
           </div>
           <div>

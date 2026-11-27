@@ -135,7 +135,8 @@ export function IngestUploadStep({
   const [targetMode, setTargetMode] = useState<IngestTargetMode>(defaultTargetMode);
   const [manualName, setManualName] = useState('');
   const [manualDescription, setManualDescription] = useState('');
-  const [mapKind, setMapKind] = useState<'map' | 'bookmap'>('map');
+  // Bookmaps are not supported: every generated manual is a standard DITA map.
+  const mapKind = 'map' as const;
   const [language, setLanguage] = useState('zh-CN');
   const [topicType, setTopicType] = useState<IngestTopicTypeChoice>('auto');
   const [targetDir, setTargetDir] = useState('');
@@ -466,18 +467,7 @@ export function IngestUploadStep({
             </label>
           </div>
           <div className="grid grid-cols-2 gap-2">
-            <label className="block">
-              <span className="text-[10px] font-medium text-slate-600">{t('ingest.target.mapKind')}</span>
-              <select
-                value={mapKind}
-                onChange={(event) => setMapKind(event.target.value === 'bookmap' ? 'bookmap' : 'map')}
-                className="mt-0.5 w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-[11px] text-slate-800 outline-none focus:border-blue-400"
-              >
-                <option value="map">{t('ingest.target.mapKind.map')}</option>
-                <option value="bookmap">{t('ingest.target.mapKind.bookmap')}</option>
-              </select>
-            </label>
-            <label className="block">
+            <label className="block col-span-2">
               <span className="text-[10px] font-medium text-slate-600">{t('ingest.target.language')}</span>
               <select
                 value={language}

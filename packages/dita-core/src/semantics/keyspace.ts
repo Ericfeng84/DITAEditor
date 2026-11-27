@@ -41,7 +41,7 @@ function getNormalizedText(el: slimdom.Element | null): string {
 function isSubmapReference(tagName: string, href?: string, format?: string): boolean {
   if (tagName === 'mapref' || format === 'ditamap') return true;
   if (!href) return false;
-  return /\.(ditamap|bookmap)(#|$)/i.test(href.trim());
+  return /\.ditamap(#|$)/i.test(href.trim());
 }
 
 function extractInlineKeyText(el: slimdom.Element): {

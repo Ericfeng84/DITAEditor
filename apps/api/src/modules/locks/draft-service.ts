@@ -124,7 +124,7 @@ export interface MaterializeOverlayResult {
 }
 
 const ORPHAN_DRAFT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
-const SEMANTIC_EXTENSIONS = new Set(['.dita', '.ditamap', '.bookmap', '.ditaval']);
+const SEMANTIC_EXTENSIONS = new Set(['.dita', '.ditamap', '.ditaval']);
 const MATERIALIZE_SKIP_DIRS = new Set([
   '.git',
   'node_modules',

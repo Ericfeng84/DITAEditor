@@ -4,7 +4,6 @@ import { parseDitaMap } from '@dita/core';
 import { resolveMapTargetStatus } from './map-tree-utils';
 import {
   AlertTriangle,
-  BookMarked,
   CheckCircle2,
   Code2,
   FilePlus2,
@@ -106,25 +105,15 @@ export function MapOverviewPane({
         <div className="flex flex-wrap items-start justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
-              <span
-                className={`inline-flex items-center gap-1 rounded px-2 py-0.5 font-mono text-[11px] font-bold uppercase ${
-                  map.kind === 'bookmap'
-                    ? 'bg-blue-100 text-blue-800'
-                    : 'bg-sky-100 text-sky-800'
-                }`}
-              >
-                {map.kind === 'bookmap' ? (
-                  <BookMarked className="h-3 w-3" aria-hidden="true" />
-                ) : (
-                  <Network className="h-3 w-3" aria-hidden="true" />
-                )}
+              <span className="inline-flex items-center gap-1 rounded bg-sky-100 px-2 py-0.5 font-mono text-[11px] font-bold text-sky-800 uppercase">
+                <Network className="h-3 w-3" aria-hidden="true" />
                 &lt;{map.rootTag}&gt;
               </span>
               <span className="font-mono text-xs text-slate-500">{mapPath}</span>
             </div>
 
             <label htmlFor="map-overview-title" className="mt-3 block text-[11px] font-medium text-slate-500">
-              {map.kind === 'bookmap' ? t('mapOverview.bookTitle') : t('mapOverview.mapTitle')}
+              {t('mapOverview.mapTitle')}
             </label>
             <input
               id="map-overview-title"
@@ -219,7 +208,6 @@ export function MapOverviewPane({
               pis: map.preservedMetaSummary.piCount,
             })}
             {map.preservedMetaSummary.hasReltable ? '、<reltable>' : ''}
-            {map.preservedMetaSummary.hasBookmeta ? '、<bookmeta>' : ''}
             {map.preservedMetaSummary.hasTopicmeta ? '、<topicmeta>' : ''}
           </span>
         </div>

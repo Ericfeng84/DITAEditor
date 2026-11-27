@@ -31,7 +31,7 @@ import type { StoreRuntime } from '../runtime.js';
 /** Map a workspace asset path to the DITA `@format` token used on `<keydef>`. */
 function inferKeyFormat(filePath: string): string | null {
   const kind = classifyDitaFileKind(filePath);
-  if (kind === 'ditamap' || kind === 'bookmap') return 'ditamap';
+  if (kind === 'ditamap') return 'ditamap';
   if (kind === 'topic') return null;
   const lower = filePath.toLowerCase();
   const ext = lower.slice(lower.lastIndexOf('.') + 1);
@@ -362,7 +362,7 @@ export function createMapTreeSlice(
 
       const relativeHref = computeRelativeDitaHref(mapPath, targetFilePath);
       const kind = classifyDitaFileKind(targetFilePath);
-      const isSubmap = kind === 'ditamap' || kind === 'bookmap' || tagName === 'mapref';
+      const isSubmap = kind === 'ditamap' || tagName === 'mapref';
 
       const attrs: XmlAttributeEntry[] = [
         { name: 'href', value: relativeHref, namespaceURI: null },

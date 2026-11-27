@@ -51,7 +51,7 @@ const KIND_TABS: Array<{ id: BindingKind; labelKey: 'newKey.kind.text' | 'newKey
 function inferFormatToken(filePath: string): string | null {
   const lower = filePath.toLowerCase();
   const ext = lower.slice(lower.lastIndexOf('.') + 1);
-  if (ext === 'ditamap' || ext === 'bookmap') return 'ditamap';
+  if (ext === 'ditamap') return 'ditamap';
   if (ext === 'dita' || ext === 'xml') return null;
   if (ext === 'htm') return 'html';
   if (['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'pdf', 'html', 'txt'].includes(ext)) {

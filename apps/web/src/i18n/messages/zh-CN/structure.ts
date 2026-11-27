@@ -2,7 +2,7 @@
 
 export const zhCNStructure = {
   // --- map tree -----------------------------------------------------------
-  'mapTree.noMaps': '当前工作区暂无 .ditamap 或 .bookmap 文件',
+  'mapTree.noMaps': '当前工作区暂无 .ditamap 文件',
   'mapTree.noMapsHint': '请在“文件”页签点击新建 Map。',
   'mapTree.rootTooltip': '点击选中根节点：{path}',
   'mapTree.dirtyTooltip': 'Map 有未保存的结构更改',
@@ -113,7 +113,6 @@ export const zhCNStructure = {
   'mapNodeInspector.structuralNode': 'Map 结构节点',
   'mapNodeInspector.openTarget': '打开目标',
   'mapNodeInspector.locateSource': '定位源码',
-  'mapNodeInspector.bookTitle': '书籍主标题 (<mainbooktitle>)',
   'mapNodeInspector.mapTitle': 'Map 标题 (<title>)',
   'mapNodeInspector.navtitle': '目录导航标题 (navtitle)',
   'mapNodeInspector.navtitlePlaceholder': '默认继承目标 Topic 的 <title>',
@@ -125,12 +124,10 @@ export const zhCNStructure = {
   'mapNodeInspector.metaLine': 'DOCTYPE：{doctype} · 注释：{comments} · PI：{pis}',
   'mapNodeInspector.preserved': '已保留',
   'mapNodeInspector.hasReltable': ' · 含 <reltable> 关联表',
-  'mapNodeInspector.hasBookmeta': ' · 含 <bookmeta>',
 
   // --- map overview + mount dialog ----------------------------------------
   'mapOverview.parseErrorTitle': 'Map XML 存在语法错误',
   'mapOverview.fixInSource': '切换至 XML 源码修复',
-  'mapOverview.bookTitle': '书籍标题 (<booktitle>/<mainbooktitle>)',
   'mapOverview.mapTitle': '地图标题 (<title>)',
   'mapOverview.openInTree': '在左侧 Map 树打开',
   'mapOverview.editSource': '编辑 XML 源码',
@@ -391,15 +388,12 @@ export const zhCNStructure = {
   'keyref.submit': '插入',
 
   // --- new map dialog -----------------------------------------------------
-  'newMap.bookmapDefaultTitle': '新建产品技术手册',
   'newMap.mapDefaultTitle': '新建 DITA Map',
-  'newMap.title': '新建 DITA Map / Bookmap',
+  'newMap.title': '新建 DITA Map',
   'newMap.subtitle': '创建标准结构化地图并设为当前激活 Root Map',
   'newMap.closeAria': '关闭对话框',
   'newMap.standard': '标准 Map',
   'newMap.standardDesc': '.ditamap 通用层次目录与子地图',
-  'newMap.bookmap': 'Bookmap 书籍',
-  'newMap.bookmapDesc': '.bookmap 含前言、篇 / 章、附录',
   'newMap.titleLabel': 'Map 标题',
   'newMap.titlePlaceholder': '例如：产品部署与运维手册',
   'newMap.fileName': '文件名',

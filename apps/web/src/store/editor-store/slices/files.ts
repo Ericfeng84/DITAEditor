@@ -50,11 +50,8 @@ export function createFilesSlice(
     },
 
     async createNewMapFile({ kind, fileName, id, title, lang, targetDir = '' }) {
-      const ext = kind === 'bookmap' ? '.bookmap' : '.ditamap';
       const rawName = fileName.trim() || id.trim() || `${kind}-${Date.now().toString(36).slice(-4)}`;
-      const withExt = rawName.endsWith('.ditamap') || rawName.endsWith('.bookmap')
-        ? rawName
-        : `${rawName}${ext}`;
+      const withExt = rawName.endsWith('.ditamap') ? rawName : `${rawName}.ditamap`;
       const dir = targetDir.trim().replace(/^\/+|\/+$/g, '');
       const relPath = dir ? `${dir}/${withExt}` : withExt;
       const xml = createMapTemplate(kind, { id, title, lang });
@@ -74,10 +71,7 @@ export function createFilesSlice(
     async importSingleLocalFile(fileName, content) {
       const kind = classifyDitaFileKind(fileName);
       const baseName = fileName.split('/').pop() ?? fileName;
-      const relPath =
-        kind === 'ditamap' || kind === 'bookmap'
-          ? baseName
-          : `imported/${baseName}`;
+      const relPath = kind === 'ditamap' ? baseName : `imported/${baseName}`;
 
       if (get().workspaceMode === 'api') {
         await saveFileContent(relPath, content, true);
@@ -86,7 +80,7 @@ export function createFilesSlice(
       }
 
       await get().refreshWorkspaceTree();
-      if (kind === 'ditamap' || kind === 'bookmap') {
+      if (kind === 'ditamap') {
         await get().selectRootMap(relPath);
       } else {
         await get().refreshSemantics();

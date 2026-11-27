@@ -57,7 +57,7 @@ export interface OpenEditorTab {
   fileName: string;
   title: string;
   kind: DitaFileKind;
-  docType: DitaTopicTemplateType | 'map' | 'bookmap' | 'ditaval' | 'other';
+  docType: DitaTopicTemplateType | 'map' | 'ditaval' | 'other';
   baselineXml: string;
   xml: string;
   mode: EditorViewMode;

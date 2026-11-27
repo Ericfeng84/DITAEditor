@@ -125,7 +125,7 @@ export function createEditorSyncSlice(
       const nextTitle = check.ok
         ? (extractDitaDocumentTitleFromDocument(check.parsed.document) ?? fallback)
         : (active?.title ?? fallback);
-      const isMap = active?.kind === 'ditamap' || active?.kind === 'bookmap';
+      const isMap = active?.kind === 'ditamap';
 
       set((s) => ({
         openTabs: s.openTabs.map((t) =>

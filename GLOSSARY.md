@@ -11,7 +11,7 @@ An independent DITA documentation unit backed by its own workspace directory and
 _Avoid_: Project, Workspace (in product and domain language; use *Workspace Directory* only when referring to the physical path on disk)
 
 **Root Map**:
-A top-level `.ditamap` or `.bookmap` inside a Manual that defines the navigation hierarchy, keyspace, and publishing entry point.
+A top-level `.ditamap` inside a Manual that defines the navigation hierarchy, keyspace, and publishing entry point.
 _Avoid_: Master Map, Main TOC
 
 **Topic**:

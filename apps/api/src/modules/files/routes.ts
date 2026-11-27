@@ -58,7 +58,7 @@ const writeFileSchema = z.object({
 
 const createFileSchema = z.object({
   path: z.string().min(1),
-  kind: z.enum(['concept', 'task', 'reference', 'topic', 'map', 'bookmap', 'ditaval']),
+  kind: z.enum(['concept', 'task', 'reference', 'topic', 'map', 'ditaval']),
   id: z.string().optional(),
   title: z.string().optional(),
   lang: z.string().optional(),

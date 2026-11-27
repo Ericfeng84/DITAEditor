@@ -2,8 +2,8 @@
  * Phase 14 Stage 1 — deterministic DITA plan builders.
  *
  * Pure, isomorphic helpers that turn a Planner outline into safe DITA paths, valid
- * DITA 1.3 `.ditamap` / `.bookmap` XML, a `keys.ditamap`, or a lossless mount of new
- * `<topicref>`/`<chapter>` elements into an existing map.
+ * DITA 1.3 `.ditamap` XML, a `keys.ditamap`, or a lossless mount of new
+ * `<topicref>` elements into an existing map.
  */
 
 import type * as slimdom from 'slimdom';
@@ -143,7 +143,7 @@ function planKeysMapPath(rootMapPath: string): string {
  * Sanitize ids and file paths of an outline plan:
  * - topic ids become unique `[a-z_][a-z0-9_-]*` values;
  * - topic paths become safe POSIX `.dita` paths (unique across plan + existing files);
- * - the root map path ends in `.ditamap`/`.bookmap` matching `mapKind`.
+ * - the root map path ends in `.ditamap`.
  */
 export function normalizePlanPaths(
   plan: IngestOutlinePlan,
@@ -155,7 +155,7 @@ export function normalizePlanPaths(
     if (normalized) usedPaths.add(normalized);
   }
 
-  const rootExtension = plan.mapKind === 'bookmap' ? '.bookmap' : '.ditamap';
+  const rootExtension = '.ditamap';
   const rawRoot = plan.rootMapPath ? safeRelativePath(plan.rootMapPath) : '';
   let rootMapPath = ensureExtension(
     rawRoot || `${sanitizeDitaTopicId(plan.title, 'ingest')}${rootExtension}`,
@@ -240,7 +240,6 @@ function renderTopicRefs(
   nodes: readonly PlannedTopicNode[],
   rootMapPath: string,
   depth: number,
-  topTagName: 'topicref' | 'chapter' | null,
   indent: string,
 ): string[] {
   const lines: string[] = [];
@@ -250,43 +249,33 @@ function renderTopicRefs(
     const href = computeRelativeDitaHref(rootMapPath, node.filePath);
     const navtitle =
       node.navTitle && node.navTitle.trim() ? ` navtitle="${escapeXmlAttr(node.navTitle.trim())}"` : '';
-    const tag = topTagName ?? 'topicref';
     const children = node.children ?? [];
 
     if (children.length === 0) {
-      lines.push(`${pad}<${tag} href="${escapeXmlAttr(href)}"${navtitle}/>`);
+      lines.push(`${pad}<topicref href="${escapeXmlAttr(href)}"${navtitle}/>`);
       continue;
     }
-    lines.push(`${pad}<${tag} href="${escapeXmlAttr(href)}"${navtitle}>`);
-    lines.push(...renderTopicRefs(children, rootMapPath, depth + 1, null, indent));
-    lines.push(`${pad}</${tag}>`);
+    lines.push(`${pad}<topicref href="${escapeXmlAttr(href)}"${navtitle}>`);
+    lines.push(...renderTopicRefs(children, rootMapPath, depth + 1, indent));
+    lines.push(`${pad}</topicref>`);
   }
 
   return lines;
 }
 
 /**
- * Generate a complete DITA 1.3 `<map>` or `<bookmap>` for an outline plan.
+ * Generate a complete DITA 1.3 `<map>` for an outline plan.
  * The plan is assumed normalized (`normalizePlanPaths`); hrefs are relative to the root map.
  */
 export function buildMapXmlFromPlan(plan: IngestOutlinePlan): string {
   const lang = plan.language?.trim() || 'zh-CN';
   const title = plan.title.trim() || 'Imported Manual';
   const mapId = sanitizeDitaTopicId(plan.title, 'ingest_map');
-  const isBookmap = plan.mapKind === 'bookmap';
   const lines: string[] = ['<?xml version="1.0" encoding="UTF-8"?>'];
 
-  if (isBookmap) {
-    lines.push('<!DOCTYPE bookmap PUBLIC "-//OASIS//DTD DITA BookMap//EN" "bookmap.dtd">');
-    lines.push(`<bookmap id="${mapId}" xml:lang="${escapeXmlAttr(lang)}">`);
-    lines.push('  <booktitle>');
-    lines.push(`    <mainbooktitle>${escapeXmlText(title)}</mainbooktitle>`);
-    lines.push('  </booktitle>');
-  } else {
-    lines.push('<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">');
-    lines.push(`<map id="${mapId}" xml:lang="${escapeXmlAttr(lang)}">`);
-    lines.push(`  <title>${escapeXmlText(title)}</title>`);
-  }
+  lines.push('<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">');
+  lines.push(`<map id="${mapId}" xml:lang="${escapeXmlAttr(lang)}">`);
+  lines.push(`  <title>${escapeXmlText(title)}</title>`);
 
   if (plan.createKeysMap && plan.suggestedKeys.length > 0) {
     const keysHref = computeRelativeDitaHref(plan.rootMapPath, planKeysMapPath(plan.rootMapPath));
@@ -295,11 +284,9 @@ export function buildMapXmlFromPlan(plan: IngestOutlinePlan): string {
     );
   }
 
-  lines.push(
-    ...renderTopicRefs(plan.topics, plan.rootMapPath, 1, isBookmap ? 'chapter' : 'topicref', '  '),
-  );
+  lines.push(...renderTopicRefs(plan.topics, plan.rootMapPath, 1, '  '));
 
-  lines.push(isBookmap ? '</bookmap>' : '</map>');
+  lines.push('</map>');
   lines.push('');
   return lines.join('\n');
 }
@@ -354,7 +341,7 @@ export interface MountTopicsIntoExistingMapOptions {
   /** Element child index path from the map root; `null`/empty appends at the root level. */
   parentElementPath: number[] | null;
   topics: PlannedTopicNode[];
-  /** Override the tag used at the mount level (`topicref` by default; `chapter` for bookmaps). */
+  /** Override the tag used at the mount level (`topicref` by default). */
   mountTagName?: string;
 }
 
@@ -392,9 +379,9 @@ function createPlannedElement(
 }
 
 /**
- * Losslessly mount planned topics into an existing `.ditamap`/`.bookmap`:
+ * Losslessly mount planned topics into an existing `.ditamap`:
  * XML declaration, DOCTYPE, comments, PIs and every existing attribute stay untouched; new
- * `<topicref>`/`<chapter>` elements are appended (or inserted before trailing `<reltable>`).
+ * `<topicref>` elements are appended (or inserted before trailing `<reltable>`).
  */
 export function mountTopicsIntoExistingMap(
   mapXml: string,
@@ -414,9 +401,7 @@ export function mountTopicsIntoExistingMap(
     throw new Error('Mount parent element path does not resolve inside the map.');
   }
 
-  const defaultTag: string =
-    parent === root && root.tagName === 'bookmap' ? 'chapter' : 'topicref';
-  const tagName = options.mountTagName?.trim() || defaultTag;
+  const tagName = options.mountTagName?.trim() || 'topicref';
 
   const anchor =
     parent === root
@@ -537,7 +522,7 @@ export function buildFallbackOutlinePlan(
     });
   }
 
-  const rootExtension = mapKind === 'bookmap' ? '.bookmap' : '.ditamap';
+  const rootExtension = '.ditamap';
   const plan: IngestOutlinePlan = {
     title: planTitle,
     language,

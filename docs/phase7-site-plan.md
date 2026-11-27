@@ -153,7 +153,7 @@ flowchart TB
    - 按 6 个能力主题分层展示（结合真实截图与精炼技术要点）：
      1. **双模无损编辑**：ProseMirror 精细建模 + `unknown_block/inline` 兜底 + CodeMirror 6 源码补全与良构拦截。
      2. **单一信息源（Keys / Conref / DITAVAL）**：Root Map BFS 键空间、`conref/conkeyref` 只读展开 + DFS 环路拦截、`.ditaval` 三态视图投影。
-     3. **Map / Bookmap 编排**：拖拽层级、模板建 Topic、保留 `<reltable>` 与 `<topicmeta>`。
+     3. **DITA Map 编排**：拖拽层级、模板建 Topic、保留 `<reltable>` 与 `<topicmeta>`。
      4. **本地 Git 与 Check-out 独占锁**：零外部 Git 平台、分支隔离 `git worktree`、单文件悲观锁、MergeView 版本对比。
      5. **DITA-OT 4.x 严格校验与中文 PDF**：`--processing-mode=strict` 报错直达行列、异步日志流、内置 Noto CJK 纯 XML 插件零乱码。
      6. **AI 辅助写作、标签优化与错误修复**：DeepSeek / 私有化代理（LangChain.js）、片段级 `@dita/core` 校验重试、强制 MergeView Diff 审阅。

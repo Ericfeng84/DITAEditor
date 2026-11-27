@@ -40,7 +40,7 @@ export interface IngestRouteDeps {
 
 const targetModeSchema = z.enum(['new_manual', 'single_topic', 'multi_topic']);
 const engineSchema = z.enum(['auto', 'docling', 'markitdown']);
-const mapKindSchema = z.enum(['map', 'bookmap']);
+const mapKindSchema = z.enum(['map']);
 const topicTypeSchema = z.enum(['concept', 'task', 'reference', 'topic', 'auto']);
 
 const configPatchSchema = z

@@ -371,7 +371,7 @@ export function MapNodeInspector({
                 htmlFor="map-root-title-input"
                 className="mb-1 block text-[11px] font-semibold text-slate-700"
               >
-                {parsedMap.kind === 'bookmap' ? t('mapNodeInspector.bookTitle') : t('mapNodeInspector.mapTitle')}
+                {t('mapNodeInspector.mapTitle')}
               </label>
               <input
                 id="map-root-title-input"
@@ -816,7 +816,6 @@ export function MapNodeInspector({
             })}
             
             {parsedMap.preservedMetaSummary.hasReltable ? t('mapNodeInspector.hasReltable') : ''}
-            {parsedMap.preservedMetaSummary.hasBookmeta ? t('mapNodeInspector.hasBookmeta') : ''}
           </p>
         </section>
       </div>

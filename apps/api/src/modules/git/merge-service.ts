@@ -81,7 +81,7 @@ interface RunResult {
   stderr: string;
 }
 
-const XML_PATH_PATTERN = /\.(dita|ditamap|bookmap|ditaval|xml)$/i;
+const XML_PATH_PATTERN = /\.(dita|ditamap|ditaval|xml)$/i;
 const MAX_PREVIEW_CONFLICTS = 50;
 
 function isInside(parent: string, child: string): boolean {

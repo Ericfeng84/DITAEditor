@@ -160,7 +160,7 @@ describe('validateDitaFileForCheckin (CORE-7)', () => {
     expect(issues[0]?.line).toBeGreaterThanOrEqual(1);
     expect(issues[0]?.column).toBeGreaterThanOrEqual(1);
     expect(issues[0]?.message).toContain('XML');
-    // ditamap / bookmap are gated on well-formedness only (structure rules are topic-specific).
+    // ditamap is gated on well-formedness only (structure rules are topic-specific).
     const mapIssues = validateDitaFileForCheckin({ filePath: 'maps/main.ditamap', content: BROKEN_MAP });
     expect(mapIssues.map((issue) => issue.source)).toEqual(['xml']);
   });

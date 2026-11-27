@@ -373,7 +373,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const rootMap = await resolveWorkspacePath(
         scope.workDir,
         parsed.data.rootMap,
-        ['.ditamap', '.bookmap'],
+        ['.ditamap'],
         'Root Map',
         pathExists,
       );

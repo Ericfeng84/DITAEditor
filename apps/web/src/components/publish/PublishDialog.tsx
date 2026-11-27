@@ -137,7 +137,7 @@ function formatTime(value: string | null): string {
 
 function stemOf(path: string): string {
   const name = path.split('/').pop() ?? path;
-  return name.replace(/\.(ditamap|bookmap)$/i, '');
+  return name.replace(/\.ditamap$/i, '');
 }
 
 export function PublishDialog({

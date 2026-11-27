@@ -1,6 +1,5 @@
 import { useMemo, useState } from 'react';
 import {
-  BookMarked,
   ChevronDown,
   ChevronRight,
   FileCode2,
@@ -85,8 +84,6 @@ function FileIcon({ kind }: { kind: WorkspaceFileNode['kind'] }) {
   switch (kind) {
     case 'ditamap':
       return <Network className="h-3.5 w-3.5 shrink-0 text-sky-600" aria-hidden="true" />;
-    case 'bookmap':
-      return <BookMarked className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
     case 'topic':
       return <FileText className="h-3.5 w-3.5 shrink-0 text-blue-600" aria-hidden="true" />;
     case 'ditaval':
@@ -180,7 +177,7 @@ export function FileExplorerPanel({
 
     const isActive = activeTabPath === node.path;
     const isRootMap = activeRootMapPath === node.path;
-    const isMap = node.kind === 'ditamap' || node.kind === 'bookmap';
+    const isMap = node.kind === 'ditamap';
     const titleHint = topicTitles[node.path];
 
     if (renamingPath === node.path) {
@@ -380,7 +377,7 @@ export function FileExplorerPanel({
             ) : (
               maps.map((m) => (
                 <option key={m.path} value={m.path}>
-                  [{m.kind === 'bookmap' ? 'Book' : 'Map'}] {m.path} — {m.title}
+                  [Map] {m.path} — {m.title}
                 </option>
               ))
             )}

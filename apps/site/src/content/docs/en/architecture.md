@@ -41,7 +41,7 @@ Constraints: `src/` must not import Node built-ins, because it also runs in the 
 
 ### `@dita/web`
 
-The manual workbench and assignment rail, topic editor, NodeViews, DITA-aware commands, map/bookmap tree, Keys panel, publish panel, AI panel, and diffs — plus the `zh-CN` / `en` dictionaries that cover the whole interface. Every write operation ultimately produces the same XML string.
+The manual workbench and assignment rail, topic editor, NodeViews, DITA-aware commands, DITA map tree, Keys panel, publish panel, AI panel, and diffs — plus the `zh-CN` / `en` dictionaries that cover the whole interface. Every write operation ultimately produces the same XML string.
 
 ### `@dita/api`
 

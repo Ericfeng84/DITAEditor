@@ -120,9 +120,9 @@ export interface IngestOutlinePlan {
   /** BCP 47 language tag, e.g. `zh-CN` / `en`. */
   language?: string;
   targetMode?: IngestTargetMode;
-  /** `map` or `bookmap`; drives the generated root map doctype. */
+  /** DITA map template kind; drives the generated root map doctype. */
   mapKind: DitaMapTemplateType;
-  /** Safe POSIX path of the root map, ending in `.ditamap` or `.bookmap`. */
+  /** Safe POSIX path of the root map, ending in `.ditamap`. */
   rootMapPath: string;
   /** Preferred topic type; `auto` lets each node decide. */
   topicType: DitaTopicTemplateType | 'auto';

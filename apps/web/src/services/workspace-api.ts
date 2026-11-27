@@ -35,7 +35,7 @@ export interface WorkspaceFileNode {
 export interface WorkspaceMapSummary {
   path: string;
   name: string;
-  kind: 'ditamap' | 'bookmap';
+  kind: 'ditamap';
   title: string;
   topicrefCount: number;
   parseError?: XmlParseError;

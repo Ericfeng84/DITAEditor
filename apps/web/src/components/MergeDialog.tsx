@@ -136,7 +136,7 @@ export function MergeDialog({ open, onClose, onMerged }: MergeDialogProps) {
   const needsResolution = conflicts.some((conflict) => {
     const value = resolutions[conflict.path];
     if ((value ?? '').trim() === '') return true;
-    if (/\.(dita|ditamap|bookmap|ditaval|xml)$/i.test(conflict.path)) {
+    if (/\.(dita|ditamap|ditaval|xml)$/i.test(conflict.path)) {
       return !checkResolutionXml(value!).ok;
     }
     return false;

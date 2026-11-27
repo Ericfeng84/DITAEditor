@@ -51,7 +51,7 @@ export type IngestJobStatus =
   | 'failed'
   | 'cancelled';
 
-export type IngestMapKind = 'map' | 'bookmap';
+export type IngestMapKind = 'map';
 export type IngestTopicType = 'concept' | 'task' | 'reference' | 'topic';
 export type IngestTopicTypeChoice = IngestTopicType | 'auto';
 

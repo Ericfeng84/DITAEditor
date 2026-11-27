@@ -21,7 +21,7 @@ const PROCESSING_INSTRUCTION_NODE = 7;
 const XML_NS = 'http://www.w3.org/XML/1998/namespace';
 const XMLNS_NS = 'http://www.w3.org/2000/xmlns/';
 
-export type DitaMapKind = 'map' | 'bookmap';
+export type DitaMapKind = 'map';
 
 /**
  * Canonical DITA 1.3 key name shape (an NMTOKEN without `#`, `/`, whitespace or `$`).
@@ -88,14 +88,13 @@ export interface ParsedDitaMap {
     commentCount: number;
     piCount: number;
     hasReltable: boolean;
-    hasBookmeta: boolean;
     hasTopicmeta: boolean;
   };
   references: DitaMapReferenceInfo[];
 }
 
 /**
- * Quickly check if an XML string has a `<map>` or `<bookmap>` root element.
+ * Quickly check if an XML string has a `<map>` root element.
  */
 export function isDitaMapXml(xml: string): boolean {
   try {
@@ -125,22 +124,13 @@ function extractElementPlainText(el: slimdom.Element | null): string {
 }
 
 /**
- * Extract the display title of a DITA topic, map, or bookmap from an
+ * Extract the display title of a DITA topic or map from an
  * already-parsed XML document. Callers that already parsed the XML should use
  * this to avoid a second full parse.
  */
 export function extractDitaDocumentTitleFromDocument(document: slimdom.Document): string | null {
   const root = document.documentElement;
   if (!root) return null;
-
-  if (root.tagName === 'bookmap') {
-    const booktitle = findDirectChildElement(root, 'booktitle');
-    const mainbooktitle = booktitle
-      ? findDirectChildElement(booktitle, 'mainbooktitle')
-      : null;
-    const mainText = extractElementPlainText(mainbooktitle);
-    if (mainText) return mainText;
-  }
 
   const titleEl = findDirectChildElement(root, 'title');
   const titleText = extractElementPlainText(titleEl);
@@ -151,7 +141,7 @@ export function extractDitaDocumentTitleFromDocument(document: slimdom.Document)
 }
 
 /**
- * Extract the display title of any DITA topic, map, or bookmap document.
+ * Extract the display title of any DITA topic or map document.
  */
 export function extractDitaDocumentTitle(xml: string): string | null {
   try {
@@ -192,7 +182,7 @@ export function extractDitaTopicType(xml: string): DitaTopicTemplateType | null 
 function isSubmapElement(tagName: string, href?: string, format?: string): boolean {
   if (tagName === 'mapref' || format === 'ditamap') return true;
   if (!href) return false;
-  return /\.(ditamap|bookmap)(#|$)/i.test(href.trim());
+  return /\.ditamap(#|$)/i.test(href.trim());
 }
 
 /**
@@ -355,7 +345,7 @@ function findDomInsertionAnchor(
 }
 
 /**
- * Parse a DITA `.ditamap` or `.bookmap` into a structured `ParsedDitaMap` tree while
+ * Parse a DITA `.ditamap` into a structured `ParsedDitaMap` tree while
  * capturing exact element paths, attributes in original XML order, and source positions.
  */
 export function parseDitaMap(xml: string): ParsedDitaMap {
@@ -363,19 +353,17 @@ export function parseDitaMap(xml: string): ParsedDitaMap {
   const root = parsed.document.documentElement;
   if (!root || !DITA_MAP_ROOT_TAGS.has(root.tagName)) {
     throw new Error(
-      `Expected <map> or <bookmap> root element, got <${root?.tagName ?? 'none'}>.`,
+      `Expected <map> root element, got <${root?.tagName ?? 'none'}>.`,
     );
   }
 
-  const kind: DitaMapKind = root.tagName === 'bookmap' ? 'bookmap' : 'map';
+  const kind: DitaMapKind = 'map';
   const rootAttrs = extractElementAttrs(root);
   const title =
-    extractDitaDocumentTitleFromDocument(parsed.document) ??
-    (kind === 'bookmap' ? 'Untitled Bookmap' : 'Untitled Map');
+    extractDitaDocumentTitleFromDocument(parsed.document) ?? 'Untitled Map';
 
   const references: DitaMapReferenceInfo[] = [];
   let hasReltable = false;
-  let hasBookmeta = false;
   let hasTopicmeta = false;
 
   const collectSubtreeRefs = (container: slimdom.Element, containerPath: number[]) => {
@@ -417,7 +405,6 @@ export function parseDitaMap(xml: string): ParsedDitaMap {
       elemIdx++;
 
       if (el.tagName === 'reltable') hasReltable = true;
-      if (el.tagName === 'bookmeta') hasBookmeta = true;
       if (el.tagName === 'topicmeta') hasTopicmeta = true;
 
       if (!DITA_MAP_TREE_NODE_TAGS.has(el.tagName)) {
@@ -516,7 +503,6 @@ export function parseDitaMap(xml: string): ParsedDitaMap {
       commentCount,
       piCount,
       hasReltable,
-      hasBookmeta,
       hasTopicmeta,
     },
     references,
@@ -543,7 +529,7 @@ function resolveTargetParentElement(
 }
 
 /**
- * Move one or more map tree nodes inside the same `.ditamap` / `.bookmap` DOM while preserving
+ * Move one or more map tree nodes inside the same `.ditamap` DOM while preserving
  * all metadata, comments, PIs, DOCTYPE, and attribute order.
  * Follows `react-arborist` pre-removal `index` semantics.
  */
@@ -1195,7 +1181,7 @@ export function updateMapNodeNavtitle(
 }
 
 /**
- * Update the root title of a `.ditamap` (`<title>`) or `.bookmap` (`<booktitle>/<mainbooktitle>`).
+ * Update the root title of a `.ditamap` (`<title>`).
  */
 export function updateMapTitle(xml: string, newTitle: string): { xml: string } {
   const parsed = parseXml(xml, { position: false });
@@ -1205,28 +1191,13 @@ export function updateMapTitle(xml: string, newTitle: string): { xml: string } {
   const doc = parsed.document;
   const trimmed = newTitle.trim() || 'Untitled Map';
 
-  if (root.tagName === 'bookmap') {
-    let booktitle = findDirectChildElement(root, 'booktitle');
-    if (!booktitle) {
-      booktitle = doc.createElementNS(null, 'booktitle');
-      root.insertBefore(booktitle, root.firstChild);
-    }
-    let main = findDirectChildElement(booktitle, 'mainbooktitle');
-    if (!main) {
-      main = doc.createElementNS(null, 'mainbooktitle');
-      booktitle.appendChild(main);
-    }
-    while (main.firstChild) main.removeChild(main.firstChild);
-    main.appendChild(doc.createTextNode(trimmed));
-  } else {
-    let titleEl = findDirectChildElement(root, 'title');
-    if (!titleEl) {
-      titleEl = doc.createElementNS(null, 'title');
-      root.insertBefore(titleEl, root.firstChild);
-    }
-    while (titleEl.firstChild) titleEl.removeChild(titleEl.firstChild);
-    titleEl.appendChild(doc.createTextNode(trimmed));
+  let titleEl = findDirectChildElement(root, 'title');
+  if (!titleEl) {
+    titleEl = doc.createElementNS(null, 'title');
+    root.insertBefore(titleEl, root.firstChild);
   }
+  while (titleEl.firstChild) titleEl.removeChild(titleEl.firstChild);
+  titleEl.appendChild(doc.createTextNode(trimmed));
 
   return {
     xml: serializeXml(parsed),
