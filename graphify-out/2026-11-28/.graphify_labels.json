@@ -1,0 +1,13 @@
+{
+  "5": "Core Package Manifest",
+  "7": "Root Monorepo Manifest",
+  "8": "Base TypeScript Config",
+  "9": "Turborepo Pipeline Config",
+  "10": "Architecture & Design Spec",
+  "11": "API TypeScript Config",
+  "12": "Core TypeScript Config",
+  "13": "Web TypeScript Config",
+  "14": "pnpm Workspace Config",
+  "15": "Graphify Agent Instructions",
+  "16": "Web HTML Entrypoint"
+}

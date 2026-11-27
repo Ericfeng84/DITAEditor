@@ -10,7 +10,7 @@
 
 | 文档 | 说明 |
 | :--- | :--- |
-| [architecture-and-plan.md](./architecture-and-plan.md) | **总架构基线与实施路线图**：系统总体架构、核心难点攻关、技术选型矩阵与 Phase 0–14 演进记录 |
+| [architecture-and-plan.md](./architecture-and-plan.md) | **总架构基线与实施路线图**：系统总体架构、核心难点攻关、技术选型矩阵与 Phase 0–15 演进记录 |
 | [design/versioning-model.md](./design/versioning-model.md) | **版本管理与并发协作模型（现状）**：Git 干净基线 + 个人草稿叠加层、独占锁、签入、合并、回滚与发布溯源 |
 | [design/dita-authoring-compliance.md](./design/dita-authoring-compliance.md) | **DITA 1.3 结构化写作合规实现**：规则单一来源、引导式插入与三处同源结构诊断 |
 | [design/content-reuse-workflow.md](./design/content-reuse-workflow.md) | **内容复用工作流设计**：Warehouse 复用仓库、新建/提取复用片段与全入口插入闭环 |
@@ -59,3 +59,4 @@
 | [plans/key-management-integration.md](./plans/key-management-integration.md) | v1.5.0：Key 管理整合至「Map 管理」与「属性」及新建 Key 工作流 |
 | [plans/checkin-validation-ai-fix.md](./plans/checkin-validation-ai-fix.md) | v1.5.0：签入前置校验门禁与 AI 修复「检出—草稿—提交」闭环 |
 | [plans/phase14-docling-agent.md](./plans/phase14-docling-agent.md) | Phase 14：文档智能导入与工具化 DITA-OT Repair Agent 闭环 |
+| [plans/phase15-pdf-themes.md](./plans/phase15-pdf-themes.md) | Phase 15：PDF 发布样式主题与多套专业印刷排版模板 |

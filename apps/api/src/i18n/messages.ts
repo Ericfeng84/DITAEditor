@@ -212,6 +212,35 @@ export const apiMessagesZh = {
   'publish.themeAssetsMissing': '未找到 HTML 主题资源，请检查 dita-ot-plugins/html5-themes 或 DITAEDITOR_HTML_THEMES_DIR',
   'publish.themeEnhanceFailed': 'HTML 主题增强失败：{message}',
   'publish.themePreviewFailed': '主题预览渲染失败',
+  'publish.pdfTheme.tech-manual.name': '技术手册',
+  'publish.pdfTheme.tech-manual.description':
+    'A4 版面，强调色封面与左侧色条提示框，适合产品与技术文档。',
+  'publish.pdfTheme.enterprise-spec.name': '企业规范',
+  'publish.pdfTheme.enterprise-spec.description':
+    '深蓝品牌色封面、全框线表格与章节编号，适合规范与设计文档。',
+  'publish.pdfTheme.editorial-book.name': '编辑书排',
+  'publish.pdfTheme.editorial-book.description':
+    '衬线正文、居中书名页与三线表，适合长篇手册与阅读型文档。',
+  'publish.pdfTheme.compact-guide.name': '紧凑指南',
+  'publish.pdfTheme.compact-guide.description':
+    '9pt 正文与窄页边距，双面镜像排版，适合快速参考与打印。',
+  'publish.pdfTheme.vanilla.name': '原生输出',
+  'publish.pdfTheme.vanilla.description': 'DITA-OT 默认 PDF 输出，仅包含中文字体映射。',
+  'publish.pdfThemeTag.default': '默认',
+  'publish.pdfThemeTag.modern': '现代',
+  'publish.pdfThemeTag.docs': '文档',
+  'publish.pdfThemeTag.spec': '规范',
+  'publish.pdfThemeTag.dense': '紧凑',
+  'publish.pdfThemeTag.print': '印刷',
+  'publish.pdfThemeTag.book': '书排',
+  'publish.pdfThemeTag.serif': '衬线',
+  'publish.pdfThemeTag.compact': '窄边距',
+  'publish.pdfThemeTag.printer': '省墨',
+  'publish.pdfThemeTag.native': '原生',
+  'publish.pdfThemeNotFound': 'PDF 主题不存在：{id}',
+  'publish.pdfThemeAssetsMissing': '未找到 PDF 主题资源（{asset}），请检查 dita-ot-plugins/pdf-themes',
+  'publish.pdfThemeBuildFailed': 'PDF 主题构建失败：{message}',
+  'publish.pdfLogoUnsupported': 'PDF 封面 Logo 仅支持 PNG、JPG 或 SVG，且不超过 2 MB',
 
   // Phase 13 — baseline + personal draft overlay
   'git.branchNotFound': '分支不存在：{branch}',
@@ -476,6 +505,37 @@ export const apiMessagesEn: Record<ApiMessageKey, string> = {
     'HTML theme assets are missing; check dita-ot-plugins/html5-themes or DITAEDITOR_HTML_THEMES_DIR',
   'publish.themeEnhanceFailed': 'HTML theme enhancement failed: {message}',
   'publish.themePreviewFailed': 'Failed to render the theme preview',
+  'publish.pdfTheme.tech-manual.name': 'Tech Manual',
+  'publish.pdfTheme.tech-manual.description':
+    'A4 pages, accent cover rule and left-bar notes for product and technical documentation.',
+  'publish.pdfTheme.enterprise-spec.name': 'Enterprise Spec',
+  'publish.pdfTheme.enterprise-spec.description':
+    'Navy brand band, fully ruled tables and chapter numbering for specifications.',
+  'publish.pdfTheme.editorial-book.name': 'Editorial Book',
+  'publish.pdfTheme.editorial-book.description':
+    'Serif body text, centered title page and three-line tables for long-form reading.',
+  'publish.pdfTheme.compact-guide.name': 'Compact Guide',
+  'publish.pdfTheme.compact-guide.description':
+    '9pt body text, narrow margins and mirrored duplex layout for quick reference.',
+  'publish.pdfTheme.vanilla.name': 'Native Output',
+  'publish.pdfTheme.vanilla.description':
+    'DITA-OT default PDF output with the CJK font mappings only.',
+  'publish.pdfThemeTag.default': 'Default',
+  'publish.pdfThemeTag.modern': 'Modern',
+  'publish.pdfThemeTag.docs': 'Docs',
+  'publish.pdfThemeTag.spec': 'Spec',
+  'publish.pdfThemeTag.dense': 'Dense',
+  'publish.pdfThemeTag.print': 'Print',
+  'publish.pdfThemeTag.book': 'Book',
+  'publish.pdfThemeTag.serif': 'Serif',
+  'publish.pdfThemeTag.compact': 'Compact',
+  'publish.pdfThemeTag.printer': 'Printer friendly',
+  'publish.pdfThemeTag.native': 'Native',
+  'publish.pdfThemeNotFound': 'PDF theme not found: {id}',
+  'publish.pdfThemeAssetsMissing':
+    'PDF theme assets not found ({asset}); check dita-ot-plugins/pdf-themes',
+  'publish.pdfThemeBuildFailed': 'PDF theme build failed: {message}',
+  'publish.pdfLogoUnsupported': 'PDF cover logos must be PNG, JPG or SVG and under 2 MB',
 
   // Phase 13 — baseline + personal draft overlay
   'git.branchNotFound': 'Branch not found: {branch}',

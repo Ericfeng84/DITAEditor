@@ -172,6 +172,8 @@ CREATE TABLE IF NOT EXISTS manual_publish_profiles (
   manual_id TEXT PRIMARY KEY NOT NULL,
   html_theme_id TEXT NOT NULL DEFAULT 'tech-docs',
   html_theme_options_json TEXT NOT NULL DEFAULT '{}',
+  pdf_theme_id TEXT NOT NULL DEFAULT 'tech-manual',
+  pdf_theme_options_json TEXT NOT NULL DEFAULT '{}',
   updated_by TEXT,
   updated_at TEXT NOT NULL
 );
@@ -307,6 +309,29 @@ function migrateManuals(sqlite: Database.Database): void {
 }
 
 /**
+ * Phase 15: PDF theme columns on the per-manual publish profile. Installations created before
+ * PDF theming shipped only carry the HTML5 columns, so add the PDF pair in place; the defaults
+ * (`tech-manual` + `{}`) reproduce the pre-Phase-15 PDF output.
+ */
+function migrateManualPublishProfiles(sqlite: Database.Database): void {
+  const columns = new Set(
+    (
+      sqlite.prepare('PRAGMA table_info(manual_publish_profiles)').all() as Array<{
+        name: string;
+      }>
+    ).map((column) => column.name),
+  );
+  const additions: Array<{ name: string; ddl: string }> = [
+    { name: 'pdf_theme_id', ddl: "pdf_theme_id TEXT NOT NULL DEFAULT 'tech-manual'" },
+    { name: 'pdf_theme_options_json', ddl: "pdf_theme_options_json TEXT NOT NULL DEFAULT '{}'" },
+  ];
+  for (const addition of additions) {
+    if (columns.has(addition.name)) continue;
+    sqlite.exec(`ALTER TABLE manual_publish_profiles ADD COLUMN ${addition.ddl}`);
+  }
+}
+
+/**
  * Opens (and migrates) the local SQLite database. `:memory:` is supported for tests.
  */
 export function openDatabase(dbPath: string): DitaDatabaseHandle {
@@ -319,6 +344,7 @@ export function openDatabase(dbPath: string): DitaDatabaseHandle {
   sqlite.exec(DDL);
   migratePublishJobs(sqlite);
   migrateManuals(sqlite);
+  migrateManualPublishProfiles(sqlite);
 
   const db = drizzle(sqlite, { schema });
   return {

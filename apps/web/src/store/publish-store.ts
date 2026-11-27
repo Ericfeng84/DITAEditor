@@ -3,6 +3,7 @@ import {
   cancelPublishJob,
   createPublishJob,
   fetchHtmlThemes,
+  fetchPdfThemes,
   fetchPublishJob,
   fetchPublishJobs,
   fetchPublishProfile,
@@ -14,6 +15,9 @@ import {
   type HtmlThemeId,
   type HtmlThemeOptions,
   type ManualPublishProfile,
+  type PdfThemeDescriptor,
+  type PdfThemeId,
+  type PdfThemeOptions,
   type PublishJob,
   type PublishRuntimeInfo,
   type StrictValidationInput,
@@ -30,6 +34,9 @@ export interface PublishState {
   themes: HtmlThemeDescriptor[];
   themesStatus: PublishLoadStatus;
   themesError: string | null;
+  pdfThemes: PdfThemeDescriptor[];
+  pdfThemesStatus: PublishLoadStatus;
+  pdfThemesError: string | null;
   profile: ManualPublishProfile | null;
   profileStatus: PublishLoadStatus;
   profileError: string | null;
@@ -48,10 +55,15 @@ export interface PublishState {
   strictTargets: string[];
   loadRuntime: () => Promise<void>;
   loadThemes: () => Promise<void>;
+  loadPdfThemes: () => Promise<void>;
   loadProfile: () => Promise<void>;
   saveProfile: (
     themeId: HtmlThemeId,
     themeOptions: HtmlThemeOptions,
+  ) => Promise<ManualPublishProfile | null>;
+  savePdfProfile: (
+    pdfThemeId: PdfThemeId,
+    pdfThemeOptions: PdfThemeOptions,
   ) => Promise<ManualPublishProfile | null>;
   loadJobs: () => Promise<void>;
   createJob: (input: CreatePublishJobInput) => Promise<PublishJob | null>;
@@ -74,6 +86,9 @@ export const usePublishStore = create<PublishState>((set, get) => ({
   themes: [],
   themesStatus: 'idle',
   themesError: null,
+  pdfThemes: [],
+  pdfThemesStatus: 'idle',
+  pdfThemesError: null,
   profile: null,
   profileStatus: 'idle',
   profileError: null,
@@ -111,6 +126,16 @@ export const usePublishStore = create<PublishState>((set, get) => ({
     }
   },
 
+  loadPdfThemes: async () => {
+    set({ pdfThemesStatus: 'loading', pdfThemesError: null });
+    try {
+      const pdfThemes = await fetchPdfThemes();
+      set({ pdfThemes, pdfThemesStatus: 'ready' });
+    } catch (error) {
+      set({ pdfThemesStatus: 'error', pdfThemesError: messageOf(error) });
+    }
+  },
+
   loadProfile: async () => {
     set({ profileStatus: 'loading', profileError: null });
     try {
@@ -125,6 +150,18 @@ export const usePublishStore = create<PublishState>((set, get) => ({
     set({ savingProfile: true, profileSaveError: null, profileSaved: false });
     try {
       const profile = await savePublishProfile({ themeId, themeOptions });
+      set({ profile, profileStatus: 'ready', savingProfile: false, profileSaved: true });
+      return profile;
+    } catch (error) {
+      set({ savingProfile: false, profileSaveError: messageOf(error) });
+      return null;
+    }
+  },
+
+  savePdfProfile: async (pdfThemeId, pdfThemeOptions) => {
+    set({ savingProfile: true, profileSaveError: null, profileSaved: false });
+    try {
+      const profile = await savePublishProfile({ pdfThemeId, pdfThemeOptions });
       set({ profile, profileStatus: 'ready', savingProfile: false, profileSaved: true });
       return profile;
     } catch (error) {
@@ -162,6 +199,9 @@ export const usePublishStore = create<PublishState>((set, get) => ({
       // The create request also persists the manual default; refresh so the "default theme"
       // badge follows without a reload.
       if (input.saveAsDefault && input.themeId && input.themeId !== 'vanilla') {
+        void get().loadProfile();
+      }
+      if (input.saveAsDefault && input.pdfThemeId && input.pdfThemeId !== 'vanilla') {
         void get().loadProfile();
       }
       return job;

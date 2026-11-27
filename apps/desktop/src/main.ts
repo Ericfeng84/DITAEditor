@@ -215,6 +215,7 @@ async function startEmbeddedServer(): Promise<string> {
     // Shared by reference: `dita:update-preferences` mutates this object in place.
     ditaRuntime: ditaRuntimeOptions,
     htmlThemesDir: paths.htmlThemesDir,
+    pdfThemesDir: paths.pdfThemesDir,
     logger: !app.isPackaged,
   });
 

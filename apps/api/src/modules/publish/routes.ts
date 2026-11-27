@@ -28,8 +28,31 @@ import {
   type HtmlThemeId,
   type HtmlThemeOptions,
 } from './html-themes.js';
+import type { PdfThemeId } from './pdf-themes.js';
+import {
+  PDF_FONT_FAMILIES,
+  PDF_FONT_SIZES,
+  PDF_MARGINS,
+  PDF_PAGE_SIZES,
+  PDF_THEME_OPTION_LIMITS,
+  getPdfTheme,
+  listPdfThemes,
+  pdfThemeIdSchema,
+  pdfThemeOptionsSchema,
+  type PdfFontFamily,
+  type PdfFontSize,
+  type PdfMargins,
+  type PdfPageSize,
+  type PdfThemeFeatures,
+  type PdfThemeOptions,
+} from './pdf-themes.js';
+import { PdfThemePreviewError, renderPdfThemePreview } from './pdf-theme-preview.js';
 import { HtmlThemePreviewError, renderHtmlThemePreview } from './theme-preview.js';
-import { mergeThemeOptions, type PublishProfileService } from './publish-profiles.js';
+import {
+  mergePdfThemeOptions,
+  mergeThemeOptions,
+  type PublishProfileService,
+} from './publish-profiles.js';
 
 const createJobSchema = z.object({
   rootMap: z.string().min(1),
@@ -38,16 +61,31 @@ const createJobSchema = z.object({
   title: z.string().trim().max(120).optional(),
   themeId: htmlThemeIdSchema.optional(),
   htmlThemeOptions: htmlThemeOptionsSchema.optional(),
+  /** Phase 15 PDF style theme; ignored for HTML5 jobs. */
+  pdfThemeId: pdfThemeIdSchema.optional(),
+  pdfThemeOptions: pdfThemeOptionsSchema.optional(),
   saveAsDefault: z.boolean().optional(),
   /** Phase 13: `tag` / `commit` publish a historical baseline, `my_drafts` only the caller's drafts. */
   sourceMode: z.enum(['baseline', 'tag', 'commit', 'my_drafts']).optional(),
   sourceRef: z.string().trim().min(1).max(200).nullable().optional(),
 });
 
-const saveProfileSchema = z.object({
-  themeId: htmlThemeIdSchema,
-  themeOptions: htmlThemeOptionsSchema.optional(),
-});
+/**
+ * `PUT /api/publish/profile` updates whichever side the caller sends. Only the supplied side is
+ * written, so a PDF-only request can never reset the HTML5 theme (and vice versa). Both sides
+ * are optional in the schema: "at least one of `themeId` / `pdfThemeId`" is checked in the
+ * handler so the error can be localized.
+ */
+const saveProfileSchema = z
+  .object({
+    themeId: htmlThemeIdSchema.optional(),
+    themeOptions: htmlThemeOptionsSchema.optional(),
+    pdfThemeId: pdfThemeIdSchema.optional(),
+    pdfThemeOptions: pdfThemeOptionsSchema.optional(),
+  })
+  .refine((value) => value.themeId !== undefined || value.pdfThemeId !== undefined, {
+    message: 'themeId or pdfThemeId is required',
+  });
 
 export interface PublishRouteOptions extends LockRouteOptions {
   publish: PublishService;
@@ -164,6 +202,56 @@ function previewOptions(query: Record<string, unknown>): HtmlThemeOptions {
   return options;
 }
 
+const PDF_PREVIEW_FEATURE_KEYS = [
+  'showCover',
+  'showToc',
+  'chapterNumbers',
+  'taskLabels',
+  'mirrorMargins',
+] as const;
+
+function previewEnum<T extends string>(raw: unknown, allowed: readonly T[]): T | undefined {
+  return typeof raw === 'string' && (allowed as readonly string[]).includes(raw)
+    ? (raw as T)
+    : undefined;
+}
+
+/**
+ * Query-string PDF theme options for the preview route. Unknown values fall back to the theme
+ * defaults; only a malformed accent colour is rejected (it would silently render grey).
+ */
+function pdfPreviewOptions(query: Record<string, unknown>): PdfThemeOptions {
+  const options: PdfThemeOptions = {};
+  const accent = typeof query.accent === 'string' ? query.accent.trim() : '';
+  if (accent) {
+    if (!isValidAccent(accent)) {
+      throw httpError(400, 'publish.invalidThemeOptions', undefined, { accent });
+    }
+    options.accentColor = accent.startsWith('#') ? accent.toLowerCase() : `#${accent.toLowerCase()}`;
+  }
+  const pageSize: PdfPageSize | undefined = previewEnum(query.pageSize, PDF_PAGE_SIZES);
+  if (pageSize) options.pageSize = pageSize;
+  const fontFamily: PdfFontFamily | undefined = previewEnum(query.fontFamily, PDF_FONT_FAMILIES);
+  if (fontFamily) options.fontFamily = fontFamily;
+  const fontSize: PdfFontSize | undefined = previewEnum(query.fontSize, PDF_FONT_SIZES);
+  if (fontSize) options.fontSize = fontSize;
+  const margins: PdfMargins | undefined = previewEnum(query.margins, PDF_MARGINS);
+  if (margins) options.margins = margins;
+  const coverSubtitle = previewText(query.coverSubtitle, PDF_THEME_OPTION_LIMITS.coverSubtitle);
+  if (coverSubtitle) options.coverSubtitle = coverSubtitle;
+  const headerText = previewText(query.headerText, PDF_THEME_OPTION_LIMITS.headerText);
+  if (headerText) options.headerText = headerText;
+  const footerText = previewText(query.footerText, PDF_THEME_OPTION_LIMITS.footerText);
+  if (footerText) options.footerText = footerText;
+  const features: Partial<PdfThemeFeatures> = {};
+  for (const key of PDF_PREVIEW_FEATURE_KEYS) {
+    const flag = previewFlag(query[key]);
+    if (flag !== undefined) features[key] = flag;
+  }
+  if (Object.keys(features).length > 0) options.features = features;
+  return options;
+}
+
 async function isFileOnDisk(absPath: string): Promise<boolean> {
   try {
     const info = await stat(absPath);
@@ -273,6 +361,55 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
     }
   });
 
+  app.get('/api/publish/pdf-themes', async (req, reply) => {
+    try {
+      const scope = await resolvePhase4Scope(req, options);
+      options.identity.requireRole(scope.user, ['admin', 'writer', 'viewer']);
+      // Descriptors are localized, so the response must not be reused across locales.
+      reply.header('cache-control', 'no-cache');
+      reply.header('vary', 'x-dita-locale');
+      return { themes: listPdfThemes(resolveRequestLocale(req)) };
+    } catch (err) {
+      return handlePhase4Error(err, req, reply);
+    }
+  });
+
+  app.get('/api/publish/pdf-themes/:id/preview', async (req, reply) => {
+    try {
+      await resolvePhase4Scope(req, options);
+      const { id } = req.params as { id: string };
+      const descriptor = getPdfTheme(resolveRequestLocale(req), id);
+      if (!descriptor) {
+        throw httpError(404, 'publish.pdfThemeNotFound', { id });
+      }
+      const query = (req.query ?? {}) as Record<string, unknown>;
+      const requested = typeof query.locale === 'string' ? query.locale : '';
+      const locale = requested === 'zh-CN' || requested === 'en' ? requested : resolveRequestLocale(req);
+      // Resolve the query options before the render try-block: a malformed accent must surface
+      // as 400 `publish.invalidThemeOptions`, not as a generic preview failure.
+      const previewThemeOptions = pdfPreviewOptions(query);
+      let html: string;
+      try {
+        html = renderPdfThemePreview({
+          themeId: descriptor.id,
+          options: previewThemeOptions,
+          locale,
+        });
+      } catch (err) {
+        if (err instanceof PdfThemePreviewError) {
+          throw httpError(404, 'publish.pdfThemeNotFound', { id });
+        }
+        const reason = err instanceof Error ? err.message : String(err);
+        throw httpError(500, 'publish.themePreviewFailed', undefined, { reason });
+      }
+      reply.header('cache-control', 'no-store');
+      reply.type('text/html; charset=utf-8');
+      return reply.send(html);
+    } catch (err) {
+      return handlePhase4Error(err, req, reply);
+    }
+  });
+
   app.get('/api/publish/profile', async (req, reply) => {
     try {
       const scope = await resolvePhase4Scope(req, options);
@@ -292,11 +429,20 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
     try {
       const scope = await resolvePhase4Scope(req, options);
       requirePublisher(scope.user);
-      const themeId = parsed.data.themeId;
       const profile = options.profiles.save(
         profileManualId(scope),
-        themeId,
-        themeId === 'vanilla' ? {} : parsed.data.themeOptions,
+        {
+          ...(parsed.data.themeId !== undefined ? { themeId: parsed.data.themeId } : {}),
+          ...(parsed.data.themeOptions !== undefined
+            ? { themeOptions: parsed.data.themeOptions }
+            : {}),
+          ...(parsed.data.pdfThemeId !== undefined
+            ? { pdfThemeId: parsed.data.pdfThemeId }
+            : {}),
+          ...(parsed.data.pdfThemeOptions !== undefined
+            ? { pdfThemeOptions: parsed.data.pdfThemeOptions }
+            : {}),
+        },
         scope.user.id,
       );
       return { profile };
@@ -389,6 +535,8 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
       const manualId = profileManualId(scope);
       let themeId: HtmlThemeId | null = null;
       let themeOptions: HtmlThemeOptions = {};
+      let pdfThemeId: PdfThemeId | null = null;
+      let pdfThemeOptions: PdfThemeOptions = {};
       if (parsed.data.format === 'html5') {
         const profile = options.profiles.get(manualId);
         themeId = parsed.data.themeId ?? profile.htmlThemeId;
@@ -397,7 +545,26 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
             ? {}
             : mergeThemeOptions(profile.htmlThemeOptions, parsed.data.htmlThemeOptions);
         if (parsed.data.saveAsDefault && themeId !== 'vanilla') {
-          options.profiles.save(manualId, themeId, themeOptions, scope.user.id);
+          options.profiles.save(manualId, { themeId, themeOptions }, scope.user.id);
+        }
+      } else {
+        const profile = options.profiles.get(manualId);
+        pdfThemeId = parsed.data.pdfThemeId ?? profile.pdfThemeId;
+        pdfThemeOptions =
+          pdfThemeId === 'vanilla'
+            ? {}
+            : mergePdfThemeOptions(
+                pdfThemeId,
+                profile.pdfThemeOptions,
+                parsed.data.pdfThemeOptions,
+              );
+        // `vanilla` is "no theme", so it is never persisted as a manual default.
+        if (parsed.data.saveAsDefault && pdfThemeId !== 'vanilla') {
+          options.profiles.save(
+            manualId,
+            { pdfThemeId, pdfThemeOptions },
+            scope.user.id,
+          );
         }
       }
       const job = await options.publish.createJob({
@@ -414,6 +581,7 @@ export function registerPublishRoutes(app: FastifyInstance, options: PublishRout
         sourceRef,
         projectRootDir,
         ...(themeId ? { themeId, themeOptions } : {}),
+        ...(pdfThemeId ? { pdfThemeId, pdfThemeOptions } : {}),
       });
       return reply.status(202).send({ job });
     } catch (err) {

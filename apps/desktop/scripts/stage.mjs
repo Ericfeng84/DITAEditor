@@ -24,6 +24,8 @@ const requiredPaths = [
   path.join(REPO_ROOT, 'apps', 'web', 'dist', 'index.html'),
   path.join(REPO_ROOT, 'samples', 'demo-dita-project'),
   path.join(REPO_ROOT, 'dita-ot-plugins', 'com.ditaeditor.pdf-cjk', 'plugin.xml'),
+  path.join(REPO_ROOT, 'dita-ot-plugins', 'html5-themes', 'shared', 'theme-base.css'),
+  path.join(REPO_ROOT, 'dita-ot-plugins', 'pdf-themes', 'shared', 'attrs-base.xsl'),
 ];
 for (const required of requiredPaths) {
   if (!existsSync(required)) {

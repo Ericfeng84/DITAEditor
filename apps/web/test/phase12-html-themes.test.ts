@@ -72,6 +72,9 @@ function makeProfile(overrides: Partial<ManualPublishProfile> = {}): ManualPubli
     manualId: 'manual-1',
     htmlThemeId: 'tech-docs',
     htmlThemeOptions: {},
+    // Phase 15 added the PDF pair to the profile; the HTML5 rules are unaffected by it.
+    pdfThemeId: 'tech-manual',
+    pdfThemeOptions: {},
     updatedBy: null,
     updatedAt: null,
     ...overrides,

@@ -1,6 +1,6 @@
 import { useRef, useState } from 'react';
 import type { KeyboardEvent } from 'react';
-import { Check, ChevronDown, Image, Loader2, Palette, RotateCcw, Sparkles } from 'lucide-react';
+import { Check, Image, LayoutGrid, Loader2, Palette, RotateCcw, Sparkles } from 'lucide-react';
 import { useI18n } from '../../i18n/index.js';
 import type { MessageKey } from '../../i18n/messages/index.js';
 import type { PublishLoadStatus } from '../../store/publish-store';
@@ -41,6 +41,15 @@ const FEATURE_ROWS: ReadonlyArray<{
     hintKey: 'publish.theme.feature.colorModeToggleHint',
   },
 ];
+
+type SelectorTab = 'templates' | 'customize';
+
+const TAB_ORDER: readonly SelectorTab[] = ['templates', 'customize'];
+
+const TAB_BASE = 'border-b-2 px-2.5 py-1.5 text-[11px] font-semibold transition';
+const TAB_ACTIVE = 'border-blue-600 text-blue-700';
+const TAB_IDLE = 'border-transparent text-slate-600 hover:border-slate-300 hover:text-slate-900';
+const TAB_DISABLED = 'cursor-not-allowed border-transparent text-slate-400 opacity-60';
 
 export interface HtmlThemeSelectorProps {
   descriptors: HtmlThemeDescriptor[];
@@ -113,28 +122,21 @@ export function HtmlThemeSelector({
   saveError,
 }: HtmlThemeSelectorProps) {
   const { t } = useI18n();
-  const [brandOpen, setBrandOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<SelectorTab>('templates');
   const cardRefs = useRef<Array<HTMLButtonElement | null>>([]);
-  const brandPanelRef = useRef<HTMLDivElement | null>(null);
-
-  const toggleBrandPanel = () => {
-    const next = !brandOpen;
-    setBrandOpen(next);
-    if (next) {
-      // The theme area is a capped scroller inside the dialog; keep newly revealed fields visible.
-      requestAnimationFrame(() => {
-        brandPanelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-      });
-    }
-  };
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   const selected = descriptors.find((descriptor) => descriptor.id === draft.themeId) ?? null;
   const customizable = selected?.supportsCustomization ?? false;
+  // `vanilla` (or any other non-customizable theme) has no brand panel, so the tab list falls back
+  // to the templates tab instead of parking the user on a disabled tab.
+  const currentTab: SelectorTab = !customizable && activeTab === 'customize' ? 'templates' : activeTab;
   const logoSources = collectThemeAssetPaths(files, 'logo');
   const cssSources = collectThemeAssetPaths(files, 'css');
 
   const select = (descriptor: HtmlThemeDescriptor) => {
     if (disabled || descriptor.id === draft.themeId) return;
+    if (!descriptor.supportsCustomization) setActiveTab('templates');
     onChange({ ...draft, themeId: descriptor.id, mode: descriptor.defaultMode });
   };
 
@@ -143,6 +145,7 @@ export function HtmlThemeSelector({
     const next = (index + delta + descriptors.length) % descriptors.length;
     const descriptor = descriptors[next];
     if (!descriptor) return;
+    if (!descriptor.supportsCustomization) setActiveTab('templates');
     onChange({ ...draft, themeId: descriptor.id, mode: descriptor.defaultMode });
     cardRefs.current[next]?.focus();
   };
@@ -167,6 +170,36 @@ export function HtmlThemeSelector({
       if (descriptor) select(descriptor);
     }
   };
+
+  const moveTab = (index: number, delta: number) => {
+    const next = (index + delta + TAB_ORDER.length) % TAB_ORDER.length;
+    const tab = TAB_ORDER[next];
+    if (!tab) return;
+    if (tab === 'customize' && !customizable) return;
+    setActiveTab(tab);
+    tabRefs.current[next]?.focus();
+  };
+
+  const onTabKeyDown =
+    (index: number) => (event: KeyboardEvent<HTMLButtonElement>) => {
+      if (event.key === 'ArrowRight' || event.key === 'ArrowDown') {
+        event.preventDefault();
+        moveTab(index, 1);
+      } else if (event.key === 'ArrowLeft' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        moveTab(index, -1);
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        setActiveTab('templates');
+        tabRefs.current[0]?.focus();
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        if (customizable) {
+          setActiveTab('customize');
+          tabRefs.current[1]?.focus();
+        }
+      }
+    };
 
   const patch = (changes: Partial<ThemeDraft>) => onChange({ ...draft, ...changes });
 
@@ -199,299 +232,353 @@ export function HtmlThemeSelector({
   return (
     <div className={disabled ? 'pointer-events-none opacity-60' : undefined}>
       <div
-        role="radiogroup"
-        aria-label={t('publish.theme.groupAria')}
-        aria-disabled={disabled}
-        className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-3"
+        role="tablist"
+        aria-label={t('publish.theme.tabsAria')}
+        className="sticky top-0 z-10 mb-2 flex items-center gap-1 border-b border-slate-200 bg-white pt-0.5"
       >
-        {descriptors.map((descriptor, index) => {
-          const isSelected = descriptor.id === draft.themeId;
-          const isDefault = descriptor.id === defaultThemeId;
-          return (
-            <button
-              key={descriptor.id}
-              ref={(node) => {
-                cardRefs.current[index] = node;
-              }}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              aria-label={t('publish.theme.cardAria', { name: descriptor.name })}
-              tabIndex={isSelected ? 0 : -1}
-              disabled={disabled}
-              onClick={() => select(descriptor)}
-              onKeyDown={onCardKeyDown(index)}
-              className={`relative flex flex-col gap-1.5 rounded-lg border bg-white p-2 text-left transition ${
-                isSelected
-                  ? 'border-slate-300'
-                  : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
-              }`}
-              style={
-                isSelected
-                  ? {
-                      borderColor: draft.accentColor,
-                      boxShadow: `0 0 0 1px ${draft.accentColor} inset`,
-                    }
-                  : undefined
-              }
-            >
-              {isSelected ? (
-                <span
-                  className="absolute right-1.5 top-1.5 z-10 inline-flex h-4 w-4 items-center justify-center rounded-full text-white shadow"
-                  style={{ backgroundColor: draft.accentColor }}
-                  aria-hidden="true"
-                >
-                  <Check className="h-2.5 w-2.5" />
-                </span>
-              ) : null}
-              <ThemeThumbnail descriptor={descriptor} />
-              <div className="flex min-w-0 items-center gap-1">
-                <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800">
-                  {descriptor.name}
-                </span>
-                {isDefault ? (
-                  <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
-                    {t('publish.theme.defaultBadge')}
-                  </span>
-                ) : null}
-              </div>
-              <p className="truncate text-[10.5px] text-slate-500" title={descriptor.description}>
-                {descriptor.description}
-              </p>
-              <div className="flex flex-wrap items-center gap-1">
-                <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
-                  {descriptor.defaultMode === 'dark'
-                    ? t('publish.theme.mode.dark')
-                    : t('publish.theme.mode.light')}
-                </span>
-                {descriptor.tags.map((tag) => (
-                  <span
-                    key={tag}
-                    className="rounded bg-slate-50 px-1.5 py-0.5 text-[9px] text-slate-500"
-                  >
-                    {tag}
-                  </span>
-                ))}
-                {!descriptor.supportsCustomization ? (
-                  <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] text-amber-700">
-                    DITA-OT
-                  </span>
-                ) : null}
-              </div>
-            </button>
-          );
-        })}
+        <button
+          ref={(node) => {
+            tabRefs.current[0] = node;
+          }}
+          type="button"
+          role="tab"
+          id="html-theme-tab-templates"
+          aria-selected={currentTab === 'templates'}
+          aria-controls="html-theme-panel-templates"
+          tabIndex={currentTab === 'templates' ? 0 : -1}
+          onClick={() => setActiveTab('templates')}
+          onKeyDown={onTabKeyDown(0)}
+          className={`${TAB_BASE} ${
+            currentTab === 'templates' ? TAB_ACTIVE : TAB_IDLE
+          } inline-flex items-center gap-1`}
+        >
+          <LayoutGrid className="h-3 w-3" aria-hidden="true" />
+          {t('publish.theme.tabTemplates')}
+          {selected ? (
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-500">
+              {selected.name}
+            </span>
+          ) : null}
+        </button>
+        <button
+          ref={(node) => {
+            tabRefs.current[1] = node;
+          }}
+          type="button"
+          role="tab"
+          id="html-theme-tab-customize"
+          aria-selected={currentTab === 'customize'}
+          aria-controls="html-theme-panel-customize"
+          aria-disabled={!customizable}
+          disabled={!customizable}
+          title={!customizable ? t('publish.theme.vanillaHint') : undefined}
+          tabIndex={currentTab === 'customize' ? 0 : -1}
+          onClick={() => setActiveTab('customize')}
+          onKeyDown={onTabKeyDown(1)}
+          className={`${TAB_BASE} ${
+            !customizable
+              ? TAB_DISABLED
+              : currentTab === 'customize'
+                ? TAB_ACTIVE
+                : TAB_IDLE
+          } inline-flex items-center gap-1`}
+        >
+          <Palette className="h-3 w-3" aria-hidden="true" />
+          {t('publish.theme.brandTitle')}
+          {customizable ? (
+            <>
+              <span
+                className="h-2 w-2 rounded-full border border-slate-200"
+                style={{ backgroundColor: draft.accentColor }}
+                aria-hidden="true"
+              />
+              <span className="font-mono text-[10px] font-normal text-slate-400">
+                {draft.accentColor}
+              </span>
+            </>
+          ) : null}
+        </button>
       </div>
 
-      {!customizable ? (
-        <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10.5px] text-slate-500">
-          {t('publish.theme.vanillaHint')}
-        </p>
-      ) : (
-        <div className="mt-2 rounded-md border border-slate-200">
-          <button
-            type="button"
-            aria-expanded={brandOpen}
-            onClick={toggleBrandPanel}
-            className="flex w-full items-center gap-1.5 px-2.5 py-1.5 text-left text-[11px] font-semibold text-slate-700 hover:bg-slate-50"
+      {currentTab === 'templates' ? (
+        <div id="html-theme-panel-templates" role="tabpanel" aria-labelledby="html-theme-tab-templates">
+          <div
+            role="radiogroup"
+            aria-label={t('publish.theme.groupAria')}
+            aria-disabled={disabled}
+            className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-3"
           >
-            <Palette className="h-3 w-3 text-slate-500" aria-hidden="true" />
-            {t('publish.theme.brandTitle')}
-            <span className="ml-auto text-[10px] font-normal text-slate-400">
-              {draft.accentColor}
-            </span>
-            <ChevronDown
-              className={`h-3 w-3 text-slate-400 transition-transform ${brandOpen ? 'rotate-180' : ''}`}
-              aria-hidden="true"
-            />
-          </button>
-          {brandOpen ? (
-            <div ref={brandPanelRef} className="border-t border-slate-200 p-2.5">
-              <p className="mb-2 text-[10.5px] text-slate-500">{t('publish.theme.brandHint')}</p>
-              <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
-                <div className="min-w-0">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    {t('publish.theme.accentLabel')}
-                  </span>
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <input
-                      type="color"
-                      value={draft.accentColor}
-                      onChange={(event) =>
-                        patch({ accentColor: normalizeAccentColor(event.target.value, draft.accentColor) })
-                      }
-                      className="h-7 w-9 cursor-pointer rounded border border-slate-300 bg-white p-0.5"
-                      aria-label={t('publish.theme.accentLabel')}
-                    />
-                    <span className="font-mono text-[10.5px] text-slate-600">{draft.accentColor}</span>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        patch({
-                          accentColor: normalizeAccentColor(
-                            selected?.defaultAccent ?? draft.accentColor,
-                            draft.accentColor,
-                          ),
-                        })
-                      }
-                      className="dita-mini-btn bg-white px-1.5 py-0.5 text-[10px]"
-                      title={t('publish.theme.accentReset')}
+            {descriptors.map((descriptor, index) => {
+              const isSelected = descriptor.id === draft.themeId;
+              const isDefault = descriptor.id === defaultThemeId;
+              return (
+                <button
+                  key={descriptor.id}
+                  ref={(node) => {
+                    cardRefs.current[index] = node;
+                  }}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  aria-label={t('publish.theme.cardAria', { name: descriptor.name })}
+                  tabIndex={isSelected ? 0 : -1}
+                  disabled={disabled}
+                  onClick={() => select(descriptor)}
+                  onKeyDown={onCardKeyDown(index)}
+                  className={`relative flex flex-col gap-1.5 rounded-lg border bg-white p-2 text-left transition ${
+                    isSelected
+                      ? 'border-slate-300'
+                      : 'border-slate-200 hover:border-slate-300 hover:bg-slate-50/60'
+                  }`}
+                  style={
+                    isSelected
+                      ? {
+                          borderColor: draft.accentColor,
+                          boxShadow: `0 0 0 1px ${draft.accentColor} inset`,
+                        }
+                      : undefined
+                  }
+                >
+                  {isSelected ? (
+                    <span
+                      className="absolute right-1.5 top-1.5 z-10 inline-flex h-4 w-4 items-center justify-center rounded-full text-white shadow"
+                      style={{ backgroundColor: draft.accentColor }}
+                      aria-hidden="true"
                     >
-                      <RotateCcw className="h-2.5 w-2.5" aria-hidden="true" />
-                      {t('publish.theme.accentReset')}
-                    </button>
-                  </div>
-                  <div className="mt-1.5 flex items-center gap-1" aria-label={t('publish.theme.accentPresets')}>
-                    {ACCENT_PRESETS.map((preset) => (
-                      <button
-                        key={preset}
-                        type="button"
-                        onClick={() => patch({ accentColor: preset })}
-                        className={`h-4 w-4 rounded-full border ${
-                          draft.accentColor === preset ? 'border-slate-700' : 'border-slate-200'
-                        }`}
-                        style={{ backgroundColor: preset }}
-                        aria-label={preset}
-                        title={preset}
-                      />
-                    ))}
-                  </div>
-                </div>
-
-                <label className="min-w-0">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    {t('publish.theme.siteTitleLabel')}
-                  </span>
-                  <input
-                    value={draft.siteTitle}
-                    maxLength={120}
-                    onChange={(event) => patch({ siteTitle: event.target.value })}
-                    placeholder={t('publish.theme.siteTitlePlaceholder')}
-                    className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </label>
-
-                <label className="min-w-0">
-                  <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                    {t('publish.theme.footerLabel')}
-                  </span>
-                  <textarea
-                    value={draft.footerText}
-                    maxLength={240}
-                    rows={2}
-                    onChange={(event) => patch({ footerText: event.target.value })}
-                    placeholder={t('publish.theme.footerPlaceholder')}
-                    className="w-full resize-none rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
-                  />
-                </label>
-
-                <div className="grid grid-cols-1 gap-2">
-                  <label className="min-w-0">
-                    <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      <Image className="h-2.5 w-2.5" aria-hidden="true" />
-                      {t('publish.theme.logoLabel')}
+                      <Check className="h-2.5 w-2.5" />
                     </span>
-                    <select
-                      value={draft.logoPath}
-                      onChange={(event) => patch({ logoPath: event.target.value })}
-                      disabled={logoSources.length === 0}
-                      className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50 disabled:text-slate-500"
-                    >
-                      <option value="">
-                        {logoSources.length === 0
-                          ? t('publish.theme.logoEmpty')
-                          : t('publish.theme.logoNone')}
-                      </option>
-                      {logoSources.map((path) => (
-                        <option key={path} value={path}>
-                          {path}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="min-w-0">
-                    <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
-                      {t('publish.theme.cssLabel')}
+                  ) : null}
+                  <ThemeThumbnail descriptor={descriptor} />
+                  <div className="flex min-w-0 items-center gap-1">
+                    <span className="min-w-0 flex-1 truncate text-xs font-semibold text-slate-800">
+                      {descriptor.name}
                     </span>
-                    <select
-                      value={draft.customCssPath}
-                      onChange={(event) => patch({ customCssPath: event.target.value })}
-                      disabled={cssSources.length === 0}
-                      className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50 disabled:text-slate-500"
-                    >
-                      <option value="">
-                        {cssSources.length === 0
-                          ? t('publish.theme.cssEmpty')
-                          : t('publish.theme.cssNone')}
-                      </option>
-                      {cssSources.map((path) => (
-                        <option key={path} value={path}>
-                          {path}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
-              </div>
-
-              <div className="mt-2.5 grid grid-cols-1 gap-1 sm:grid-cols-2">
-                {FEATURE_ROWS.map((row) => (
-                  <label
-                    key={row.key}
-                    className="flex cursor-pointer items-start gap-1.5 rounded border border-slate-200 px-2 py-1"
-                  >
-                    <input
-                      type="checkbox"
-                      checked={draft.features[row.key]}
-                      onChange={(event) =>
-                        patch({
-                          features: { ...draft.features, [row.key]: event.target.checked },
-                        })
-                      }
-                      className="mt-0.5 h-3 w-3 rounded border-slate-300 text-blue-600"
-                    />
-                    <span className="min-w-0">
-                      <span className="block text-[10.5px] font-medium text-slate-700">
-                        {t(row.labelKey)}
+                    {isDefault ? (
+                      <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9px] font-medium text-emerald-700">
+                        {t('publish.theme.defaultBadge')}
                       </span>
-                      <span className="block text-[10px] text-slate-500">{t(row.hintKey)}</span>
+                    ) : null}
+                  </div>
+                  <p className="truncate text-[10.5px] text-slate-500" title={descriptor.description}>
+                    {descriptor.description}
+                  </p>
+                  <div className="flex flex-wrap items-center gap-1">
+                    <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9px] font-medium text-slate-600">
+                      {descriptor.defaultMode === 'dark'
+                        ? t('publish.theme.mode.dark')
+                        : t('publish.theme.mode.light')}
                     </span>
-                  </label>
+                    {descriptor.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded bg-slate-50 px-1.5 py-0.5 text-[9px] text-slate-500"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                    {!descriptor.supportsCustomization ? (
+                      <span className="rounded bg-amber-50 px-1.5 py-0.5 text-[9px] text-amber-700">
+                        DITA-OT
+                      </span>
+                    ) : null}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+
+          {!customizable ? (
+            <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-[10.5px] text-slate-500">
+              {t('publish.theme.vanillaHint')}
+            </p>
+          ) : null}
+        </div>
+      ) : (
+        <div
+          id="html-theme-panel-customize"
+          role="tabpanel"
+          aria-labelledby="html-theme-tab-customize"
+          className="rounded-md border border-slate-200 bg-white p-2.5"
+        >
+          <p className="mb-2 text-[10.5px] text-slate-500">{t('publish.theme.brandHint')}</p>
+          <div className="grid grid-cols-1 gap-2.5 md:grid-cols-2">
+            <div className="min-w-0">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {t('publish.theme.accentLabel')}
+              </span>
+              <div className="flex flex-wrap items-center gap-1.5">
+                <input
+                  type="color"
+                  value={draft.accentColor}
+                  onChange={(event) =>
+                    patch({ accentColor: normalizeAccentColor(event.target.value, draft.accentColor) })
+                  }
+                  className="h-7 w-9 cursor-pointer rounded border border-slate-300 bg-white p-0.5"
+                  aria-label={t('publish.theme.accentLabel')}
+                />
+                <span className="font-mono text-[10.5px] text-slate-600">{draft.accentColor}</span>
+                <button
+                  type="button"
+                  onClick={() =>
+                    patch({
+                      accentColor: normalizeAccentColor(
+                        selected?.defaultAccent ?? draft.accentColor,
+                        draft.accentColor,
+                      ),
+                    })
+                  }
+                  className="dita-mini-btn bg-white px-1.5 py-0.5 text-[10px]"
+                  title={t('publish.theme.accentReset')}
+                >
+                  <RotateCcw className="h-2.5 w-2.5" aria-hidden="true" />
+                  {t('publish.theme.accentReset')}
+                </button>
+              </div>
+              <div className="mt-1.5 flex items-center gap-1" aria-label={t('publish.theme.accentPresets')}>
+                {ACCENT_PRESETS.map((preset) => (
+                  <button
+                    key={preset}
+                    type="button"
+                    onClick={() => patch({ accentColor: preset })}
+                    className={`h-4 w-4 rounded-full border ${
+                      draft.accentColor === preset ? 'border-slate-700' : 'border-slate-200'
+                    }`}
+                    style={{ backgroundColor: preset }}
+                    aria-label={preset}
+                    title={preset}
+                  />
                 ))}
               </div>
-
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
-                <button
-                  type="button"
-                  onClick={onPreview}
-                  className="dita-mini-btn bg-white px-2 py-1"
-                >
-                  <Sparkles className="h-3 w-3 text-slate-500" aria-hidden="true" />
-                  {t('publish.theme.previewButton')}
-                </button>
-                <button
-                  type="button"
-                  onClick={onSaveDefault}
-                  disabled={savingDefault}
-                  className="dita-mini-btn bg-white px-2 py-1 disabled:opacity-50"
-                >
-                  {savingDefault ? (
-                    <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
-                  ) : (
-                    <Check className="h-3 w-3 text-emerald-600" aria-hidden="true" />
-                  )}
-                  {savingDefault ? t('publish.theme.saving') : t('publish.theme.saveButton')}
-                </button>
-                {saveError ? (
-                  <span className="text-[10px] text-rose-600">
-                    {t('publish.theme.saveFailed', { message: saveError })}
-                  </span>
-                ) : savedDefault ? (
-                  <span className="text-[10px] text-emerald-600">{t('publish.theme.saved')}</span>
-                ) : null}
-              </div>
             </div>
-          ) : null}
+
+            <label className="min-w-0">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {t('publish.theme.siteTitleLabel')}
+              </span>
+              <input
+                value={draft.siteTitle}
+                maxLength={120}
+                onChange={(event) => patch({ siteTitle: event.target.value })}
+                placeholder={t('publish.theme.siteTitlePlaceholder')}
+                className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+
+            <label className="min-w-0">
+              <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                {t('publish.theme.footerLabel')}
+              </span>
+              <textarea
+                value={draft.footerText}
+                maxLength={240}
+                rows={2}
+                onChange={(event) => patch({ footerText: event.target.value })}
+                placeholder={t('publish.theme.footerPlaceholder')}
+                className="w-full resize-none rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20"
+              />
+            </label>
+
+            <div className="grid grid-cols-1 gap-2">
+              <label className="min-w-0">
+                <span className="mb-1 flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  <Image className="h-2.5 w-2.5" aria-hidden="true" />
+                  {t('publish.theme.logoLabel')}
+                </span>
+                <select
+                  value={draft.logoPath}
+                  onChange={(event) => patch({ logoPath: event.target.value })}
+                  disabled={logoSources.length === 0}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50 disabled:text-slate-500"
+                >
+                  <option value="">
+                    {logoSources.length === 0
+                      ? t('publish.theme.logoEmpty')
+                      : t('publish.theme.logoNone')}
+                  </option>
+                  {logoSources.map((path) => (
+                    <option key={path} value={path}>
+                      {path}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="min-w-0">
+                <span className="mb-1 block text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                  {t('publish.theme.cssLabel')}
+                </span>
+                <select
+                  value={draft.customCssPath}
+                  onChange={(event) => patch({ customCssPath: event.target.value })}
+                  disabled={cssSources.length === 0}
+                  className="w-full rounded-md border border-slate-300 bg-white px-2 py-1 text-xs text-slate-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-500/20 disabled:bg-slate-50 disabled:text-slate-500"
+                >
+                  <option value="">
+                    {cssSources.length === 0
+                      ? t('publish.theme.cssEmpty')
+                      : t('publish.theme.cssNone')}
+                  </option>
+                  {cssSources.map((path) => (
+                    <option key={path} value={path}>
+                      {path}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div className="mt-2.5 grid grid-cols-1 gap-1 sm:grid-cols-2">
+            {FEATURE_ROWS.map((row) => (
+              <label
+                key={row.key}
+                className="flex cursor-pointer items-start gap-1.5 rounded border border-slate-200 px-2 py-1"
+              >
+                <input
+                  type="checkbox"
+                  checked={draft.features[row.key]}
+                  onChange={(event) =>
+                    patch({
+                      features: { ...draft.features, [row.key]: event.target.checked },
+                    })
+                  }
+                  className="mt-0.5 h-3 w-3 rounded border-slate-300 text-blue-600"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[10.5px] font-medium text-slate-700">
+                    {t(row.labelKey)}
+                  </span>
+                  <span className="block text-[10px] text-slate-500">{t(row.hintKey)}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2">
+            <button type="button" onClick={onPreview} className="dita-mini-btn bg-white px-2 py-1">
+              <Sparkles className="h-3 w-3 text-slate-500" aria-hidden="true" />
+              {t('publish.theme.previewButton')}
+            </button>
+            <button
+              type="button"
+              onClick={onSaveDefault}
+              disabled={savingDefault}
+              className="dita-mini-btn bg-white px-2 py-1 disabled:opacity-50"
+            >
+              {savingDefault ? (
+                <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+              ) : (
+                <Check className="h-3 w-3 text-emerald-600" aria-hidden="true" />
+              )}
+              {savingDefault ? t('publish.theme.saving') : t('publish.theme.saveButton')}
+            </button>
+            {saveError ? (
+              <span className="text-[10px] text-rose-600">
+                {t('publish.theme.saveFailed', { message: saveError })}
+              </span>
+            ) : savedDefault ? (
+              <span className="text-[10px] text-emerald-600">{t('publish.theme.saved')}</span>
+            ) : null}
+          </div>
         </div>
       )}
     </div>

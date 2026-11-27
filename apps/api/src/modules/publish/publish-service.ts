@@ -18,7 +18,7 @@ import { publishJobs, type PublishJobRow } from '../../db/schema.js';
 import type { VersionAuditService } from '../git/audit-service.js';
 import type { GitManager } from '../git/git-manager.js';
 import type { DraftService } from '../locks/draft-service.js';
-import { HttpError, httpError } from '../errors.js';
+import { HttpError, httpError, localizeErrorMessage } from '../errors.js';
 import { apiT } from '../../i18n/messages.js';
 import type { ApiLocale } from '../../i18n/locale.js';
 import type { IdentityUser } from '../identity/identity-service.js';
@@ -56,6 +56,15 @@ import {
   type HtmlThemeId,
   type HtmlThemeOptions,
 } from './html-themes.js';
+import {
+  DEFAULT_PDF_THEME_ID,
+  isPdfThemeId,
+  resolvePdfTheme,
+  resolvePdfThemeOptions,
+  type PdfThemeId,
+  type PdfThemeOptions,
+} from './pdf-themes.js';
+import { preparePdfCustomizationDir } from './pdf-customization.js';
 import { enhanceHtml5Output } from './theme-enhancer.js';
 
 export type PublishFormat = 'html5' | 'pdf';
@@ -78,6 +87,10 @@ export interface CreatePublishJobInput {
   themeId?: HtmlThemeId;
   /** Normalized portal theme options; ignored for PDF jobs. */
   themeOptions?: HtmlThemeOptions;
+  /** Phase 15: PDF style theme; ignored for HTML5 jobs. */
+  pdfThemeId?: PdfThemeId;
+  /** Phase 15: normalized PDF theme options; ignored for HTML5 jobs. */
+  pdfThemeOptions?: PdfThemeOptions;
   /** Phase 13: build source; omitted keeps the historical baseline behavior. */
   sourceMode?: PublishSourceMode;
   /** Phase 13: tag or commit for `tag` / `commit` source modes. */
@@ -112,6 +125,12 @@ export interface PublishJobView {
   /** `null` for PDF jobs and for HTML5 jobs published before Phase 12 themes. */
   themeId: HtmlThemeId | null;
   themeOptions: HtmlThemeOptions | null;
+  /**
+   * Phase 15 PDF theme snapshot. `null` for HTML5 jobs and for PDF jobs published before
+   * Phase 15, which renders exactly like the `vanilla` theme.
+   */
+  pdfThemeId: PdfThemeId | null;
+  pdfThemeOptions: PdfThemeOptions | null;
   /** Phase 13 provenance: what was published and whether the work tree was dirty. */
   sourceMode: PublishSourceMode;
   sourceRef: string | null;
@@ -131,6 +150,8 @@ export interface PublishServiceOptions {
   logger?: (message: string, error?: unknown) => void;
   /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
   htmlThemesDir?: string;
+  /** Overrides the bundled `dita-ot-plugins/pdf-themes` asset directory (Phase 15). */
+  pdfThemesDir?: string;
   /** Phase 13: enables `tag` / `commit` archive builds and baseline SHA stamping. */
   git?: GitManager;
   /** Phase 13: enables `my_drafts` builds that overlay only the requester's drafts. */
@@ -244,6 +265,7 @@ export class PublishService {
   private readonly retentionDays: number;
   private readonly logger: (message: string, error?: unknown) => void;
   private readonly htmlThemesDirOverride: string | undefined;
+  private readonly pdfThemesDir: string | undefined;
   private readonly git: GitManager | undefined;
   private readonly drafts: DraftService | undefined;
   private readonly audit: VersionAuditService | undefined;
@@ -263,6 +285,7 @@ export class PublishService {
     this.retentionDays = options.retentionDays ?? 14;
     this.logger = options.logger ?? (() => undefined);
     this.htmlThemesDirOverride = options.htmlThemesDir;
+    this.pdfThemesDir = options.pdfThemesDir;
     this.git = options.git;
     this.drafts = options.drafts;
     this.audit = options.audit;
@@ -337,25 +360,23 @@ export class PublishService {
     const themeId = input.themeId ?? DEFAULT_HTML_THEME_ID;
     const themeOptions =
       themeId === 'vanilla' ? {} : resolveThemeOptions(input.themeOptions ?? {});
+    const pdfThemeId = input.pdfThemeId ?? DEFAULT_PDF_THEME_ID;
+    const pdfThemeOptions =
+      pdfThemeId === 'vanilla'
+        ? {}
+        : resolvePdfThemeOptions(pdfThemeId, input.pdfThemeOptions ?? {});
+    const baseOptions = {
+      timeoutMs: this.timeoutMs,
+      locale,
+      workDir: input.workDir,
+      projectRootDir: provenance.projectRootDir,
+      sourceMode: provenance.sourceMode,
+      sourceRef: provenance.sourceRef,
+    };
     const optionsJson = JSON.stringify(
       input.format === 'html5'
-        ? {
-            timeoutMs: this.timeoutMs,
-            locale,
-            workDir: input.workDir,
-            projectRootDir: provenance.projectRootDir,
-            sourceMode: provenance.sourceMode,
-            sourceRef: provenance.sourceRef,
-            htmlTheme: { themeId, options: themeOptions },
-          }
-        : {
-            timeoutMs: this.timeoutMs,
-            locale,
-            workDir: input.workDir,
-            projectRootDir: provenance.projectRootDir,
-            sourceMode: provenance.sourceMode,
-            sourceRef: provenance.sourceRef,
-          },
+        ? { ...baseOptions, htmlTheme: { themeId, options: themeOptions } }
+        : { ...baseOptions, pdfTheme: { themeId: pdfThemeId, options: pdfThemeOptions } },
     );
 
     this.db
@@ -514,6 +535,7 @@ export class PublishService {
   private toView(row: PublishJobRow): PublishJobView {
     const succeeded = row.status === 'succeeded';
     const theme = this.themeForRow(row);
+    const pdfTheme = this.pdfThemeForRow(row);
     return {
       id: row.id,
       projectId: row.projectId,
@@ -545,6 +567,8 @@ export class PublishService {
       cancelRequested: row.cancelRequested === 1,
       themeId: theme?.themeId ?? null,
       themeOptions: theme?.options ?? null,
+      pdfThemeId: pdfTheme?.themeId ?? null,
+      pdfThemeOptions: pdfTheme?.options ?? null,
       sourceMode: normalizeSourceMode(row.sourceMode),
       sourceRef: row.sourceRef ?? null,
       commitHash: row.commitHash ?? null,
@@ -578,6 +602,34 @@ export class PublishService {
         themeId === 'vanilla'
           ? {}
           : resolveThemeOptions((htmlTheme as { options?: unknown }).options),
+    };
+  }
+
+  /**
+   * PDF theme snapshot stored in `optionsJson.pdfTheme` (Phase 15). HTML5 jobs and legacy PDF
+   * rows have no such key and resolve to `null`, which the build treats as `vanilla`.
+   */
+  private pdfThemeForRow(
+    row: PublishJobRow,
+  ): { themeId: PdfThemeId; options: PdfThemeOptions } | null {
+    if (!row.optionsJson) return null;
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(row.optionsJson);
+    } catch {
+      return null;
+    }
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    const pdfTheme = (parsed as { pdfTheme?: unknown }).pdfTheme;
+    if (typeof pdfTheme !== 'object' || pdfTheme === null) return null;
+    const themeId = (pdfTheme as { themeId?: unknown }).themeId;
+    if (!isPdfThemeId(themeId)) return null;
+    return {
+      themeId,
+      options:
+        themeId === 'vanilla'
+          ? {}
+          : resolvePdfThemeOptions(themeId, (pdfTheme as { options?: unknown }).options),
     };
   }
 
@@ -693,13 +745,27 @@ export class PublishService {
         args.push('--nav-toc=full', '--args.gen.task.lbl=YES');
       }
       let fopConfig: string | null = null;
+      let pdfThemeLog: string | null = null;
+      let pdfWarnings: string[] = [];
       if (format === 'pdf') {
-        const customizationDir = resolve(
-          this.runtimeOptions.pluginDir ?? defaultPluginDir(),
-        );
-        if (existsSync(join(customizationDir, 'catalog.xml'))) {
-          args.push(`--customization.dir=${customizationDir}`);
-        }
+        const pdfTheme = this.pdfThemeForRow(row);
+        const pdfThemeId = pdfTheme?.themeId ?? DEFAULT_PDF_THEME_ID;
+        const resolvedPdfTheme = resolvePdfTheme(pdfThemeId, pdfTheme?.options ?? {});
+        const customization = await preparePdfCustomizationDir({
+          jobDir,
+          snapshotDir,
+          themeId: pdfThemeId,
+          themeOptions: pdfTheme?.options ?? {},
+          themesDir: this.pdfThemesDir,
+          pluginDir: resolve(this.runtimeOptions.pluginDir ?? defaultPluginDir()),
+        });
+        args.push(`--customization.dir=${customization.customizationDir}`);
+        args.push(...customization.extraDitaArgs);
+        pdfWarnings = customization.warnings;
+        pdfThemeLog =
+          `# pdf theme: ${pdfThemeId} (pageSize=${resolvedPdfTheme.pageSize},` +
+          ` fontFamily=${resolvedPdfTheme.fontFamily}, fontSize=${resolvedPdfTheme.fontSize},` +
+          ` margins=${resolvedPdfTheme.margins}, accent=${resolvedPdfTheme.accent})\n`;
         fopConfig = await this.prepareFopConfig(jobDir);
         if (fopConfig) args.push(`--args.fo.userconfig=${fopConfig}`);
       }
@@ -726,6 +792,8 @@ export class PublishService {
         }
       };
       if (fopConfig) appendLog(`# FOP config: ${fopConfig}\n`);
+      if (pdfThemeLog) appendLog(pdfThemeLog);
+      for (const warning of pdfWarnings) appendLog(`# pdf theme warning: ${warning}\n`);
       appendLog(`# snapshot: ${snapshotDir}\n\n`);
 
       const result = await runDita({
@@ -856,7 +924,7 @@ export class PublishService {
           // ignore
         }
       }
-      const message = err instanceof Error ? err.message : String(err);
+      const message = localizeErrorMessage(err, locale);
       const cancelled = signal.aborted;
       let diagnostics: DitaDiagnostic[] = [];
       try {

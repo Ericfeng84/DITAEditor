@@ -6,7 +6,7 @@ Guidance for AI coding agents working in the **DITAEditor** repository.
 
 **DITAEditor** is a team-oriented lightweight Web DITA 1.3 structured authoring workbench.
 
-- **Architecture & Roadmap Baseline**: See [`docs/README.md`](docs/README.md) for the full documentation index, and [`docs/architecture-and-plan.md`](docs/architecture-and-plan.md) for design decisions, system architecture, and phased vertical slices (Phase 0–14 implemented; living specs in `docs/design/`, archived blueprints in `docs/plans/`, including `docs/plans/phase13-versioning-overlay.md` and `docs/plans/phase14-docling-agent.md`).
+- **Architecture & Roadmap Baseline**: See [`docs/README.md`](docs/README.md) for the full documentation index, and [`docs/architecture-and-plan.md`](docs/architecture-and-plan.md) for design decisions, system architecture, and phased vertical slices (Phase 0–15 implemented; living specs in `docs/design/`, archived blueprints in `docs/plans/`, including `docs/plans/phase13-versioning-overlay.md`, `docs/plans/phase14-docling-agent.md` and `docs/plans/phase15-pdf-themes.md`).
 - **DITA 1.3 Specification Reference**: [OASIS DITA Version 1.3 Part 2: Technical Content Edition](https://docs.oasis-open.org/dita/dita/v1.3/dita-v1.3-part2-tech-content.html) — authoritative reference for DITA 1.3 element content models, attributes, and semantics.
 - **Local DITA 1.3 Element References**: See [`docs/dita/`](docs/dita/) (`dita_topic.md`, `dita_concept.md`, `dita_reference.md`, `dita_task.md`) for local DITA topic type references.
 - **Core Product Decisions**:
@@ -41,9 +41,10 @@ DITAEditor/
 │       │                   #   browser DITA sandbox (/playground) and bilingual docs (/docs, /en/docs)
 │       ├── src/{pages,layouts,components,lib,data,i18n,styles}/
 │       └── src/content/docs/{zh,en}/  # 6 mirrored docs each (Content Collections)
-├── dita-ot-plugins/        # DITA-OT 4.x plugins and static HTML5 publish themes
+├── dita-ot-plugins/        # DITA-OT 4.x plugins and static HTML5/PDF publish themes
 │   ├── com.ditaeditor.pdf-cjk/  # Pure-XML Noto CJK PDF font-mappings plugin
-│   └── html5-themes/      # shared/theme-base.css + theme-runtime.js + 4 theme CSS (Phase 12)
+│   ├── html5-themes/      # shared/theme-base.css + theme-runtime.js + 4 theme CSS (Phase 12)
+│   └── pdf-themes/        # shared/{attrs-base,xsl-base}.xsl + 4 theme attrs.xsl (Phase 15)
 ├── Dockerfile              # Single container: Node + JRE 21 + DITA-OT 4.2.1 + Noto CJK (opt-in INSTALL_MARKITDOWN)
 ├── docker-compose.yml      # Full stack: ditaeditor + docling-serve sidecar (Phase 14)
 ├── docs/                   # Docs index (README.md), architecture baseline, design/, deploy/, adr/, dita/, plans/
@@ -150,6 +151,15 @@ Always run `pnpm -r build && pnpm -r typecheck && pnpm -r test` after code chang
 - **Fail informatively**: `withFontHint()` prefixes `publish.fontError` when the build log matches a FOP font failure, so users see the fix (install `fonts-noto-cjk`, set `DITAEDITOR_NOTO_CJK_DIR`, or publish HTML5) instead of a bare `[PDFX013F]` line.
 - **The image needs `fontconfig`, not just the fonts**: headless Java (and Batik, which PDF2 uses for SVG) reads `/etc/fonts/fonts.conf`; `node:*-slim` has no `/etc/fonts` and `fonts-noto-cjk` does not depend on it, so `java.lang.RuntimeException: Fontconfig head is null, check your fonts or fonts configuration` is a packaging bug, not a font bug. Keep `fontconfig` + `fc-cache -f` in `Dockerfile`; `fontFailureHintKey()` maps that log to `publish.fontconfigError` and FOP embedding failures to `publish.fontError`, and `withFontHint()` prefixes the job error with the matching hint.
 - **Comment-aware rewrites, validated output**: `applyFontBase()` / `applyFopFontEntries()` locate elements outside XML comment spans (a `<fonts>` mention in a comment previously swallowed the `-->` and FOP reported `ConfigurationException: xml parse error`), and `prepareFopConfig()` refuses to write a config that fails `checkXmlWellFormed()`. Keep long explanations in `dita-ot-plugins/com.ditaeditor.pdf-cjk/README.md` rather than in `fop.xconf` comments.
+
+### 4.13 PDF Publish Themes (`Phase 15`)
+- **`--customization.dir` + XML Catalog only, never `dita install`**: `preparePdfCustomizationDir()` (`apps/api/src/modules/publish/pdf-customization.ts`) materialises `<publishRoot>/jobs/<id>/customization/` with a `catalog.xml` that redirects `cfg:fo/attrs/custom.xsl`, `cfg:fo/xsl/custom.xsl` and `cfg:fo/font-mappings.xml` at generated/copied files, then passes the directory to DITA-OT. Never write into the shared `workDir`, never add a Java/XSLT plugin, and never accept a user-supplied XSLT path (the zod contract has no such field).
+- **`xsl:import` for attribute layers, `xsl:include` for `xsl-base.xsl`**: `fo/attrs/custom.xsl` imports `shared/attrs-base.xsl` → `<themeId>/attrs.xsl` → generated `theme-vars.xsl` (later import wins = user options > theme defaults > base defaults). Same-precedence `xsl:include` would trip Saxon `XTSE0630` (duplicate global variable). `fo/xsl/custom.xsl` imports that file and **includes** `shared/xsl-base.xsl`, because an imported module's variable references bind only to its own imports (an `import` there would put `$de-page-width`, `$de-font-size`, `$de-mirror-margins` out of scope).
+- **CJK font mappings are mandatory for every theme**: always copy `com.ditaeditor.pdf-cjk/cfg/fo/font-mappings.xml` into the customization dir; dropping it silently reverts Simplified Chinese PDFs to a font without the required glyphs. `vanilla` bypasses customization entirely and returns the plug-in dir so pre-Phase-15 output stays byte-identical.
+- **Validate generated XML, degrade logos gracefully**: every generated `catalog.xml` / `theme-vars.xsl` / `custom.xsl` goes through `checkXmlWellFormed()` (a malformed file otherwise fails the build with an untraceable XSLT error). Logos are limited to `.png`/`.jpg`/`.jpeg`/`.svg` (FOP 2.9 cannot decode WebP) and ≤ 2 MB, resolved via `resolveSafeWorkspacePath()` against the build `snapshotDir`; a rejected logo must only append a `# pdf theme warning:` line, never fail the build.
+- **Sanitise, never throw, on options**: keep the whitelist in `apps/api/src/modules/publish/pdf-themes.ts` (`PDF_THEME_DEFINITIONS`, `pdfThemeOptionsSchema`, `resolvePdfThemeOptions()`, `resolvePdfTheme()`, `pdfThemeColors()`/`toFoColor()` for FOP-safe `#RRGGBB`). `resolvePdfThemeOptions()` must tolerate arbitrary stored/request JSON (drop unknown keys, truncate text, ignore invalid enums); only the preview route rejects a malformed accent, with `400 publish.invalidThemeOptions` so it never silently renders grey.
+- **Keep the theme matrix in sync**: adding a theme means a new `dita-ot-plugins/pdf-themes/<id>/attrs.xsl` (tokens + attribute sets only), an entry in `PDF_THEME_IDS` / `PDF_THEME_DEFINITIONS` / `pdfThemeIdSchema` / the label-tag key maps, plus `publish.pdfTheme.<id>.{name,description}` in both catalogues of `apps/api/src/i18n/messages.ts`.
+- **Persist per manual, snapshot per job**: PDF choice lives in `manual_publish_profiles.pdf_theme_id` / `pdf_theme_options_json` and in `publish_jobs.options_json.pdfTheme`; theme config must never touch DITA XML, maps or Git. `PublishService` gets `pdfThemesDir` via `createServer({ pdfThemesDir })`, and `apps/desktop/scripts/stage.mjs` must keep validating `pdf-themes/shared/attrs-base.xsl` so a packaging regression fails before `electron-builder` runs.
 
 ## 5. TypeScript & Code Style
 

@@ -24,6 +24,8 @@ import type { WorkspaceDitavalSummary, WorkspaceMapSummary } from '../../service
 import type {
   HtmlThemeDescriptor,
   HtmlThemeId,
+  PdfThemeDescriptor,
+  PdfThemeId,
   PublishFormat,
   PublishJob,
   PublishSourceMode,
@@ -44,6 +46,15 @@ import {
   themeOptionsFromDraft,
 } from './html-theme-model.js';
 import type { ThemeDraft } from './html-theme-model.js';
+import { PdfThemeSelector } from './PdfThemeSelector';
+import { PdfThemePreviewModal } from './PdfThemePreviewModal';
+import {
+  applyPdfThemeSelection,
+  defaultPdfThemeDraft,
+  pdfThemeDraftFromProfile,
+  pdfThemeOptionsFromDraft,
+} from './pdf-theme-model.js';
+import type { PdfThemeDraft } from './pdf-theme-model.js';
 
 export interface PublishDialogProps {
   open: boolean;
@@ -167,12 +178,17 @@ export function PublishDialog({
   const themes = usePublishStore((state) => state.themes);
   const themesStatus = usePublishStore((state) => state.themesStatus);
   const themesError = usePublishStore((state) => state.themesError);
+  const pdfThemes = usePublishStore((state) => state.pdfThemes);
+  const pdfThemesStatus = usePublishStore((state) => state.pdfThemesStatus);
+  const pdfThemesError = usePublishStore((state) => state.pdfThemesError);
   const profile = usePublishStore((state) => state.profile);
   const profileStatus = usePublishStore((state) => state.profileStatus);
   const profileError = usePublishStore((state) => state.profileError);
   const loadThemes = usePublishStore((state) => state.loadThemes);
+  const loadPdfThemes = usePublishStore((state) => state.loadPdfThemes);
   const loadProfile = usePublishStore((state) => state.loadProfile);
   const saveProfile = usePublishStore((state) => state.saveProfile);
+  const savePdfProfile = usePublishStore((state) => state.savePdfProfile);
   const savingProfile = usePublishStore((state) => state.savingProfile);
   const profileSaveError = usePublishStore((state) => state.profileSaveError);
   const profileSaved = usePublishStore((state) => state.profileSaved);
@@ -190,11 +206,18 @@ export function PublishDialog({
   const [themeExpanded, setThemeExpanded] = useState(true);
   const [saveAsDefault, setSaveAsDefault] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  // Phase 15: the PDF draft mirrors the HTML5 one but lives in its own state so switching the
+  // format pill never discards edits made on the other side.
+  const [pdfThemeDraft, setPdfThemeDraft] = useState<PdfThemeDraft | null>(null);
+  const [pdfThemeExpanded, setPdfThemeExpanded] = useState(true);
+  const [pdfSaveAsDefault, setPdfSaveAsDefault] = useState(false);
+  const [pdfPreviewOpen, setPdfPreviewOpen] = useState(false);
   const [sourceMode, setSourceMode] = useState<PublishSourceMode>('baseline');
   const [sourceRef, setSourceRef] = useState('');
   const [tags, setTags] = useState<GitTagInfo[]>([]);
   const [tagsLoading, setTagsLoading] = useState(false);
   const themeInitialized = useRef(false);
+  const pdfThemeInitialized = useRef(false);
   const fileTree = useEditorStore((state) => state.fileTree);
 
   useEffect(() => {
@@ -210,13 +233,18 @@ export function PublishDialog({
     setThemeExpanded(true);
     setSaveAsDefault(false);
     setPreviewOpen(false);
+    setPdfThemeExpanded(true);
+    setPdfSaveAsDefault(false);
+    setPdfPreviewOpen(false);
     setSourceMode('baseline');
     setSourceRef('');
     themeInitialized.current = false;
+    pdfThemeInitialized.current = false;
     clearActionError();
     void loadRuntime();
     void loadJobs();
     void loadThemes();
+    void loadPdfThemes();
     void loadProfile();
     setTagsLoading(true);
     void fetchGitTags()
@@ -231,6 +259,7 @@ export function PublishDialog({
     loadRuntime,
     loadJobs,
     loadThemes,
+    loadPdfThemes,
     loadProfile,
     clearActionError,
   ]);
@@ -255,6 +284,23 @@ export function PublishDialog({
     );
   }, [open, themesStatus, profileStatus, themes, profile]);
 
+  // Same one-shot seeding for the PDF family; `pdfThemeId` falls back to the tech-manual default.
+  useEffect(() => {
+    if (!open || pdfThemeInitialized.current) return;
+    if (pdfThemesStatus !== 'ready') return;
+    if (profileStatus !== 'ready' && profileStatus !== 'error') return;
+    const preferredId = profile?.pdfThemeId ?? 'tech-manual';
+    const descriptor =
+      pdfThemes.find((candidate) => candidate.id === preferredId) ??
+      pdfThemes.find((candidate) => candidate.id === 'tech-manual') ??
+      pdfThemes[0];
+    if (!descriptor) return;
+    pdfThemeInitialized.current = true;
+    setPdfThemeDraft(
+      profile ? pdfThemeDraftFromProfile(profile, descriptor) : defaultPdfThemeDraft(descriptor),
+    );
+  }, [open, pdfThemesStatus, profileStatus, pdfThemes, profile]);
+
   const selectedJob = useMemo(
     () => jobs.find((job) => job.id === activeJobId) ?? null,
     [jobs, activeJobId],
@@ -275,6 +321,12 @@ export function PublishDialog({
     ? (themes.find((theme) => theme.id === themeDraft.themeId) ?? null)
     : null;
   const themeIsDefault = Boolean(themeDraft && profile && profile.htmlThemeId === themeDraft.themeId);
+  const selectedPdfTheme = pdfThemeDraft
+    ? (pdfThemes.find((theme) => theme.id === pdfThemeDraft.themeId) ?? null)
+    : null;
+  const pdfThemeIsDefault = Boolean(
+    pdfThemeDraft && profile && profile.pdfThemeId === pdfThemeDraft.themeId,
+  );
   const sourceReady =
     sourceMode === 'baseline' ||
     sourceMode === 'my_drafts' ||
@@ -289,6 +341,11 @@ export function PublishDialog({
   const themeNameOf = (id: HtmlThemeId | null): string => {
     if (!id) return t('publish.theme.badgeDefault');
     return themes.find((theme) => theme.id === id)?.name ?? t('publish.theme.badgeDefault');
+  };
+
+  const pdfThemeNameOf = (id: PdfThemeId | null): string => {
+    if (!id) return t('publish.pdf.badgeDefault');
+    return pdfThemes.find((theme) => theme.id === id)?.name ?? t('publish.pdf.badgeDefault');
   };
 
   const changeThemeDraft = (next: ThemeDraft) => {
@@ -314,6 +371,24 @@ export function PublishDialog({
     void saveProfile(themeDraft.themeId, themeOptionsFromDraft(themeDraft, selectedTheme));
   };
 
+  const changePdfThemeDraft = (next: PdfThemeDraft) => setPdfThemeDraft(next);
+
+  const selectPdfTheme = (descriptor: PdfThemeDescriptor) => {
+    setPdfThemeDraft(
+      pdfThemeDraft
+        ? applyPdfThemeSelection(pdfThemeDraft, selectedPdfTheme, descriptor)
+        : defaultPdfThemeDraft(descriptor),
+    );
+  };
+
+  const savePdfThemeDefault = () => {
+    if (!pdfThemeDraft || !selectedPdfTheme) return;
+    void savePdfProfile(
+      pdfThemeDraft.themeId,
+      pdfThemeOptionsFromDraft(pdfThemeDraft, selectedPdfTheme),
+    );
+  };
+
   if (!open) return null;
 
   const submit = async () => {
@@ -323,6 +398,15 @@ export function PublishDialog({
             themeId: themeDraft.themeId,
             themeOptions: themeOptionsFromDraft(themeDraft, selectedTheme),
             saveAsDefault,
+          }
+        : {};
+    // PDF sends its own pair; the API ignores whichever family does not match the format.
+    const pdfThemeFields =
+      format === 'pdf' && pdfThemeDraft && selectedPdfTheme
+        ? {
+            pdfThemeId: pdfThemeDraft.themeId,
+            pdfThemeOptions: pdfThemeOptionsFromDraft(pdfThemeDraft, selectedPdfTheme),
+            saveAsDefault: pdfSaveAsDefault,
           }
         : {};
     const job = await createJob({
@@ -336,6 +420,7 @@ export function PublishDialog({
         ? { sourceRef: sourceRef.trim() }
         : {}),
       ...themeFields,
+      ...pdfThemeFields,
     });
     if (job) setTitle('');
   };
@@ -730,6 +815,119 @@ export function PublishDialog({
           </div>
         ) : null}
 
+        {format === 'pdf' ? (
+          <div className="shrink-0 border-b border-slate-200 bg-white">
+            <div className="flex flex-wrap items-center gap-2 px-4 py-1.5">
+              <button
+                type="button"
+                aria-expanded={pdfThemeExpanded}
+                onClick={() => setPdfThemeExpanded((expanded) => !expanded)}
+                className="flex items-center gap-1.5 text-[11px] font-semibold text-slate-700 hover:text-slate-900"
+              >
+                <FileText className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                {t('publish.pdf.sectionTitle')}
+                <ChevronDown
+                  className={`h-3 w-3 text-slate-400 transition-transform ${pdfThemeExpanded ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                />
+              </button>
+              <span className="min-w-0 truncate text-[10.5px] text-slate-500">
+                {t('publish.pdf.sectionHint')}
+              </span>
+              {pdfThemeDraft ? (
+                <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600">
+                  {pdfThemeDraft.pageSize} · {pdfThemeDraft.fontSize}
+                </span>
+              ) : null}
+              {pdfThemeIsDefault ? (
+                <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[9.5px] font-medium text-emerald-700">
+                  {t('publish.pdf.defaultBadge')}
+                </span>
+              ) : null}
+              <div className="ml-auto flex shrink-0 items-center gap-2">
+                {role !== 'viewer' && selectedPdfTheme?.supportsCustomization ? (
+                  <label
+                    className="flex cursor-pointer items-center gap-1 text-[10.5px] text-slate-600"
+                    title={t('publish.pdf.saveAsDefaultHint')}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={pdfSaveAsDefault}
+                      onChange={(event) => setPdfSaveAsDefault(event.target.checked)}
+                      className="h-3 w-3 rounded border-slate-300 text-blue-600"
+                    />
+                    {t('publish.pdf.saveAsDefault')}
+                  </label>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => setPdfPreviewOpen(true)}
+                  disabled={!pdfThemeDraft || !selectedPdfTheme}
+                  className="dita-mini-btn bg-white px-2 py-0.5 disabled:opacity-50"
+                >
+                  <Sparkles className="h-3 w-3 text-slate-500" aria-hidden="true" />
+                  {t('publish.pdf.previewButton')}
+                </button>
+              </div>
+            </div>
+            {profileStatus === 'error' ? (
+              <p className="mx-4 mb-1.5 flex items-center gap-2 rounded border border-amber-200 bg-amber-50 px-2 py-1 text-[10.5px] text-amber-800">
+                <span className="min-w-0 flex-1">
+                  {t('publish.theme.profileLoadFailed', { message: profileError ?? '' })}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => void loadProfile()}
+                  className="dita-mini-btn bg-white px-1.5 py-0.5"
+                >
+                  {t('publish.theme.retry')}
+                </button>
+              </p>
+            ) : null}
+            {pdfThemeExpanded ? (
+              <div className="dita-scroller max-h-[40vh] overflow-y-auto px-4 pb-2">
+                {pdfThemeDraft ? (
+                  <PdfThemeSelector
+                    descriptors={pdfThemes}
+                    status={pdfThemesStatus}
+                    error={pdfThemesError}
+                    draft={pdfThemeDraft}
+                    defaultThemeId={profile?.pdfThemeId ?? null}
+                    files={fileTree}
+                    disabled={role === 'viewer'}
+                    onChange={changePdfThemeDraft}
+                    onSelectTheme={selectPdfTheme}
+                    onRetry={() => void loadPdfThemes()}
+                    onPreview={() => setPdfPreviewOpen(true)}
+                    onSaveDefault={savePdfThemeDefault}
+                    savingDefault={savingProfile}
+                    savedDefault={profileSaved}
+                    saveError={profileSaveError}
+                  />
+                ) : pdfThemesStatus === 'error' ? (
+                  <div className="flex flex-wrap items-center gap-2 rounded-md border border-rose-200 bg-rose-50 px-2.5 py-2 text-[11px] text-rose-800">
+                    <span className="min-w-0 flex-1">
+                      {t('publish.pdf.themesLoadFailed', { message: pdfThemesError ?? '' })}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void loadPdfThemes()}
+                      className="dita-mini-btn bg-white px-2 py-1"
+                    >
+                      {t('publish.theme.retry')}
+                    </button>
+                  </div>
+                ) : (
+                  <p className="flex items-center gap-1.5 px-1 py-4 text-[11px] text-slate-500">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                    {t('publish.pdf.loading')}
+                  </p>
+                )}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="grid min-h-0 flex-1 grid-cols-[280px_minmax(0,1fr)]">
           <div className="flex min-h-0 flex-col border-r border-slate-200">
             <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-3 py-1.5">
@@ -781,7 +979,14 @@ export function PublishDialog({
                           />
                           {job.format}
                         </span>
-                        {job.themeId ? (
+                        {job.format === 'pdf' && job.pdfThemeId ? (
+                          <span
+                            className="max-w-[68px] shrink-0 truncate rounded bg-white px-1 py-0.5 text-[9px] text-slate-500"
+                            title={pdfThemeNameOf(job.pdfThemeId)}
+                          >
+                            {pdfThemeNameOf(job.pdfThemeId)}
+                          </span>
+                        ) : job.themeId ? (
                           <span
                             className="max-w-[68px] shrink-0 truncate rounded bg-white px-1 py-0.5 text-[9px] text-slate-500"
                             title={themeNameOf(job.themeId)}
@@ -852,6 +1057,10 @@ export function PublishDialog({
                       {selectedJob.format === 'html5' ? (
                         <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600">
                           {themeNameOf(selectedJob.themeId)}
+                        </span>
+                      ) : selectedJob.pdfThemeId ? (
+                        <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600">
+                          {pdfThemeNameOf(selectedJob.pdfThemeId)}
                         </span>
                       ) : null}
                       <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[9.5px] font-medium text-slate-600">
@@ -995,6 +1204,20 @@ export function PublishDialog({
           </div>
         </div>
       </div>
+      {pdfPreviewOpen && pdfThemeDraft ? (
+        <PdfThemePreviewModal
+          open={pdfPreviewOpen}
+          descriptor={selectedPdfTheme}
+          draft={pdfThemeDraft}
+          descriptors={pdfThemes}
+          onSelectTheme={selectPdfTheme}
+          onClose={() => setPdfPreviewOpen(false)}
+          onApply={(next) => {
+            setPdfThemeDraft(next);
+            setPdfPreviewOpen(false);
+          }}
+        />
+      ) : null}
       {previewOpen && themeDraft ? (
         <ThemePreviewModal
           open={previewOpen}

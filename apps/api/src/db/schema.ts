@@ -55,15 +55,19 @@ export const manuals = sqliteTable(
 );
 
 /**
- * Per-manual HTML5 theme preferences (Phase 12). `manualId` references `manuals.id` and
- * `updatedBy` references `users.id`; the table declares no foreign keys because the rest of
- * this schema keeps relations as plain text columns too. `updatedAt` is an ISO timestamp
- * string rather than the epoch integers used by the older tables.
+ * Per-manual publishing preferences (Phase 12 HTML5 themes, Phase 15 PDF themes). `manualId`
+ * references `manuals.id` and `updatedBy` references `users.id`; the table declares no foreign
+ * keys because the rest of this schema keeps relations as plain text columns too. `updatedAt`
+ * is an ISO timestamp string rather than the epoch integers used by the older tables.
+ *
+ * The HTML5 and PDF sides are independent: updating one side never rewrites the other.
  */
 export const manualPublishProfiles = sqliteTable('manual_publish_profiles', {
   manualId: text('manual_id').primaryKey(),
   htmlThemeId: text('html_theme_id').notNull().default('tech-docs'),
   htmlThemeOptionsJson: text('html_theme_options_json').notNull().default('{}'),
+  pdfThemeId: text('pdf_theme_id').notNull().default('tech-manual'),
+  pdfThemeOptionsJson: text('pdf_theme_options_json').notNull().default('{}'),
   updatedBy: text('updated_by'),
   updatedAt: text('updated_at').notNull(),
 });

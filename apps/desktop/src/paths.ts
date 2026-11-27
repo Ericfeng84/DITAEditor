@@ -21,6 +21,7 @@ export interface DesktopRuntimePaths {
   sampleTemplateDir: string;
   pluginDir: string;
   htmlThemesDir: string;
+  pdfThemesDir: string;
 }
 
 /**
@@ -41,6 +42,9 @@ export function resolveDesktopPaths(input: DesktopPathInput): DesktopRuntimePath
   const htmlThemesDir = input.isPackaged
     ? path.join(input.resourcesDir, 'dita-ot-plugins', 'html5-themes')
     : path.join(input.repoRoot, 'dita-ot-plugins', 'html5-themes');
+  const pdfThemesDir = input.isPackaged
+    ? path.join(input.resourcesDir, 'dita-ot-plugins', 'pdf-themes')
+    : path.join(input.repoRoot, 'dita-ot-plugins', 'pdf-themes');
 
   return {
     dataDir,
@@ -53,6 +57,7 @@ export function resolveDesktopPaths(input: DesktopPathInput): DesktopRuntimePath
     sampleTemplateDir,
     pluginDir,
     htmlThemesDir,
+    pdfThemesDir,
   };
 }
 

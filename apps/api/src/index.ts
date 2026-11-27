@@ -68,6 +68,8 @@ export interface CreateServerOptions {
   publishRetentionDays?: number;
   /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
   htmlThemesDir?: string;
+  /** Overrides the bundled `dita-ot-plugins/pdf-themes` asset directory (Phase 15). */
+  pdfThemesDir?: string;
   /**
    * Phase 13: where user draft binary assets live. Defaults to
    * `<data root>/draft-assets`, outside every shared Git worktree.
@@ -143,6 +145,7 @@ export function createServer(options: CreateServerOptions = {}) {
     timeoutMs: options.publishTimeoutMs,
     retentionDays: options.publishRetentionDays,
     htmlThemesDir: options.htmlThemesDir,
+    pdfThemesDir: options.pdfThemesDir,
     runtime: options.ditaRuntime,
     git,
     drafts,

@@ -287,6 +287,9 @@ describe('Phase 12 publish profile store', () => {
         manualId,
         htmlThemeId: 'tech-docs',
         htmlThemeOptions: {},
+        // Phase 15: the PDF side of the profile is independent and defaults to `tech-manual`.
+        pdfThemeId: 'tech-manual',
+        pdfThemeOptions: {},
         updatedBy: null,
         updatedAt: null,
       });

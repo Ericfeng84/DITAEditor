@@ -55,10 +55,81 @@ export interface HtmlThemeDescriptor {
   defaultFeatures: HtmlThemeFeatures;
 }
 
+/** Phase 15 PDF publish themes (mirrors `apps/api/src/modules/publish/pdf-themes.ts`). */
+export type PdfThemeId =
+  | 'tech-manual'
+  | 'enterprise-spec'
+  | 'editorial-book'
+  | 'compact-guide'
+  | 'vanilla';
+
+export type PdfPageSize = 'A4' | 'Letter' | 'B5';
+export type PdfFontFamily = 'sans' | 'serif';
+export type PdfFontSize = '9pt' | '10pt' | '11pt';
+export type PdfMargins = 'compact' | 'normal' | 'wide';
+
+export type PdfThemeCoverStyle =
+  | 'left-accent'
+  | 'navy-band'
+  | 'editorial-center'
+  | 'compact-header'
+  | 'vanilla';
+
+export interface PdfThemeFeatures {
+  showCover: boolean;
+  showToc: boolean;
+  chapterNumbers: boolean;
+  taskLabels: boolean;
+  mirrorMargins: boolean;
+}
+
+export interface PdfThemeOptions {
+  /** `#RRGGBB`; the API also accepts a bare `RRGGBB` and normalizes it. */
+  accentColor?: string | null;
+  pageSize?: PdfPageSize | null;
+  fontFamily?: PdfFontFamily | null;
+  fontSize?: PdfFontSize | null;
+  margins?: PdfMargins | null;
+  coverSubtitle?: string | null;
+  headerText?: string | null;
+  footerText?: string | null;
+  /** Workspace-relative image path; FOP 2.9 supports png/jpg/jpeg/svg only. */
+  logoPath?: string | null;
+  features?: Partial<PdfThemeFeatures>;
+}
+
+export interface PdfThemePalette {
+  page: string;
+  header: string;
+  text: string;
+  muted: string;
+  accent: string;
+  border: string;
+  codeBg: string;
+}
+
+export interface PdfThemeDescriptor {
+  id: PdfThemeId;
+  name: string;
+  description: string;
+  tags: string[];
+  defaultAccent: string;
+  defaultPageSize: PdfPageSize;
+  defaultFontFamily: PdfFontFamily;
+  defaultFontSize: PdfFontSize;
+  defaultMargins: PdfMargins;
+  coverStyle: PdfThemeCoverStyle;
+  supportsCustomization: boolean;
+  previewPalette: PdfThemePalette;
+  defaultFeatures: PdfThemeFeatures;
+}
+
 export interface ManualPublishProfile {
   manualId: string;
   htmlThemeId: HtmlThemeId;
   htmlThemeOptions: HtmlThemeOptions;
+  pdfThemeId: PdfThemeId;
+  pdfThemeOptions: PdfThemeOptions;
   updatedBy: string | null;
   updatedAt: string | null;
 }
@@ -99,6 +170,9 @@ export interface PublishJob {
   /** Resolved HTML5 theme snapshot; `null` for PDF jobs and legacy rows. */
   themeId: HtmlThemeId | null;
   themeOptions: HtmlThemeOptions | null;
+  /** Phase 15 PDF theme snapshot; `null` for HTML5 jobs and pre-Phase-15 rows. */
+  pdfThemeId?: PdfThemeId | null;
+  pdfThemeOptions?: PdfThemeOptions | null;
   projectId: string;
   branch: string;
   userId: string;
@@ -197,6 +271,8 @@ export interface CreatePublishJobInput {
   title?: string;
   themeId?: HtmlThemeId;
   themeOptions?: HtmlThemeOptions;
+  pdfThemeId?: PdfThemeId;
+  pdfThemeOptions?: PdfThemeOptions;
   saveAsDefault?: boolean;
 }
 
@@ -219,6 +295,13 @@ export async function fetchHtmlThemes(): Promise<HtmlThemeDescriptor[]> {
   return result.themes;
 }
 
+export async function fetchPdfThemes(): Promise<PdfThemeDescriptor[]> {
+  const result = await requestJson<{ themes: PdfThemeDescriptor[] }>('/api/publish/pdf-themes', {
+    cache: 'no-store',
+  });
+  return result.themes;
+}
+
 export async function fetchPublishProfile(): Promise<ManualPublishProfile> {
   const result = await requestJson<{ profile: ManualPublishProfile }>('/api/publish/profile', {
     cache: 'no-store',
@@ -226,10 +309,20 @@ export async function fetchPublishProfile(): Promise<ManualPublishProfile> {
   return result.profile;
 }
 
-export async function savePublishProfile(input: {
-  themeId: HtmlThemeId;
+/**
+ * The API merges partial updates: sending only the HTML5 pair keeps the saved PDF default and
+ * vice versa, so the dialog can persist each family of settings independently.
+ */
+export interface SavePublishProfileInput {
+  themeId?: HtmlThemeId;
   themeOptions?: HtmlThemeOptions;
-}): Promise<ManualPublishProfile> {
+  pdfThemeId?: PdfThemeId;
+  pdfThemeOptions?: PdfThemeOptions;
+}
+
+export async function savePublishProfile(
+  input: SavePublishProfileInput,
+): Promise<ManualPublishProfile> {
   const result = await requestJson<{ profile: ManualPublishProfile }>('/api/publish/profile', {
     method: 'PUT',
     headers: { 'content-type': 'application/json' },
@@ -274,6 +367,54 @@ export function htmlThemePreviewUrl(params: HtmlThemePreviewParams): string {
   if (params.branch) query.set('branch', params.branch);
   if (params.cacheBust !== undefined) query.set('_', String(params.cacheBust));
   return apiUrl(`/api/publish/themes/${encodeURIComponent(params.themeId)}/preview?${query.toString()}`);
+}
+
+export interface PdfThemePreviewParams {
+  themeId: PdfThemeId;
+  options: PdfThemeOptions;
+  locale: string;
+  manualId?: string | null;
+  branch?: string | null;
+  /** Cache-busting token so a debounced iframe reload always re-requests the document. */
+  cacheBust?: string | number;
+}
+
+const PDF_FEATURE_KEYS = [
+  'showCover',
+  'showToc',
+  'chapterNumbers',
+  'taskLabels',
+  'mirrorMargins',
+] as const;
+
+/**
+ * Query-string composition for the paper-sheet preview iframe. Booleans travel as `1`/`0` and
+ * empty optional fields are omitted so the API keeps the theme defaults.
+ */
+export function pdfThemePreviewUrl(params: PdfThemePreviewParams): string {
+  const query = new URLSearchParams();
+  const options = params.options;
+  const accent = options.accentColor?.trim().replace(/^#/, '') ?? '';
+  if (accent && ACCENT_PATTERN.test(accent)) query.set('accent', accent.toLowerCase());
+  if (options.pageSize) query.set('pageSize', options.pageSize);
+  if (options.fontFamily) query.set('fontFamily', options.fontFamily);
+  if (options.fontSize) query.set('fontSize', options.fontSize);
+  if (options.margins) query.set('margins', options.margins);
+  if (options.coverSubtitle) query.set('coverSubtitle', options.coverSubtitle);
+  if (options.headerText) query.set('headerText', options.headerText);
+  if (options.footerText) query.set('footerText', options.footerText);
+  const features = options.features ?? {};
+  for (const key of PDF_FEATURE_KEYS) {
+    const flag = features[key];
+    if (typeof flag === 'boolean') query.set(key, flag ? '1' : '0');
+  }
+  query.set('locale', params.locale);
+  if (params.manualId) query.set('manualId', params.manualId);
+  if (params.branch) query.set('branch', params.branch);
+  if (params.cacheBust !== undefined) query.set('_', String(params.cacheBust));
+  return apiUrl(
+    `/api/publish/pdf-themes/${encodeURIComponent(params.themeId)}/preview?${query.toString()}`,
+  );
 }
 
 export async function cancelPublishJob(id: string): Promise<PublishJob> {
