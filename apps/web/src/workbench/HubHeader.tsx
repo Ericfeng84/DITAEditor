@@ -1,9 +1,10 @@
-import { BookOpen, Loader2, RefreshCw } from 'lucide-react';
+import { BookOpen, CircleHelp, Loader2, RefreshCw } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 import type { IdentityResponse, IdentityUser } from '../services/identity-api';
 import { IdentitySwitcher } from '../components/IdentitySwitcher';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
 import { DesktopSettingsButton } from '../desktop/DesktopSettingsDialog.js';
+import { useHelpCenterStore } from '../store/help-center-store.js';
 
 export interface HubHeaderProps {
   identity: IdentityResponse | null;
@@ -23,6 +24,7 @@ export function HubHeader({
   offline,
 }: HubHeaderProps) {
   const { t } = useI18n();
+  const openHelp = useHelpCenterStore((state) => state.open);
   return (
     <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-3 px-5">
@@ -49,6 +51,16 @@ export function HubHeader({
               {t('workbench.offlineTitle')}
             </span>
           ) : null}
+          <button
+            type="button"
+            onClick={openHelp}
+            aria-label={t('help.openAria')}
+            title={t('help.openTitle')}
+            className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+          >
+            <CircleHelp className="h-3.5 w-3.5" aria-hidden="true" />
+            {t('help.open')}
+          </button>
           <button
             type="button"
             onClick={onRefresh}

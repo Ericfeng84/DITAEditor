@@ -3,6 +3,7 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  CircleHelp,
   Code2,
   Columns2,
   Eye,
@@ -15,6 +16,7 @@ import { useI18n } from '../i18n/index.js';
 import { IdentitySwitcher } from './IdentitySwitcher';
 import { LocaleSwitcher } from './LocaleSwitcher';
 import { DesktopSettingsButton } from '../desktop/DesktopSettingsDialog.js';
+import { useHelpCenterStore } from '../store/help-center-store.js';
 
 export interface WorkbenchHeaderProps {
   /** Brand lockup is rendered in the sidebar strip while it is open; the header takes over when collapsed. */
@@ -61,6 +63,7 @@ export function WorkbenchHeader({
   manualName = null,
 }: WorkbenchHeaderProps) {
   const { t } = useI18n();
+  const openHelp = useHelpCenterStore((state) => state.open);
   return (
     <header className="flex h-12 shrink-0 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3">
       {/* Left: Sidebar Toggle + Brand */}
@@ -140,8 +143,19 @@ export function WorkbenchHeader({
         })}
       </div>
 
-      {/* Right: Diagnostics, Identity, Save, Inspector */}
+      {/* Right: Help, Diagnostics, Identity, Save, Inspector */}
       <div className="flex shrink-0 items-center gap-1.5">
+        <button
+          type="button"
+          onClick={openHelp}
+          className="inline-flex items-center gap-1 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+          title={t('help.openTitle')}
+          aria-label={t('help.openAria')}
+        >
+          <CircleHelp className="h-3.5 w-3.5" aria-hidden="true" />
+          <span className="hidden lg:inline">{t('help.open')}</span>
+        </button>
+
         {/* Diagnostics toggle pill */}
         <button
           type="button"
