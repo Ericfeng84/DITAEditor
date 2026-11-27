@@ -12,6 +12,7 @@ import {
 } from 'node:fs/promises';
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { and, desc, eq, inArray, lt } from 'drizzle-orm';
+import { checkXmlWellFormed } from '@dita/core';
 import type { DitaDatabase } from '../../db/client.js';
 import { publishJobs, type PublishJobRow } from '../../db/schema.js';
 import type { VersionAuditService } from '../git/audit-service.js';
@@ -916,6 +917,14 @@ export class PublishService {
         this.logger(
           `no Noto CJK faces found in ${fontDir}; PDF jobs fall back to the bundled fop.xconf font table`,
         );
+      }
+      // A malformed generated config fails deep inside FOP ("ConfigurationException: xml parse
+      // error"), so refuse to hand FOP anything we cannot parse ourselves.
+      if (!checkXmlWellFormed(updated).ok) {
+        this.logger(
+          `generated fop.xconf for ${jobDir} is not well-formed; publishing with ${template}`,
+        );
+        return template;
       }
       const target = join(jobDir, 'fop.xconf');
       await writeFile(target, updated, 'utf8');

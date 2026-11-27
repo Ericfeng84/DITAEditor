@@ -3,6 +3,7 @@ import { mkdir, readFile, stat } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
+import { checkXmlWellFormed } from '@dita/core';
 import {
   extractFontFace,
   fontExtensionForVersion,
@@ -373,11 +374,19 @@ describe('materializeNotoFopFonts', () => {
   });
 });
 
+const SAMPLE_ENTRIES: FopFontEntry[] = [
+  { file: 'a.otf', family: 'Noto Sans CJK SC', style: 'normal', weight: 'normal', subFont: null },
+  {
+    file: 'b.otf',
+    family: 'Noto Sans CJK SC',
+    style: 'normal',
+    weight: 'bold',
+    subFont: 'Noto Sans CJK SC Bold',
+  },
+];
+
 describe('fop.xconf rendering', () => {
-  const entries: FopFontEntry[] = [
-    { file: 'a.otf', family: 'Noto Sans CJK SC', style: 'normal', weight: 'normal', subFont: null },
-    { file: 'b.otf', family: 'Noto Sans CJK SC', style: 'normal', weight: 'bold', subFont: 'Noto Sans CJK SC Bold' },
-  ];
+  const entries = SAMPLE_ENTRIES;
 
   it('emits one font element per registration and omits sub-font for standalone faces', () => {
     const xml = renderFopFontsSection(entries);
@@ -399,12 +408,73 @@ describe('fop.xconf rendering', () => {
   });
 
   it('rewrites font-base and escapes XML entities', () => {
-    expect(applyFontBase('<font-base>/usr/share/fonts</font-base>', '/tmp/a&b')).toBe(
-      '<font-base>/tmp/a&amp;b</font-base>',
-    );
+    expect(
+      applyFontBase('<fop>\n  <font-base>/usr/share/fonts</font-base>\n</fop>', '/tmp/a&b'),
+    ).toBe('<fop>\n  <font-base>/tmp/a&amp;b</font-base>\n</fop>');
     expect(applyFontBase('<fop/>', '/tmp')).toBe('<fop/>');
     expect(fontExtensionForVersion(OTTO)).toBe('.otf');
     expect(fontExtensionForVersion(TRUE_TYPE)).toBe('.ttf');
+  });
+
+  it('inserts the font table into a renderer that has none', () => {
+    const template =
+      '<fop>\n  <renderers>\n    <renderer mime="application/pdf">\n    </renderer>\n  </renderers>\n</fop>';
+    const updated = applyFopFontEntries(template, entries);
+    expect(updated).toContain('<fonts>');
+    expect(checkXmlWellFormed(updated).ok).toBe(true);
+  });
+
+  it('only rewrites real elements, never element names quoted inside comments', () => {
+    const template = [
+      '<!--',
+      '  The API rewrites the font-base element and the fonts block.',
+      '  A comment may also mention <fonts>inline</fonts>.',
+      '-->',
+      '<fop>',
+      '  <font-base>/usr/share/fonts</font-base>',
+      '  <renderers><renderer mime="application/pdf">',
+      '      <fonts>',
+      '        <font embed-url="stale.ttc"/>',
+      '      </fonts>',
+      '    </renderer></renderers>',
+      '</fop>',
+    ].join('\n');
+    const updated = applyFopFontEntries(applyFontBase(template, '/job/fonts'), entries);
+    // Losing the comment terminator makes FOP report `xml parse error` on the job config.
+    expect(updated).toContain('-->');
+    expect(updated).toContain('A comment may also mention <fonts>inline</fonts>.');
+    expect(updated).not.toContain('stale.ttc');
+    expect(updated).toContain('<font-base>/job/fonts</font-base>');
+    expect(checkXmlWellFormed(updated).ok).toBe(true);
+  });
+});
+
+describe('bundled fop.xconf template', () => {
+  const templatePath = path.resolve(
+    __dirname,
+    '../../../dita-ot-plugins/com.ditaeditor.pdf-cjk/fop.xconf',
+  );
+
+  it('reads as a fallback table for single-face OTF files', async () => {
+    const template = await readFile(templatePath, 'utf8');
+    expect(checkXmlWellFormed(template).ok).toBe(true);
+    // FOP 2.9 cannot embed a collection, so the template must never point at one.
+    expect(template).not.toMatch(/embed-url="[^"]*\.(ttc|otc)"/i);
+    expect(template).toContain('NotoSansCJKsc-Regular.otf');
+  });
+
+  it('stays well-formed after the job-local rewrite', async () => {
+    const template = await readFile(templatePath, 'utf8');
+    const jobFonts = '/data/publishes/jobs/pub-1/fonts';
+    const updated = applyFopFontEntries(applyFontBase(template, jobFonts), SAMPLE_ENTRIES);
+    expect(checkXmlWellFormed(updated).ok).toBe(true);
+    expect(updated).toContain(`<font-base>${jobFonts}</font-base>`);
+    expect(updated).not.toContain('NotoSansCJKsc-Regular.otf');
+    expect(updated).toContain('<font embed-url="a.otf" kerning="yes">');
+    // Without a discovered face the template is kept, only font-base moves.
+    const fallback = applyFopFontEntries(applyFontBase(template, jobFonts), []);
+    expect(checkXmlWellFormed(fallback).ok).toBe(true);
+    expect(fallback).toContain('NotoSansCJKsc-Regular.otf');
   });
 });
 

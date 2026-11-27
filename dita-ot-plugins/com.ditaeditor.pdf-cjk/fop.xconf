@@ -1,27 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  FOP configuration used by DITAEditor's PDF publishing path.
+  Fallback FOP configuration for DITAEditor PDF publishing. See README.md in this plugin
+  directory for why Noto CJK must be registered as single-face OTF files.
 
-  DITAEditor passes this file explicitly:
-    dita input=... format=pdf args.fo.userconfig=<this file>
-
-  This file is the *fallback* table, aimed at Noto CJK installed as single-face OTF files
-  (the Google "language-specific OTF" download, macOS/Windows manual installs). Adobe FOP 2.9
-  cannot embed a TTC/OTC collection that stores CFF outlines — it picks its TrueType parser from
-  the file header (`OFFontLoader.read` only chooses `OTFFile` for a literal `OTTO` header) and
-  then aborts with "'loca' table not found" — and Debian's `fonts-noto-cjk` ships exactly those
-  collections. `@dita/api` therefore rebuilds a job-local configuration from the installed fonts:
-  it reads each face's name table, materialises the needed face as a standalone font file under
-  `<job>/fonts`, and replaces both `<font-base>` and the `<fonts>` block below.
-
-  Two details that break a hand-written table:
-  - `sub-font` must equal a face's full name (name table ID 4) exactly, and that name carries the
-    weight: `NotoSansCJK-Bold.ttc` reports `Noto Sans CJK SC Bold`, not `Noto Sans CJK SC`.
-  - Debian ships the `Noto Sans Mono CJK *` faces inside `NotoSansCJK-*.ttc`; there is no
-    `NotoSansMonoCJK-*.ttc` file.
-
-  For local macOS or Windows development, set DITAEDITOR_FOP_XCONF to a copy with a matching
-  font-base path, or set DITAEDITOR_NOTO_CJK_DIR and let the API generate the configuration.
+  @dita/api rewrites the font-base element and the fonts block of a job-local copy from the
+  faces it finds installed, so this table only takes effect when nothing could be materialised.
 -->
 <fop version="1.1">
   <use-cache>false</use-cache>

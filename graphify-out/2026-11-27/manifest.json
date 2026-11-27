@@ -342,9 +342,9 @@
     "semantic_hash": ""
   },
   "AGENTS.md": {
-    "mtime": 1795730874.2688477,
-    "seen": 1795764482.422635,
-    "ast_hash": "d4f35d461c933946da2ece7b816c155c",
+    "mtime": 1795765896.5790694,
+    "seen": 1795766028.103669,
+    "ast_hash": "647ce2bf053827b3f5980a620455689b",
     "semantic_hash": ""
   },
   "apps/web/test/decorations-and-inserter.test.ts": {
@@ -666,9 +666,9 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1795764467.9122317,
-    "seen": 1795764482.422636,
-    "ast_hash": "7bbe6ce733955c5fbc5188ba62e81f74",
+    "mtime": 1795765886.588573,
+    "seen": 1795766028.1036701,
+    "ast_hash": "00e481ac6ad4808142bda1778c5758f5",
     "semantic_hash": ""
   },
   "README.en.md": {
@@ -822,9 +822,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/publish-service.ts": {
-    "mtime": 1795611005.154139,
-    "seen": 1795611424.976426,
-    "ast_hash": "3c41aeb88d1f3cb21bf81921ab1bcb97",
+    "mtime": 1795765724.2335236,
+    "seen": 1795766028.103374,
+    "ast_hash": "85a2ce74e3b47a4c3c2ea6a41be411db",
     "semantic_hash": ""
   },
   "apps/api/src/modules/publish/routes.ts": {
@@ -1512,9 +1512,9 @@
     "semantic_hash": ""
   },
   "apps/api/src/i18n/messages.ts": {
-    "mtime": 1795708322.0482538,
-    "seen": 1795709615.12372,
-    "ast_hash": "4e6ef13090db8250a69b6d9c0ac7d71c",
+    "mtime": 1795765727.7226188,
+    "seen": 1795766028.103322,
+    "ast_hash": "f420175aee3d4eaf4071a0145fb1ea4f",
     "semantic_hash": ""
   },
   "apps/api/test/phase8-i18n.test.ts": {
@@ -3207,6 +3207,24 @@
     "mtime": 1795726214.0037837,
     "seen": 1795726283.8231611,
     "ast_hash": "7b8889155e1c3b65ada369ebec914a47",
+    "semantic_hash": ""
+  },
+  "apps/api/src/modules/dita-ot/font-collections.ts": {
+    "mtime": 1795765804.0771115,
+    "seen": 1795766028.103337,
+    "ast_hash": "512dbb1a42012f26cfc5afc8a1fc4a78",
+    "semantic_hash": ""
+  },
+  "apps/api/src/modules/dita-ot/fop-font-config.ts": {
+    "mtime": 1795765645.6908238,
+    "seen": 1795766028.103338,
+    "ast_hash": "b1c6e78eef7463c8de649b779a9e5573",
+    "semantic_hash": ""
+  },
+  "apps/api/test/fop-font-config.test.ts": {
+    "mtime": 1795765809.4866796,
+    "seen": 1795766028.103383,
+    "ast_hash": "07b030935019510ca3f4c01491c71bad",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {

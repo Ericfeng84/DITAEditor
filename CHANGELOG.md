@@ -11,7 +11,8 @@ DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepa
   - `@dita/api` 现在在每次 PDF 发布前读取已安装字体的 `name` 表，挑选 Sans / Serif / Mono × SC / JP / KR × Regular / Bold 的 18 个字体面，重打包为独立单面 `.otf` 到 `<job>/fonts`（结果按源路径 + 大小 + mtime 缓存在系统临时目录并硬链接复用），再生成 `<job>/fop.xconf` 指向该目录。
   - 不再硬编码 `sub-font`：FOP 以「完整字体名（name 表 ID 4）」精确匹配，且该名字带字重（`NotoSansCJK-Bold.ttc` 里是 `Noto Sans CJK SC Bold`）。
   - 字体加载失败时发布任务错误会追加中文/英文提示（安装 `fonts-noto-cjk`、设置 `DITAEDITOR_NOTO_CJK_DIR` 或改用 HTML5），而不是只给一段 Java 堆栈。
-  - `dita-ot-plugins/com.ditaeditor.pdf-cjk/fop.xconf` 改写为面向单面 OTF（Google 语言包 / macOS、Windows 手动安装）的文档化回退配置，并在注释中记录上述 FOP 限制。
+  - `dita-ot-plugins/com.ditaeditor.pdf-cjk/fop.xconf` 改写为面向单面 OTF（Google 语言包 / macOS、Windows 手动安装）的回退配置，FOP 限制的完整说明移入该目录的 `README.md`。
+  - 生成的 `fop.xconf` 在落盘前必须通过 `checkXmlWellFormed()`；改写逻辑会跳过 XML 注释，避免注释里提到 `<fonts>` 时把注释放出来的 `-->` 一起替换掉，导致 FOP 报 `ConfigurationException: xml parse error`。
 
 ### Removed
 

@@ -249,12 +249,14 @@ export function renderFopFontsSection(entries: readonly FopFontEntry[]): string 
   return lines.join('\n');
 }
 
-/** Rewrites `<font-base>` so a job-local configuration points at the generated font directory. */
+/** Rewrites the `font-base` element so a job-local configuration points at the generated fonts. */
 export function applyFontBase(fopXml: string, fontDir: string): string {
-  return fopXml.replace(
-    /<font-base>[^<]*<\/font-base>/,
-    `<font-base>${escapeXml(fontDir)}</font-base>`,
-  );
+  const spans = commentSpans(fopXml);
+  const open = findOutside(fopXml, '<font-base>', spans);
+  const close = open < 0 ? -1 : findOutside(fopXml, '</font-base>', spans, open);
+  if (open < 0 || close < 0) return fopXml;
+  const start = open + '<font-base>'.length;
+  return `${fopXml.slice(0, start)}${escapeXml(fontDir)}${fopXml.slice(close)}`;
 }
 
 /**
@@ -268,10 +270,43 @@ export function applyFopFontEntries(
 ): string {
   const section = renderFopFontsSection(entries);
   if (!section) return fopXml;
-  if (/<fonts>[\s\S]*?<\/fonts>/.test(fopXml)) {
-    return fopXml.replace(/<fonts>[\s\S]*?<\/fonts>/, section);
+  // Only real elements are rewritten: matching inside a comment would swallow the comment
+  // terminator and hand FOP an unparsable configuration (`xml parse error`).
+  const spans = commentSpans(fopXml);
+  const open = findOutside(fopXml, '<fonts>', spans);
+  const close = open < 0 ? -1 : findOutside(fopXml, '</fonts>', spans, open);
+  if (open >= 0 && close > open) {
+    return `${fopXml.slice(0, open)}${section}${fopXml.slice(close + '</fonts>'.length)}`;
   }
-  return fopXml.replace(/<\/renderer>/, `${section}\n    </renderer>`);
+  const renderer = findOutside(fopXml, '</renderer>', spans);
+  if (renderer < 0) return fopXml;
+  return `${fopXml.slice(0, renderer)}${section}\n    ${fopXml.slice(renderer)}`;
+}
+
+interface TextSpan {
+  start: number;
+  end: number;
+}
+
+/** Byte spans of every XML comment, so element lookups can skip commented-out markup. */
+function commentSpans(xml: string): TextSpan[] {
+  const spans: TextSpan[] = [];
+  const pattern = /<!--[\s\S]*?-->/g;
+  let match = pattern.exec(xml);
+  while (match) {
+    spans.push({ start: match.index, end: match.index + match[0].length });
+    match = pattern.exec(xml);
+  }
+  return spans;
+}
+
+function findOutside(xml: string, needle: string, spans: readonly TextSpan[], from = 0): number {
+  let index = xml.indexOf(needle, from);
+  while (index >= 0) {
+    if (!spans.some((span) => index >= span.start && index < span.end)) return index;
+    index = xml.indexOf(needle, index + needle.length);
+  }
+  return -1;
 }
 
 function matchesFamily(names: FontFaceInfo['names'], family: string): boolean {
