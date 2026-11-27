@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="editor_workspace" xml:lang="zh-CN">
+  <title>工作台布局与三种编辑模式</title>
+  <shortdesc>左侧定位文件与结构，中间写作，右侧检查属性与语义；同一份文档可在可视化、双栏对比与 XML 源码之间切换。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>工作台</keyword>
+        <keyword>可视化编辑</keyword>
+        <keyword>大纲视图</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
+  <conbody>
+    <fig id="fig_arch">
+      <title><keyword keyref="prod_name"/> 工作台与共享内核</title>
+      <desc>三栏前端、本地服务与共享 XML 内核的分工：前端只描述编辑意图，所有 XML 读写都由同一套内核完成。</desc>
+      <image href="../images/architecture.svg" placement="break" alt="工作台由浏览器前端、本地服务与共享 XML 内核组成"/>
+    </fig>
+    <section id="sec_three_panes">
+      <title>三栏各管什么</title>
+      <dl>
+        <dlentry>
+          <dt>左栏</dt>
+          <dd>在<uicontrol>项目文件</uicontrol>、<uicontrol>Map 结构树</uicontrol>与 <uicontrol>Keys</uicontrol> 三个视图之间切换。文件树负责打开与新建，结构树负责调整交付层级，Keys 面板负责查看当前根地图生效的键。</dd>
+        </dlentry>
+        <dlentry>
+          <dt>中间栏</dt>
+          <dd>一个文档一个标签页，带未保存标记。顶部可选择编辑模式、查看当前文档路径与检出状态，底部汇总整个项目的问题。</dd>
+        </dlentry>
+        <dlentry>
+          <dt>右栏</dt>
+          <dd>检查区按页签组织：属性（含条件过滤与复用）、任务、AI、复用预览。属性检查器始终按原始 XML 属性顺序呈现，避免回写时打乱顺序。</dd>
+        </dlentry>
+      </dl>
+      <p>三栏宽度可拖动，布局与打开的标签页会保留到下次进入。</p>
+    </section>
+    <section id="sec_modes">
+      <title>三种编辑模式</title>
+      <ul>
+        <li><uicontrol>可视化</uicontrol>：直接在结构上写作，可用 <codeph>/</codeph> 呼出上下文菜单插入合法元素，选中文本后出现气泡工具栏，块左侧的拖拽手柄支持改层级与插入同级块。</li>
+        <li><uicontrol>双栏对比</uicontrol>：左侧可视化、右侧源码，光标与滚动双向联动，适合核对某个属性到底写成了什么样。</li>
+        <li><uicontrol>XML 源码</uicontrol>：带 DITA 语义补全、良构检查与格式化。源码存在语法错误时无法切回可视化，错误会定位到具体行列。</li>
+      </ul>
+      <p>三种模式共享同一份文档缓冲区，切换不会重建编辑器，撤销历史与选区都保留。只读身份或他人持有检出锁时，三种模式一律只读。</p>
+    </section>
+    <section id="sec_outline">
+      <title>大纲视图与结构重排</title>
+      <p>编辑器左侧的大纲把当前文档渲染成可折叠结构树。默认只显示结构骨架，也可以展开全部块级内容；支持按文本、<codeph>&lt;tag&gt;</codeph> 与 <codeph>#id</codeph> 过滤。点击节点滚动并高亮对应位置，光标移动也会同步高亮大纲行。</p>
+      <p>拖拽重排遵守 DITA 1.3 的内容模型：合法落点才允许放下，非法落点会说明原因（例如 <codeph>li</codeph> 不能直接放进 <codeph>title</codeph>）。每次落点都是一次可撤销操作，<codeph>Alt+↑/↓</codeph> 可对同级块做键盘重排。</p>
+    </section>
+    <section id="sec_structure_guidance">
+      <title>结构提醒与写作秩序</title>
+      <p>编辑器不会阻止你写出不合章节顺序的内容，但会在结构违规处给出提示，例如 <codeph>task</codeph> 的 <codeph>steps</codeph> 之后又出现 <codeph>context</codeph>。提示只是指引，特化元素与未知元素仍会原样保留，保证既不会把作者卡死，也不会悄悄改坏 XML。</p>
+      <note type="tip">写作时多用 <codeph>shortdesc</codeph> 概括一段话：它既会作为导航摘要出现在发布站点，也会被搜索与 AI 上下文优先采用。</note>
+    </section>
+  </conbody>
+</concept>

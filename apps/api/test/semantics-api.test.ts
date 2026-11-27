@@ -50,8 +50,8 @@ describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', (
         topicIndices: { filePath: string }[];
         profilingCatalog: Record<string, string[]>;
       };
-      expect(ctx.keyspace.keys['prod_name']?.inlineText).toBe('DITAEditor Enterprise');
-      expect(ctx.keyspace.keys['deployment_mode']?.inlineText).toBe('Cloud SaaS 多租户');
+      expect(ctx.keyspace.keys['prod_name']?.inlineText).toBe('DITAEditor');
+      expect(ctx.keyspace.keys['deployment_mode']?.inlineText).toBe('Web 工作台 · 桌面端 · 自托管 Docker');
       expect(ctx.keyspace.keys['common_reuse']?.resolvedHref).toBe('shared/common-reuse.dita');
       expect(ctx.activeDitaval?.defaultAction).toBe('include');
       expect(ctx.topicIndices.some((t) => t.filePath === 'shared/common-reuse.dita')).toBe(true);
@@ -64,17 +64,17 @@ describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', (
       expect(cleanDiagRes.statusCode).toBe(200);
       expect((cleanDiagRes.json() as { diagnostics: unknown[] }).diagnostics).toEqual([]);
 
-      // 3. Switching Root Map to admin-book.ditamap swaps key values dynamically
+      // 3. Switching Root Map to maps/admin-book.ditamap swaps key values dynamically
       const bookKsRes = await app.inject({
         method: 'GET',
-        url: '/api/semantics/keyspace?rootMap=admin-book.ditamap',
+        url: '/api/semantics/keyspace?rootMap=maps%2Fadmin-book.ditamap',
       });
       expect(bookKsRes.statusCode).toBe(200);
       const bookKs = bookKsRes.json() as {
         keyspace: { keys: Record<string, { inlineText?: string }> };
       };
-      expect(bookKs.keyspace.keys['prod_name']?.inlineText).toBe('DITAEditor 私有化平台版');
-      expect(bookKs.keyspace.keys['deployment_mode']?.inlineText).toBe('私有化内网集群');
+      expect(bookKs.keyspace.keys['prod_name']?.inlineText).toBe('DITAEditor（私有化部署）');
+      expect(bookKs.keyspace.keys['deployment_mode']?.inlineText).toBe('私有化内网 Docker 集群');
 
       // 4. Resolve document overlay & single conkeyref preview
       const docRes = await app.inject({
@@ -92,7 +92,7 @@ describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', (
         diagnostics: unknown[];
       };
       expect(overlay.keyrefs['prod_name']?.status).toBe('resolved');
-      expect(overlay.keyrefs['prod_name']?.resolvedText).toBe('DITAEditor Enterprise');
+      expect(overlay.keyrefs['prod_name']?.resolvedText).toBe('DITAEditor');
       expect(Object.values(overlay.conrefs).some((c) => c.status === 'resolved')).toBe(true);
       expect(overlay.diagnostics).toEqual([]);
 
@@ -115,7 +115,7 @@ describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', (
       };
       expect(singleConref.status).toBe('resolved');
       expect(singleConref.targetFilePath).toBe('shared/common-reuse.dita');
-      expect(singleConref.resolvedText).toContain('DITAEditor Enterprise');
+      expect(singleConref.resolvedText).toContain('DITAEditor');
     } finally {
       await app.close();
     }
@@ -132,7 +132,12 @@ describe('Phase 3 Semantic Indexer API (/api/semantics/* & /api/diagnostics)', (
         url: '/api/files/content?path=product-manual.ditamap',
       });
       const mapXml = (mapGet.json() as { content: string }).content;
-      const updatedMapXml = mapXml.replace('DITAEditor Enterprise', 'DITAEditor NextGen');
+      // Rewrite only the prod_name keydef keyword, so the map title stays untouched.
+      const updatedMapXml = mapXml.replace(
+        /(<keydef keys="prod_name"[\s\S]{0,200}?<keyword>)DITAEditor(<\/keyword>)/,
+        '$1DITAEditor NextGen$2',
+      );
+      expect(updatedMapXml).not.toBe(mapXml);
 
       const mapPut = await app.inject({
         method: 'PUT',

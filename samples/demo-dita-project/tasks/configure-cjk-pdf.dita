@@ -1,19 +1,79 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
-<task id="task_configure_cjk_pdf" xml:lang="zh-CN">
+<task id="configure_cjk_pdf" xml:lang="zh-CN">
   <title>配置 Noto CJK 中文 PDF 字体</title>
-  <shortdesc>确保 DITA-OT Apache FOP 在导出中文技术手册 PDF 时正确渲染全部汉字字形。</shortdesc>
+  <shortdesc>PDF 输出依赖可嵌入的中日韩字体；容器镜像已自带，本地运行时需要自行安装并让服务端找到字体目录。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>Noto CJK</keyword>
+        <keyword>PDF</keyword>
+        <keyword>字体</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <taskbody>
+    <prereq>
+      <p>已能用 DITA-OT 发布英文 PDF，说明 Java 与 DITA-OT 环境本身正常。</p>
+    </prereq>
+    <context>
+      <p>Adobe FOP 无法直接嵌入 <filepath>.ttc</filepath> 字体集合，而 Debian 的 Noto CJK 只提供集合文件。因此服务端会先读取字体信息，把需要的字面拆成独立单面文件，再为本次构建生成字体配置——这一步不需要你手工处理。</p>
+    </context>
     <steps>
       <step>
-        <cmd>在容器镜像中安装 <filepath>NotoSansCJKsc-Regular.otf</filepath> 与 <filepath>NotoSerifCJKsc-Regular.otf</filepath>。</cmd>
+        <cmd>确认系统已安装 Noto CJK 字体。</cmd>
+        <codeblock outputclass="bash">apt-get install -y fonts-noto-cjk fontconfig &amp;&amp; fc-cache -f</codeblock>
+        <info><codeph>fontconfig</codeph> 必须一并安装：headless Java 与 SVG 渲染都依赖 <filepath>/etc/fonts/fonts.conf</filepath>，缺失时会报 <codeph>Fontconfig head is null</codeph>。</info>
       </step>
       <step>
-        <cmd>配置 DITA-OT 定制字体映射插件的 <filepath>fop.xconf</filepath> 与 <filepath>font-mappings.xml</filepath>。</cmd>
+        <cmd>如字体不在默认位置，设置字体目录后重启服务端。</cmd>
+        <codeblock outputclass="bash">export DITAEDITOR_NOTO_CJK_DIR=/usr/share/fonts/opentype/noto</codeblock>
+        <info>默认会依次探测 <filepath>/usr/share/fonts/opentype/noto</filepath>、用户字体目录等常见位置。</info>
       </step>
       <step>
-        <cmd>使用 <cmdname>dita --input=admin-book.ditamap --format=pdf</cmdname> 验证导出结果无 <codeph>###</codeph> 缺字。</cmd>
+        <cmd>在发布对话框查看运行时状态，确认字体检测通过。</cmd>
+        <info>检测结果会列出可用的 Sans 与 Serif 字面；缺字体时对话框会给出安装提示而不是等到构建失败。</info>
+      </step>
+      <step>
+        <cmd>发布一次中文 PDF，检查标题、正文与代码块三类文本是否都有字形。</cmd>
+        <info>若只有代码块缺字，通常是等宽字体缺失；可在字体目录中补齐 Noto Sans Mono CJK。</info>
       </step>
     </steps>
+    <result>
+      <p>PDF 中中文不再回退为方框或拉丁字形，字体随文件嵌入，在未安装中文字体的设备上也能正常显示。</p>
+    </result>
+    <example>
+      <title>常见失败与处理</title>
+      <simpletable id="table_font_trouble">
+        <sthead>
+          <stentry>日志特征</stentry>
+          <stentry>含义</stentry>
+          <stentry>处理</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>loca table not found</codeph></stentry>
+          <stentry>字体集合无法被直接嵌入</stentry>
+          <stentry>升级服务端，让拆字面流程生效</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>Fontconfig head is null</codeph></stentry>
+          <stentry>系统缺少 fontconfig 配置</stentry>
+          <stentry>安装 <codeph>fontconfig</codeph> 并刷新缓存</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>Name does not exist in the TrueType collection</codeph></stentry>
+          <stentry>字体名与字面不匹配</stentry>
+          <stentry>确认使用的是完整字体名（含字重）</stentry>
+        </strow>
+      </simpletable>
+    </example>
+    <postreq>
+      <p>发布失败时先看任务日志末尾的提示行：字体相关失败会附带修复建议（安装字体、设置字体目录或改用 HTML5 输出），而不是只给一段 Java 堆栈。</p>
+    </postreq>
   </taskbody>
 </task>

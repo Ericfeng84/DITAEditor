@@ -1,15 +1,31 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE topic PUBLIC "-//OASIS//DTD DITA Topic//EN" "topic.dtd">
 <topic id="common_reuse" xml:lang="zh-CN">
-  <title>跨文档单一信息源复用片段库</title>
-  <shortdesc>集中维护标准告警提示、SLA 服务声明与共用操作步骤，供各手册通过 conref / conkeyref 引用。</shortdesc>
+  <title>跨文档复用片段库</title>
+  <shortdesc>集中维护全手册通用的告警提示、版本说明、升级前置条件与反馈渠道，供各主题通过 conref 与 conkeyref 引用。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>复用仓库</keyword>
+        <keyword>conref</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <body>
-    <note id="backup_warning" type="caution">在执行生产环境升级前，请务必对 <keyword keyref="prod_name"/> 工作区执行快照备份，并确认无未检入的 Check-out 文件锁。</note>
-    <p id="sla_notice">本章节遵循 <keyword keyref="prod_name"/>（版本 <keyword keyref="api_version"/>）单源复用规范：所有部署参34234数与合规条款均从统一片段库自动同步。</p>
-    <p>技术支持联系邮箱：<ph id="support_email">docs-team@ditaeditor.dev</ph>。</p>
+    <p>本主题只作为复用仓库使用：它本身不进入目录，也不面向读者单独发布，所有片段都通过根地图中的 <codeph>common_reuse</codeph> 键被引用。</p>
+    <note id="backup_warning" type="caution">升级 <keyword keyref="prod_name"/> 之前，请先备份手册目录与数据目录（其中包含 SQLite 数据库、草稿与发布记录），并确认关键主题没有长期未签入的草稿。</note>
+    <p id="sla_notice">本手册适用于 <keyword keyref="prod_name"/> <keyword keyref="api_version"/>。文中出现的所有产品名、版本号与部署形态都来自根地图中的键定义：换一本手册，同样的正文会渲染出不同的取值。</p>
+    <p>遇到文档错误、缺失说明或与实际行为不符之处，请在 <ph id="support_email">https://github.com/Ericfeng84/DITAEditor/issues</ph> 提交问题，并附上手册名、主题路径与你的 <keyword keyref="prod_name"/> 版本。</p>
     <ul id="prereq_list">
-      <li id="prereq_docker">已安装 Docker Engine 24+ 与 Docker Compose v2</li>
-      <li id="prereq_git">已配置 Git 仓库访问令牌（OAuth 或 PAT）</li>
+      <li id="prereq_docker">已安装 Docker Engine 24 以上与 Docker Compose v2，或已按开发方式准备好 Node 22 与 pnpm</li>
+      <li id="prereq_git">手册目录已初始化为 Git 仓库，且当前分支工作区干净</li>
+      <li id="prereq_ditaot">需要校验与发布时，DITA-OT 4.x 可用；中文 PDF 还需 Noto CJK 字体与 fontconfig</li>
     </ul>
+    <p>引用方式：整段提示用 <codeph>conkeyref</codeph>（写键名加片段 id），清单类片段用 <codeph>conref</codeph>（写相对路径加片段 id）。修改本文件后，所有引用点在下一次保存时同步更新，无需逐个主题改文字。</p>
   </body>
 </topic>

@@ -112,7 +112,8 @@ function streamPayload(overrides: Record<string, unknown> = {}) {
     rootMapPath: ROOT_MAP,
     taskType: 'authoring',
     instruction: '请把这段改写得更加清晰。',
-    target: { mode: 'element', elementPath: [2, 0] },
+    // concept > conbody (index 3, after title/shortdesc/prolog) > first paragraph.
+    target: { mode: 'element', elementPath: [3, 0] },
     history: [],
     ...overrides,
   };
@@ -209,7 +210,7 @@ describe('POST /api/ai/stream', () => {
     expect(proposal.explanation).toBe('已把段落改写为更清晰的说明。');
     expect(proposal.patchedXml).toContain('<p>更新后的段落，包含 <codeph>workspace</codeph> 说明。</p>');
     expect(proposal.patchedXml).toContain('<!DOCTYPE concept PUBLIC');
-    expect(proposal.originalXml).toContain('多文件工作区与 Git 隔离模型');
+    expect(proposal.originalXml).toContain('手册、分支与个人草稿');
     expect(proposal.changesSummary.length).toBeGreaterThan(0);
     expect(proposal.changesSummary.length).toBeLessThanOrEqual(4);
     expect(proposal.verification).toMatchObject({
@@ -351,7 +352,7 @@ describe('POST /api/ai/stream', () => {
     const frames = parseSse(response.body);
     const proposal = eventsOf(frames, 'proposal')[0]!.data as unknown as AiProposal;
     expect(proposal.originalXml).toContain('来自请求的标题');
-    expect(proposal.originalXml).not.toContain('多文件工作区与 Git 隔离模型');
+    expect(proposal.originalXml).not.toContain('手册、分支与个人草稿');
     expect(proposal.patchedXml).toContain('<title>请求标题已改写</title>');
     expect(proposal.patchedXml).toContain('来自请求的正文。');
     await app.close();

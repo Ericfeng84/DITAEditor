@@ -1,38 +1,159 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
-<reference id="ref_rest_api" xml:lang="zh-CN">
-  <title>工作台 REST API 端点参考</title>
-  <shortdesc>Fastify 本地工作区文件读写、资产上传与诊断校验接口概览。</shortdesc>
+<reference id="rest_api_endpoints" xml:lang="zh-CN">
+  <title>REST API 端点参考</title>
+  <shortdesc>工作台前端的所有能力都通过本地服务的 JSON 接口完成，接口按工作区、文件、语义、协作、校验、发布与导入分组。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>REST API</keyword>
+        <keyword>Fastify</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <refbody>
-    <section id="sec_endpoints">
-      <title>Phase 2 文件与工作区端点</title>
-      <simpletable id="st_workspace_api" relcolwidth="1* 2* 3*">
+    <section id="sec_conventions">
+      <title>约定</title>
+      <ul>
+        <li>默认监听 <filepath>http://localhost:3001</filepath>，所有路径以 <filepath>/api</filepath> 开头；部署在反向代理子路径下时由 <codeph>DITA_BASE_PATH</codeph> 统一剥离前缀。</li>
+        <li>身份通过请求头 <codeph>x-dita-user-id</codeph> 传递；选中的手册与分支分别用 <codeph>x-dita-manual-id</codeph>、<codeph>x-dita-branch</codeph>；<codeph>x-dita-locale</codeph> 决定错误消息语言。</li>
+        <li>写操作在服务端校验角色与检出锁归属，只读身份或他人持有的文件返回冲突错误。</li>
+        <li>错误响应统一为 <codeph>{ error, key, params }</codeph> 结构，<codeph>key</codeph> 可用于前端本地化。</li>
+      </ul>
+    </section>
+    <section id="sec_workspace_files">
+      <title>工作区与文件</title>
+      <simpletable id="table_workspace">
         <sthead>
-          <stentry>Method</stentry>
-          <stentry>Path</stentry>
-          <stentry>Description</stentry>
+          <stentry>方法与路径</stentry>
+          <stentry>说明</stentry>
         </sthead>
         <strow>
-          <stentry><codeph>GET</codeph></stentry>
-          <stentry><apiname>/api/workspace</apiname></stentry>
-          <stentry>扫描当前项目文件树、Map 列表与 Topic 标题索引。</stentry>
+          <stentry><codeph>GET /api/workspace</codeph></stentry>
+          <stentry>扫描工作区，返回地图、主题、条件文件与统计</stentry>
         </strow>
         <strow>
-          <stentry><codeph>PUT</codeph></stentry>
-          <stentry><apiname>/api/files/content</apiname></stentry>
-          <stentry>保存 Topic 或 Map XML 内容并校验良构性。</stentry>
+          <stentry><codeph>GET /api/files/tree</codeph></stentry>
+          <stentry>目录树，可指定分支以读取对应 worktree</stentry>
         </strow>
         <strow>
-          <stentry><codeph>POST</codeph></stentry>
-          <stentry><apiname>/api/assets/upload</apiname></stentry>
-          <stentry>上传图片资产并返回相对引用路径 <codeph>relativeHref</codeph>。</stentry>
+          <stentry><codeph>GET /api/files/content</codeph> · <codeph>PUT /api/files/content</codeph></stentry>
+          <stentry>读取或写入单个文件，写入遵守检出锁</stentry>
         </strow>
         <strow>
-          <stentry><codeph>GET</codeph></stentry>
-          <stentry><apiname>/api/diagnostics</apiname></stentry>
-          <stentry>检查 XML 良构、Map 断链与循环 <codeph>&lt;mapref&gt;</codeph> 引用。</stentry>
+          <stentry><codeph>POST /api/files/create</codeph> · <codeph>POST /api/files/mkdir</codeph> · <codeph>POST /api/files/rename</codeph> · <codeph>DELETE /api/files</codeph></stentry>
+          <stentry>新建主题或地图、建目录、重命名、删除</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>GET /api/diagnostics</codeph></stentry>
+          <stentry>按根地图返回项目级问题：断链、循环、未定义键、图片缺失、语法错误</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>POST /api/assets/upload</codeph> · <codeph>GET /api/assets/resolve</codeph></stentry>
+          <stentry>上传图片并按相对路径解析为可预览资源</stentry>
         </strow>
       </simpletable>
+    </section>
+    <section id="sec_semantics">
+      <title>语义与复用</title>
+      <simpletable id="table_semantics">
+        <sthead>
+          <stentry>方法与路径</stentry>
+          <stentry>说明</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>GET /api/semantics/context</codeph></stentry>
+          <stentry>一次返回键空间、生效条件文件、主题索引与条件词表</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>GET /api/semantics/keyspace</codeph> · <codeph>GET /api/semantics/ids</codeph> · <codeph>GET /api/semantics/ditaval</codeph></stentry>
+          <stentry>分别查询生效键、主题内 ID 与条件解析结果</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>POST /api/semantics/resolve-document</codeph></stentry>
+          <stentry>按根地图解析单个文档中的键与复用引用</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>POST /api/semantics/resolve-conref</codeph></stentry>
+          <stentry>解析单个 <codeph>conref</codeph> 或 <codeph>conkeyref</codeph> 目标片段</stentry>
+        </strow>
+      </simpletable>
+    </section>
+    <section id="sec_collaboration">
+      <title>协作、校验与发布</title>
+      <simpletable id="table_collab">
+        <sthead>
+          <stentry>方法与路径</stentry>
+          <stentry>说明</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>GET /api/locks</codeph></stentry>
+          <stentry>列出当前分支的检出锁</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>POST /api/locks/checkout</codeph> · <codeph>checkin</codeph> · <codeph>release</codeph> · <codeph>cancel</codeph> · <codeph>handoff</codeph> · <codeph>force-unlock</codeph></stentry>
+          <stentry>检出、签入、释放锁、撤销检出、转派与管理员强制解锁</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>GET /api/validate/runtime</codeph> · <codeph>POST /api/validate/strict</codeph></stentry>
+          <stentry>检查 DITA-OT 运行时，并按根地图执行严格校验</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>GET /api/publish/themes</codeph> · <codeph>GET /api/publish/pdf-themes</codeph></stentry>
+          <stentry>列出 HTML5 与 PDF 主题及其参数定义</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>PUT /api/publish/profile</codeph></stentry>
+          <stentry>保存当前手册的主题与品牌配置</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>POST /api/publish/jobs</codeph> · <codeph>GET /api/publish/jobs/:id</codeph></stentry>
+          <stentry>创建发布任务并查询进度</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>GET /api/publish/jobs/:id/events</codeph> · <codeph>/log</codeph> · <codeph>/preview/*</codeph> · <codeph>/artifact</codeph></stentry>
+          <stentry>实时日志流、构建日志、成品预览与 ZIP 下载</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>POST /api/git/commit</codeph> · <codeph>GET /api/git/diff</codeph> · <codeph>POST /api/git/tags</codeph></stentry>
+          <stentry>提交、差异对比与打标签，另有分支、日志与回滚端点</stentry>
+        </strow>
+      </simpletable>
+    </section>
+    <section id="sec_ai_ingest">
+      <title>AI 与文档导入</title>
+      <simpletable id="table_ai_ingest">
+        <sthead>
+          <stentry>方法与路径</stentry>
+          <stentry>说明</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>POST /api/ai/stream</codeph></stentry>
+          <stentry>流式返回 AI 改写或答复，服务端完成拼接与校验</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>GET /api/ai/config</codeph> · <codeph>PUT /api/ai/config</codeph> · <codeph>POST /api/ai/config/test</codeph></stentry>
+          <stentry>读取（密钥掩码）、保存与测试模型配置</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>GET /api/ai/usage</codeph></stentry>
+          <stentry>调用记录与成本统计</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>POST /api/ingest/jobs</codeph> · <codeph>GET /api/ingest/jobs/:id</codeph></stentry>
+          <stentry>创建导入任务并查询阶段进度</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>PUT /api/ingest/jobs/:id/markdown</codeph> · <codeph>POST /api/ingest/jobs/:id/replan</codeph> · <codeph>/approve</codeph> · <codeph>/cancel</codeph></stentry>
+          <stentry>编辑中间 Markdown、重新规划、确认写入或取消</stentry>
+        </strow>
+      </simpletable>
+      <note type="note">接口随版本演进，字段以仓库内 <filepath>apps/api/src/modules/*/routes.ts</filepath> 的校验规则为准；本表只覆盖前端实际调用的主力端点。</note>
     </section>
   </refbody>
 </reference>

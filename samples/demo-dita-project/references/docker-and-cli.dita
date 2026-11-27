@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="docker_and_cli" xml:lang="zh-CN">
+  <title>镜像、环境变量与常用命令</title>
+  <shortdesc>一个镜像覆盖 Web 工作台与桌面客户端的服务端；配置全部通过环境变量注入，手册与产物落在数据目录。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>Docker</keyword>
+        <keyword>环境变量</keyword>
+        <keyword>pnpm</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
+  <refbody>
+    <section id="sec_services">
+      <title>编排的服务</title>
+      <simpletable id="table_services">
+        <sthead>
+          <stentry>服务</stentry>
+          <stentry>作用</stentry>
+          <stentry>是否必选</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>ditaeditor</codeph></stentry>
+          <stentry>工作台与 API，内含 DITA-OT、JRE 与 Noto CJK</stentry>
+          <stentry>必选</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>docling-serve</codeph></stentry>
+          <stentry>PDF、扫描件与 Office 文档的解析服务</stentry>
+          <stentry>可选，仅导入时需要</stentry>
+        </strow>
+      </simpletable>
+    </section>
+    <section id="sec_env">
+      <title>环境变量</title>
+      <simpletable id="table_env">
+        <sthead>
+          <stentry>变量</stentry>
+          <stentry>默认值</stentry>
+          <stentry>作用</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>PORT</codeph></stentry>
+          <stentry><codeph>3001</codeph></stentry>
+          <stentry>服务监听端口</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITA_BASE_PATH</codeph></stentry>
+          <stentry>空</stentry>
+          <stentry>反向代理子路径前缀，如 <filepath>/dita</filepath></stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITA_WORKSPACE_DIR</codeph></stentry>
+          <stentry><filepath>samples/demo-dita-project</filepath></stentry>
+          <stentry>启动时默认打开的手册目录</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITA_IMPORTS_DIR</codeph></stentry>
+          <stentry><filepath>.dita-workspaces</filepath></stentry>
+          <stentry>导入手册、SQLite 数据库与分支工作树的根目录</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITA_PUBLISH_DIR</codeph></stentry>
+          <stentry><filepath>.dita-workspaces/publish</filepath></stentry>
+          <stentry>发布快照、构建日志与产物</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITA_LOCK_TTL_HOURS</codeph></stentry>
+          <stentry><codeph>72</codeph></stentry>
+          <stentry>检出锁过期提醒阈值，只提示不自动释放</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITA_PUBLISH_CONCURRENCY</codeph></stentry>
+          <stentry><codeph>1</codeph></stentry>
+          <stentry>进程内并发构建数，超过 2 容易抢占内存</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITA_OT_HOME</codeph> / <codeph>DITA_CMD</codeph></stentry>
+          <stentry>自动探测</stentry>
+          <stentry>DITA-OT 安装目录或 <codeph>dita</codeph> 可执行文件路径</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITAEDITOR_NOTO_CJK_DIR</codeph></stentry>
+          <stentry><filepath>/usr/share/fonts/opentype/noto</filepath></stentry>
+          <stentry>中文字体目录，用于生成本次构建的字体配置</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DITAEDITOR_HTML_THEMES_DIR</codeph> / <codeph>DITAEDITOR_PDF_PLUGIN_DIR</codeph></stentry>
+          <stentry>仓库内插件目录</stentry>
+          <stentry>HTML5 主题与中文 PDF 字体插件位置</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>DEEPSEEK_BASE_URL</codeph> / <codeph>DEEPSEEK_MODEL</codeph> / <codeph>DEEPSEEK_API_KEY</codeph></stentry>
+          <stentry>DeepSeek 默认值</stentry>
+          <stentry>AI 端点、模型与密钥兜底；界面中保存的配置优先</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>AI_TIMEOUT_MS</codeph> / <codeph>AI_MAX_CONTEXT_CHARS</codeph></stentry>
+          <stentry><codeph>45000</codeph> / <codeph>24000</codeph></stentry>
+          <stentry>单次调用超时与上下文预算</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>INGEST_DEFAULT_ENGINE</codeph> / <codeph>DOCLING_MODE</codeph> / <codeph>DOCLING_SERVE_URL</codeph></stentry>
+          <stentry><codeph>auto</codeph> / <codeph>auto</codeph> / <codeph>http://localhost:5001</codeph></stentry>
+          <stentry>文档导入的解析引擎与 Docling 通道</stentry>
+        </strow>
+      </simpletable>
+    </section>
+    <section id="sec_docker_commands">
+      <title>容器相关命令</title>
+      <codeblock outputclass="bash"># 构建并后台启动全部服务
+docker compose up -d --build
+
+# 只启动工作台，跳过 Docling
+docker compose up -d ditaeditor
+
+# 查看日志与运行时探测结果
+docker compose logs -f ditaeditor
+
+# 进入容器手动验证 DITA-OT 与字体
+docker compose exec ditaeditor dita --version
+docker compose exec ditaeditor fc-list | grep -i "Noto Sans CJK"</codeblock>
+    </section>
+    <section id="sec_dev_commands">
+      <title>本地开发命令</title>
+      <codeblock outputclass="bash"># 安装依赖
+pnpm install
+
+# 前端与 API 同时开发
+pnpm --filter @dita/web dev
+pnpm --filter @dita/api dev
+
+# 全仓构建、类型检查与测试
+pnpm -r build &amp;&amp; pnpm -r typecheck &amp;&amp; pnpm -r test
+
+# 只跑核心包的往返黄金测试
+pnpm --filter @dita/core test
+
+# 静态官网与文档站
+pnpm --filter @dita/site dev</codeblock>
+      <note type="tip">修改 <filepath>packages/dita-core</filepath> 后必须跑全仓测试：Web 编辑器、API 校验与发布都依赖同一套 XML 内核，单包通过不代表整链路通过。</note>
+    </section>
+  </refbody>
+</reference>

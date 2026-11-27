@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
+<map id="admin_book" xml:lang="zh-CN">
+  <title>DITAEditor 私有化部署与运维手册</title>
+  <topicmeta>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <keywords>
+      <keyword>私有化部署</keyword>
+      <keyword>Docker</keyword>
+      <keyword>运维</keyword>
+    </keywords>
+  </topicmeta>
+  <keydef keys="prod_name" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>DITAEditor（私有化部署）</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="api_version" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>1.6.0</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="deployment_mode" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>私有化内网 Docker 集群</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <keydef keys="common_reuse" href="../shared/common-reuse.dita" processing-role="resource-only"/>
+  <keydef keys="gloss_dita" processing-role="resource-only">
+    <topicmeta>
+      <keywords>
+        <keyword>DITA (Darwin Information Typing Architecture)</keyword>
+      </keywords>
+    </topicmeta>
+  </keydef>
+  <topicgroup keyscope="cloud">
+    <keydef keys="endpoint_url" processing-role="resource-only">
+      <topicmeta>
+        <keywords>
+          <keyword>http://dita-api:3001/api</keyword>
+        </keywords>
+      </topicmeta>
+    </keydef>
+  </topicgroup>
+  <topichead navtitle="第一篇 架构与信息模型">
+    <topicref href="../concepts/dita-architecture.dita" navtitle="第 1 章 结构化写作架构">
+      <topicref href="../concepts/single-sourcing.dita" type="concept" navtitle="单一信息源与复用仓库" rev="1.6.0"/>
+      <topicref href="../concepts/workspace-model.dita" type="concept" navtitle="多文件工作区与草稿叠加层" product="onprem"/>
+    </topicref>
+  </topichead>
+  <topichead navtitle="第二篇 部署与运维">
+    <topicref href="../tasks/deploy-worker.dita" navtitle="第 2 章 用 Docker Compose 启动服务端" audience="admin">
+      <topicref href="../tasks/configure-cjk-pdf.dita" type="task" navtitle="配置 Noto CJK 中文 PDF 字体"/>
+    </topicref>
+    <topicref href="../references/docker-and-cli.dita" type="reference" navtitle="第 3 章 镜像、环境变量与常用命令" audience="admin"/>
+    <topicref href="../references/publish-themes.dita" type="reference" navtitle="第 4 章 发布主题与品牌配置" audience="admin"/>
+  </topichead>
+  <topichead navtitle="第三篇 参考">
+    <topicref href="../references/server-sizing-cals.dita" navtitle="附录 A 容量估算与表格结构参考">
+      <topicref href="../references/rest-api-endpoints.dita" type="reference" navtitle="附录 B REST API 端点参考"/>
+      <topicref href="../references/specialized-passthrough.dita" type="topic" navtitle="附录 C 特化元素与无损保真验证"/>
+    </topicref>
+  </topichead>
+</map>

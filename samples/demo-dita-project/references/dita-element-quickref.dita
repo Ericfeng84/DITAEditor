@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="dita_element_quickref" xml:lang="zh-CN">
+  <title>DITA 1.3 元素与属性速查</title>
+  <shortdesc>按写作意图归类常用元素，并列出最常改的属性：写内容之前先确认“这句话该用哪个元素”。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>DITA 元素</keyword>
+        <keyword>属性</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
+  <refbody>
+    <section id="sec_structural">
+      <title>结构元素</title>
+      <simpletable id="table_structural">
+        <sthead>
+          <stentry>意图</stentry>
+          <stentry>元素</stentry>
+          <stentry>说明</stentry>
+        </sthead>
+        <strow>
+          <stentry>分节</stentry>
+          <stentry><codeph>section</codeph></stentry>
+          <stentry>主题内部的二级结构，带独立标题；章节层级由地图决定</stentry>
+        </strow>
+        <strow>
+          <stentry>分步操作</stentry>
+          <stentry><codeph>steps</codeph> / <codeph>step</codeph> / <codeph>cmd</codeph> / <codeph>info</codeph></stentry>
+          <stentry>一个步骤一个动作，补充说明放 <codeph>info</codeph> 而不是塞进 <codeph>cmd</codeph></stentry>
+        </strow>
+        <strow>
+          <stentry>前置与结果</stentry>
+          <stentry><codeph>prereq</codeph> / <codeph>context</codeph> / <codeph>result</codeph> / <codeph>postreq</codeph></stentry>
+          <stentry>任务主题的标准骨架，顺序固定</stentry>
+        </strow>
+        <strow>
+          <stentry>提示</stentry>
+          <stentry><codeph>note</codeph>（<codeph>type</codeph> = note / tip / important / warning / caution / attention / danger）</stentry>
+          <stentry>类型决定图标与配色，不要用颜色强调代替语义</stentry>
+        </strow>
+        <strow>
+          <stentry>引用式说明</stentry>
+          <stentry><codeph>fig</codeph> / <codeph>image</codeph></stentry>
+          <stentry>图片必须有替代文本，装饰性图片用 <codeph>alt</codeph> 为空串</stentry>
+        </strow>
+        <strow>
+          <stentry>术语定义</stentry>
+          <stentry><codeph>dl</codeph> / <codeph>dlentry</codeph> / <codeph>dt</codeph> / <codeph>dd</codeph></stentry>
+          <stentry>比表格更轻的定义列表，适合解释概念</stentry>
+        </strow>
+        <strow>
+          <stentry>代码与输出</stentry>
+          <stentry><codeph>codeblock</codeph> / <codeph>screen</codeph> / <codeph>userinput</codeph> / <codeph>systemoutput</codeph></stentry>
+          <stentry>代码块内空白原样保留，不做自动换行与缩进重排</stentry>
+        </strow>
+      </simpletable>
+    </section>
+    <section id="sec_inline">
+      <title>行内元素</title>
+      <simpletable id="table_inline">
+        <sthead>
+          <stentry>写什么</stentry>
+          <stentry>元素</stentry>
+        </sthead>
+        <strow>
+          <stentry>界面控件、菜单、窗口标题</stentry>
+          <stentry><codeph>uicontrol</codeph>、<codeph>menucascade</codeph>、<codeph>wintitle</codeph></stentry>
+        </strow>
+        <strow>
+          <stentry>文件路径、文件名、命令、参数</stentry>
+          <stentry><codeph>filepath</codeph>、<codeph>cmdname</codeph>、<codeph>parmname</codeph></stentry>
+        </strow>
+        <strow>
+          <stentry>行内代码、变量、术语</stentry>
+          <stentry><codeph>codeph</codeph>、<codeph>varname</codeph>、<codeph>term</codeph></stentry>
+        </strow>
+        <strow>
+          <stentry>强调与引用</stentry>
+          <stentry><codeph>b</codeph>、<codeph>i</codeph>、<codeph>u</codeph>、<codeph>q</codeph>、<codeph>cite</codeph></stentry>
+        </strow>
+        <strow>
+          <stentry>跨文档链接</stentry>
+          <stentry><codeph>xref</codeph>（相对 <codeph>href</codeph>）与 <codeph>link</codeph>（外链加 <codeph>scope="external"</codeph>）</stentry>
+        </strow>
+        <strow>
+          <stentry>可替换文本</stentry>
+          <stentry><codeph>keyword</codeph>（可带 <codeph>keyref</codeph>）、<codeph>ph</codeph></stentry>
+        </strow>
+      </simpletable>
+      <note type="tip">这些行内元素都是独立节点而不是格式标记，因此 <codeph>&lt;keyword keyref="prod_name"/&gt;</codeph> 这类空元素可以存在，嵌套顺序也不会被合并。</note>
+    </section>
+    <section id="sec_attributes">
+      <title>最常改的属性</title>
+      <dl>
+        <dlentry>
+          <dt><codeph>id</codeph></dt>
+          <dd>主题与片段被复用、被链接、被诊断引用的锚点。同一文件内必须唯一，重命名会断开引用。</dd>
+        </dlentry>
+        <dlentry>
+          <dt><codeph>keyref</codeph></dt>
+          <dd>引用根地图中的键，用于产品名、版本、界面文字与图片。键未定义时问题面板会提示。</dd>
+        </dlentry>
+        <dlentry>
+          <dt><codeph>conref</codeph> / <codeph>conkeyref</codeph></dt>
+          <dd>跨文件复用片段。前者写相对路径加片段 id，后者只写键名加片段 id，位置变化时更稳健。</dd>
+        </dlentry>
+        <dlentry>
+          <dt><codeph>product</codeph> / <codeph>audience</codeph> / <codeph>platform</codeph> / <codeph>otherprops</codeph></dt>
+          <dd>条件属性，发布时由条件文件（<filepath>.ditaval</filepath>）决定保留、隐藏或标记。</dd>
+        </dlentry>
+        <dlentry>
+          <dt><codeph>xml:lang</codeph></dt>
+          <dd>文档语言。界面语言与文档语言相互独立，英文主题仍按自身语言检查拼写与排版。</dd>
+        </dlentry>
+        <dlentry>
+          <dt><codeph>xml:space</codeph></dt>
+          <dd>设为 <codeph>preserve</codeph> 时空白原样保留；代码类元素默认已保留，无需额外声明。</dd>
+        </dlentry>
+      </dl>
+    </section>
+    <section id="sec_maps">
+      <title>地图元素</title>
+      <simpletable id="table_map_elements">
+        <sthead>
+          <stentry>元素</stentry>
+          <stentry>用途</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>topicref</codeph></stentry>
+          <stentry>挂载主题，决定层级与顺序；可用 <codeph>navtitle</codeph> 单独指定导航标题</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>topichead</codeph> / <codeph>topicgroup</codeph></stentry>
+          <stentry>创建分组标题 / 只分组不产生标题</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>mapref</codeph></stentry>
+          <stentry>引入另一张地图，实现多层手册组装</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>keydef</codeph></stentry>
+          <stentry>定义键值或把键指向文件；<codeph>processing-role="resource-only"</codeph> 表示不进目录</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>reltable</codeph></stentry>
+          <stentry>声明主题间的相关链接关系，发布时自动生成互链</stentry>
+        </strow>
+      </simpletable>
+      <p>完整的内容模型与允许的子元素以 OASIS DITA 1.3 规范为准：<xref href="https://docs.oasis-open.org/dita/dita/v1.3/dita-v1.3-part2-tech-content.html" format="html" scope="external">DITA 1.3 Part 2: Technical Content Edition</xref>。</p>
+    </section>
+  </refbody>
+</reference>

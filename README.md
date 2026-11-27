@@ -165,7 +165,7 @@ Fastify 5 + Zod 提供工作区扫描、文件 CRUD、批量导入与按分支�
 <details>
 <summary>实现细节</summary>
 
-- **内置示例项目**：默认加载 `samples/demo-dita-project/`（`product-manual.ditamap`、`admin-book.ditamap`、公共复用库 `shared/common-reuse.dita`、`filters/cloud-edition.ditaval` & `onprem-admin.ditaval`、嵌套子 Map、Concept/Task/Reference 文档与 SVG 架构图），离线内存模式体验一致。
+- **内置示例项目**：默认加载 `samples/demo-dita-project/`（`product-manual.ditamap`、`maps/admin-book.ditamap`、公共复用库 `shared/common-reuse.dita`、`filters/cloud-edition.ditaval` & `onprem-admin.ditaval`、嵌套子 Map、Concept/Task/Reference 文档与 SVG 架构图），离线内存模式体验一致。
 - **路径安全**：`resolveSafeWorkspacePath` 拦截路径穿越（`..`）、绝对路径、空字节与符号链接逃逸。
 - **资产管线**：Multipart 图片上传（`.png` / `.jpg` / `.jpeg` / `.gif` / `.svg` / `.webp` / `.avif`，单文件上限 10 MB），自动计算相对文档的 POSIX `href` 并提供预览路由。
 

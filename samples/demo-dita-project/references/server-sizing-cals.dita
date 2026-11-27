@@ -1,57 +1,131 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
-<reference id="ref_hardware_specs" xml:lang="en-US">
-  <title>Server Sizing and CALS Matrix</title>
-  <shortdesc>Hardware recommendations and OASIS CALS table layout reference for team deployments.</shortdesc>
+<reference id="cals_table_reference" xml:lang="zh-CN">
+  <title>CALS 表格与 simpletable 结构参考</title>
+  <shortdesc>简单表格用于轻量清单，CALS 表格支持跨行跨列；编辑器在两者之间保持原始属性与列定义不变。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>CALS</keyword>
+        <keyword>table</keyword>
+        <keyword>simpletable</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <refbody>
-    <refsyn>
-      <title>Endpoint Base URL</title>
-      <codeblock outputclass="language-bash">https://docs-api.internal.example.com/api/v1</codeblock>
-    </refsyn>
-    <section id="sec_cals_matrix">
-      <title>Deployment Sizing Matrix (CALS Table)</title>
-      <table id="tbl_sizing" frame="all" colsep="1" rowsep="1">
-        <title>Recommended Resources by Team Size</title>
-        <desc>Includes combined horizontal and vertical cell spans.</desc>
-        <tgroup cols="4">
-          <colspec colnum="1" colname="c1" colwidth="1.5*" align="left"/>
-          <colspec colnum="2" colname="c2" colwidth="1*" align="center"/>
-          <colspec colnum="3" colname="c3" colwidth="1.5*" align="right"/>
-          <colspec colnum="4" colname="c4" colwidth="2*" align="left"/>
+    <section id="sec_when">
+      <title>先选表格类型</title>
+      <dl>
+        <dlentry>
+          <dt><codeph>simpletable</codeph></dt>
+          <dd>没有列名、列宽与跨行跨列需求时的首选。结构轻，可视化编辑稳定，适合参数对照与状态清单。</dd>
+        </dlentry>
+        <dlentry>
+          <dt><codeph>table</codeph>（CALS）</dt>
+          <dd>需要表头、列宽、合并单元格或复用列定义时使用。必须声明 <codeph>tgroup</codeph> 与 <codeph>colspec</codeph>，行列数量必须与 <codeph>cols</codeph> 声明一致。</dd>
+        </dlentry>
+      </dl>
+      <p>一个主题内可以同时存在两种表格。含多个 <codeph>tgroup</codeph> 的复杂表格在可视化模式下只允许改文字，不允许拖动结构，避免破坏列定义。</p>
+    </section>
+    <section id="sec_cals_example">
+      <title>CALS 示例：合并单元格与资源建议</title>
+      <table id="table_runtime_resources">
+        <title>单容器运行资源建议</title>
+        <tgroup cols="3">
+          <colspec colname="c1" colnum="1"/>
+          <colspec colname="c2" colnum="2"/>
+          <colspec colname="c3" colnum="3"/>
           <thead>
             <row>
-              <entry colname="c1" morerows="1">Component</entry>
-              <entry namest="c2" nameend="c3">Resource Allocation</entry>
-              <entry colname="c4" morerows="1">Notes</entry>
-            </row>
-            <row>
-              <entry colname="c2">CPU</entry>
-              <entry colname="c3">Memory</entry>
+              <entry>使用场景</entry>
+              <entry>并发发布数</entry>
+              <entry>建议配置</entry>
             </row>
           </thead>
           <tbody>
             <row>
-              <entry morerows="1">Java Worker</entry>
-              <entry>2 vCPU</entry>
-              <entry>2 GB</entry>
-              <entry>
-                <p>Small teams (up to 10 authors).</p>
-                <p>Supports 1 concurrent PDF build.</p>
-              </entry>
+              <entry namest="c1" nameend="c2">写作、语义检索与预览</entry>
+              <entry morerows="1">2 vCPU / 2 GiB</entry>
             </row>
             <row>
-              <entry>4 vCPU</entry>
-              <entry>4 GB</entry>
-              <entry>Medium teams (10–50 authors).</entry>
+              <entry>HTML5 发布</entry>
+              <entry>1</entry>
             </row>
             <row>
-              <entry namest="c1" nameend="c2">PostgreSQL + Redis</entry>
-              <entry>2 GB</entry>
-              <entry/>
+              <entry>PDF 发布（含中文字体嵌入）</entry>
+              <entry>1</entry>
+              <entry>2 vCPU / 4 GiB</entry>
             </row>
           </tbody>
         </tgroup>
       </table>
+      <p>上表同时演示两种合并：<codeph>namest</codeph> 与 <codeph>nameend</codeph> 合并第一行的前两列，<codeph>morerows</codeph> 让最后一列的单元格向下跨一行。可视化编辑时它们分别表现为“合并列”与“合并行”。</p>
+    </section>
+    <section id="sec_attributes">
+      <title>关键属性</title>
+      <simpletable id="table_cals_attrs">
+        <sthead>
+          <stentry>属性</stentry>
+          <stentry>所在元素</stentry>
+          <stentry>作用</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>cols</codeph></stentry>
+          <stentry><codeph>tgroup</codeph></stentry>
+          <stentry>声明总列数，与 <codeph>colspec</codeph> 数量一致</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>colname</codeph> / <codeph>colnum</codeph></stentry>
+          <stentry><codeph>colspec</codeph></stentry>
+          <stentry>给列命名并定序，供合并引用</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>namest</codeph> / <codeph>nameend</codeph></stentry>
+          <stentry><codeph>entry</codeph></stentry>
+          <stentry>指定合并的起始列与结束列</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>morerows</codeph></stentry>
+          <stentry><codeph>entry</codeph></stentry>
+          <stentry>向下跨行数（不含本行）</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>colsep</codeph> / <codeph>rowsep</codeph></stentry>
+          <stentry><codeph>table</codeph> 与 <codeph>entry</codeph></stentry>
+          <stentry>控制分隔线，发布主题会统一覆盖视觉样式</stentry>
+        </strow>
+      </simpletable>
+      <note type="tip">跨行跨列只在编辑器中做可视化折算，原始 <codeph>namest</codeph>、<codeph>nameend</codeph> 与 <codeph>morerows</codeph> 始终保留在 XML 中，因此其他 DITA 工具打开后看到的仍是同一张表。</note>
+    </section>
+    <section id="sec_simpletable_example">
+      <title>simpletable 示例</title>
+      <simpletable id="table_status_codes">
+        <sthead>
+          <stentry>状态</stentry>
+          <stentry>含义</stentry>
+          <stentry>作者需要做什么</stentry>
+        </sthead>
+        <strow>
+          <stentry>已检出</stentry>
+          <stentry>文件被某位作者独占</stentry>
+          <stentry>等待释放，或请管理员强制解锁</stentry>
+        </strow>
+        <strow>
+          <stentry>有草稿</stentry>
+          <stentry>存在未签入的个人修改</stentry>
+          <stentry>预览 Diff 后签入，或还原基线</stentry>
+        </strow>
+        <strow>
+          <stentry>草稿过期</stentry>
+          <stentry>检出时间超过提醒阈值</stentry>
+          <stentry>尽快签入或释放锁，避免阻塞他人</stentry>
+        </strow>
+      </simpletable>
     </section>
   </refbody>
 </reference>

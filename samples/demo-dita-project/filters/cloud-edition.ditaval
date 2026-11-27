@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!-- Cloud edition profile: online SaaS (GCP Cloud Run) and the browser-only offline build -->
 <val>
   <prop att="audience" val="admin" action="include"/>
   <prop att="product" val="cloud" action="include"/>
   <prop att="product" val="onprem" action="exclude"/>
   <prop att="otherprops" val="internal" action="exclude"/>
-  <revprop val="2.4" action="flag" color="#6d28d9" backcolor="#ede9fe" style="bold">
-    <startflag><alt-text>v2.4 Cloud</alt-text></startflag>
+  <revprop val="1.6.0" action="flag" color="#6d28d9" backcolor="#ede9fe" style="bold">
+    <startflag><alt-text>1.6.0 新增内容</alt-text></startflag>
   </revprop>
 </val>

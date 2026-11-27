@@ -1,33 +1,38 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE map PUBLIC "-//OASIS//DTD DITA Map//EN" "map.dtd">
-<!-- Root product manual map demonstrating nested topicrefs, keydefs, sub-maps, and reltable -->
+<!-- Root map of the built-in product manual: nested topicrefs, keys, sub-maps, and a reltable -->
 <map id="product_manual" xml:lang="zh-CN">
-  <title>DITAEditor 产品开发与使用手册</title>
+  <title>DITAEditor 产品手册</title>
   <topicmeta>
-    <author type="creator">Documentation Engineering</author>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
     <keywords>
       <keyword>DITA 1.3</keyword>
       <keyword>DITAEditor</keyword>
+      <keyword>结构化写作</keyword>
     </keywords>
   </topicmeta>
   <keydef keys="prod_name" processing-role="resource-only">
     <topicmeta>
       <keywords>
-        <keyword>DITAEditor Enterprise</keyword>
+        <keyword>DITAEditor</keyword>
       </keywords>
     </topicmeta>
   </keydef>
   <keydef keys="api_version" processing-role="resource-only">
     <topicmeta>
       <keywords>
-        <keyword>v2.4</keyword>
+        <keyword>1.6.0</keyword>
       </keywords>
     </topicmeta>
   </keydef>
   <keydef keys="deployment_mode" processing-role="resource-only">
     <topicmeta>
       <keywords>
-        <keyword>Cloud SaaS 多租户</keyword>
+        <keyword>Web 工作台 · 桌面端 · 自托管 Docker</keyword>
       </keywords>
     </topicmeta>
   </keydef>
@@ -43,19 +48,22 @@
     <keydef keys="endpoint_url" processing-role="resource-only">
       <topicmeta>
         <keywords>
-          <keyword>https://cloud.ditaeditor.dev/api</keyword>
+          <keyword>https://www.cemplatformcvs.cloud/dita/api</keyword>
         </keywords>
       </topicmeta>
     </keydef>
   </topicgroup>
-  <topichead navtitle="核心概念与架构">
-    <topicref href="concepts/dita-architecture.dita" type="concept" navtitle="DITA 结构化写作架构概述">
-      <topicref href="concepts/single-sourcing.dita" type="concept" navtitle="单一信息源与跨文档复用" rev="2.4"/>
-      <topicref href="concepts/workspace-model.dita" type="concept" navtitle="多文件工作区与 Git 隔离模型" product="onprem"/>
+  <topichead navtitle="概念与架构">
+    <topicref href="concepts/dita-architecture.dita" type="concept" navtitle="DITA 1.3 主题化写作模型">
+      <topicref href="concepts/single-sourcing.dita" type="concept" navtitle="单一信息源与跨文档复用"/>
+      <topicref href="concepts/workspace-model.dita" type="concept" navtitle="手册、分支与个人草稿"/>
     </topicref>
+    <topicref href="concepts/editor-workspace.dita" type="concept" navtitle="工作台布局与三种编辑模式" rev="1.6.0"/>
+    <topicref href="concepts/authoring-workflow.dita" type="concept" navtitle="从写作到发布：一条闭环"/>
+    <topicref href="concepts/ai-and-import.dita" type="concept" navtitle="AI 辅助写作与文档导入"/>
   </topichead>
-  <mapref href="maps/getting-started.ditamap" format="ditamap" navtitle="快速入门与运维任务" audience="admin"/>
-  <mapref href="maps/reference-guide.ditamap" format="ditamap" navtitle="规格参数与接口参考" product="cloud"/>
+  <mapref href="maps/getting-started.ditamap" format="ditamap" navtitle="操作任务"/>
+  <mapref href="maps/reference-guide.ditamap" format="ditamap" navtitle="参考资料"/>
   <reltable>
     <relheader>
       <relcolspec type="concept"/>
@@ -67,10 +75,21 @@
         <topicref href="concepts/dita-architecture.dita"/>
       </relcell>
       <relcell>
-        <topicref href="tasks/deploy-worker.dita"/>
+        <topicref href="tasks/create-map-structure.dita"/>
       </relcell>
       <relcell>
-        <topicref href="references/server-sizing-cals.dita"/>
+        <topicref href="references/dita-element-quickref.dita"/>
+      </relcell>
+    </relrow>
+    <relrow>
+      <relcell>
+        <topicref href="concepts/authoring-workflow.dita"/>
+      </relcell>
+      <relcell>
+        <topicref href="tasks/configure-cjk-pdf.dita"/>
+      </relcell>
+      <relcell>
+        <topicref href="references/publish-themes.dita"/>
       </relcell>
     </relrow>
   </reltable>

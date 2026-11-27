@@ -1,10 +1,83 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
 <concept id="workspace_model" xml:lang="zh-CN">
-  <title>多文件工作区与 Git 隔离模型</title>
-  <shortdesc>说明本地多文件项目工作区的目录约定、相对路径解析原则与资源引用规范。</shortdesc>
+  <title>手册、分支与个人草稿</title>
+  <shortdesc>一个手册就是一份本地 Git 仓库；共享分支永远停在已提交状态，未提交的改动只存在于写作者自己的草稿层。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>版本管理</keyword>
+        <keyword>检出锁</keyword>
+        <keyword>草稿叠加层</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <conbody>
-    <p>DITA 项目坚持使用原生文件系统目录结构，所有主题引用与图片资源均采用标准的 POSIX 相对路径（例如 <filepath>../images/architecture.svg</filepath>），确保在本地 IDE、命令行 DITA-OT 与 Web 工作台间完全互通。</p>
-    <note type="note">从子地图（如 <filepath>maps/getting-started.ditamap</filepath>）挂载顶层目录的主题时，工作台会自动计算 <codeph>../</codeph> 相对路径。</note>
+    <p>多人同时改 DITA 文档最容易出问题的不是合并，而是“别人看到的磁盘状态和我不一致”。<keyword keyref="prod_name"/> 的做法是：磁盘共享、提交隔离、写入加锁。</p>
+    <section id="sec_manual">
+      <title>手册与根地图</title>
+      <p>每个手册对应一个目录，目录内自带 <filepath>.git</filepath>，不依赖 GitHub、GitLab 等外部托管平台。手册的“交付结构”由根地图决定：发布、校验、Keys 解析与问题诊断都以当前选中的根地图为入口。工作台首页列出的就是手册清单，卡片上显示主题数、地图数、当前分支与最近打开时间。</p>
+    </section>
+    <section id="sec_baseline_draft">
+      <title>干净基线 + 个人草稿叠加层</title>
+      <p>共享分支的工作目录永远等于该分支最新提交的状态。你编辑时，改动写入数据库中的个人草稿层，并按 <codeph>(手册, 分支, 文件路径)</codeph> 记录；读取文件时，编辑器把你的草稿叠加在基线上呈现。</p>
+      <ul>
+        <li>未检入的修改、新建、删除、重命名与草稿图片都不会出现在共享目录里，因此不会挡住同事的构建。</li>
+        <li>跨文件诊断、DITA-OT 严格校验与 AI 上下文看到的是“基线 + 你自己的草稿”。</li>
+        <li>正式发布默认只取干净基线（<q>最新提交</q>、<q>标签</q>或<q>指定提交</q>），也可以选择只含自己草稿的预览发布。</li>
+      </ul>
+    </section>
+    <section id="sec_locks">
+      <title>检出锁与角色</title>
+      <p>要改一个文件，先检出该文件，拿到以 <codeph>(手册, 分支, 文件路径)</codeph> 为粒度的独占写锁。不同文件、不同分支互不阻塞；他人持有的锁在你的编辑器里表现为只读，源代码模式同样只读。</p>
+      <simpletable id="table_roles">
+        <sthead>
+          <stentry>角色</stentry>
+          <stentry>编辑</stentry>
+          <stentry>签入 / 合并</stentry>
+          <stentry>发布</stentry>
+          <stentry>管理</stentry>
+        </sthead>
+        <strow>
+          <stentry>管理员</stentry>
+          <stentry>可</stentry>
+          <stentry>可</stentry>
+          <stentry>可</stentry>
+          <stentry>身份、强制解锁、AI 设置、手册归档</stentry>
+        </strow>
+        <strow>
+          <stentry>编辑者</stentry>
+          <stentry>可</stentry>
+          <stentry>可</stentry>
+          <stentry>可</stentry>
+          <stentry>仅本人任务与草稿</stentry>
+        </strow>
+        <strow>
+          <stentry>只读</stentry>
+          <stentry>否</stentry>
+          <stentry>否</stentry>
+          <stentry>否</stentry>
+          <stentry>浏览与导出</stentry>
+        </strow>
+      </simpletable>
+      <p>锁带有过期提示（默认 72 小时）但不会自动删除。作者离职或误检出时，管理员可以强制解锁，被覆盖的内容与补丁会写入备份表，事后仍可追回。</p>
+    </section>
+    <section id="sec_flow">
+      <title>一次完整往返</title>
+      <ol>
+        <li>选择手册与分支，检出目标主题，拿到写锁。</li>
+        <li>在可视化或源码模式编辑，随时保存到个人草稿层。</li>
+        <li>签入前预览 Diff，填写提交说明，系统先做 XML 良构与 DITA 结构预检。</li>
+        <li>通过后提交进当前分支，个人草稿被清空，锁随签入释放。</li>
+        <li>需要并行维护发布版本时另建分支；两个分支有冲突时逐文件并排解决，解决过程不会把共享目录留在合并中间态。</li>
+      </ol>
+      <p>标签、文件还原与提交回滚都会写入只追加的版本审计日志，覆盖检出、转派、签入、合并、回滚与发布整条链路。</p>
+      <note type="tip">桌面端的<uicontrol>存储位置</uicontrol>可以改成任意本地目录（迁移现有数据或复用已有数据目录），手册与草稿库会一起搬走，仓库路径不受影响。</note>
+    </section>
   </conbody>
 </concept>

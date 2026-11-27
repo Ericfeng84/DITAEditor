@@ -4,9 +4,22 @@
 <!-- Document-level editorial comment preserved losslessly -->
 <topic id="topic_specialized_passthrough" xml:lang="en-US">
   <title>Specialized and Unknown DITA Elements</title>
-  <shortdesc>Demonstrates lossless passthrough for specialized DITA 1.3 tags, custom elements, comments, and PIs.</shortdesc>
+  <shortdesc>Demonstrates lossless passthrough for specialized DITA 1.3 tags, custom elements, comments, processing instructions, and verbatim whitespace.</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>specialization</keyword>
+        <keyword>lossless round-trip</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <body>
-<p>This document tests <tm tmtype="reg" trademark="DITAForge">DITAForge</tm>, <abbreviated-form keyref="gloss_dita"/>, custom inline tag <ph outputclass="acme-tag" otherprops="env=prod tier=gold">v2.4</ph>, and a footnote<fn id="fn_complex"><p>Footnote text with <codeph>inline</codeph> code.</p></fn>.</p>
+    <p>This topic mixes base DITA inline elements with domain elements and vendor-specific markup: <tm tmtype="reg" trademark="DITAEditor">DITAEditor</tm>, the glossary key <abbreviated-form keyref="gloss_dita"/>, a custom inline tag <ph outputclass="acme-tag" otherprops="env=prod tier=gold"><keyword keyref="prod_name"/> 1.6</ph>, and a footnote<fn id="fn_complex"><p>Footnote text with <codeph>inline</codeph> code and a <xref href="../concepts/dita-architecture.dita" format="dita" scope="local">cross reference</xref>.</p></fn>.</p>
     <?oxy_comment_start author="reviewer" comment="Keep hazardstatement attributes intact"?>
     <hazardstatement id="haz_voltage" type="warning">
       <messagepanel>
@@ -16,7 +29,17 @@
       </messagepanel>
     </hazardstatement>
     <?oxy_comment_end?>
-    <screen outputclass="terminal">$ dita --input=product-manual.ditamap --format=pdf
-[INFO] Processing completed in 4.2s</screen>
+    <p>Verbatim whitespace inside <codeph>screen</codeph> is preserved exactly as typed, including line breaks and indentation:</p>
+    <screen outputclass="terminal">$ dita --input=product-manual.ditamap --format=html5 --transtype=html5
+[INFO] Processing completed in 4.2s
+[INFO] Output: out/index.html</screen>
+    <section id="sec_unknown_block">
+      <title>Unknown block passthrough</title>
+      <p>Any element the schema does not model is kept as an opaque block with its tag name, namespace, and original attribute order. Authoring inside it is disabled, but its text and attributes survive every save:</p>
+      <sectiondiv outputclass="vendor-callout" audience="admin">
+        <p>This <codeph>sectiondiv</codeph> is modeled only as a generic block. Editing its inner paragraph still produces a minimal one-line diff.</p>
+      </sectiondiv>
+      <note type="important">Do not "clean up" specialized markup in the source editor. If a specialized element rejects a child, the structure panel reports the mismatch instead of silently rewriting the XML.</note>
+    </section>
   </body>
 </topic>

@@ -399,7 +399,7 @@ describe('Phase 13 §6.1 same-branch draft isolation', () => {
     expect(bWorkspace.statusCode).toBe(200);
     expect(bWorkspace.statusCode).toBe(200);
     expect(bWorkspace.body).not.toContain(A_BROKEN_MARKER);
-    expect(bWorkspace.json().topicTitles[TOPIC_A]).toBe('多文件工作区与 Git 隔离模型');
+    expect(bWorkspace.json().topicTitles[TOPIC_A]).toBe('手册、分支与个人草稿');
     const aWorkspace = await app.inject({ method: 'GET', url: '/api/workspace', headers: WRITER_A });
     expect(aWorkspace.json().files.some((node: { path: string }) => node.path === 'concepts')).toBe(true);
     expect(aWorkspace.body).not.toContain(A_BROKEN_MARKER);

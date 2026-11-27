@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE reference PUBLIC "-//OASIS//DTD DITA Reference//EN" "reference.dtd">
+<reference id="publish_themes" xml:lang="zh-CN">
+  <title>发布主题与中文字体</title>
+  <shortdesc>HTML5 产物可选四套内置主题加原生兜底，PDF 同样有四套排版主题；主题配置按手册保存，不进入 DITA 文件与 Git。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>HTML5 主题</keyword>
+        <keyword>PDF 主题</keyword>
+        <keyword>品牌配置</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
+  <refbody>
+    <section id="sec_html_themes">
+      <title>HTML5 主题</title>
+      <simpletable id="table_html_themes">
+        <sthead>
+          <stentry>主题</stentry>
+          <stentry>定位</stentry>
+          <stentry>适合</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>tech-docs</codeph></stentry>
+          <stentry>现代技术文档，默认主题</stentry>
+          <stentry>API 文档、开发者手册</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>editorial-paper</codeph></stentry>
+          <stentry>出版物式的纸白排版</stentry>
+          <stentry>规范、白皮书、对外读物</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>enterprise-manual</codeph></stentry>
+          <stentry>企业标准手册风格</stentry>
+          <stentry>内部流程与制度文档</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>dev-dark</codeph></stentry>
+          <stentry>深色开发者主题</stentry>
+          <stentry>工具文档、夜间阅读</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>vanilla</codeph></stentry>
+          <stentry>DITA-OT 原生输出，不做任何后处理</stentry>
+          <stentry>已有自定义后处理流水线的团队</stentry>
+        </strow>
+      </simpletable>
+      <p>除 <codeph>vanilla</codeph> 外，产物都会带可折叠目录、页内大纲、<codeph>Cmd/Ctrl+K</codeph> 离线搜索、代码复制与明暗切换。所有资源使用相对路径，因此解压后用 <filepath>file://</filepath> 打开也能搜索与跳转。</p>
+    </section>
+    <section id="sec_pdf_themes">
+      <title>PDF 主题</title>
+      <simpletable id="table_pdf_themes">
+        <sthead>
+          <stentry>主题</stentry>
+          <stentry>版式特征</stentry>
+        </sthead>
+        <strow>
+          <stentry><codeph>tech-manual</codeph></stentry>
+          <stentry>技术手册默认版式，页边距均衡，适合双面打印</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>enterprise-spec</codeph></stentry>
+          <stentry>规格书风格，标题层级紧凑，封面带品牌区</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>editorial-book</codeph></stentry>
+          <stentry>书籍式排印，衬线正文与宽松行距</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>compact-guide</codeph></stentry>
+          <stentry>紧凑指南，小页边距与更密的行距</stentry>
+        </strow>
+        <strow>
+          <stentry><codeph>vanilla</codeph></stentry>
+          <stentry>DITA-OT 原生 PDF2 输出，不做版式定制</stentry>
+        </strow>
+      </simpletable>
+    </section>
+    <section id="sec_options">
+      <title>可配置项</title>
+      <simpletable id="table_theme_options">
+        <sthead>
+          <stentry>配置</stentry>
+          <stentry>适用</stentry>
+          <stentry>说明</stentry>
+        </sthead>
+        <strow>
+          <stentry>站点标题</stentry>
+          <stentry>HTML5</stentry>
+          <stentry>覆盖导航栏与浏览器标题，不改变 DITA 地图标题</stentry>
+        </strow>
+        <strow>
+          <stentry>强调色</stentry>
+          <stentry>HTML5 / PDF</stentry>
+          <stentry>形如 <codeph>#0ea5e9</codeph>，非法值会被拒绝而不是静默回退</stentry>
+        </strow>
+        <strow>
+          <stentry>Logo</stentry>
+          <stentry>HTML5 / PDF</stentry>
+          <stentry>支持 PNG、JPG 与 SVG，PDF 不识别 WebP；单文件上限 2 MB</stentry>
+        </strow>
+        <strow>
+          <stentry>附加样式</stentry>
+          <stentry>HTML5</stentry>
+          <stentry>工作区内的自定义 CSS 路径，随产物一并复制</stentry>
+        </strow>
+        <strow>
+          <stentry>功能开关</stentry>
+          <stentry>HTML5</stentry>
+          <stentry>搜索、目录树、代码复制、明暗切换可单独关闭</stentry>
+        </strow>
+      </simpletable>
+      <p>配置按手册持久化，发布时另存一份快照到任务记录中：以后改了主题，旧任务仍能按当时的配置复现。</p>
+    </section>
+    <section id="sec_publish_modes">
+      <title>发布来源</title>
+      <ul>
+        <li><b>最新提交</b>：构建当前分支的干净基线，最常用的正式发布方式。</li>
+        <li><b>标签</b>：按已打的版本标签构建，适合交付与归档。</li>
+        <li><b>指定提交</b>：回溯到某个历史提交复现问题。</li>
+        <li><b>仅我的草稿</b>：只含本人未签入修改的预览发布，别人的草稿不会进入产物。</li>
+      </ul>
+      <note type="important">中文字体是 PDF 的硬前置：每套主题都会带上 Noto CJK 字体映射，去掉它会让简体中文回退成缺字的字体。字体安装与排查见 <xref href="../tasks/configure-cjk-pdf.dita" format="dita" scope="local">配置 Noto CJK 中文 PDF 字体</xref>。</note>
+    </section>
+  </refbody>
+</reference>

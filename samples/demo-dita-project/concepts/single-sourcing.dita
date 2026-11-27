@@ -1,29 +1,73 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
-<concept id="single_sourcing_model" xml:lang="zh-CN">
-  <title>单一信息源与跨文档复用（<keyword keyref="prod_name"/>）</title>
-  <shortdesc>理解如何利用 343Root Map Keyspace 变量替换、Cownref/Con54545keyref 片段复用与 DITAVAL 条件过滤实现多版本交付。</shortdesc>
+<concept id="single_sourcing" xml:lang="zh-CN">
+  <title>单一信息源与跨文档复用</title>
+  <shortdesc>键空间负责“同一个名字在各处取值一致”，Conref 负责“同一段内容只维护一份”，DITAVAL 负责“同一份内容按读者裁剪”。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>keyref</keyword>
+        <keyword>conref</keyword>
+        <keyword>DITAVAL</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <conbody>
-    <p>当前激活的产品版本为 <keyword keyref="prod_name"/> <keyword keyref="api_version"/>，运行形态：<ph keyref="deployment_mode">333</ph>，API 端点：<keyword keyref="cloud.endpoint_url"/>。</p>
-    <section id="sec_mechanisms">
-      <title>三大核心机制</title>
-      <ul>
-        <li><b>Map 组装</b>：通过 <codeph>&lt;topicref&gt;</codeph> 与 <codeph>&lt;mapref&gt;</codeph> 决定最终目录结构与上下篇关系。</li>
-        <li><b>Keydef / Keyref</b>：在 Root Map 中绑定产品名、版本号与链接目标，避免硬编码路径。</li>
-        <li><b>DITAVAL 条件过滤</b>：基于 <codeph>audience</codeph>、<codeph>platform</codeph>、<codeph>product</codeph> 属性按需裁剪输出。</li>
-      </ul>
+    <p>本手册同时演示三种单一信息源机制。它们各自解决一类“重复维护”问题，可以独立使用，也可以叠加使用。</p>
+    <section id="sec_keys">
+      <title>键空间：让产品名只有一个来源</title>
+      <p>产品名、版本号、部署形态这类会随交付环境变化的词，写在根地图的 <codeph>keydef</codeph> 里，正文只保留 <codeph>keyref</codeph>：<keyword keyref="prod_name"/> <keyword keyref="api_version"/> 运行在 <keyword keyref="deployment_mode"/> 环境。</p>
+      <p>生效键空间按根地图的广度优先顺序解析同名键，先定义者胜出；<codeph>keyscope</codeph> 可以把一组键隔离在子作用域内，避免子手册之间的同名键互相污染。左侧 <uicontrol>Keys</uicontrol> 面板展示当前根地图实际生效的键，以及被覆盖的键数量。</p>
     </section>
     <section id="sec_conref_demo">
-      <title>内容复用实时展开示例</title>
+      <title>复用：同一段内容只维护一份</title>
       <note conkeyref="common_reuse/backup_warning" type="caution"/>
       <p conref="../shared/common-reuse.dita#common_reuse/sla_notice"/>
-      <p>如需协助，请联系 <ph conkeyref="common_reuse/support_email"/>。</p>
+      <p>升级前请逐项确认以下前置条件：</p>
+      <ul conref="../shared/common-reuse.dita#common_reuse/prereq_list"/>
+      <p>遇到与本手册描述不一致的行为，请先查阅 <xref href="../references/rest-api-endpoints.dita" format="dita" scope="local">REST API 端点参考</xref> 确认服务端版本，再到 <ph conkeyref="common_reuse/support_email"/> 提交问题。</p>
+      <p>间接引用（<codeph>conkeyref</codeph>）比直接路径（<codeph>conref</codeph>）更适合跨手册复用：目标文件换位置时只需改 <codeph>keydef</codeph>，所有引用点自动跟随。被复用的片段在可视化区以只读卡片呈现，不会改写底层 XML。</p>
     </section>
-    <section id="sec_profiling_demo">
-      <title>DITAVAL 条件发布多版本分支</title>
-      <p product="cloud" rev="2.4">【云原生版】多租户工作区由托管控制面自动分配隔离存储与弹性校验节点。</p>
-      <p product="onprem" platform="linux" audience="admin">【私有化部署版】管理员需在 Linux 节点部署常驻 Java 21 Worker 并挂载共享磁盘卷。</p>
-      <p otherprops="internal">【内部研发备注】本地调试可使用环境变量 DITA_WORKSPACE_DIR 覆盖默认示例工作区。</p>
+    <section id="sec_ditaval">
+      <title>条件过滤：同一份内容按读者裁剪</title>
+      <p>正文元素上的 <codeph>audience</codeph>、<codeph>product</codeph>、<codeph>platform</codeph>、<codeph>otherprops</codeph> 属性只在发布时生效。选择 <filepath>filters/cloud-edition.ditaval</filepath> 会保留 <codeph>audience="admin"</codeph> 与 <codeph>product="cloud"</codeph> 的内容，排除私有化部署与内部备注；选择 <filepath>filters/onprem-admin.ditaval</filepath> 则相反。</p>
+      <ul>
+        <li>顶栏的三态投影开关可即时切换“全部显示 / 置灰排除 / 隐藏排除”，文件内容不变。</li>
+        <li>置灰模式便于评审时看清“这个读者看不到哪一段”；隐藏模式用于核对最终交付物。</li>
+        <li>出版时过滤由 DITA-OT 执行，与编辑器内的投影结果一致。</li>
+      </ul>
+      <p>本主题带有内部备注，仅在 <codeph>otherprops="internal"</codeph> 未被排除时出现。</p>
+      <note otherprops="internal" type="note">内部备注示例：样例手册的内容由 <filepath>samples/demo-dita-project</filepath> 维护，与 <filepath>docs/</filepath> 下的工程文档保持单向同步，不互相覆盖。</note>
+    </section>
+    <section id="sec_choose">
+      <title>怎么选</title>
+      <simpletable id="table_choose">
+        <sthead>
+          <stentry>需求</stentry>
+          <stentry>机制</stentry>
+          <stentry>代价</stentry>
+        </sthead>
+        <strow>
+          <stentry>产品名、版本、地址随交付环境变化</stentry>
+          <stentry><codeph>keydef</codeph> + <codeph>keyref</codeph></stentry>
+          <stentry>必须提供根地图，裸主题校验会缺少上下文</stentry>
+        </strow>
+        <strow>
+          <stentry>提示、前置条件、术语整段复用</stentry>
+          <stentry><codeph>conref</codeph> / <codeph>conkeyref</codeph></stentry>
+          <stentry>被复用片段必须有 <codeph>id</codeph>，且不能形成环路</stentry>
+        </strow>
+        <strow>
+          <stentry>同一段落只给某类读者看</stentry>
+          <stentry><codeph>.ditaval</codeph> 条件过滤</stentry>
+          <stentry>条件词需要团队约定，否则读者会漏看内容</stentry>
+        </strow>
+      </simpletable>
     </section>
   </conbody>
 </concept>

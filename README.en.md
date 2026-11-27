@@ -165,7 +165,7 @@ Fastify 5 + Zod provide workspace scanning, file CRUD, bulk import and a per-bra
 <details>
 <summary>Implementation details</summary>
 
-- **Bundled demo project**: `samples/demo-dita-project/` (`product-manual.ditamap`, `admin-book.ditamap`, the shared reuse library `shared/common-reuse.dita`, `filters/cloud-edition.ditaval` & `onprem-admin.ditaval`, nested submaps, concept/task/reference documents and SVG diagrams), with the same experience in offline in-memory mode.
+- **Bundled demo project**: `samples/demo-dita-project/` (`product-manual.ditamap`, `maps/admin-book.ditamap`, the shared reuse library `shared/common-reuse.dita`, `filters/cloud-edition.ditaval` & `onprem-admin.ditaval`, nested submaps, concept/task/reference documents and SVG diagrams), with the same experience in offline in-memory mode.
 - **Path safety**: `resolveSafeWorkspacePath` rejects traversal (`..`), absolute paths, NUL bytes and symlink escapes.
 - **Asset pipeline**: multipart image upload (`.png` / `.jpg` / `.jpeg` / `.gif` / `.svg` / `.webp` / `.avif`, 10 MB limit) with automatic document-relative POSIX `href` computation and a preview route.
 

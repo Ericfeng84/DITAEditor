@@ -1,32 +1,55 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE task PUBLIC "-//OASIS//DTD DITA Task//EN" "task.dtd">
-<task id="task_create_map_structure" xml:lang="zh-CN">
-  <title>使用 Map 树编排文档目录</title>
-  <shortdesc>通过可视化 Map 树拖拽调整章节层级、按模板新建并挂载 Topic，以及切换查看 Map XML 源码。</shortdesc>
+<task id="create_map_structure" xml:lang="zh-CN">
+  <title>用 Map 结构树编排文档目录</title>
+  <shortdesc>在左侧 Map 结构树里调整主题层级、挂载新主题、复用子地图，并验证交付结构是否成立。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>DITA Map</keyword>
+        <keyword>topicref</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
   <taskbody>
+    <prereq>
+      <p>已打开一个手册，左侧 <uicontrol>Map 结构树</uicontrol> 可用，且你已经检出目标根地图或子地图。</p>
+    </prereq>
     <context>
-      <p>左侧边栏支持浏览与编排完整的 <codeph>.ditamap</codeph> 层级结构，包括嵌套的子地图（<codeph>&lt;mapref&gt;</codeph>）。</p>
-      <fig id="fig_workflow">
-        <title>Map 树编排与多 Tab 协同流程</title>
-        <image href="../images/workflow.svg" placement="break" alt="Map 编排工作流示意图"/>
-      </fig>
+      <p>Map 决定主题的层级、顺序与分组，正文文件本身不写章节编号。调整结构只会改动地图 XML 中 <codeph>topicref</codeph> 的嵌套与顺序，不会触碰主题内容。</p>
     </context>
     <steps>
       <step>
-        <cmd>在顶部选择当前激活的 Root Map（如 <filepath>product-manual.ditamap</filepath> 或 <filepath>admin-book.ditamap</filepath>）。</cmd>
-      </step>
-<step>
-        <cmd>拖拽树节点调整同级顺序，或拖入其他容器节点下建立子章节。</cmd>
-        <info>
-          <p>所有拖拽操作均直接驱动底层 <codeph>slimdom</codeph> 节点移动，不会破坏 <codeph>&lt;reltable&gt;</codeph>、注释或 DOCTYPE。</p>
-        </info>
+        <cmd>在顶栏选择要编辑的根地图。</cmd>
+        <info>发布、Keys 解析与问题诊断都以这个根地图为入口，选择错误会看到不一致的键与链接。</info>
       </step>
       <step>
-        <cmd>右键任意树节点，选择“新建 Topic 并挂载”，自动创建标准 <codeph>.dita</codeph> 文件并写入相对路径 <codeph>href</codeph>。</cmd>
+        <cmd>在结构树中拖动 <codeph>topicref</codeph> 调整层级或顺序。</cmd>
+        <info>拖到合法位置时出现插入指示线；<codeph>topichead</codeph> 与 <codeph>topicgroup</codeph> 只做分组，<codeph>mapref</codeph> 引入另一张地图。</info>
+      </step>
+      <step>
+        <cmd>右键节点可新建主题、挂载已有文件、编辑节点属性，或查看该地图的 XML 源码。</cmd>
+        <info>新建主题会按当前内容类型套用标准骨架，并自动生成唯一 <codeph>id</codeph>。</info>
+      </step>
+      <step>
+        <cmd>如需复用其他团队的章节，用 <codeph>mapref</codeph> 引入其子地图，而不是复制主题。</cmd>
+        <info>子地图中的相对路径以子地图所在目录为基准，例如 <filepath>maps/getting-started.ditamap</filepath> 使用 <codeph>../tasks/</codeph> 前缀。</info>
+      </step>
+      <step>
+        <cmd>查看底部问题面板，确认没有断链、循环引用或缺失图片。</cmd>
+        <info>循环的 <codeph>mapref</codeph> 会让导航与索引无限展开，必须先解开环路再发布。</info>
       </step>
     </steps>
     <result>
-      <p>按下 <userinput>⌘S</userinput> 保存后，Map 结构与 Topic 文件将同步持久化到本地工作区磁盘。</p>
+      <p>结构树与 <filepath>*.ditamap</filepath> 保持同步，注释、<codeph>topicmeta</codeph> 与 <codeph>reltable</codeph> 原位保留；签入后交付结构即对全组生效。</p>
     </result>
+    <postreq>
+      <p>结构稳定后再执行发布，发布对象始终是当前根地图。示例：本手册由 <filepath>product-manual.ditamap</filepath> 通过两张子地图组织十个以上的主题，并在末尾用 <codeph>reltable</codeph> 声明“概念—操作—参考”的互链关系。</p>
+    </postreq>
   </taskbody>
 </task>

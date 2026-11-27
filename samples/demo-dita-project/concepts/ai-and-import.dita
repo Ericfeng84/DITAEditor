@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE concept PUBLIC "-//OASIS//DTD DITA Concept//EN" "concept.dtd">
+<concept id="ai_and_import" xml:lang="zh-CN">
+  <title>AI 辅助写作与文档导入</title>
+  <shortdesc>AI 只改被选中的那一小段 XML，改动必须经 Diff 确认；导入则把既有文档转成标准 DITA 主题并挂进地图。</shortdesc>
+  <prolog>
+    <author type="creator">DITAEditor Documentation</author>
+    <critdates>
+      <created date="2026-11-28"/>
+      <revised modified="2026-11-28"/>
+    </critdates>
+    <metadata>
+      <keywords>
+        <keyword>AI 辅助</keyword>
+        <keyword>文档导入</keyword>
+      </keywords>
+    </metadata>
+  </prolog>
+  <conbody>
+    <section id="sec_ai_tasks">
+      <title>四类 AI 任务</title>
+      <simpletable id="table_ai_tasks">
+        <sthead>
+          <stentry>任务</stentry>
+          <stentry>做什么</stentry>
+          <stentry>是否改文档</stentry>
+        </sthead>
+        <strow>
+          <stentry>询问</stentry>
+          <stentry>解释链接、键、条件或写作规范</stentry>
+          <stentry>否</stentry>
+        </strow>
+        <strow>
+          <stentry>撰写</stentry>
+          <stentry>重写、扩写、精简，补写 <codeph>shortdesc</codeph> 与步骤</stentry>
+          <stentry>是，需确认</stentry>
+        </strow>
+        <strow>
+          <stentry>优化标签</stentry>
+          <stentry>把普通文字换成 <codeph>uicontrol</codeph>、<codeph>menucascade</codeph>、<codeph>wintitle</codeph>、<codeph>filepath</codeph>、<codeph>codeph</codeph> 等语义标签</stentry>
+          <stentry>是，需确认</stentry>
+        </strow>
+        <strow>
+          <stentry>修复错误</stentry>
+          <stentry>针对良构、链接、键、复用环路、条件与严格校验错误给出修正</stentry>
+          <stentry>是，需确认</stentry>
+        </strow>
+      </simpletable>
+      <p>入口分布在工作台各处：检视区的 AI 页签、文档右下角的浮动按钮、选中文本后的气泡工具栏、问题面板的逐条修复，以及源码错误横幅。请求始终携带当前未保存的缓冲区，因此不必先保存再提问。</p>
+    </section>
+    <section id="sec_ai_safety">
+      <title>为什么改坏的风险可控</title>
+      <ul>
+        <li>模型返回的是“被替换区间的 XML”，由内核按源码偏移拼回，XML 声明、DOCTYPE、注释与处理指令不参与替换。</li>
+        <li>拼回后强制校验：必须良构、必须能转换为可视化结构，失败会带着原因重试，仍失败则放弃本次修改。</li>
+        <li>写入前必须经过 Diff 确认，并且遵守检出锁：管理员与文件所有者可直接应用，未检出的编辑者需先检出，只读用户只能预览。</li>
+        <li>每次调用记录调用人、任务、文件、状态、重试次数与耗时，便于审计成本与质量。</li>
+      </ul>
+      <p>模型与密钥只存在于服务端，管理员可在<uicontrol>AI 设置</uicontrol>里换成任意 OpenAI 兼容端点（默认 DeepSeek），也支持内网代理地址；密钥只以掩码形式回显。</p>
+    </section>
+    <section id="sec_import">
+      <title>把既有文档变成 DITA</title>
+      <p>支持 PDF、Word、PowerPoint、Excel、HTML、EPUB、CSV、Outlook 邮件与 Markdown 或纯文本。流程分五步：上传与解析、大纲规划、撰写、校验修复、写入手册。</p>
+      <ol>
+        <li><b>解析</b>：PDF 与扫描件优先走 Docling（HTTP 服务或本机命令行），Office 系文档优先走 MarkItDown 以避免重依赖；Markdown 与纯文本直接通过。插图会被提取为独立图片文件。</li>
+        <li><b>规划</b>：按标题层级切分主题，生成或更新地图结构，可在审阅页手动调整拆分与命名。</li>
+        <li><b>撰写</b>：按规划逐篇生成标准 DITA 主题，自动补齐 DOCTYPE、<codeph>id</codeph>、语言、相对图片路径与外链属性。</li>
+        <li><b>校验修复</b>：先做本地结构与往返检查，再在临时沙箱里用 DITA-OT 校验并批量修复，最后统一过一次严格终检。</li>
+        <li><b>写入</b>：可以新建一本干净基线手册，也可以写入现有手册——此时只落在你自己的草稿层，仍需按正常流程签入。</li>
+      </ol>
+      <note type="important">写入现有手册不会绕过检出锁：需要的地图与主题会以你的身份检出，别人持有的锁不会被抢占。生成过程只在临时目录里进行，不会改动共享目录。</note>
+    </section>
+  </conbody>
+</concept>
