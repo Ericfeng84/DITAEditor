@@ -1872,9 +1872,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/collab.ts": {
-    "mtime": 1795791712.0790536,
-    "seen": 1795793218.0235462,
-    "ast_hash": "74a48ab6c5df4ffecf8e76b090bea29e",
+    "mtime": 1795812295.5388086,
+    "seen": 1795812525.072105,
+    "ast_hash": "328fec492399a1ae055836420d85c813",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/en/common.ts": {
@@ -1908,9 +1908,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/collab.ts": {
-    "mtime": 1795791686.2163773,
-    "seen": 1795793218.023556,
-    "ast_hash": "c087feeafb957b402eebe8ef014dbee8",
+    "mtime": 1795812292.5681748,
+    "seen": 1795812525.072115,
+    "ast_hash": "dd14eedf60522207a499acb50ceed268",
     "semantic_hash": ""
   },
   "apps/web/src/i18n/messages/zh-CN/common.ts": {
@@ -2604,9 +2604,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/publish/HtmlThemeSelector.tsx": {
-    "mtime": 1795579559.0824165,
-    "seen": 1795580135.3182778,
-    "ast_hash": "fd44f42de7b733ede43a3c2fa02f6586",
+    "mtime": 1795812342.1157286,
+    "seen": 1795812525.072038,
+    "ast_hash": "98d605c4dc1baadf533ba2c1275e03e6",
     "semantic_hash": ""
   },
   "apps/web/src/components/publish/ThemePreviewModal.tsx": {
@@ -3462,9 +3462,9 @@
     "semantic_hash": ""
   },
   "apps/web/src/components/publish/PdfThemeSelector.tsx": {
-    "mtime": 1795791734.5510302,
-    "seen": 1795793218.023488,
-    "ast_hash": "1034751de9fb951baa8b8e52d9e3ad9c",
+    "mtime": 1795812375.5464818,
+    "seen": 1795812525.072041,
+    "ast_hash": "880354d29d275ce87dfb91b9f7ad8b5d",
     "semantic_hash": ""
   },
   "apps/web/src/components/publish/pdf-theme-model.ts": {
@@ -3474,9 +3474,9 @@
     "semantic_hash": ""
   },
   "apps/web/test/phase15-pdf-themes.test.ts": {
-    "mtime": 1795811746.1021638,
-    "seen": 1795811833.787936,
-    "ast_hash": "cb0a1d12d33103c5d00d892aabfd83c2",
+    "mtime": 1795812470.8072124,
+    "seen": 1795812525.0723069,
+    "ast_hash": "d68db9fc4d0cf03f45a228ff83036d7b",
     "semantic_hash": ""
   },
   "dita-ot-plugins/pdf-themes/README.md": {
