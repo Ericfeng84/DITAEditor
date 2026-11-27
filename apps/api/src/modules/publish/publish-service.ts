@@ -37,6 +37,13 @@ import {
   parseDitaLog,
   type DitaDiagnostic,
 } from '../dita-ot/dita-log-parser.js';
+import {
+  applyFopFontEntries,
+  applyFontBase,
+  discoverNotoCjkFontFiles,
+  materializeNotoFopFonts,
+  planNotoFopFonts,
+} from '../dita-ot/fop-font-config.js';
 import { PublishQueue } from './publish-queue.js';
 import { createZipFromDirectory } from './zip-store.js';
 import {
@@ -200,6 +207,18 @@ function isInside(parent: string, child: string): boolean {
 }
 
 const PUBLISH_SOURCE_MODES: PublishSourceMode[] = ['baseline', 'tag', 'commit', 'my_drafts'];
+
+/**
+ * FOP reports font trouble as a Java stack trace. Matching the stable headline fragments lets the
+ * job error name the actual problem (no embeddable CJK font) instead of only a `[PDFX013F]` line.
+ */
+const FONT_FAILURE_PATTERN =
+  /Failed to read font file|Name does not exist in the TrueType collection|'loca' table not found/;
+
+function withFontHint(locale: ApiLocale, logText: string, message: string): string {
+  if (!FONT_FAILURE_PATTERN.test(logText)) return message;
+  return `${apiT(locale, 'publish.fontError')}\n${message}`;
+}
 
 function normalizeSourceMode(value: string | null | undefined): PublishSourceMode {
   return PUBLISH_SOURCE_MODES.includes(value as PublishSourceMode)
@@ -777,7 +796,11 @@ export class PublishService {
         const firstError = diagnostics.find((diagnostic) => diagnostic.severity === 'error');
         finish({
           status: 'failed',
-          error: (firstError?.message ?? apiT(locale, 'publish.failedShort')).slice(0, 2000),
+          error: withFontHint(
+            locale,
+            logText,
+            (firstError?.message ?? apiT(locale, 'publish.failedShort')).slice(0, 2000),
+          ),
           finishedAt: Date.now(),
           exitCode: result.exitCode,
           diagnosticsJson: JSON.stringify(diagnostics),
@@ -863,8 +886,12 @@ export class PublishService {
   }
 
   /**
-   * The bundled fop.xconf targets the Debian/Docker font path. Local DITA-OT installs often keep
-   * Noto CJK elsewhere, so materialise a job-local copy with the detected font-base directory.
+   * The bundled fop.xconf targets single-face Noto CJK OTFs, which is not what Debian ships:
+   * FOP matches `sub-font` against a face's full name (and that name differs per weight), and
+   * FOP 2.9 cannot embed a CFF collection at all (`'loca' table not found`). The job-local copy
+   * is therefore rebuilt from the faces of the fonts that are actually installed, each
+   * materialised as a standalone font file under `<job>/fonts`, and `<font-base>` is pointed at
+   * that directory. Local DITA-OT installs with Noto CJK elsewhere get the same treatment.
    */
   private async prepareFopConfig(jobDir: string): Promise<string | null> {
     const template = resolveFopConfig(this.runtimeOptions);
@@ -873,15 +900,23 @@ export class PublishService {
     if (!fontDir) return template;
     try {
       const content = await readFile(template, 'utf8');
-      const escaped = fontDir
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;');
-      const updated = content.replace(
-        /<font-base>[^<]*<\/font-base>/,
-        `<font-base>${escaped}</font-base>`,
+      const files = await discoverNotoCjkFontFiles(fontDir);
+      const targetDir = join(jobDir, 'fonts');
+      const entries = await materializeNotoFopFonts({
+        fontDir,
+        targetDir,
+        files,
+        plan: planNotoFopFonts(files),
+      });
+      const updated = applyFopFontEntries(
+        applyFontBase(content, entries.length > 0 ? targetDir : fontDir),
+        entries,
       );
-      if (updated === content) return template;
+      if (entries.length === 0) {
+        this.logger(
+          `no Noto CJK faces found in ${fontDir}; PDF jobs fall back to the bundled fop.xconf font table`,
+        );
+      }
       const target = join(jobDir, 'fop.xconf');
       await writeFile(target, updated, 'utf8');
       return target;

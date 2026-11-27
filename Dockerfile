@@ -63,6 +63,10 @@ ENV NODE_ENV=production \
     JAVA_HOME=/opt/java/openjdk
 ENV PATH=$JAVA_HOME/bin:$PATH
 
+# `fonts-noto-cjk*` ships CFF-outline TTC collections only. Adobe FOP 2.9 cannot embed a
+# collection (it picks its TrueType parser from the file header), so @dita/api extracts the
+# needed faces into standalone `.otf` files per publish job (`fop-font-config.ts`). The
+# `-extra` package adds Thin/Light/Medium/Black weights; the planner keeps Regular + Bold.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         curl \

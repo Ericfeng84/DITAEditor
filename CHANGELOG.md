@@ -5,6 +5,14 @@ DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepa
 
 ## [Unreleased]
 
+### Fixed
+
+- **修复服务器端 PDF 发布失败（Noto CJK `ttc` 无法嵌入）**：Adobe FOP 2.9 只对以 `OTTO` 开头的文件才选用 CFF 解析器，`ttcf` 集合一律走 TrueType 解析器并因缺少 `glyf` / `loca` 报 `'loca' table not found`；而 Debian `fonts-noto-cjk` 只提供 CFF 轮廓的 `NotoSansCJK-*.ttc` / `NotoSerifCJK-*.ttc`，因此**任何**直接登记 `ttc` 的 `fop.xconf` 都无法生成 PDF。此前 Docker 镜像因此报 `Name does not exist in the TrueType collection: Noto Sans CJK SC` → `[PDFX013F]`。
+  - `@dita/api` 现在在每次 PDF 发布前读取已安装字体的 `name` 表，挑选 Sans / Serif / Mono × SC / JP / KR × Regular / Bold 的 18 个字体面，重打包为独立单面 `.otf` 到 `<job>/fonts`（结果按源路径 + 大小 + mtime 缓存在系统临时目录并硬链接复用），再生成 `<job>/fop.xconf` 指向该目录。
+  - 不再硬编码 `sub-font`：FOP 以「完整字体名（name 表 ID 4）」精确匹配，且该名字带字重（`NotoSansCJK-Bold.ttc` 里是 `Noto Sans CJK SC Bold`）。
+  - 字体加载失败时发布任务错误会追加中文/英文提示（安装 `fonts-noto-cjk`、设置 `DITAEDITOR_NOTO_CJK_DIR` 或改用 HTML5），而不是只给一段 Java 堆栈。
+  - `dita-ot-plugins/com.ditaeditor.pdf-cjk/fop.xconf` 改写为面向单面 OTF（Google 语言包 / macOS、Windows 手动安装）的文档化回退配置，并在注释中记录上述 FOP 限制。
+
 ### Removed
 
 - **移除 Bookmap（书籍地图）支持**：`<bookmap>`、`<booktitle>` / `<mainbooktitle>`、`<bookmeta>`、`<frontmatter>` / `<backmatter>`、`<booklists>`、`<part>`、`<chapter>`、`<appendix>`、`<preface>`、`<notices>` 等 BookMap 专属元素从 DITA 元素注册表、内容模型、属性规格、模板、Map 树引擎、文件类型识别、发布与样例数据中全部移除。

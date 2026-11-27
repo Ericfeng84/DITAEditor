@@ -5,10 +5,23 @@
   DITAEditor passes this file explicitly:
     dita input=... format=pdf args.fo.userconfig=<this file>
 
-  Docker images based on Debian install `fonts-noto-cjk` and `fonts-noto-cjk-extra`,
-  which place the TTC collections in the font-base directory below. For local macOS
-  or Windows development, set DITAEDITOR_FOP_XCONF to a copy with a matching
-  font-base path, or set DITAEDITOR_NOTO_CJK_DIR and let the API generate the config.
+  This file is the *fallback* table, aimed at Noto CJK installed as single-face OTF files
+  (the Google "language-specific OTF" download, macOS/Windows manual installs). Adobe FOP 2.9
+  cannot embed a TTC/OTC collection that stores CFF outlines — it picks its TrueType parser from
+  the file header (`OFFontLoader.read` only chooses `OTFFile` for a literal `OTTO` header) and
+  then aborts with "'loca' table not found" — and Debian's `fonts-noto-cjk` ships exactly those
+  collections. `@dita/api` therefore rebuilds a job-local configuration from the installed fonts:
+  it reads each face's name table, materialises the needed face as a standalone font file under
+  `<job>/fonts`, and replaces both `<font-base>` and the `<fonts>` block below.
+
+  Two details that break a hand-written table:
+  - `sub-font` must equal a face's full name (name table ID 4) exactly, and that name carries the
+    weight: `NotoSansCJK-Bold.ttc` reports `Noto Sans CJK SC Bold`, not `Noto Sans CJK SC`.
+  - Debian ships the `Noto Sans Mono CJK *` faces inside `NotoSansCJK-*.ttc`; there is no
+    `NotoSansMonoCJK-*.ttc` file.
+
+  For local macOS or Windows development, set DITAEDITOR_FOP_XCONF to a copy with a matching
+  font-base path, or set DITAEDITOR_NOTO_CJK_DIR and let the API generate the configuration.
 -->
 <fop version="1.1">
   <use-cache>false</use-cache>
@@ -23,29 +36,41 @@
         <value>flate</value>
       </filterList>
       <fonts>
-        <font embed-url="NotoSansCJK-Regular.ttc" kerning="yes" sub-font="Noto Sans CJK SC">
+        <font embed-url="NotoSansCJKsc-Regular.otf" kerning="yes">
           <font-triplet name="Noto Sans CJK SC" style="normal" weight="normal"/>
         </font>
-        <font embed-url="NotoSansCJK-Bold.ttc" kerning="yes" sub-font="Noto Sans CJK SC">
+        <font embed-url="NotoSansCJKsc-Bold.otf" kerning="yes">
           <font-triplet name="Noto Sans CJK SC" style="normal" weight="bold"/>
         </font>
-        <font embed-url="NotoSansCJK-Regular.ttc" kerning="yes" sub-font="Noto Sans CJK SC">
+        <font embed-url="NotoSansCJKsc-Regular.otf" kerning="yes">
           <font-triplet name="Noto Sans CJK SC" style="italic" weight="normal"/>
         </font>
-        <font embed-url="NotoSerifCJK-Regular.ttc" kerning="yes" sub-font="Noto Serif CJK SC">
+        <font embed-url="NotoSansCJKsc-Bold.otf" kerning="yes">
+          <font-triplet name="Noto Sans CJK SC" style="italic" weight="bold"/>
+        </font>
+        <font embed-url="NotoSerifCJKsc-Regular.otf" kerning="yes">
           <font-triplet name="Noto Serif CJK SC" style="normal" weight="normal"/>
         </font>
-        <font embed-url="NotoSerifCJK-Bold.ttc" kerning="yes" sub-font="Noto Serif CJK SC">
+        <font embed-url="NotoSerifCJKsc-Bold.otf" kerning="yes">
           <font-triplet name="Noto Serif CJK SC" style="normal" weight="bold"/>
         </font>
-        <font embed-url="NotoSerifCJK-Regular.ttc" kerning="yes" sub-font="Noto Serif CJK SC">
+        <font embed-url="NotoSerifCJKsc-Regular.otf" kerning="yes">
           <font-triplet name="Noto Serif CJK SC" style="italic" weight="normal"/>
         </font>
-        <font embed-url="NotoSansMonoCJK-Regular.ttc" kerning="yes" sub-font="Noto Sans Mono CJK SC">
+        <font embed-url="NotoSerifCJKsc-Bold.otf" kerning="yes">
+          <font-triplet name="Noto Serif CJK SC" style="italic" weight="bold"/>
+        </font>
+        <font embed-url="NotoSansMonoCJKsc-Regular.otf" kerning="yes">
           <font-triplet name="Noto Sans Mono CJK SC" style="normal" weight="normal"/>
         </font>
-        <font embed-url="NotoSansMonoCJK-Bold.ttc" kerning="yes" sub-font="Noto Sans Mono CJK SC">
+        <font embed-url="NotoSansMonoCJKsc-Bold.otf" kerning="yes">
           <font-triplet name="Noto Sans Mono CJK SC" style="normal" weight="bold"/>
+        </font>
+        <font embed-url="NotoSansMonoCJKsc-Regular.otf" kerning="yes">
+          <font-triplet name="Noto Sans Mono CJK SC" style="italic" weight="normal"/>
+        </font>
+        <font embed-url="NotoSansMonoCJKsc-Bold.otf" kerning="yes">
+          <font-triplet name="Noto Sans Mono CJK SC" style="italic" weight="bold"/>
         </font>
       </fonts>
     </renderer>
