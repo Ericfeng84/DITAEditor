@@ -3,15 +3,27 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## [Unreleased]
+## [1.6.0] — 2026-11-27
+
+Phase 14 交付与多项工作台增强：新增**文档智能导入与多角色 AI Agent 撰写校验闭环**（Docling + MarkItDown 双解析器、工具化 DITA-OT Repair Agent 与 5 步向导），补齐**内容复用全链路入口**（Warehouse 复用仓库、新建/提取复用段落与全场景插入），上线**双语 DITA 属性知识库与分组属性检查器**，增强**桌面端自定义存储目录与运行环境插件引导**，彻底修复**服务端 Noto CJK PDF 字体嵌入与 Docker `fontconfig`**，精简移除 Bookmap 仅保留标准 DITA Map，并完成 `docs/` 目录分层重组。全仓测试 925 项全绿（`@dita/core` 259 / `@dita/web` 399 / `@dita/api` 217 / `@dita/site` 30 / `@dita/desktop` 20）。
 
 ### Added
 
+- **Phase 14：文档智能导入与 AI Agent 撰写校验闭环**（详见 [phase14-docling-agent.md](docs/plans/phase14-docling-agent.md)）：
+  - 支持将 PDF、Word（`.docx`）、PowerPoint（`.pptx`）、Excel（`.xlsx`/`.xls`）、HTML、EPUB、CSV、Outlook（`.msg`）及 Markdown/纯文本解析为结构化 Markdown 与提取图片资产，内置 Docling（`docling-serve` sidecar / CLI）与 Microsoft MarkItDown 双解析路由与 `.md`/`.txt` 直通。
+  - 基于 LangChain.js 实现 Planner → Writer → 有界工具化 DITA-OT Repair Agent + 确定性 `strict` 终检门禁闭环，支持「新建干净基线手册」与「向现有手册写入 Phase 13 个人草稿叠加层」双目标及 5 步 SSE 实时进度向导，配套根级 `docker-compose.yml`（`ditaeditor` + `docling-serve`）。
 - **内容复用全链路入口（Warehouse 仓库 / 新建与提取复用段落 / 全场景插入）**（详见 [content-reuse-workflow.md](docs/design/content-reuse-workflow.md)）：
   - `@dita/core` 新增 `createWarehouseTopicTemplate()`、`packages/dita-core/src/semantics/warehouse.ts`（`generateSemanticElementId`、`collectTopicElementIds`、`appendReusableFragmentToTopicXml`，支持 Strict Task `<context>`/`<example>` 槽位与行内元素 `<p>` 自动包裹、Prolog/属性顺序无损保留）以及 `serializePmBlockToXml()`。
   - `@dita/web` Store 新增 `createWarehouseTopic` 与 `addReusableFragmentToTopic`，支持一键新建 `processing-role="resource-only"` Warehouse Topic 与 Root Map `<keydef>`，并严格遵守 Phase 13 Check-out 锁与 Draft Overlay 乐观锁保存。
   - 新增 `CreateReusableSnippetDialog`（`create` 模式默认 `<p>` 并支持内联新建仓库 + 立即插入；`extract` 模式支持提取已有块并单事务替换为保留条件属性的 `conkeyref`/`conref` 骨架或保留副本）。
   - 补齐消费与生产入口：`ConrefReusePanel` 顶部与空状态新增 `+ 新建复用片段` 引导；`/` 斜杠菜单与块间 `+` 插入菜单（`InsertElementMenu`）支持检索并直达「复用」面板；`BlockHandle` 与 `AttributesPanel` 新增「设为可复用（生成 ID）」与「提取为复用段落…」；`EditorToolbar`「复用」文字自 `lg` 断点起显式展示。
+- **双语 DITA 属性知识库与分组属性检查器**：
+  - `@dita/core` 新增同构中英双语属性知识库 `packages/dita-core/src/model/dita-attr-docs.ts`，提供分组用途说明、适用场景、XML 示例与枚举值人类可读标签，由 Topic 属性检查器、Map 节点检查器与 CodeMirror 6 XML 属性补全共享。
+  - `@dita/web` 重构 `AttributesPanel` 与 `MapNodeInspector`（新增 `apps/web/src/components/attributes/` 分组渲染、即时筛选条与原始属性折叠区），并补充 `attributes-panel.test.tsx` 单测。
+- **桌面端自定义存储位置与插件/运行环境引导**：
+  - `@dita/desktop` 新增「桌面设置 → 存储位置」与「插件与运行环境」：支持切换自定义存储文件夹（迁移现有数据 / 复用已有数据 / 新建空白工作区 / 恢复默认）与原生目录选择器，自动探测 Git、Java、DITA-OT 4.x、Noto CJK 字体与 MarkItDown/Docling 并提供 macOS / Windows 一键复制安装命令与路径选择器；新增 `ensure-electron.mjs` 自愈脚本防止 `electron` postinstall 半解压失败。
+- **工程文档分层治理**：
+  - 新增文档总索引 [docs/README.md](docs/README.md)，按 `docs/design/`（活文档与跨包契约）、`docs/deploy/`（部署指南）与 `docs/plans/`（历史阶段规划归档）重组文档；将 [docs/design/versioning-model.md](docs/design/versioning-model.md) 重写为 Phase 13 现行版本管理模型并修复全仓历史死链与状态头。
 
 ### Fixed
 
