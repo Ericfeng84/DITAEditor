@@ -325,7 +325,6 @@ export const enStructure = {
   'conref.newSnippet': 'New snippet',
   'conref.newSnippetHint': 'Create or extract a reusable snippet into a warehouse topic',
   'conref.emptyCreateCta': '+ New reusable snippet',
-  'conref.incompatible': 'Incompatible',
   'conref.dragHint': 'Drag any item into the editor: the visual view inserts the element at the drop point, the source view inserts the XML snippet.',
   'conref.insertModeAria': 'Insertion mode',
   'conref.insertNew': 'New <{tag}>',

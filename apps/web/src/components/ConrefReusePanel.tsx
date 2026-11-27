@@ -439,10 +439,6 @@ export function ConrefReusePanel({
                 const isPicked =
                   selectedTarget?.fragment === el.fragment &&
                   selectedTarget.filePath === el.filePath;
-                const incompatible = selectedElementTag
-                  ? !areConrefTagsCompatible(selectedElementTag, el.tagName)
-                  : false;
-
                 const payload = buildPayload(el);
 
                 return (
@@ -491,11 +487,6 @@ export function ConrefReusePanel({
                         <code className="truncate font-mono text-[10.5px] font-semibold text-teal-800">
                           #{el.elementId}
                         </code>
-                        {incompatible ? (
-                          <span className="shrink-0 rounded bg-amber-100 px-1 text-[9px] text-amber-800">
-                            {t('conref.incompatible')}
-                          </span>
-                        ) : null}
                       </div>
                       {el.previewText ? (
                         <p className="mt-0.5 truncate text-[10px] text-slate-600">

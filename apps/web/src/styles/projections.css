@@ -45,10 +45,19 @@
   border-radius: 6px;
 }
 
+/* Resolved reuse is an assistive hint, not a warning: stay transparent at rest so the reused
+   prose reads exactly like surrounding document text. */
 .dita-conref-host.dita-conref-resolved {
-  background: rgba(245, 158, 11, 0.04);
-  outline: 1px dashed rgba(217, 119, 6, 0.42);
+  background: transparent;
+  outline: 1px dashed rgba(148, 163, 184, 0.34);
   outline-offset: 2px;
+  transition: outline-color 140ms ease, background-color 140ms ease;
+}
+
+.dita-conref-host.dita-conref-resolved:hover,
+.dita-conref-host.dita-conref-resolved:focus-within {
+  background: rgba(248, 250, 252, 0.55);
+  outline-color: rgba(148, 163, 184, 0.7);
 }
 
 .dita-conref-host.dita-conref-error,
@@ -58,16 +67,26 @@
   outline-offset: 2px;
 }
 
+/* Resolved reuse card: neutral hairline rail, no fill at rest. */
 .dita-conref-preview-block {
   margin: 4px 0 2px;
-  border-left: 3px solid #d97706;
+  border-left: 2px solid #e2e8f0;
   border-radius: 0 6px 6px 0;
-  background: #fffbeb;
-  padding: 6px 10px;
+  background: transparent;
+  padding: 2px 0 2px 10px;
   user-select: none;
   color: #1e293b;
+  transition: border-color 140ms ease, background-color 140ms ease;
 }
 
+.dita-conref-preview-block:hover,
+.dita-conref-preview-block:focus-within {
+  border-left-color: #94a3b8;
+  background: rgba(248, 250, 252, 0.65);
+}
+
+/* The provenance header is quiet at rest and firms up only on interaction, so the reused
+   content — not the metadata chrome — carries the reading focus. */
 .dita-conref-preview-header {
   display: flex;
   flex-wrap: wrap;
@@ -75,27 +94,37 @@
   gap: 6px;
   margin-bottom: 5px;
   font-size: 11px;
-  color: #92400e;
+  color: #94a3b8;
+  opacity: 0.75;
+  transition: opacity 140ms ease;
 }
 
+.dita-conref-preview-block:hover .dita-conref-preview-header,
+.dita-conref-preview-block:focus-within .dita-conref-preview-header {
+  opacity: 1;
+}
+
+.dita-conref-tag,
+.dita-conref-ro-chip,
 .dita-conref-preview-badge {
   display: inline-flex;
   align-items: center;
   gap: 3px;
   padding: 1px 6px;
   border-radius: 4px;
-  background: #fef3c7;
-  border: 1px solid #fcd34d;
-  color: #92400e;
+  background: rgba(241, 245, 249, 0.7);
+  border: 1px solid #e2e8f0;
+  color: #64748b;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10px;
   font-weight: 600;
 }
 
-.dita-conref-preview-meta {
+.dita-conref-preview-meta,
+.dita-conref-source-path {
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 10.5px;
-  color: #78350f;
+  color: #94a3b8;
 }
 
 .dita-conref-jump-btn {
@@ -105,37 +134,84 @@
   gap: 3px;
   padding: 1px 6px;
   border-radius: 4px;
-  border: 1px solid #fbbf24;
-  background: #ffffff;
-  color: #92400e;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #64748b;
   font-size: 10.5px;
   font-weight: 500;
   cursor: pointer;
+  transition: background-color 120ms ease, border-color 120ms ease, color 120ms ease;
 }
 
 .dita-conref-jump-btn:hover {
-  background: #fef3c7;
-  color: #78350f;
-}
-
-.dita-conref-preview-body {
-  font-size: 13px;
-  line-height: 1.6;
+  background: rgba(241, 245, 249, 0.9);
+  border-color: #cbd5e1;
   color: #334155;
 }
 
+/* Error / cycle alerts keep the loud rose treatment for their jump affordance. */
+.dita-conref-alert .dita-conref-jump-btn {
+  border-color: #fda4af;
+  background: rgba(255, 255, 255, 0.85);
+  color: #be123c;
+}
+
+.dita-conref-alert .dita-conref-jump-btn:hover {
+  background: #ffe4e6;
+  border-color: #fb7185;
+  color: #9f1239;
+}
+
+.dita-conref-preview-body,
+.dita-cr-block-body {
+  font-size: inherit;
+  line-height: inherit;
+  color: #1e293b;
+}
+
+/* Inline resolved reuse: a whisper-quiet tint plus a dotted baseline hint. */
 .dita-conref-preview-inline {
   display: inline-flex;
   align-items: baseline;
   gap: 4px;
-  padding: 0 6px;
-  margin: 0 2px;
-  border-radius: 4px;
-  border: 1px dashed #d97706;
-  background: #fffbeb;
-  color: #78350f;
-  font-size: 0.92em;
+  padding: 0 3px;
+  margin: 0 1px;
+  border-radius: 3px;
+  border: 1px solid transparent;
+  background: rgba(241, 245, 249, 0.55);
+  border-bottom: 1px dotted #cbd5e1;
+  color: inherit;
+  font-size: inherit;
   user-select: none;
+  transition: background-color 140ms ease, border-bottom-color 140ms ease;
+}
+
+.dita-conref-preview-inline:hover,
+.dita-conref-preview-inline:focus-within {
+  background: rgba(241, 245, 249, 0.9);
+  border-bottom-color: #94a3b8;
+}
+
+.dita-conref-inline-badge {
+  color: #94a3b8;
+  font-size: 0.82em;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.dita-conref-inline-jump {
+  border: none;
+  background: transparent;
+  padding: 0 1px;
+  color: #94a3b8;
+  font-size: 0.85em;
+  line-height: 1;
+  cursor: pointer;
+  transition: color 120ms ease;
+}
+
+.dita-conref-inline-jump:hover {
+  color: #475569;
 }
 
 .dita-conref-alert {
@@ -150,7 +226,8 @@
   user-select: none;
 }
 
-.dita-conref-alert-inline {
+.dita-conref-alert-inline,
+.dita-conref-inline-alert {
   display: inline-flex;
   align-items: center;
   gap: 4px;

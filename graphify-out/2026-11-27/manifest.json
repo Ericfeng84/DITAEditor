@@ -198,9 +198,9 @@
     "semantic_hash": ""
   },
   "docs/architecture-and-plan.md": {
-    "mtime": 1795788189.3648639,
-    "seen": 1795788622.95211,
-    "ast_hash": "fe9dec0477731134e158cc665895a8ac",
+    "mtime": 1795788874.516133,
+    "seen": 1795789018.3209338,
+    "ast_hash": "b368f0a7335a86524750164cba34d3d7",
     "semantic_hash": ""
   },
   "apps/web/src/components/NewTopicDialog.tsx": {
@@ -3312,21 +3312,21 @@
     "semantic_hash": ""
   },
   "docs/deploy/gcp-cloudrun.md": {
-    "mtime": 1795584369.7938313,
-    "seen": 1795788852.583353,
-    "ast_hash": "2513b4e93f4237f6e07a8d8129371357",
+    "mtime": 1795788874.5174453,
+    "seen": 1795789018.320936,
+    "ast_hash": "2118b78ad1d81366cd9f7f767c9d4d60",
     "semantic_hash": ""
   },
   "docs/deploy/github-pages.md": {
-    "mtime": 1795764210.7540507,
-    "seen": 1795788852.583354,
-    "ast_hash": "5289f83858c3f63a970d63a93552457a",
+    "mtime": 1795788874.517981,
+    "seen": 1795789018.320937,
+    "ast_hash": "6a006c32e4d370a80744acaa1a85db56",
     "semantic_hash": ""
   },
   "docs/deploy/huggingface-spaces.md": {
-    "mtime": 1795325840.9211397,
-    "seen": 1795788852.583355,
-    "ast_hash": "8bc4ec160f2714b410f79f54bc163d46",
+    "mtime": 1795788874.518413,
+    "seen": 1795789018.3209379,
+    "ast_hash": "382bb3bdce9bb522d984deb13d5b56fe",
     "semantic_hash": ""
   },
   "docs/design/ai-contract.md": {
@@ -3354,63 +3354,63 @@
     "semantic_hash": ""
   },
   "docs/plans/checkin-validation-ai-fix.md": {
-    "mtime": 1795764210.7536068,
-    "seen": 1795788852.583366,
-    "ast_hash": "983a0595f5de4bfe1b937b2ab0109c21",
+    "mtime": 1795788874.5195327,
+    "seen": 1795789018.320949,
+    "ast_hash": "870de7519f89a552cb0524f66776152f",
     "semantic_hash": ""
   },
   "docs/plans/key-management-integration.md": {
-    "mtime": 1795670720.6771214,
-    "seen": 1795788852.5833669,
-    "ast_hash": "3122694094498e52e7a2a492d1b978fe",
+    "mtime": 1795788874.519992,
+    "seen": 1795789018.320951,
+    "ast_hash": "1b2ade84446878da77f507eb4e5dbbf1",
     "semantic_hash": ""
   },
   "docs/plans/phase06-ai-implementation.md": {
-    "mtime": 1795307821.4778454,
-    "seen": 1795788852.5833678,
-    "ast_hash": "97c4ed97bd3fb71519600182574164ef",
+    "mtime": 1795788874.5208418,
+    "seen": 1795789018.3209522,
+    "ast_hash": "2e9e708da651f39e19558cba3066ccaf",
     "semantic_hash": ""
   },
   "docs/plans/phase07-site.md": {
-    "mtime": 1795764210.7551477,
-    "seen": 1795788852.583369,
-    "ast_hash": "1fff77a376ccc593092b5ee8e71ede37",
+    "mtime": 1795788874.5213163,
+    "seen": 1795789018.3209531,
+    "ast_hash": "269fb5c1803e6b1ff09c9a376962cde4",
     "semantic_hash": ""
   },
   "docs/plans/phase08-i18n.md": {
-    "mtime": 1795310502.6832478,
-    "seen": 1795788852.58337,
-    "ast_hash": "eee465b0e05b591d2469001b05a4f9e3",
+    "mtime": 1795788874.5220175,
+    "seen": 1795789018.320954,
+    "ast_hash": "72a17e0247b04902142b713db1c310b6",
     "semantic_hash": ""
   },
   "docs/plans/phase10-workbench-assignments.md": {
-    "mtime": 1795513635.3425639,
-    "seen": 1795788852.583371,
-    "ast_hash": "eb4d2a30a4688f481a504885492d06a9",
+    "mtime": 1795788874.5227282,
+    "seen": 1795789018.3209548,
+    "ast_hash": "c21324edafa1c6969357b583b4450d12",
     "semantic_hash": ""
   },
   "docs/plans/phase12-html-themes.md": {
-    "mtime": 1795573870.4393604,
-    "seen": 1795788852.583372,
-    "ast_hash": "dddbbf277cd1e706a19f38a65110fbaa",
+    "mtime": 1795788874.5237834,
+    "seen": 1795789018.320957,
+    "ast_hash": "efc26b5a51577a2c71aab96ecd582329",
     "semantic_hash": ""
   },
   "docs/plans/phase13-restore-revert-fix.md": {
-    "mtime": 1795652945.561111,
-    "seen": 1795788852.583373,
-    "ast_hash": "87df8fd4407f72ba07ff2c6d43add829",
+    "mtime": 1795788874.524212,
+    "seen": 1795789018.320958,
+    "ast_hash": "aa1f80bc69b1cd30c668d482f985ce30",
     "semantic_hash": ""
   },
   "docs/plans/phase13-versioning-overlay.md": {
-    "mtime": 1795613529.1547,
-    "seen": 1795788852.583374,
-    "ast_hash": "9dd646415ebbb5091bffab6a394671ec",
+    "mtime": 1795788874.5248034,
+    "seen": 1795789018.320959,
+    "ast_hash": "a1253bfc37a6363b2935a6ec9a040ffc",
     "semantic_hash": ""
   },
   "docs/plans/phase14-docling-agent.md": {
-    "mtime": 1795764210.7546024,
-    "seen": 1795788852.5833752,
-    "ast_hash": "3501917cfd1c1c31bb7d840a7ab9b954",
+    "mtime": 1795788874.5255225,
+    "seen": 1795789018.32096,
+    "ast_hash": "4ecae33f7d868e3bdec1ce355c4814bc",
     "semantic_hash": ""
   },
   "pnpm-lock.yaml": {
