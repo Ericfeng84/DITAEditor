@@ -28,7 +28,7 @@ const columns = [
     heading: dict.footer.learnHeading,
     links: [
       { label: dict.nav.docs, href: docsIndexPath(locale, SITE.base) },
-      ...(['getting-started', 'features', 'ai-setup'] as const).map((slug) => ({
+      ...(['getting-started', 'features', 'authoring-guide', 'dita-spec', 'ai-setup'] as const).map((slug) => ({
         label: dict.docsUi.titles[slug],
         href: docsPath(locale, slug, SITE.base),
       })),

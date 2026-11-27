@@ -12,7 +12,7 @@ export const en: typeof zh = {
       'A real DITA 1.3 sandbox that runs entirely in your browser: visual and source editing, CALS tables, three-state DITAVAL projection, and exact line-level diffs, all powered by @dita/core.',
     docsTitle: 'Documentation — DITAEditor',
     docsDescription:
-      'DITAEditor quick start, single-container Docker deployment, local development, feature tour, AI setup, and architecture reference.',
+      'DITAEditor quick start, single-container Docker deployment, local development, feature tour, authoring guide, DITA 1.3 quick reference, AI setup, and architecture reference.',
     ogAlt: 'Screenshot of the DITAEditor workbench',
   },
   nav: {
@@ -345,7 +345,9 @@ export const en: typeof zh = {
       'getting-started': 'Quick start and Docker deployment',
       'local-development': 'Local development',
       features: 'Feature tour',
+      'authoring-guide': 'Authoring guide',
       'ai-setup': 'AI setup and safety boundaries',
+      'dita-spec': 'DITA 1.3 quick reference',
       architecture: 'Architecture reference',
     },
   },

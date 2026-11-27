@@ -9,7 +9,7 @@ export const zh = {
     playgroundDescription:
       '免部署、纯浏览器运行的真实 DITA 1.3 沙箱：可视化/源码双模编辑、CALS 表格、DITAVAL 三态过滤与精确行级 Diff，全部由 @dita/core 在本地驱动。',
     docsTitle: '文档 — DITAEditor',
-    docsDescription: 'DITAEditor 快速上手、Docker 单容器部署、本地开发、功能导览、AI 接入与架构参考。',
+    docsDescription: 'DITAEditor 快速上手、Docker 单容器部署、本地开发、功能导览、写作操作指南、DITA 1.3 规范速查、AI 接入与架构参考。',
     ogAlt: 'DITAEditor 工作台界面预览',
   },
   nav: {
@@ -342,7 +342,9 @@ export const zh = {
       'getting-started': '快速开始与 Docker 部署',
       'local-development': '本地开发',
       features: '功能导览',
+      'authoring-guide': '写作操作指南',
       'ai-setup': 'AI 接入与安全边界',
+      'dita-spec': 'DITA 1.3 规范速查',
       architecture: '架构参考',
     },
   },

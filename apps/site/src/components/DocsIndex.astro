@@ -23,8 +23,8 @@ const bySlug = new Map(entries.map((entry) => [entry.id.slice(locale.length + 1)
 
 const groups = [
   { key: 'start' as const, slugs: ['introduction', 'getting-started', 'local-development'] },
-  { key: 'guides' as const, slugs: ['features', 'ai-setup'] },
-  { key: 'reference' as const, slugs: ['architecture'] },
+  { key: 'guides' as const, slugs: ['features', 'authoring-guide', 'ai-setup'] },
+  { key: 'reference' as const, slugs: ['dita-spec', 'architecture'] },
 ];
 
 const path = locale === 'zh' ? '/docs' : '/en/docs';

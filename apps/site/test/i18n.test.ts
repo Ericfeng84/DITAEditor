@@ -50,7 +50,7 @@ describe('site dictionaries', () => {
     }
   });
 
-  it('ships exactly the documented six guides per locale', () => {
+  it('ships exactly the documented guides per locale', () => {
     for (const locale of LOCALES) {
       const dir = join(docsRoot, locale);
       const files = existsSync(dir) ? readdirSync(dir).filter((file) => file.endsWith('.md')) : [];

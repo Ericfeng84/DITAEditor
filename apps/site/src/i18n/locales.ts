@@ -17,13 +17,15 @@ export const LOCALE_HTML_LANG: Readonly<Record<Locale, string>> = { zh: 'zh-CN',
 export const LOCALE_LABEL: Readonly<Record<Locale, string>> = { zh: '中文', en: 'English' };
 export const LOCALE_OG_LOCALE: Readonly<Record<Locale, string>> = { zh: 'zh_CN', en: 'en_US' };
 
-/** The six core guides, in reading order. Both locales must ship all six. */
+/** The eight core guides, in reading order. Both locales must ship all eight. */
 export const DOC_SLUGS = [
   'introduction',
   'getting-started',
   'local-development',
   'features',
+  'authoring-guide',
   'ai-setup',
+  'dita-spec',
   'architecture',
 ] as const;
 
