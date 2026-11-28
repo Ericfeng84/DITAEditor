@@ -3,6 +3,41 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.7.0] — 2026-11-28
+
+工作台信息架构二次收敛：新增**应用内帮助中心**与**文档站双语写作指南 / DITA 1.3 速查**，把 Root Map 标题行升级为**根地图切换器 + 手册默认根地图**，将标签档位、大纲入口与任务内容模型收进**底栏与单行 chrome**，并把内置演示工作区整体替换为**《DITAEditor 产品手册》**。全仓测试 1061 项全绿（`@dita/core` 259 / `@dita/web` 519 / `@dita/api` 233 / `@dita/site` 30 / `@dita/desktop` 20）。
+
+### Added
+
+- **应用内帮助中心**（详见 [help-center.md](docs/design/help-center.md)）：
+  - 七个面向作者的章节：六步快速开始（其中四步配中英截图，可点击放大、`Esc` 先关放大再关弹窗）、改写为作者语言的「编辑与可视化模式」（不出现 ProseMirror / `rawAttrs` / `DITA_SEQUENCE_MODEL` 这类实现词汇）、由 `@dita/core` 实时推导的 DITA 1.3 速查（顺序槽位、必需子元素、标签释义、属性规格，并为每种主题类型补一句「何时使用」）、校验、协作、快捷键与外部资源。
+  - 入口为顶栏帮助按钮、`?` 快捷键与 Hub 入口；状态放在独立 zustand store，顶栏无需 Provider 即可打开。
+  - 外部链接集中在 `apps/web/src/lib/help-links.ts`，默认指向 GitHub Pages 文档与仓库；`VITE_STATIC_DEMO` 离线构建下隐藏并给出说明，避免离线演示与 Electron 断网时出现死链。
+- **文档站双语写作指南与 DITA 1.3 速查**：新增 `/docs/authoring-guide` 与 `/docs/dita-spec`（中英各一份）——检出主题、三种编辑模式、结构引导、表格与 conref、条件过滤、交叉引用与 Key、三层校验、检入与合并、HTML5/PDF 发布、协作规则、快捷键与 FAQ；四类主题的有序内容模型、常用块级/行内元素、属性表、命名规则、Map/topicref/keydef 优先级、DITAVAL、conref 与特化、八个高频错误。两个 slug 已注册进 `DOC_SLUGS`、文档索引、侧边栏分组、页脚 Learn 列与 `docsUi.titles`。
+- **Root Map 切换器与手册默认根地图**：
+  - Map 面板标题行升级为下拉菜单 `RootMapSwitcher`（`apps/web/src/map-tree/RootMapSwitcher.tsx`）：①列出工作区全部 `.ditamap` 并切换目标根 Map（复用 `selectRootMap` 重载缓冲/语义/诊断）；②保留原有「查看根元素属性」动作；③新增「设为手册默认 Root Map」。
+  - `updateManual` 持久化 `defaultRootMap`（仅非 viewer 且真实 API 会话可用），默认 Map 以琥珀色图钉标记；`initWorkspace({ rootMapPath })` 优先使用手册默认 Map，其次才是「顶层第一个 Map」的路径启发式，因此写在 `maps/` 下的手册会按团队选择重开。
+- **底栏控制簇与标签档位下拉**：主题类型规范胶囊 + 任务正文内容模型下拉（`自动 / 严格 / 通用`，仅 `<task>` 主题，由 `BreadcrumbBar` 的 `topicModelSlot` 渲染）+ 写作指南胶囊集中到底栏，可视化子头部、源码工具条与拆分视图不再重复渲染；标签档位改为图标与原生 `<select>` 合并在同一枚边框内的下拉胶囊（`TagModeSwitch` + `primitives.css` 的 `.dita-tag-mode`），三档一次可见、一击可达。
+- **大纲由底栏面包屑唤起**：移除常驻大纲开关与画布左缘书签把手；点击底栏任一层级（`topic › title › p`）即选中该元素并把大纲打开定位到它，新增 `collectOutlineAncestorIds()`（`outline-model.ts`）先展开被折叠的祖先，否则 `scrollIntoView` 触达不到不在 DOM 中的行；`Ctrl/Cmd+Shift+O` 快捷键保留。
+
+### Changed
+
+- **工作台信息架构与单行 chrome**（详见 [workbench-ux-architecture.md](docs/design/workbench-ux-architecture.md)）：
+  - 顶栏：`发布` 提升为顶栏 CTA，新增设置齿轮菜单（承载 `LocaleSwitcher`），`诊断` 作为唯一入口，帮助固定在最右；左栏折叠按钮仅在折叠时显示，与检查器对称。
+  - 可视化编辑器：`EditorToolbar` 移入 `VisualEditor` 内的非换行单行轨道（`singleLine` + 外层 `overflow-x-auto`），标签显示条与主题操作共用同一行边框与内边距——只读主题不再留一条空工具条，窄窗格改为横向滚动而不是折成两三行；标签属性间距改为 `gap: 4px`，非焦点容器标签降低视觉权重，`titlealts` / `navtitle` 轻量化；`tagDisplayMode` 按权限自适应（只读默认 `none` / 编辑默认 `tags`）并按模式分别持久化到 `localStorage`。
+  - 左栏：`LeftSidebar` 页签移到底部栏并加顶部激活指示；`MapTreePanel` 顺序改为 Root Map 标题 → 二级 Tab → 树操作 → 合并的搜索/DITAVAL 渐进展开，删除底部常驻提示行；`新建挂载` 与 `挂载已有` 合并为单个 `挂载` 下拉（`MountMenu`，含外部点击与 `Esc` 关闭），目录树新增拖拽重排、跨子 Map 移动、双击打开主题与手势提示。
+  - 文档栏与状态：内联 `LockStatusBar` 收敛为单枚状态图标 + 动作下拉，`TopicGuideChip` 合并为可点击胶囊，只读且干净时隐藏禁用的 `保存`，移除重复的身份角色标签与 `BreadcrumbBar` 的诊断/静态文字，去掉 AI 面板冗余关闭按钮并新增空态快捷提示词，只读画布键入时给出检入引导。
+- **内置演示手册改为真实产品手册**：`samples/demo-dita-project` 原带虚构内容（`v2.4`、Java 常驻校验 Worker、PostgreSQL/Redis、`SLA` 条款）与乱码残留，现整体替换为《DITAEditor 产品手册》——16 篇主题按「概念 / 功能 / 参考」三层重写（DITA 1.3 主题化模型、单一信息源与复用、手册与草稿叠加层、工作台三模式、写作闭环、AI 与导入；Map 编排、服务端启动、中文 PDF 字体；元素速查、CALS 表格、REST API、镜像与环境变量、发布主题、特化元素透传）。
+  - 保留原有演示骨架：`product-manual.ditamap` / `maps/admin-book.ditamap` / `maps/*.ditamap`、`keyscope`、`mapref`、`reltable`、`conkeyref` 复用仓库与两个 DITAVAL，键值改为真实值（`prod_name`=`DITAEditor`、`api_version`=`1.6.0`、`deployment_mode`=`Web 工作台 · 桌面端 · 自托管 Docker`），因此 Keyspace、条件化与跨文档复用仍可直接演示。第二本书 `admin-book.ditamap` 移入 `maps/`，让根级只剩 `product-manual.ditamap` 一本根地图，工作台按路径顺序挑选时默认打开产品手册而不是私有化运维手册（`.dita` / `.ditamap` 内部的 `href` 已改为 `../` 相对路径）。
+  - 删除两个未被地图引用的占位主题（`concepts/concept-lvqi.dita`、`concepts/reference-s7bb.dita`）与 Bookmap 残留文件，重绘 `images/architecture.svg`、`images/workflow.svg`，并新增 `samples/demo-dita-project/README.md` 说明目录结构与演示能力。
+  - 同步更新 `apps/api/test/semantics-api.test.ts`、`apps/api/test/phase6-ai-api.test.ts`、`apps/api/test/phase13-overlay-versioning.test.ts` 中依赖样例键值、标题、根地图路径与 AI 目标路径的断言。
+
+### Fixed
+
+- **只读主题不再暴露写作入口**：装饰插件状态携带 `readOnly`，只读时完全不注入块间 `+` 按钮与 gap 高亮，避免暗示后端会拒绝的编辑；可视化画布在只读态敲击可打印字符或退格/删除键时高亮 `ReadOnlyBanner` 的 `检出` 按钮。
+- **AI 检查器默认打开且浮动入口与布局一致**：检查器默认落在 AI 页签，浮动启动器改为由渲染布局推导（`showRightInspector && target !== 'map-node' && tab === 'ai'`），不再依赖可能与实际挂载不一致的 AI store `panelOpen`。
+- **底栏面包屑跳转到折叠分支不再静默失效**：见上文 `collectOutlineAncestorIds()`。
+
 ## [1.6.0] — 2026-11-27
 
 Phase 14 交付与多项工作台增强：新增**文档智能导入与多角色 AI Agent 撰写校验闭环**（Docling + MarkItDown 双解析器、工具化 DITA-OT Repair Agent 与 5 步向导），补齐**内容复用全链路入口**（Warehouse 复用仓库、新建/提取复用段落与全场景插入），上线**双语 DITA 属性知识库与分组属性检查器**，增强**桌面端自定义存储目录与运行环境插件引导**，彻底修复**服务端 Noto CJK PDF 字体嵌入与 Docker `fontconfig`**，精简移除 Bookmap 仅保留标准 DITA Map，并完成 `docs/` 目录分层重组。全仓测试 925 项全绿（`@dita/core` 259 / `@dita/web` 399 / `@dita/api` 217 / `@dita/site` 30 / `@dita/desktop` 20）。

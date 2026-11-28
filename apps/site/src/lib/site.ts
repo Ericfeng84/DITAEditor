@@ -16,7 +16,7 @@ const repo = 'https://github.com/Ericfeng84/DITAEditor';
  * sizes) would leave the site broken between the version bump and the finished build.
  * GitHub resolves the `latest` redirect to the newest non-draft, non-prerelease assets.
  */
-const desktopTag = 'v1.6.0';
+const desktopTag = 'v1.7.0';
 const desktopVersion = desktopTag.replace(/^v/, '');
 
 function releaseAsset(name: string) {
