@@ -342,12 +342,16 @@ describe('merged Mount dropdown', () => {
       />,
     );
 
-  it('renders only the trigger while closed', () => {
+  it('renders the trigger wired to a closed top-layer popover', () => {
     const html = render(false);
     expect(html).toContain(`<span>${t('mapTree.mountMenu')}</span>`);
     expect(html).toContain('aria-expanded="false"');
-    expect(html).not.toContain('role="menu"');
-    expect(html).not.toContain('role="menuitem"');
+    // The menu lives in a native popover (top layer), so the sidebar's overflow can never clip it;
+    // while closed the UA `[popover]:not(:popover-open)` rule keeps it out of the layout and the
+    // accessibility tree.
+    expect(html).toMatch(/popovertarget="[^"]+"/);
+    expect(html).toContain('popover="auto"');
+    expect(html).toContain('dita-toolbar-popover');
   });
 
   it('exposes create-and-mount and mount-existing as menu items when open', () => {
@@ -360,8 +364,6 @@ describe('merged Mount dropdown', () => {
     expect(html).toContain(t('mapTree.createMountedTooltip'));
     expect(html).toContain(`<span>${t('mapTree.mountExisting')}</span>`);
     expect(html).toContain(t('mapTree.mountExistingTooltip'));
-    // Anchored left so the menu never clips off the sidebar's left edge.
-    expect(html).toContain('absolute top-full left-0');
     expect(html).toContain('dita-ctx-menu');
   });
 });

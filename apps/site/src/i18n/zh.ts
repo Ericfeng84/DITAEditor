@@ -4,12 +4,12 @@ export const zh = {
     siteName: 'DITAEditor',
     homeTitle: 'DITAEditor — 像写普通文档一样写 DITA，格式与引用永远不乱',
     homeDescription:
-      '开源 Web 结构化写作工作台：手册工作台与任务委派、文档大纲拖拽重排、可视化与源码双模式编辑、改完不跑版且版本记录干净、产品名与接口地址一处维护、个人草稿互不干扰、一键发布带品牌的网页与中文 PDF，界面中英双语。',
+      '开源 Web 结构化写作工作台：手册工作台与任务委派、文档大纲拖拽重排、可视化与源码双模式编辑、改完不跑版且版本记录干净、产品名与接口地址一处维护、个人草稿互不干扰、成对翻译与逐段双语审校、一键发布带品牌的网页与中文 PDF，界面中英双语。',
     playgroundTitle: 'DITA 1.3 交互式沙箱 — DITAEditor',
     playgroundDescription:
       '免部署、纯浏览器运行的真实 DITA 1.3 沙箱：可视化/源码双模编辑、CALS 表格、DITAVAL 三态过滤与精确行级 Diff，全部由 @dita/core 在本地驱动。',
     docsTitle: '文档 — DITAEditor',
-    docsDescription: 'DITAEditor 快速上手、Docker 单容器部署、本地开发、功能导览、写作操作指南、DITA 1.3 规范速查、AI 接入与架构参考。',
+    docsDescription: 'DITAEditor 快速上手、Docker 单容器部署、本地开发、功能导览、写作操作指南、成对翻译与术语库、DITA 1.3 规范速查、AI 接入与架构参考。',
     ogAlt: 'DITAEditor 工作台界面预览',
   },
   nav: {
@@ -31,7 +31,7 @@ export const zh = {
     titleLead: '写 DITA 文档，',
     titleAccent: '像用现代编辑器一样顺手。',
     subtitle:
-      '打开浏览器就能写：内容像普通文档一样改，结构、引用与过滤条件自动保持正确；团队各写各的草稿，谁也不会覆盖谁；写完之后，一键发布带品牌的网页与中文 PDF。',
+      '打开浏览器就能写：内容像普通文档一样改，结构、引用与过滤条件自动保持正确；团队各写各的草稿，谁也不会覆盖谁；写完之后，一键发布带品牌的网页与中文 PDF。要给海外团队出英文、阿拉伯文或更多语言版本，成对翻译与逐段审校也在同一个工作台里完成。',
     primaryCta: '在浏览器中试用',
     desktopCta: '下载桌面版',
     secondaryCta: 'Docker 快速部署',
@@ -40,7 +40,7 @@ export const zh = {
     stats: [
       { value: '100%', label: '改完格式一字不丢' },
       { value: '0', label: '需要安装的客户端' },
-      { value: '719', label: '自动化测试守护' },
+      { value: '1351', label: '自动化测试守护' },
       { value: '2', label: '中英双语界面' },
     ],
     showcaseLabel: '工作台实景',
@@ -88,6 +88,12 @@ export const zh = {
         caption: 'AI 只给候选片段，改了什么、影响哪几行一目了然，确认才写入。',
         alt: 'DITAEditor AI 改写与差异审阅截图',
       },
+      {
+        id: 'translation',
+        label: '成对翻译',
+        caption: '源文与译文逐段并排：改过的段落标出来，术语与行内标签实时检查，确认后才写入目标语言的草稿。',
+        alt: 'DITAEditor 双语审校工作台截图：源语言与目标语言逐段对照',
+      },
     ],
   },
   compare: {
@@ -122,6 +128,12 @@ export const zh = {
         dita: '中文字体已打包，选好主题就能出版，失败也会指到原文行号',
       },
       {
+        topic: '多语言版本怎么交付',
+        legacy: '翻译外包或另装翻译管理系统，译文回到 CMS 再排版',
+        generic: '复制一份文件手工改，源文一更新就对不上',
+        dita: '目标语言就是一本真手册：按 Git 差异增量翻译，逐段双语审校后签入',
+      },
+      {
         topic: 'AI 改稿安全吗',
         legacy: 'AI 结果直接覆盖文档，事后难以审阅',
         generic: '自由文本改写，结构随时崩坏',
@@ -149,9 +161,9 @@ export const zh = {
   },
   features: {
     eyebrow: '03 — 核心能力',
-    title: '九个能力，一条真实链路',
+    title: '十个能力，一条真实链路',
     description:
-      '从一本手册的日常出发：分派任务、写稿、调结构、复用内容、协同版本、发布交付，再到 AI 与双语界面——每件事都在同一份文档上完成。',
+      '从一本手册的日常出发：分派任务、写稿、调结构、复用内容、协同版本、翻译成目标语言、发布交付，再到 AI 与双语界面——每件事都在同一份文档上完成。',
     readDocs: '阅读功能导览',
     screenshotLabel: '界面实拍',
   },
@@ -170,7 +182,7 @@ export const zh = {
     layers: {
       web: '@dita/web · React 19 写作工作台',
       api: '@dita/api · Fastify + SQLite + simple-git',
-      core: '@dita/core · XML / CALS / Keyspace / DITAVAL / ProseMirror',
+      core: '@dita/core · XML / CALS / Keyspace / DITAVAL / ProseMirror / Translation',
       ot: 'DITA-OT 4.2.1 CLI（标准发行版）',
       llm: 'OpenAI 兼容 LLM（DeepSeek / 私有代理）',
       git: '本地 Git worktree',
@@ -181,6 +193,7 @@ export const zh = {
       { label: '发布链路', value: 'DITA-OT --validate=yes --processing-mode=strict' },
       { label: '并发模型', value: '按分支隔离 git worktree + Check-out 独占锁' },
       { label: 'AI 边界', value: '候选片段必须通过无损拼接与 Diff 审阅' },
+      { label: '翻译模型', value: '成对手册 + SQLite 血缘，各自独立 Git、锁与发布主题' },
     ],
   },
   desktop: {
@@ -221,12 +234,12 @@ export const zh = {
   },
   cta: {
     title: '先用十分钟，看它是不是真的不跑版。',
-    body: '打开在线完整版：手册与任务、双模式编辑、大纲拖拽排序、单一信息源、主题化发布与 AI 改写都在里面。',
+    body: '打开在线完整版：手册与任务、双模式编辑、大纲拖拽排序、单一信息源、成对翻译与双语审校、主题化发布与 AI 改写都在里面。',
     playground: '打开在线工作台',
     docs: '阅读部署文档',
   },
   footer: {
-    blurb: '开源的结构化写作工作台：像写普通文档一样写 DITA，格式与引用不乱，版本记录干净，发布一键完成，可完全自托管。',
+    blurb: '开源的结构化写作工作台：像写普通文档一样写 DITA，格式与引用不乱，版本记录干净，成对翻译不跑版，发布一键完成，可完全自托管。',
     productHeading: '产品',
     learnHeading: '学习',
     projectHeading: '项目',
@@ -272,7 +285,7 @@ export const zh = {
     unresolved: '未解析',
     fullWorkbenchTitle: '这只是官网沙箱',
     fullWorkbenchBody:
-      '完整工作台还提供多文件 DITA Map 树、语义索引、本地 Git 分支与 Check-out 独占锁、DITA-OT 严格校验与 HTML5/PDF 发布、以及带 Diff 审阅的 AI 助手。',
+      '完整工作台还提供多文件 DITA Map 树、语义索引、本地 Git 分支与 Check-out 独占锁、成对翻译与双语审校、DITA-OT 严格校验与 HTML5/PDF 发布、以及带 Diff 审阅的 AI 助手。',
     fullWorkbenchCta: '查看 5 分钟部署文档',
     stats: { lines: '行 XML', keys: 'keys', changed: '变动行' },
     editingHint: '直接编辑文档；选中后可用工具栏插入新块。',
@@ -344,6 +357,7 @@ export const zh = {
       features: '功能导览',
       'authoring-guide': '写作操作指南',
       'ai-setup': 'AI 接入与安全边界',
+      translation: '成对翻译与双语审校',
       'dita-spec': 'DITA 1.3 规范速查',
       architecture: '架构参考',
     },
@@ -364,6 +378,6 @@ export const zh = {
     loading: '加载中…',
     error: '出了点问题',
     external: '在新标签页打开',
-    version: 'v1.0.0',
+    version: 'v1.8.0',
   },
 };

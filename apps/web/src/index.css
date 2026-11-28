@@ -1,6 +1,15 @@
 @import "tailwindcss";
 
 /*
+ * One font source for utilities and hand-written CSS: `font-sans` / `font-mono` must resolve to
+ * the same stacks as base.css, or paths and counters drift between surfaces.
+ */
+@theme {
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "PingFang SC", "Noto Sans SC", "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+/*
  * Workbench stylesheet entry point.
  *
  * The rules live in ./styles/*.css, imported here in cascade order. Keep the import order
@@ -15,3 +24,4 @@
 @import "./styles/gap-block-handles.css";
 @import "./styles/panels.css";
 @import "./styles/projections.css";
+@import "./styles/translation-review.css";

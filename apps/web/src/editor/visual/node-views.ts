@@ -226,7 +226,7 @@ class DitaCodeblockNodeView implements NodeView {
 
 /**
  * Custom NodeView for `<prolog>`: collapsible metadata drawer so metadata stays accessible and
- * editable without dominating the editorial reading flow. Expanded by default; the collapsed
+ * editable without dominating the editorial reading flow. Collapsed by default; the expanded
  * state is kept in plugin state (see `prolog-collapse.ts`) so decoration-driven redraws cannot
  * silently re-collapse the drawer.
  */
@@ -237,7 +237,7 @@ class DitaPrologNodeView implements NodeView {
   private caretEl: HTMLElement;
   private labelEl: HTMLElement;
   private hintEl: HTMLElement;
-  private collapsed = false;
+  private collapsed = true;
   private node: PMNode;
   private view: EditorView;
   private getPos: () => number | undefined;

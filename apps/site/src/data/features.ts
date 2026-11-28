@@ -10,6 +10,7 @@ export type FeatureIcon =
   | 'git'
   | 'publish'
   | 'ai'
+  | 'translation'
   | 'i18n';
 
 export interface Capability {
@@ -22,7 +23,7 @@ export interface Capability {
   docs: DocSlug;
 }
 
-/** Nine capabilities, each anchored in shipped code and covered by the automated suite. */
+/** Ten capabilities, each anchored in shipped code and covered by the automated suite. */
 export const CAPABILITIES: readonly Capability[] = [
   {
     id: 'hub',
@@ -245,8 +246,37 @@ export const CAPABILITIES: readonly Capability[] = [
     docs: 'ai-setup',
   },
   {
-    id: 'i18n',
+    id: 'translation',
     index: '09',
+    title: { zh: '成对翻译：每种语言都是真手册', en: 'Paired translation: every language is a real manual' },
+    summary: {
+      zh: '给手册加一种目标语言，系统会成对建好（或绑定）目标手册与 Git 仓库。扫描源文变更后只重译改动过的段落，其余译文原样复用；结果先进入双语审校，逐段对照、术语与行内标签实时检查，确认签入后才推进目标基线。',
+      en: 'Add a target language and DITAEditor pairs it with a dedicated manual and Git repository, or binds an existing one. A scan re-translates only the blocks that changed and reuses the rest; results go through bilingual review with live terminology and inline-tag checks before anything reaches the target baseline.',
+    },
+    bullets: {
+      zh: [
+        '每种语言各有独立的手册、分支、锁与发布主题，译文不被锁在私有格式里',
+        '按 Git 差异只重译真正变化的段落，未变段落复用已确认的译文',
+        '逐段双语审校 + 术语库/DNT + 行内标签守恒检查，签入才推进基线',
+      ],
+      en: [
+        'Each language keeps its own manual, branch, locks and publish theme — no proprietary translation layer',
+        'Git diffs drive re-translation, so unchanged passages reuse their approved translation',
+        'Segment-level review plus glossary/DNT and inline-tag checks gate the target baseline',
+      ],
+    },
+    screenshot: {
+      src: { zh: '/images/translation-center.webp', en: '/images/en/translation-center.webp' },
+      alt: {
+        zh: 'DITAEditor 翻译中心：语言血缘、翻译流水线与文件状态',
+        en: 'DITAEditor translation center with language lineage, pipeline and file statuses',
+      },
+    },
+    docs: 'translation',
+  },
+  {
+    id: 'i18n',
+    index: '10',
     title: { zh: '中英文界面一键切换', en: 'Switch the whole UI between Chinese and English' },
     summary: {
       zh: '界面、对话框、提示与文档站都提供中英两套，切换即时生效并记住偏好；日期、时长与 PDF 字体也随语言调整。',
@@ -285,14 +315,14 @@ export const QUICK_START_TABS: readonly QuickStartTab[] = [
     labelKey: 'docker',
     language: 'bash',
     code: `# 1. Build the single container (Node 22 + JRE 21 + DITA-OT 4.2.1 + Noto CJK)
-docker build -t ditaeditor:1.0.0 .
+docker build -t ditaeditor:1.8.0 .
 
 # 2. Run it with a persistent data volume
 docker run -d --name ditaeditor \\
   -p 3001:3001 \\
   -v dita_data:/data \\
   -e PORT=3001 \\
-  ditaeditor:1.0.0
+  ditaeditor:1.8.0
 
 # 3. Open the workbench
 open http://localhost:3001`,
@@ -325,7 +355,7 @@ DEEPSEEK_MODEL=deepseek-chat \\
 DITA_PUBLISH_CONCURRENCY=1 \\
 docker run -d -p 3001:3001 -v dita_data:/data \\
   -e DEEPSEEK_API_KEY -e DEEPSEEK_BASE_URL -e DEEPSEEK_MODEL \\
-  ditaeditor:1.0.0
+  ditaeditor:1.8.0
 
 # Or configure it in the UI (admin only)
 # Settings → AI 配置 → provider / baseURL / model / apiKey

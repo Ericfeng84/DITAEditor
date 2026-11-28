@@ -35,12 +35,13 @@ const showcaseImages: Record<string, string> = {
   sourcing: screenshotUrl('single-sourcing'),
   publish: screenshotUrl('publish'),
   ai: screenshotUrl('ai-diff'),
+  translation: screenshotUrl('bilingual-review'),
 };
 
 const layerRows = [
   { key: 'web', label: dict.architecture.layers.web, rows: ['ProseMirror', 'CodeMirror 6', 'React 19'] },
-  { key: 'api', label: dict.architecture.layers.api, rows: ['Fastify', 'Drizzle + SQLite', 'simple-git'] },
-  { key: 'core', label: dict.architecture.layers.core, rows: ['slimdom + SAX', 'CALS', 'Keyspace', 'DITAVAL'] },
+  { key: 'api', label: dict.architecture.layers.api, rows: ['Fastify', 'Drizzle + SQLite', 'simple-git', 'Translation jobs'] },
+  { key: 'core', label: dict.architecture.layers.core, rows: ['slimdom + SAX', 'CALS', 'Keyspace', 'DITAVAL', 'Translation / Glossary / QA'] },
 ];
 
 const jsonLd = {

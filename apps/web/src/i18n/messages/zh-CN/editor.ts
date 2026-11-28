@@ -19,6 +19,7 @@ export const zhCNEditor = {
   'problems.filter.all': '全部 ({count})',
   'problems.filter.error': '错误 ({count})',
   'problems.filter.warning': '警告 ({count})',
+  'problems.filter.ditaOt': 'DITA-OT ({count})',
   'problems.strictTitle': '调用 DITA-OT 对 Root Map 执行 DTD/RNG 严格校验',
   'problems.strict': 'DITA-OT 严格校验',
   'problems.refreshTitle': '重新扫描工作区链接与 XML 良构性',
@@ -26,6 +27,8 @@ export const zhCNEditor = {
   'problems.closeAria': '关闭问题面板',
   'problems.empty': '未检测到断链、循环引用或 XML 语法错误',
   'problems.aiFixTitle': '用 AI 修复此问题',
+  'problems.clearStrict': '清除严格校验',
+  'problems.clearStrictTitle': '清除最近一次 DITA-OT 严格校验结果',
   'problems.source.xml': 'XML 良构',
   'problems.source.mapRef': 'Map 引用',
   'problems.source.assetRef': '图片资源',
@@ -34,6 +37,7 @@ export const zhCNEditor = {
   'problems.source.conrefCycle': '循环复用',
   'problems.source.ditaval': 'DITAVAL',
   'problems.source.structure': 'DITA 结构',
+  'problems.source.ditaOt': 'DITA-OT',
 
   // --- visual editor toolbar ---------------------------------------------
   'toolbar.aria': 'DITA 文档编辑工具栏',

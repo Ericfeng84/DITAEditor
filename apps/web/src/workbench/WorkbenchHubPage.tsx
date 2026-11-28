@@ -1,14 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '../i18n/index.js';
 import { editorPath, navigate } from '../router/app-router.js';
 import type { Assignment } from '../services/assignments-api';
 import type { Manual, ManualCreateInput, ManualUpdateInput } from '../services/manuals-api.js';
+import { fetchTranslationLinks, type TranslationLinkView } from '../services/translation-api.js';
 import { useGitStore } from '../store/git-store';
 import { useWorkbenchStore } from '../store/workbench-store';
 import { HubHeader } from './HubHeader';
 import { ManualFormDialog, type ManualFormMode } from './ManualFormDialog';
 import { ManualListSection } from './ManualListSection';
 import { MyAssignmentsPanel } from './MyAssignmentsPanel';
+import {
+  groupHubManualsByLanguageFamily,
+  type ManualLanguageEdition,
+} from './manual-language-families.js';
 import { AiSettingsDialog } from '../ai/AiSettingsDialog';
 import { DocumentIngestDialog } from '../ingest/DocumentIngestDialog.js';
 import { DesktopPluginBanner } from '../desktop/DesktopPluginBanner.js';
@@ -59,6 +64,7 @@ export function WorkbenchHubPage() {
   const [ingestOpen, setIngestOpen] = useState(false);
   const [aiSettingsOpen, setAiSettingsOpen] = useState(false);
   const [aiSettingsTab, setAiSettingsTab] = useState<'llm' | 'parsers'>('llm');
+  const [translationLinks, setTranslationLinks] = useState<TranslationLinkView[]>([]);
 
   const lastFocusRefresh = useRef(0);
   const desktop = isDesktopApp();
@@ -82,10 +88,31 @@ export function WorkbenchHubPage() {
     void initializeIdentity();
   }, [initializeIdentity]);
 
+  // Language families: translated manuals are editions of their source manual, never extra cards.
+  const loadTranslationLinks = useCallback(async () => {
+    if (offline) {
+      setTranslationLinks([]);
+      return;
+    }
+    try {
+      const { links } = await fetchTranslationLinks();
+      setTranslationLinks(links);
+    } catch {
+      // The hub must stay usable when the translation module is unavailable (older API, offline).
+      setTranslationLinks([]);
+    }
+  }, [offline]);
+
+  const { visibleManuals, editionsByManualId } = useMemo(
+    () => groupHubManualsByLanguageFamily(manuals, translationLinks),
+    [manuals, translationLinks],
+  );
+
   useEffect(() => {
     void refresh();
     void refreshAssignments();
-  }, [refresh, refreshAssignments, currentUser?.id]);
+    void loadTranslationLinks();
+  }, [refresh, refreshAssignments, loadTranslationLinks, currentUser?.id]);
 
   // Freshness without polling: re-read on focus/visibility with a 3s throttle.
   useEffect(() => {
@@ -95,6 +122,7 @@ export function WorkbenchHubPage() {
       lastFocusRefresh.current = now;
       void refresh();
       void refreshAssignments();
+      void loadTranslationLinks();
     };
     const onFocus = () => maybeRefresh(false);
     const onVisibility = () => {
@@ -106,7 +134,12 @@ export function WorkbenchHubPage() {
       window.removeEventListener('focus', onFocus);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [refresh, refreshAssignments]);
+  }, [refresh, refreshAssignments, loadTranslationLinks]);
+
+  const openEdition = async (edition: ManualLanguageEdition) => {
+    if (!offline) await touchManual(edition.manualId);
+    navigate(editorPath(edition.manualId, { branch: edition.branch }));
+  };
 
   const openManual = async (manual: Manual, assignmentId?: string) => {
     if (offline) {
@@ -176,6 +209,7 @@ export function WorkbenchHubPage() {
         onRefresh={() => {
           void refresh();
           void refreshAssignments();
+          void loadTranslationLinks();
         }}
         loading={loading}
         offline={offline}
@@ -221,7 +255,9 @@ export function WorkbenchHubPage() {
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_310px]">
           <ManualListSection
-            manuals={manuals}
+            manuals={visibleManuals}
+            editionsByManualId={editionsByManualId}
+            onOpenEdition={(edition) => void openEdition(edition)}
             loading={loading}
             query={query}
             includeArchived={includeArchived}

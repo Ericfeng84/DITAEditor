@@ -1,16 +1,16 @@
 # DITAEditor
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-emerald.svg)](LICENSE)
-[![Release](https://img.shields.io/badge/release-v1.7.0-blue.svg)](CHANGELOG.md)
+[![Release](https://img.shields.io/badge/release-v1.8.0-blue.svg)](CHANGELOG.md)
 [![Node](https://img.shields.io/badge/node-%3E%3D20-339933.svg)](package.json)
-[![Download macOS](https://img.shields.io/badge/download-macOS%20arm64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.7.0-mac-arm64.dmg)
-[![Download Windows](https://img.shields.io/badge/download-Windows%20x64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.7.0-win-x64.exe)
+[![Download macOS](https://img.shields.io/badge/download-macOS%20arm64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.8.0-mac-arm64.dmg)
+[![Download Windows](https://img.shields.io/badge/download-Windows%20x64-1d4ed8.svg)](https://github.com/Ericfeng84/DITAEditor/releases/latest/download/DITAEditor-1.8.0-win-x64.exe)
 
 **English** · [简体中文](README.md)
 
-A **web-based DITA 1.3 structured authoring workbench** for technical documentation teams: ProseMirror visual editing paired with CodeMirror 6 XML source, a collapsible **document outline** with drag-and-drop reordering constrained by DITA 1.3 content models, a visual DITA Map workbench, a single-sourcing semantic engine (keyspace key management / Conref / DITAVAL), local Git with a **clean baseline plus per-user draft overlay**, check-out locks and visual diffs, authoritative DITA-OT 4.x validation with themed HTML5 / Chinese PDF publishing, fragment-scoped AI assistance, and manual-level topic assignment — all keeping standard DITA XML as the single source of truth with 100% lossless round-trips and minimal Git diffs.
+A **web-based DITA 1.3 structured authoring workbench** for technical documentation teams: ProseMirror visual editing paired with CodeMirror 6 XML source, a collapsible **document outline** with drag-and-drop reordering constrained by DITA 1.3 content models, a visual DITA Map workbench, a single-sourcing semantic engine (keyspace key management / Conref / DITAVAL), local Git with a **clean baseline plus per-user draft overlay**, check-out locks and visual diffs, **paired translation with bilingual review**, authoritative DITA-OT 4.x validation with themed HTML5 / Chinese PDF publishing, fragment-scoped AI assistance, and manual-level topic assignment — all keeping standard DITA XML as the single source of truth with 100% lossless round-trips and minimal Git diffs.
 
-> **v1.7.0** (Phase 0–14) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE) · [Architecture baseline and roadmap](docs/architecture-and-plan.md) · [Engineering conventions](AGENTS.md)
+> **v1.8.0** (Phase 0–16) · [Changelog](CHANGELOG.md) · [MIT license](LICENSE) · [Architecture baseline and roadmap](docs/architecture-and-plan.md) · [Engineering conventions](AGENTS.md)
 
 | Try it online | URL | Notes |
 | :--- | :--- | :--- |
@@ -52,6 +52,12 @@ A **web-based DITA 1.3 structured authoring workbench** for technical documentat
 **DITA-OT 4.x strict validation and async HTML5 / CJK PDF publishing** — The publish dialog picks a root map, HTML5 or PDF, a DITAVAL and a title, then streams the runtime, command, `build.log`, history and artifacts. Strict validation reports the real exit code, duration and `DOTJ` / `DOTX` diagnostics with jump-to-line. PDF output relies on a pure-XML Noto CJK font-mappings plugin with zero custom Java code.
 
 ![Publish dialog, build log and HTML5 / PDF artifacts](docs/pic/en/publish.webp)
+
+**Paired translation and bilingual review (Phase 16)** — A target language is a real manual: the language lineage on the left shows a multi-level `zh-CN → ar-SA → uk-UA → en-US` family with per-edition progress, while the right lists every file as to-do, translating, review, check-in or synced, with scenario banners and batch actions. Bilingual review then offers side-by-side comparison, segment editing, missing-tag insertion and live terminology / QA checks.
+
+![Translation center: language lineage, pipeline states and per-file sync](docs/pic/en/translation-center.webp)
+
+![Bilingual review: side-by-side segments, live QA and tag conservation](docs/pic/en/bilingual-review.webp)
 
 <details>
 <summary>More screenshots (assignments, bilingual UI, split view, Git diffs, strict validation, PDF output, AI assistant and AI diff)</summary>
@@ -259,6 +265,21 @@ Import PDF, Word (`.docx`), PowerPoint, Excel, HTML, EPUB, CSV, Outlook (`.msg`)
 
 </details>
 
+### 13. Paired translation and bilingual review (Phase 16)
+
+A target language is not a field in a translation store but a **real manual**: its own directory, Git repository, branches, locks, draft overlay and publish theme. The translation center pairs source and target manuals file by file, translates only the Git diff at segment level, then reviews bilingually, applies to drafts and checks in to the target baseline. Language lineages support arbitrary depth (for example `zh-CN → en-US → ar-SA`).
+
+<details>
+<summary>Implementation details</summary>
+
+- **Language family and pairing**: `translation_links` stores source/target manuals, branches and languages; `translation_file_states` stores file watermarks. Create a target skeleton or bind an existing manual. Pairing records a mapping only — it copies no DITA content, and unlinking never deletes translations.
+- **Incremental sync and reuse**: `git diff -M` finds additions, edits, renames and deletions and skips metadata-only changes. A three-way `S0 × S1 × T0` segment match reuses `unchanged` segments, protects `codeblock` / `pre` / `conref` / `translate="no"` verbatim, and falls back to whole-file translation with the old target as reference when structural match drops below 50%.
+- **Bilingual review**: side-by-side, stacked, focus-reading and XML-diff views; edit each segment as rich text or raw XML, insert missing inline tags in one click, keep `id` / `href` / `keyref` / `conref` attributes identical to the source, and see terminology, forbidden renderings, DNT, placeholders and well-formedness issues live.
+- **Glossaries and QA**: global or manual glossaries with synonyms, case sensitivity, DNT / forbidden renderings, multiple target languages and CSV / JSON / TBX-Basic import-export (dry run first), plus optional independent AI review and strict DITA-OT validation in a temporary directory.
+- **Nothing lands until check-in**: reviewed output goes to the target `working_drafts` (owner only) and advances the target branch `HEAD` only on check-in. Translation reads source and target baselines — never other users' drafts — and still checks the target file lock when applying.
+
+</details>
+
 ---
 
 ## Architecture and technology stack
@@ -267,11 +288,11 @@ A pure TypeScript full-stack monorepo organized with **pnpm workspaces + Turbore
 
 ```mermaid
 flowchart LR
-    Web["@dita/web (React 19 + Vite)<br/>ProseMirror visual / CodeMirror 6 / outline / Map tree / Keyspace & DITAVAL"]
-    API["@dita/api (Fastify 5 + Zod)<br/>workspace CRUD / semantic index / assets / identity / drafts & locks / Git / themes"]
+    Web["@dita/web (React 19 + Vite)<br/>ProseMirror visual / CodeMirror 6 / outline / Map tree / Keyspace & DITAVAL<br/>translation center / bilingual review"]
+    API["@dita/api (Fastify 5 + Zod)<br/>workspace CRUD / semantic index / assets / identity / drafts & locks / Git / themes<br/>translation queue / glossaries"]
     Core["@dita/core (isomorphic kernel)<br/>slimdom + fontoxpath / PM schema / CALS / Map / keyspace / conref / DITAVAL"]
     FS[("Local DITA workspace<br/>defaults to samples/demo-dita-project")]
-    DB[("SQLite + Drizzle<br/>identity / repository / draft overlay / locks / publish jobs")]
+    DB[("SQLite + Drizzle<br/>identity / repository / draft overlay / locks / publish jobs / translation pairs & glossaries")]
     GIT[("Local Git repository + branch worktrees<br/>no external hosting")]
     CLI["DITA-OT 4.x CLI<br/>DITA 1.3 strict validation + HTML5/PDF + Noto CJK plugin"]
 
@@ -513,9 +534,9 @@ A separate static site, `apps/site` (`@dita/site`, Astro 5 + React 19 islands + 
 
 | Route | Contents |
 | :--- | :--- |
-| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase (manual hub, three-pane editor, dual mode, single sourcing, publishing, AI), CCMS / Markdown comparison, a "one changed word, one changed XML line" live round-trip widget, nine capability deep-dives (including the document outline), single-container architecture, Docker / pnpm / AI quick starts |
+| `/` · `/en/` | Bilingual home page: hero, real workbench tab showcase (manual hub, three-pane editor, dual mode, single sourcing, publishing, AI, paired translation), CCMS / Markdown comparison, a "one changed word, one changed XML line" live round-trip widget, ten capability deep-dives (including the document outline and bilingual review), single-container architecture, Docker / pnpm / AI quick starts |
 | `/workbench/` | **Browser-only three-pane offline workbench**: `@dita/web` built with `VITE_STATIC_DEMO=true` and bundled alongside the site, running the multi-file demo project, map tree, visual/source dual-mode editing and Keys/Conref/DITAVAL (no server-side Git, DITA-OT publishing or AI proxy) |
-| `/docs/*` · `/en/docs/*` | Six mirrored docs (introduction, Docker quick start, local development and fonts, feature tour, AI setup, architecture) with in-page TOC, copy buttons and bilingual Pagefind search (`Cmd/Ctrl+K`) |
+| `/docs/*` · `/en/docs/*` | Nine mirrored docs (introduction, Docker quick start, local development and fonts, feature tour, AI setup, paired translation and bilingual review, DITA reference, architecture) with in-page TOC, copy buttons and bilingual Pagefind search (`Cmd/Ctrl+K`) |
 
 The home-page round-trip widget loads with `client:visible`, so ProseMirror and CodeMirror never enter the first paint.
 
@@ -536,14 +557,14 @@ pnpm -r build && pnpm -r typecheck && pnpm -r test   # everything
 pnpm build && pnpm typecheck && pnpm test            # or the Turborepo shortcuts
 ```
 
-Current coverage (**862/862 Vitest tests passing**):
+Current coverage (**1351 Vitest tests passing, 1 skipped**):
 
 <details>
 <summary>Expand per-package test coverage</summary>
 
-- `@dita/core` (229): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless DITA Map operations (including in-place `<keydef>` create/edit), DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, AI fragment targeting/normalization/lossless splice verification, plus Phase 14 Markdown outline slicing, data-URI image extraction and lossless map mounting.
-- `@dita/web` (366): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, Phase 10 workbench hub router & unsaved-changes guards, document outline model/DnD, keyspace key management, check-in validation gate UI, Phase 14 ingest progress stage/error rendering, plus desktop storage/plugin guide UI tests.
-- `@dita/api` (217): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, Phase 10 per-manual isolation & assignment workflows, Phase 13 draft overlay/conflict-free merge/tags/revert/audit and check-in pre-check, Phase 14 dual-parser routing, multi-role agent, tool-using DITA-OT repair agent (batch repair, map repair, circuit breaker, deterministic final gate, non-tool fallback) and end-to-end ingest routes, plus `/api/runtime/environment` environment probe tests.
+- `@dita/core` (309): 10 golden DITA 1.3 round-trip fixtures, unknown/specialized passthrough, OASIS CALS grid math, XML parsing/XPath 3.1, element rules and templates, Phase 9 ordered/cardinality content models, lossless DITA Map operations (including in-place `<keydef>` create/edit), DITAVAL evaluation (multi-value/group/flag/conflict styling), BFS keyspace with `keyscope`, `conref`/`conkeyref`/`conrefend` expansion, DFS cycle detection, AI fragment targeting/normalization/lossless splice verification, Phase 14 Markdown outline slicing and data-URI image extraction, plus Phase 16 segment extraction, `S0 × S1 × T0` incremental alignment, glossary matching and QA.
+- `@dita/web` (696): ProseMirror ↔ XML bridge, table commands, inline bubble toolbar, block handles and transforms, sequence-guided insertion and structure decorations, CodeMirror DITA completion (including `keyref` / `conkeyref` / profiling-value semantics), map tree utilities and DITAVAL projection, visual semantic-decoration round-trip assertions, conref reuse value composition, Phase 4 identity/lock read-only projection, Phase 8 bilingual catalogue parity and hardcoded-CJK scan, Phase 10 workbench hub router & unsaved-changes guards, document outline model/DnD, keyspace key management, check-in validation gate UI, Phase 14 ingest progress stage/error rendering, desktop storage/plugin guide UI tests, and Phase 16 translation center, lineage, bilingual review and glossary editing.
+- `@dita/api` (296 passing / 1 skipped): zero-error validation of the demo project, a scale scan over 55 topics + 4 nested submaps with safe-path/upload/broken-link checks, `/api/semantics/*` Root Map switching and incremental cycle diagnostics, Phase 4 identities/Git/locks/branch isolation/admin force-unlock backups, Phase 5 runtime detection (including Windows `dita.bat` spawn wrapping via `resolveDitaSpawn`), DOTJ/DOTX log normalization, strict validation and HTML5/PDF publish pipeline, Phase 6 AI config/masking/usage/SSE regressions, Phase 8 `x-dita-locale` responses, Phase 10 per-manual isolation & assignment workflows, Phase 13 draft overlay/conflict-free merge/tags/revert/audit and check-in pre-check, Phase 14 dual-parser routing, multi-role agent, tool-using DITA-OT repair agent (batch repair, map repair, circuit breaker, deterministic final gate, non-tool fallback) and end-to-end ingest routes, Phase 16 pairing / scan / translation queue / glossaries / review application / check-in, plus `/api/runtime/environment` environment probe tests.
 - `@dita/site` (30): bilingual dictionary key parity, doc-slug symmetry, `SITE_BASE` / offline workbench route helpers, and `@dita/core` preset round-trip tests.
 - `@dita/desktop` (20): packaged vs dev resource/`userData` path resolution, idempotent first-launch demo workspace seeding (stripping `.git`, preserving user edits), release-tag semver normalization, GUI `PATH` augmentation, candidate folder inspection, atomic `desktop-settings.json` persistence, and `better-sqlite3` path-rewriting data migration.
 

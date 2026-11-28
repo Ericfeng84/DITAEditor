@@ -625,8 +625,8 @@ describe('MapTreePanel: root map switcher', () => {
     );
     expect(html).toContain('aria-haspopup="menu"');
     expect(html).toContain(t('mapTree.rootTooltip', { path: MAP_PATH }));
-    // Closed menu renders no rows.
-    expect(html).not.toContain('role="menu"');
+    // The root-map dropdown is closed: only the Mount/Group popovers are in the DOM (hidden).
+    expect(html).not.toContain('absolute left-0 top-full z-30');
   });
 });
 

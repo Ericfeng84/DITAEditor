@@ -29,6 +29,7 @@ import {
 import { MapNodeContextMenu, type MapNodeMenuTarget } from './MapNodeContextMenu';
 import { MapTargetFixPopover, type MapTargetFixTarget } from './MapTargetFixPopover';
 import { RootMapSwitcher } from './RootMapSwitcher';
+import { ToolbarMenu } from './ToolbarMenu';
 import { createMapTreeNodeRenderer } from './MapTreeNodeRenderer';
 
 export interface MapTreePanelProps {
@@ -124,8 +125,8 @@ export interface MountMenuProps {
 /**
  * Merged "Mount" entry point: creating a topic and mounting an existing one answer the same
  * question, so they live in one dropdown instead of two competing buttons in the action strip.
- * The component owns its outside-pointerdown / Escape dismissal; the panel only tracks *which*
- * sibling menu (mount vs. group) is open.
+ * The dropdown is a `ToolbarMenu` (top-layer popover), so the panel only tracks *which* sibling
+ * menu (mount vs. group) is open.
  */
 export function MountMenu({
   open,
@@ -136,83 +137,56 @@ export function MountMenu({
   onMountExisting,
 }: MountMenuProps) {
   const { t } = useI18n();
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        onOpenChange(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onOpenChange(false);
-    };
-    window.addEventListener('pointerdown', onPointerDown, true);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, true);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [open, onOpenChange]);
-
   const target: MountMenuTarget = { mapPath, parentPath: null, parentLabel };
 
   return (
-    <div ref={containerRef} className="relative">
+    <ToolbarMenu
+      open={open}
+      onOpenChange={onOpenChange}
+      ariaLabel={t('mapTree.mountMenuAria')}
+      triggerTitle={t('mapTree.mountMenuTooltip')}
+      triggerClassName="text-blue-700"
+      triggerContent={
+        <>
+          <FilePlus2 className="h-3 w-3" aria-hidden="true" />
+          <span>{t('mapTree.mountMenu')}</span>
+          <ChevronDown className="h-3 w-3 text-slate-400" aria-hidden="true" />
+        </>
+      }
+    >
       <button
         type="button"
-        onClick={() => onOpenChange(!open)}
-        title={t('mapTree.mountMenuTooltip')}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className="dita-mini-btn px-1.5 py-0.5 text-blue-700"
+        role="menuitem"
+        onClick={() => {
+          onOpenChange(false);
+          onCreateAndMount(target);
+        }}
       >
-        <FilePlus2 className="h-3 w-3" aria-hidden="true" />
-        <span>{t('mapTree.mountMenu')}</span>
-        <ChevronDown className="h-3 w-3 text-slate-400" aria-hidden="true" />
+        <FilePlus2 className="dita-ctx-icon text-blue-700" aria-hidden="true" />
+        <span className="flex flex-col">
+          <span>{t('mapTree.createMounted')}</span>
+          <span className="text-[10px] leading-tight text-slate-500">
+            {t('mapTree.createMountedTooltip')}
+          </span>
+        </span>
       </button>
-      {open ? (
-        <div
-          role="menu"
-          aria-label={t('mapTree.mountMenuAria')}
-          className="dita-ctx-menu absolute top-full left-0 z-40 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onOpenChange(false);
-              onCreateAndMount(target);
-            }}
-          >
-            <FilePlus2 className="dita-ctx-icon text-blue-700" aria-hidden="true" />
-            <span className="flex flex-col">
-              <span>{t('mapTree.createMounted')}</span>
-              <span className="text-[10px] leading-tight text-slate-500">
-                {t('mapTree.createMountedTooltip')}
-              </span>
-            </span>
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              onOpenChange(false);
-              onMountExisting(target);
-            }}
-          >
-            <Link2 className="dita-ctx-icon text-slate-600" aria-hidden="true" />
-            <span className="flex flex-col">
-              <span>{t('mapTree.mountExisting')}</span>
-              <span className="text-[10px] leading-tight text-slate-500">
-                {t('mapTree.mountExistingTooltip')}
-              </span>
-            </span>
-          </button>
-        </div>
-      ) : null}
-    </div>
+      <button
+        type="button"
+        role="menuitem"
+        onClick={() => {
+          onOpenChange(false);
+          onMountExisting(target);
+        }}
+      >
+        <Link2 className="dita-ctx-icon text-slate-600" aria-hidden="true" />
+        <span className="flex flex-col">
+          <span>{t('mapTree.mountExisting')}</span>
+          <span className="text-[10px] leading-tight text-slate-500">
+            {t('mapTree.mountExistingTooltip')}
+          </span>
+        </span>
+      </button>
+    </ToolbarMenu>
   );
 }
 
@@ -265,27 +239,8 @@ export function MapTreePanel({
   // strip only appears on demand, so read-only browsing is not cluttered by disabled buttons.
   const showDitavalStrip = Boolean(activeDitavalPath) || ditavalFilterOpen;
   const [groupMenuOpen, setGroupMenuOpen] = useState(false);
-  const groupMenuRef = useRef<HTMLDivElement | null>(null);
   const [mountMenuOpen, setMountMenuOpen] = useState(false);
   const [rootMapMenuOpen, setRootMapMenuOpen] = useState(false);
-
-  useEffect(() => {
-    if (!groupMenuOpen) return;
-    const onPointerDown = (event: PointerEvent) => {
-      if (groupMenuRef.current && !groupMenuRef.current.contains(event.target as Node)) {
-        setGroupMenuOpen(false);
-      }
-    };
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setGroupMenuOpen(false);
-    };
-    window.addEventListener('pointerdown', onPointerDown, true);
-    window.addEventListener('keydown', onKeyDown);
-    return () => {
-      window.removeEventListener('pointerdown', onPointerDown, true);
-      window.removeEventListener('keydown', onKeyDown);
-    };
-  }, [groupMenuOpen]);
 
   const treeResult = useMemo(
     () =>
@@ -441,6 +396,9 @@ export function MapTreePanel({
       {/* 3. Action strip is tree-mode only: the Keys view is driven by the keyspace panel.
           Publishing now lives in the WorkbenchHeader, so this row stays map-structure work. */}
       {viewMode === 'tree' ? (
+        /* `relative` lets the group dropdown anchor to the whole strip instead of the narrow
+           button: a `right-0` menu inside a 70px button wrapper overflowed the panel and was
+           clipped by the sidebar's `overflow-hidden`. */
         <div className="flex flex-wrap items-center gap-1 border-b border-slate-100 px-2.5 py-1.5">
             {/* One "Mount" entry point: creating a topic and mounting an existing one are two
                 answers to the same question, so they live in one menu instead of two buttons. */}
@@ -455,63 +413,55 @@ export function MapTreePanel({
               onCreateAndMount={onOpenCreateAndMount}
               onMountExisting={onOpenMountExisting}
             />
-            <div ref={groupMenuRef} className="relative">
+            <ToolbarMenu
+              open={groupMenuOpen}
+              onOpenChange={(next) => {
+                setGroupMenuOpen(next);
+                if (next) setMountMenuOpen(false);
+              }}
+              ariaLabel={t('mapTree.groupMenuAria')}
+              triggerTitle={t('mapTree.groupMenuTooltip')}
+              triggerContent={
+                <>
+                  <FolderPlus className="h-3 w-3 text-slate-500" aria-hidden="true" />
+                  <span>{t('mapTree.group')}</span>
+                  <ChevronDown className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                </>
+              }
+            >
               <button
                 type="button"
+                role="menuitem"
                 onClick={() => {
-                  setMountMenuOpen(false);
-                  setGroupMenuOpen((prev) => !prev);
+                  setGroupMenuOpen(false);
+                  onInsertStructure(rootMapPath, null, 'topichead');
                 }}
-                title={t('mapTree.groupMenuTooltip')}
-                aria-haspopup="menu"
-                aria-expanded={groupMenuOpen}
-                className="dita-mini-btn px-1.5 py-0.5"
               >
-                <FolderPlus className="h-3 w-3 text-slate-500" aria-hidden="true" />
-                <span>{t('mapTree.group')}</span>
-                <ChevronDown className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                <Heading className="dita-ctx-icon text-slate-600" aria-hidden="true" />
+                <span className="flex flex-col">
+                  <span>{t('mapTree.groupMenuHeading')}</span>
+                  <span className="text-[10px] leading-tight text-slate-500">
+                    {t('mapTree.groupMenuHeadingHint')}
+                  </span>
+                </span>
               </button>
-              {groupMenuOpen ? (
-                <div
-                  role="menu"
-                  aria-label={t('mapTree.groupMenuAria')}
-                  className="dita-ctx-menu absolute top-full right-0 z-40 mt-1 w-56 rounded-lg border border-slate-200 bg-white py-1 shadow-lg"
-                >
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setGroupMenuOpen(false);
-                      onInsertStructure(rootMapPath, null, 'topichead');
-                    }}
-                  >
-                    <Heading className="dita-ctx-icon text-slate-600" aria-hidden="true" />
-                    <span className="flex flex-col">
-                      <span>{t('mapTree.groupMenuHeading')}</span>
-                      <span className="text-[10px] leading-tight text-slate-500">
-                        {t('mapTree.groupMenuHeadingHint')}
-                      </span>
-                    </span>
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => {
-                      setGroupMenuOpen(false);
-                      onInsertStructure(rootMapPath, null, 'topicgroup');
-                    }}
-                  >
-                    <Layers className="dita-ctx-icon text-slate-600" aria-hidden="true" />
-                    <span className="flex flex-col">
-                      <span>{t('mapTree.groupMenuContainer')}</span>
-                      <span className="text-[10px] leading-tight text-slate-500">
-                        {t('mapTree.groupMenuContainerHint')}
-                      </span>
-                    </span>
-                  </button>
-                </div>
-              ) : null}
-            </div>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setGroupMenuOpen(false);
+                  onInsertStructure(rootMapPath, null, 'topicgroup');
+                }}
+              >
+                <Layers className="dita-ctx-icon text-slate-600" aria-hidden="true" />
+                <span className="flex flex-col">
+                  <span>{t('mapTree.groupMenuContainer')}</span>
+                  <span className="text-[10px] leading-tight text-slate-500">
+                    {t('mapTree.groupMenuContainerHint')}
+                  </span>
+                </span>
+              </button>
+            </ToolbarMenu>
 
             <div className="ml-auto flex items-center gap-0.5">
               <button

@@ -1,7 +1,7 @@
 ---
 title: Architecture reference
-description: Package boundaries, the isomorphic kernel, the lossless pipeline, lock and worktree concurrency, the DITA-OT chain, and the deployment view.
-updated: '2026-11-25'
+description: Package boundaries, the isomorphic kernel, the lossless pipeline, lock and worktree concurrency, the paired translation pipeline, the DITA-OT chain, and the deployment view.
+updated: '2026-11-28'
 ---
 
 DITAEditor has one architectural goal: let standard DITA XML flow **losslessly** between the browser, the server, and publishing tools. Every module boundary serves that goal.
@@ -13,12 +13,14 @@ Browser
   @dita/web (React 19)
     ProseMirror visual editor ─┐
     CodeMirror 6 source        ├─ @dita/core (isomorphic)
-    Map tree / Keys / Publish  ┘
-              │ fetch /api
+    Map tree / Keys / Publish  │
+    Translation / Bilingual review ┘
+              │ fetch /api · SSE
               ▼
 Node
   @dita/api (Fastify)
-    identity · locks · files · indexer · validate · publish · ai · static
+    identity · locks · files · indexer · validate · publish · ai
+    translation · glossary · static
     SQLite (Drizzle) · simple-git worktree · DITA-OT CLI
               │
               ▼
@@ -35,13 +37,14 @@ The frontend and backend depend on the same `@dita/core` package, so "what is we
 - `model/`: the DITA 1.3 element registry (block / inline / structural / whitespace-preserve).
 - `cals/`: CALS ↔ `colspan`/`rowspan` occupancy grid conversion.
 - `ai/`: target location, candidate normalization, lossless splice and verification.
+- `translation/`: segment extraction, `S0 × S1 × T0` incremental alignment, glossary matching and QA (pure functions, browser-safe).
 - `prosemirror/`: the native schema and slimdom ↔ PM Doc conversion.
 
 Constraints: `src/` must not import Node built-ins, because it also runs in the browser. Do not use `instanceof slimdom.*` to detect nodes; multiple versions may coexist, so check `nodeType` constants.
 
 ### `@dita/web`
 
-The manual workbench and assignment rail, topic editor, NodeViews, DITA-aware commands, DITA map tree, Keys panel, publish panel, AI panel, and diffs — plus the `zh-CN` / `en` dictionaries that cover the whole interface. Every write operation ultimately produces the same XML string.
+The manual workbench and assignment rail, topic editor, NodeViews, DITA-aware commands, DITA map tree, Keys panel, publish panel, AI panel, and diffs — plus the translation center (files / queue / manual glossary / settings), bilingual review and language lineage, all covered by `zh-CN` / `en` dictionaries. Every write operation ultimately produces the same XML string.
 
 ### `@dita/api`
 
@@ -52,6 +55,7 @@ The manual workbench and assignment rail, topic editor, NodeViews, DITA-aware co
 - `indexer`: incremental semantic index (keyspace, conref).
 - `validate` / `publish` / `dita-ot`: strict validation, async publish queue, CLI invocation.
 - `ai`: LangChain `ChatOpenAI` factory, SSE, settings, and usage.
+- `translation`: pairing and file watermarks, incremental scan, AI translation / independent review, strict QA, glossaries, proposal application and check-in. Jobs and queue live in SQLite and run on an in-process worker with SSE.
 - `static`: serves the built web app in production.
 
 ### `@dita/site`
@@ -99,6 +103,28 @@ ProseMirror tx   ──┘
 - Merges complete in an isolated synthetic commit: `git merge-tree` preflight, per-file conflict resolution, and a shared `workDir` that never lingers in a `MERGING` state.
 - No CRDT. Conflicts are resolved at the lock layer, not by merging characters.
 
+## Paired translation pipeline
+
+```text
+source branch S1 ─┐
+source branch S0 ─┼─ three-way segment match ─→ plan (unchanged / modified / protected / deleted)
+target T0 ────────┘                                    │
+                                                       ├─ reuse T0, no model call
+                                                       ├─ AI-translate changed segments
+                                                       └─ deterministic QA + optional AI review + DITA-OT
+                                                                  │
+                                                                  ▼
+                                                  target working_drafts (owner only)
+                                                                  │ check-in
+                                                                  ▼
+                                                  target branch HEAD → independent publish
+```
+
+- Pairs live in `translation_links`, file watermarks in `translation_file_states`, and the queue in `translation_jobs` / `translation_items`.
+- Translation context is always source branch `HEAD` plus target branch `HEAD`; other users' drafts are never read, and the target file lock is checked when applying.
+- The model only returns candidate translations; the server enforces tag conservation, terminology, DNT, placeholders and well-formedness, and the review workbench adds human diffing and segment edits.
+- Only check-in advances the target baseline; scanning, translating and reviewing never touch the shared `workDir`.
+
 ## Publishing chain
 
 ```text
@@ -118,14 +144,15 @@ The PDF plugin is pure-XML font mappings with no custom Java; fonts come from No
 | Workspace files | `DITA_WORKSPACE_DIR` |
 | Identity / locks / AI settings / usage | SQLite (inside the data volume) |
 | Manuals / assignments | SQLite; manuals point at directories in the workspace |
+| Translation pairs / file watermarks / queue / glossaries | SQLite |
 | Publish artifacts | `DITA_PUBLISH_DIR` |
 | Git repository and worktrees | Local repository under the project directory |
 
 ## Testing strategy
 
-- `@dita/core`: golden fixture round-trips, unknown-element passthrough, CALS grids, parsing, and XPath.
-- `@dita/api`: routes, locks, publish queue, AI SSE socket behavior.
-- `@dita/web`: editor commands, semantic panels, diff application paths.
+- `@dita/core`: golden fixture round-trips, unknown-element passthrough, CALS grids, parsing, XPath, segment increments and QA.
+- `@dita/api`: routes, locks, publish queue, AI SSE socket behavior, translation scan / queue / glossaries / review application.
+- `@dita/web`: editor commands, semantic panels, diff application paths, translation center and bilingual review state machine.
 - `@dita/site`: i18n key structure, routing helpers, sandbox preset round-trips.
 
 ## Further reading

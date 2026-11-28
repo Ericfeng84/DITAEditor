@@ -52,3 +52,6 @@ export * from './ai/index.js';
 
 // Phase 14 document ingest kernel (Markdown outline, DITA plan, lossless map mounting)
 export * from './ingest/index.js';
+
+// Phase 16 Stage 1 translation kernel (segments, incremental three-way plan, glossary, QA, codecs)
+export * from './translation/index.js';

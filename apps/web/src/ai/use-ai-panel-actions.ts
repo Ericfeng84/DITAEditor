@@ -21,8 +21,8 @@ import type {
   OpenEditorTab,
 } from '../store/editor-store';
 import type { MessageKey, MessageParams } from '../i18n/index.js';
+import type { ProblemDiagnostic } from '../services/problem-diagnostics.js';
 import type { PublishDiagnostic } from '../services/publish-api';
-import type { WorkspaceDiagnostic } from '../services/workspace-api';
 
 /** Everything the AI panel entry points need from the workbench composition root. */
 export interface UseAiPanelActionsDeps {
@@ -54,7 +54,7 @@ export interface AiPanelActions {
   handleInspectorTabChange: (next: InspectorTab) => void;
   handleVisualAiRequest: (kind: 'rewrite' | 'ask') => void;
   handleAiFixXmlError: () => void;
-  handleAiFixDiagnostic: (diagnostic: WorkspaceDiagnostic) => Promise<void>;
+  handleAiFixDiagnostic: (diagnostic: ProblemDiagnostic) => Promise<void>;
   handleAiFixStrictDiagnostic: (diagnostic: PublishDiagnostic) => Promise<void>;
   handleApplyAiProposal: (patchedXml: string) => Promise<void>;
   handleSourceReplacementApplied: () => void;
@@ -354,7 +354,7 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
   }, [activeTab, openAiPanel]);
 
   const handleAiFixDiagnostic = useCallback(
-    async (diagnostic: WorkspaceDiagnostic) => {
+    async (diagnostic: ProblemDiagnostic) => {
       const store = useEditorStore.getState();
       const targetTab = store.openTabs.find((tab) => tab.path === diagnostic.filePath);
       if (!targetTab || store.activeTabPath !== diagnostic.filePath) {
@@ -364,9 +364,17 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
         useEditorStore.getState().openTabs.find((tab) => tab.path === diagnostic.filePath)?.xml ??
         targetTab?.xml ??
         '';
+      const fromDitaOt = diagnostic.source === 'dita-ot';
+      if (fromDitaOt) setStrictAiApplied(false);
+      const code = fromDitaOt ? diagnostic.code : undefined;
+      // DITA-OT messages sometimes drop the [DOTJ013E] prefix; keep the code visible to the model.
+      const message =
+        code && !diagnostic.message.includes(code)
+          ? `[${code}] ${diagnostic.message}`
+          : diagnostic.message;
       openAiPanel({
         taskType: 'fix_error',
-        subAction: 'fix_diagnostic',
+        subAction: fromDitaOt ? 'fix_strict' : 'fix_diagnostic',
         target: buildDiagnosticFixTarget(
           targetXml,
           diagnostic.line,
@@ -377,7 +385,7 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
         diagnostics: [
           {
             source: diagnostic.source,
-            message: diagnostic.message,
+            message,
             line: diagnostic.line,
             column: diagnostic.column,
           },
@@ -386,7 +394,7 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
         projectPath: diagnostic.filePath,
       });
     },
-    [openAiPanel, openFileTab],
+    [openAiPanel, openFileTab, setStrictAiApplied],
   );
 
   const handleAiFixStrictDiagnostic = useCallback(
@@ -396,6 +404,10 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
       await openFileTab(diagnostic.filePath, { mode: 'source', jumpLine: diagnostic.line });
       const targetXml =
         useEditorStore.getState().openTabs.find((tab) => tab.path === diagnostic.filePath)?.xml ?? '';
+      const message =
+        diagnostic.code && !diagnostic.message.includes(diagnostic.code)
+          ? `[${diagnostic.code}] ${diagnostic.message}`
+          : diagnostic.message;
       openAiPanel({
         taskType: 'fix_error',
         subAction: 'fix_strict',
@@ -408,8 +420,8 @@ export function useAiPanelActions(deps: UseAiPanelActionsDeps): AiPanelActions {
         ),
         diagnostics: [
           {
-            source: 'xml',
-            message: diagnostic.message,
+            source: 'dita-ot',
+            message,
             line: diagnostic.line,
             column: diagnostic.column,
           },

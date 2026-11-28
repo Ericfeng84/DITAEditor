@@ -6,23 +6,31 @@ import {
   RefreshCw,
   ShieldCheck,
   Sparkles,
+  Trash2,
   X,
 } from 'lucide-react';
-import type { WorkspaceDiagnostic } from '../services/workspace-api';
+import type {
+  ProblemDiagnostic,
+  ProblemDiagnosticSource,
+} from '../services/problem-diagnostics.js';
 import { useI18n } from '../i18n/index.js';
 import type { MessageKey } from '../i18n/messages/index.js';
 
 export interface ProblemsPanelProps {
-  diagnostics: WorkspaceDiagnostic[];
+  diagnostics: ProblemDiagnostic[];
   onRefresh: () => void;
-  onJumpToDiagnostic: (diag: WorkspaceDiagnostic) => void;
+  onJumpToDiagnostic: (diag: ProblemDiagnostic) => void;
   onClose: () => void;
   onStrictValidate?: () => void;
   /** Opens the AI assistant with the diagnostic attached as fix context. */
-  onAiFixDiagnostic?: (diag: WorkspaceDiagnostic) => void;
+  onAiFixDiagnostic?: (diag: ProblemDiagnostic) => void;
+  /** Drops the results of the last DITA-OT strict validation run (merged into this list). */
+  onClearStrictDiagnostics?: () => void;
 }
 
-const SOURCE_KEYS: Record<WorkspaceDiagnostic['source'], MessageKey> = {
+type ProblemFilter = 'all' | 'error' | 'warning' | 'dita-ot';
+
+const SOURCE_KEYS: Record<ProblemDiagnosticSource, MessageKey> = {
   xml: 'problems.source.xml',
   'map-ref': 'problems.source.mapRef',
   'asset-ref': 'problems.source.assetRef',
@@ -31,6 +39,7 @@ const SOURCE_KEYS: Record<WorkspaceDiagnostic['source'], MessageKey> = {
   'conref-cycle': 'problems.source.conrefCycle',
   ditaval: 'problems.source.ditaval',
   structure: 'problems.source.structure',
+  'dita-ot': 'problems.source.ditaOt',
 };
 
 export function ProblemsPanel({
@@ -40,9 +49,10 @@ export function ProblemsPanel({
   onClose,
   onStrictValidate,
   onAiFixDiagnostic,
+  onClearStrictDiagnostics,
 }: ProblemsPanelProps) {
   const { t } = useI18n();
-  const [filter, setFilter] = useState<'all' | 'error' | 'warning'>('all');
+  const [filter, setFilter] = useState<ProblemFilter>('all');
 
   const errorCount = useMemo(
     () => diagnostics.filter((d) => d.severity === 'error').length,
@@ -52,11 +62,20 @@ export function ProblemsPanel({
     () => diagnostics.filter((d) => d.severity === 'warning').length,
     [diagnostics],
   );
+  const strictCount = useMemo(
+    () => diagnostics.filter((d) => d.source === 'dita-ot').length,
+    [diagnostics],
+  );
+
+  // Clearing the strict results (or a strict run that finds nothing) must never leave the user
+  // staring at an empty list because the hidden `dita-ot` tab is still selected.
+  const effectiveFilter: ProblemFilter = filter === 'dita-ot' && strictCount === 0 ? 'all' : filter;
 
   const visible = useMemo(() => {
-    if (filter === 'all') return diagnostics;
-    return diagnostics.filter((d) => d.severity === filter);
-  }, [diagnostics, filter]);
+    if (effectiveFilter === 'all') return diagnostics;
+    if (effectiveFilter === 'dita-ot') return diagnostics.filter((d) => d.source === 'dita-ot');
+    return diagnostics.filter((d) => d.severity === effectiveFilter);
+  }, [diagnostics, effectiveFilter]);
 
   return (
     <section
@@ -69,17 +88,25 @@ export function ProblemsPanel({
           <div className="flex items-center gap-1">
             {(
               [
-                { id: 'all', label: t('problems.filter.all', { count: diagnostics.length }) },
-                { id: 'error', label: t('problems.filter.error', { count: errorCount }) },
-                { id: 'warning', label: t('problems.filter.warning', { count: warningCount }) },
-              ] as const
+                { id: 'all' as const, label: t('problems.filter.all', { count: diagnostics.length }) },
+                { id: 'error' as const, label: t('problems.filter.error', { count: errorCount }) },
+                { id: 'warning' as const, label: t('problems.filter.warning', { count: warningCount }) },
+                ...(strictCount > 0
+                  ? [
+                      {
+                        id: 'dita-ot' as const,
+                        label: t('problems.filter.ditaOt', { count: strictCount }),
+                      },
+                    ]
+                  : []),
+              ]
             ).map((item) => (
               <button
                 key={item.id}
                 type="button"
                 onClick={() => setFilter(item.id)}
                 className={`rounded px-2 py-0.5 text-[11px] font-medium transition-colors ${
-                  filter === item.id
+                  effectiveFilter === item.id
                     ? 'bg-blue-100 text-blue-800'
                     : 'text-slate-500 hover:bg-slate-200/70 hover:text-slate-800'
                 }`}
@@ -91,6 +118,18 @@ export function ProblemsPanel({
         </div>
 
         <div className="flex items-center gap-1">
+          {strictCount > 0 && onClearStrictDiagnostics ? (
+            <button
+              type="button"
+              onClick={onClearStrictDiagnostics}
+              data-testid="problems-clear-strict"
+              className="dita-mini-btn px-2 py-0.5 text-slate-600 hover:text-slate-900"
+              title={t('problems.clearStrictTitle')}
+            >
+              <Trash2 className="h-3 w-3" aria-hidden="true" />
+              <span>{t('problems.clearStrict')}</span>
+            </button>
+          ) : null}
           {onStrictValidate ? (
             <button
               type="button"
@@ -142,10 +181,21 @@ export function ProblemsPanel({
                   ) : (
                     <AlertTriangle className="h-3.5 w-3.5 shrink-0 text-amber-500" aria-hidden="true" />
                   )}
-                  <span className="shrink-0 rounded bg-slate-100 px-1.5 py-0.5 font-mono text-[10px] text-slate-600">
+                  <span
+                    className={`shrink-0 rounded px-1.5 py-0.5 font-mono text-[10px] ${
+                      diag.source === 'dita-ot'
+                        ? 'bg-blue-50 text-blue-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
                     {t(SOURCE_KEYS[diag.source])}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-slate-800">
+                  {diag.code ? (
+                    <span className="shrink-0 rounded bg-slate-100 px-1 py-0.5 font-mono text-[9.5px] text-slate-500">
+                      {diag.code}
+                    </span>
+                  ) : null}
+                  <span className="min-w-0 flex-1 truncate text-slate-800" title={diag.message}>
                     {diag.message}
                     {diag.cycleChain && diag.cycleChain.length > 0 ? (
                       <span className="ml-2 font-mono text-[10px] text-rose-600">

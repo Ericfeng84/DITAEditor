@@ -1,10 +1,10 @@
 ---
 title: Feature tour
-description: Manual workbench and task assignment, dual-mode editing, document outline and reordering, lossless round-trip, CALS tables, keyspaces and conref, DITAVAL projection, map trees, check-out locks, DITA-OT publishing, and AI review.
-updated: '2026-11-26'
+description: Manual workbench and task assignment, dual-mode editing, document outline and reordering, lossless round-trip, CALS tables, keyspaces and conref, DITAVAL projection, map trees, check-out locks, paired translation and bilingual review, DITA-OT publishing, and AI review.
+updated: '2026-11-28'
 ---
 
-DITAEditor's features follow one chain: **distribute → edit → semantics → organization → collaboration → publish → AI assistance**. Every link operates on the same standard DITA XML, and both the UI and the docs ship in Chinese and English.
+DITAEditor's features follow one chain: **distribute → edit → semantics → organization → collaboration → translation → publish → AI assistance**. Every link operates on the same standard DITA XML, and both the UI and the docs ship in Chinese and English.
 
 ## Manual workbench and topic assignment
 
@@ -82,6 +82,18 @@ A `.ditaval` file is parsed into rules and evaluated against profiling attribute
 - **Merges and rollbacks**: `git merge-tree` preflights, isolated merge commits, per-file conflict resolution in MergeView, tags, single-file restore (draft or commit mode) and commit revert, with protected branches refusing deletion.
 - **Version audit**: `version_audit_logs` records check-out, handoff, cancel, force-unlock, check-in, branch and tag operations, merges, reverts and publishes — SQLite only, never XML or Git metadata.
 - **Admin force-unlock** backs up the draft and current content as patches before releasing the lock.
+
+## Paired translation and bilingual review
+
+A target language is not a field in a translation store; it is a **real manual** with its own directory, Git repository, branches, locks and publish theme. The translation center pairs a source manual with a target manual file by file, then scans, incrementally translates, reviews and checks in on that pair.
+
+- **Language lineage**: a target can become the next source (`zh-CN → en-US → ar-SA`), with a non-blocking warning while an upstream edition is unsynced.
+- **Incremental sync**: `git diff` finds additions, edits, renames and deletions; a three-way `S0 × S1 × T0` match reuses unchanged segments and sends only genuinely changed ones to the model.
+- **Bilingual review**: side-by-side, stacked, focus-reading and XML-diff views; edit each segment as rich text or raw XML, insert missing inline tags, and keep `id`/`href`/`keyref` attributes identical to the source.
+- **Terminology and QA**: global or manual glossaries, DNT and forbidden renderings, placeholder and inline-tag conservation, optional independent AI review and strict DITA-OT validation.
+- **Nothing lands until check-in**: reviewed output goes to the target draft overlay first and advances the target branch only on check-in; unlinking never deletes translations.
+
+Read the full workflow and its boundaries in [Paired translation and bilingual review](/en/docs/translation).
 
 ## Publishing and strict validation
 

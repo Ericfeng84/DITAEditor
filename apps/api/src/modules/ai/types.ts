@@ -14,6 +14,13 @@ export const aiTaskTypeSchema = z.enum([
   'ingest_plan',
   'ingest_write',
   'ingest_repair',
+  /** Phase 16 translation: whole-topic batch, single-block, and refine/review passes. */
+  'translate_batch',
+  'translate_block',
+  'translate_refine',
+  /** Phase 16: independent reviewer AI and targeted repair passes. */
+  'translate_review',
+  'translate_repair',
 ]);
 export type AiTaskType = z.infer<typeof aiTaskTypeSchema>;
 
@@ -72,6 +79,27 @@ export const aiStreamRequestSchema = z.object({
 });
 export type AiStreamRequest = z.infer<typeof aiStreamRequestSchema>;
 
+/**
+ * Phase 16: an empty string or `null` clears a stored reviewer override so the role falls back to
+ * the matching env variable and then to the primary role. A non-empty value must be a valid URL.
+ */
+const clearableUrlSchema = z
+  .string()
+  .trim()
+  .max(500)
+  .nullable()
+  .optional()
+  .refine(
+    (value) =>
+      value === undefined ||
+      value === null ||
+      value === '' ||
+      z.string().url().safeParse(value).success,
+    { message: 'ai.config.invalidUrl' },
+  );
+
+const clearableTextSchema = (max: number) => z.string().trim().max(max).nullable().optional();
+
 export const aiConfigUpdateSchema = z.object({
   baseUrl: z.string().trim().url().max(500).optional(),
   model: z.string().trim().min(1).max(200).optional(),
@@ -79,6 +107,18 @@ export const aiConfigUpdateSchema = z.object({
   temperature: z.number().min(0).max(2).optional(),
   maxRetries: z.number().int().min(0).max(5).optional(),
   timeoutMs: z.number().int().min(1000).max(120_000).optional(),
+  /**
+   * Phase 16: optional dedicated reviewer role. `null`/`''` clears the stored override so the
+   * reviewer falls back to the matching env variable and then to the primary role.
+   */
+  reviewer: z
+    .object({
+      baseUrl: clearableUrlSchema,
+      model: clearableTextSchema(200),
+      apiKey: clearableTextSchema(500),
+      temperature: z.number().min(0).max(2).nullable().optional(),
+    })
+    .optional(),
 });
 export type AiConfigUpdateInput = z.infer<typeof aiConfigUpdateSchema>;
 
@@ -86,6 +126,8 @@ export const aiConfigTestSchema = z.object({
   baseUrl: z.string().trim().url().max(500).optional(),
   model: z.string().trim().min(1).max(200).optional(),
   apiKey: z.string().trim().max(500).optional(),
+  /** Phase 16: probe the dedicated reviewer role instead of the primary role. */
+  role: z.enum(['primary', 'reviewer']).optional(),
 });
 export type AiConfigTestInput = z.infer<typeof aiConfigTestSchema>;
 
@@ -108,6 +150,27 @@ export interface AiPublicConfig {
   timeoutMs: number;
   maxContextChars: number;
   canEdit: boolean;
+  /** Phase 16: independent reviewer role (masked; never carries the plaintext key). */
+  reviewer: AiReviewerPublicConfig;
+}
+
+/**
+ * Phase 16 reviewer role: a review-only AI that inherits the primary configuration unless a
+ * dedicated base URL / model / key / temperature is configured (DB override, then env).
+ */
+export interface AiReviewerPublicConfig {
+  configured: boolean;
+  isDedicated: boolean;
+  baseUrl: string;
+  model: string;
+  hasApiKey: boolean;
+  apiKeySource: AiApiKeySource;
+  maskedApiKey: string | null;
+  temperature: number;
+  hasDedicatedBaseUrl: boolean;
+  hasDedicatedModel: boolean;
+  hasDedicatedApiKey: boolean;
+  hasDedicatedTemperature: boolean;
 }
 
 export interface AiConfigTestResult {

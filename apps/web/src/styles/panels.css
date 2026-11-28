@@ -222,6 +222,15 @@
   }
 }
 
+/* Toolbar dropdowns sit in the browser top layer (native popover) so the sidebar's
+   `overflow-hidden` pane can never clip them; the position itself is set from the trigger
+   rect by `ToolbarMenu.tsx`. */
+.dita-toolbar-popover {
+  position: fixed;
+  inset: auto;
+  margin: 0;
+}
+
 .dita-ctx-menu {
   display: flex;
   flex-direction: column;

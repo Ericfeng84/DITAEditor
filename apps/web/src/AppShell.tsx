@@ -5,7 +5,11 @@ import { hubPath, navigate, useAppRoute } from './router/app-router.js';
 import { clearActiveScope, setActiveScope } from './services/active-scope';
 import { fetchManual, type Manual } from './services/manuals-api.js';
 import { useAssignmentStore } from './store/assignment-store';
+import { usePublishStore } from './store/publish-store';
 import { useWorkbenchStore } from './store/workbench-store';
+import { BilingualReviewPage } from './translation/BilingualReviewPage.js';
+import { GlossaryManagerPage } from './translation/GlossaryManagerPage.js';
+import { TranslationCenterPage } from './translation/TranslationCenterPage.js';
 import { WorkbenchHubPage } from './workbench/WorkbenchHubPage';
 
 const OFFLINE = import.meta.env.VITE_STATIC_DEMO === 'true';
@@ -78,6 +82,32 @@ export function AppShell() {
     };
   }, [manualId]);
 
+  if (route.name === 'translation-center') {
+    // Translation screens are cross-manual by nature (source + target pair), so the
+    // editor scope headers must be dropped before they fire their own requests.
+    if (!OFFLINE) clearActiveScope();
+    return (
+      <TranslationCenterPage
+        manualId={route.manualId}
+        branch={route.branch}
+        linkId={route.linkId}
+        tab={route.tab}
+      />
+    );
+  }
+
+  if (route.name === 'translation-review') {
+    if (!OFFLINE) clearActiveScope();
+    return (
+      <BilingualReviewPage manualId={route.manualId} itemId={route.itemId} branch={route.branch} />
+    );
+  }
+
+  if (route.name === 'glossaries') {
+    if (!OFFLINE) clearActiveScope();
+    return <GlossaryManagerPage glossaryId={route.glossaryId} />;
+  }
+
   if (!manualId) {
     // Hub requests must stay unscoped so the list is cross-manual.
     if (OFFLINE) return <WorkbenchHubPage />;
@@ -118,6 +148,7 @@ export function AppShell() {
       key={`${manualId}::${branch}`}
       manualId={manualId}
       manualName={editor.manual.name}
+      manualSourceLang={editor.manual.sourceLang ?? null}
       branch={branch}
       topicPath={topicPath}
       defaultRootMap={editor.manual.defaultRootMap ?? null}
@@ -125,6 +156,8 @@ export function AppShell() {
       onLeaveSession={() => {
         clearActiveScope();
         useAssignmentStore.getState().clear();
+        // DITA-OT strict results belong to the session we are leaving.
+        usePublishStore.getState().clearStrictValidation();
         void useWorkbenchStore.getState().refresh();
         void useWorkbenchStore.getState().refreshAssignments();
         navigate(hubPath());

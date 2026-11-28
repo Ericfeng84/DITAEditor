@@ -1,5 +1,6 @@
-import { BookOpen, CircleHelp, Loader2, RefreshCw } from 'lucide-react';
+import { BookMarked, BookOpen, CircleHelp, Loader2, RefreshCw } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
+import { glossariesPath, navigate } from '../router/app-router.js';
 import type { IdentityResponse, IdentityUser } from '../services/identity-api';
 import { IdentitySwitcher } from '../components/IdentitySwitcher';
 import { LocaleSwitcher } from '../components/LocaleSwitcher';
@@ -76,6 +77,17 @@ export function HubHeader({
             )}
           </button>
           <DesktopSettingsButton />
+          {!offline ? (
+            <button
+              type="button"
+              onClick={() => navigate(glossariesPath())}
+              data-testid="hub-glossaries-entry"
+              className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 bg-white px-2 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+            >
+              <BookMarked className="h-3.5 w-3.5" aria-hidden="true" />
+              {t('translation.entry.glossaries')}
+            </button>
+          ) : null}
           <IdentitySwitcher identity={identity} currentUser={currentUser} onChange={onSwitchIdentity} />
           <LocaleSwitcher />
         </div>

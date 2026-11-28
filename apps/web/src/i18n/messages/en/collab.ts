@@ -350,6 +350,7 @@ export const enCollab = {
   'strict.noTargets': 'Nothing to validate.',
   'strict.footnote': 'Strict validation only reads workspace files and never modifies XML; every publish job runs it first as well.',
   'strict.revalidate': 'Revalidate',
+  'strict.viewInProblems': 'View in Problems',
 
   'jobLog.live': 'Live stream',
   'jobLog.finished': 'Build finished',

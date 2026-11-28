@@ -110,11 +110,14 @@ import {
 } from './map-tree/map-tree-utils';
 import { MountExistingDialog } from './map-tree/MountExistingDialog';
 import { canManageMapKeys, resolveFileEditability } from './services/lock-helpers';
+import {
+  mergeProblemDiagnostics,
+  type ProblemDiagnostic,
+} from './services/problem-diagnostics.js';
 import type { PublishDiagnostic, StrictValidationInput } from './services/publish-api';
 import {
   resolveWorkspaceAssetUrl,
   uploadWorkspaceImage,
-  type WorkspaceDiagnostic,
 } from './services/workspace-api';
 import {
   getTabDiffStats,
@@ -127,17 +130,23 @@ import {
 import { useAssignmentStore } from './store/assignment-store';
 import { useWorkbenchStore } from './store/workbench-store';
 import { useGitStore } from './store/git-store';
+import { usePublishStore } from './store/publish-store';
+import { useTranslationStore } from './store/translation-store.js';
+import { navigate, editorPath, translationCenterPath } from './router/app-router.js';
 import {
   setDetectedTaskContentModel,
   shouldShowTaskModelSwitch,
 } from './editor/structure-options';
 import { DelegateTopicDialog } from './workbench/DelegateTopicDialog';
 import { UnsavedChangesDialog } from './workbench/UnsavedChangesDialog';
+import { buildSessionLanguageEditions } from './workbench/manual-language-families.js';
 
 export interface AppProps {
   /** Phase 10: the manual this session is bound to (identical to the scope header value). */
   manualId: string;
   manualName: string;
+  /** Phase 16 — registry source language of the session manual (`null` when unknown). */
+  manualSourceLang?: string | null;
   branch: string | null;
   /** Deep link from the hub or an assignment card (`?topic=…`). */
   topicPath: string | null;
@@ -156,6 +165,7 @@ const OUTLINE_DEFAULT_WIDTH = 240;
 export function App({
   manualId,
   manualName,
+  manualSourceLang = null,
   branch,
   topicPath,
   defaultRootMap = null,
@@ -193,6 +203,10 @@ export function App({
   const mapBuffers = useEditorStore((s) => s.mapBuffers);
   const diagnostics = useEditorStore((s) => s.diagnostics);
   const savingPaths = useEditorStore((s) => s.savingPaths);
+  // Phase 16: DITA-OT strict validation results live in the publish store, but they must also
+  // reach the Problems panel and the header badge — merge once here, not in three components.
+  const strictResult = usePublishStore((s) => s.strictResult);
+  const clearStrictValidation = usePublishStore((s) => s.clearStrictValidation);
 
   const openTabs = useEditorStore((s) => s.openTabs);
   const activeTabPath = useEditorStore((s) => s.activeTabPath);
@@ -344,6 +358,35 @@ export function App({
     if (import.meta.env.VITE_STATIC_DEMO === 'true') return;
     void initializeGit();
   }, [initializeGit]);
+
+  /**
+   * Phase 16 — one lazy lookup feeds the header's translation capsule. It only affects the label
+   * (`Translations` vs `Translations 2`): a failure stays silent, and the capsule stays clickable so
+   * users can always reach the translation center to add a first target language.
+   */
+  const loadTranslationEntryLinks = useTranslationStore((s) => s.loadEntryLinks);
+  const translationEntryLinks = useTranslationStore((s) => s.entryLinks);
+  useEffect(() => {
+    if (import.meta.env.VITE_STATIC_DEMO === 'true' || !manualId) return;
+    void loadTranslationEntryLinks(manualId, branch);
+  }, [manualId, branch, loadTranslationEntryLinks]);
+
+  /**
+   * Phase 16 — the header capsule is a language-version picker, not just a shortcut into the
+   * translation center. Editions come from the same family-scoped links as the center's pills;
+   * the base language is always first and flagged so the source edition stays recognisable.
+   */
+  const languageEditions = useMemo(
+    () =>
+      buildSessionLanguageEditions({
+        manualId,
+        branch,
+        manualName,
+        sourceLang: manualSourceLang,
+        links: translationEntryLinks,
+      }),
+    [manualId, branch, manualName, manualSourceLang, translationEntryLinks],
+  );
 
   // A different workspace root or branch worktree means entirely new Git state.
   useEffect(() => {
@@ -718,14 +761,33 @@ export function App({
   const [leaveOpen, setLeaveOpen] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [leaveError, setLeaveError] = useState<string | null>(null);
-  const requestLeave = useCallback(() => {
-    if (dirtyPaths.length === 0) {
-      onLeaveSession();
-      return;
-    }
-    setLeaveError(null);
-    setLeaveOpen(true);
-  }, [dirtyPaths.length, onLeaveSession]);
+  /**
+   * Phase 16 — switching language edition replaces the whole session (an edition is its own
+   * manual), so it shares the unsaved-buffer guard with `onLeaveSession`. `null` means the hub.
+   */
+  const pendingLeaveTargetRef = useRef<string | null>(null);
+  const finishLeave = useCallback(
+    (target: string | null) => {
+      pendingLeaveTargetRef.current = null;
+      setLeaveOpen(false);
+      if (target) navigate(target);
+      else onLeaveSession();
+    },
+    [onLeaveSession],
+  );
+  const requestLeaveTo = useCallback(
+    (target: string | null) => {
+      if (dirtyPaths.length === 0) {
+        finishLeave(target);
+        return;
+      }
+      pendingLeaveTargetRef.current = target;
+      setLeaveError(null);
+      setLeaveOpen(true);
+    },
+    [dirtyPaths.length, finishLeave],
+  );
+  const requestLeave = useCallback(() => requestLeaveTo(null), [requestLeaveTo]);
   const attemptSaveAndLeave = useCallback(
     async (ensureLocks: boolean) => {
       setLeaving(true);
@@ -735,8 +797,7 @@ export function App({
         // previously left the button spinning forever when that refresh was slow.
         const failed = await saveAllDirtyFiles({ refresh: false, ensureLocks });
         if (failed.length === 0) {
-          setLeaveOpen(false);
-          onLeaveSession();
+          finishLeave(pendingLeaveTargetRef.current);
           return;
         }
         // A failed save (missing checkout lock, deleted file, network error) used to leave the
@@ -764,7 +825,7 @@ export function App({
         setLeaving(false);
       }
     },
-    [saveAllDirtyFiles, onLeaveSession, t, dirtyPaths],
+    [saveAllDirtyFiles, finishLeave, t, dirtyPaths],
   );
   const handleSaveAndLeave = useCallback(() => {
     void attemptSaveAndLeave(false);
@@ -777,20 +838,31 @@ export function App({
     setLeaveError(null);
     try {
       if (dirtyPaths.length > 0) await reloadFilesFromDisk(dirtyPaths);
-      setLeaveOpen(false);
-      onLeaveSession();
+      finishLeave(pendingLeaveTargetRef.current);
     } finally {
       setLeaving(false);
     }
-  }, [dirtyPaths, reloadFilesFromDisk, onLeaveSession]);
+  }, [dirtyPaths, reloadFilesFromDisk, finishLeave]);
+
+  // A stale strict-validation result must never leak across scope changes: it belongs to the
+  // manual/branch/workspace (and user) it was produced in.
+  useEffect(() => {
+    clearStrictValidation();
+    return () => clearStrictValidation();
+  }, [manualId, branch, workspaceRootDir, currentUser?.id, activeRootMapPath, clearStrictValidation]);
+
+  const allDiagnostics = useMemo(
+    () => mergeProblemDiagnostics(diagnostics, strictResult?.diagnostics),
+    [diagnostics, strictResult?.diagnostics],
+  );
 
   const errorCount = useMemo(
-    () => diagnostics.filter((d) => d.severity === 'error').length,
-    [diagnostics],
+    () => allDiagnostics.filter((d) => d.severity === 'error').length,
+    [allDiagnostics],
   );
   const warningCount = useMemo(
-    () => diagnostics.filter((d) => d.severity === 'warning').length,
-    [diagnostics],
+    () => allDiagnostics.filter((d) => d.severity === 'warning').length,
+    [allDiagnostics],
   );
 
   const workspaceDirectories = useMemo(
@@ -1388,7 +1460,7 @@ export function App({
   );
 
   const handleJumpToDiagnostic = useCallback(
-    (diag: WorkspaceDiagnostic) => {
+    (diag: ProblemDiagnostic) => {
       void openFileTab(diag.filePath, {
         mode: 'source',
         jumpLine: diag.line,
@@ -1410,10 +1482,11 @@ export function App({
   const handleJumpFromStrictValidation = useCallback(
     (filePath: string, line: number, column: number) => {
       setStrictOpen(false);
+      setProblemsOpen(true);
       void openFileTab(filePath, { mode: 'source', jumpLine: line });
       void column;
     },
-    [openFileTab],
+    [openFileTab, setProblemsOpen],
   );
 
   const handleCheckinStrictValidate = useCallback(
@@ -1881,6 +1954,17 @@ export function App({
               onExpandInspector={() => setInspectorOpen(true)}
               onOpenPublish={() => setPublishOpen(true)}
               manualName={manualName}
+              translationLinkCount={translationEntryLinks.length}
+              languageEditions={languageEditions}
+              onSelectLanguageEdition={(edition) => {
+                if (edition.isBase && edition.isCurrent) return;
+                requestLeaveTo(editorPath(edition.manualId, { branch: edition.branch }));
+              }}
+              onOpenTranslations={
+                import.meta.env.VITE_STATIC_DEMO === 'true'
+                  ? undefined
+                  : () => navigate(translationCenterPath(manualId, { branch }))
+              }
             />
 
 
@@ -2216,11 +2300,12 @@ export function App({
                             />
                             <Panel id="problems-pane" defaultSize="28%" minSize="16%" maxSize="55%">
                               <ProblemsPanel
-                                diagnostics={diagnostics}
+                                diagnostics={allDiagnostics}
                                 onRefresh={() => void refreshDiagnostics()}
                                 onJumpToDiagnostic={handleJumpToDiagnostic}
                                 onClose={() => setProblemsOpen(false)}
                                 onAiFixDiagnostic={(diagnostic) => void handleAiFixDiagnostic(diagnostic)}
+                                onClearStrictDiagnostics={clearStrictValidation}
                                 onStrictValidate={
                                   rootMapStrictInput
                                     ? () =>
@@ -2346,7 +2431,7 @@ export function App({
                                   projectPath={activeTab.path}
                                   rootMapPath={activeRootMapPath ?? undefined}
                                   ditavalPath={activeDitavalPath ?? undefined}
-                                  diagnostics={diagnostics}
+                                  diagnostics={allDiagnostics}
                                   canApply={aiApplyMode !== 'preview-only'}
                                   readOnly={aiApplyMode === 'preview-only'}
                                   applyMode={aiApplyMode}
@@ -2377,7 +2462,7 @@ export function App({
               diffStats={diffStats}
               mode={mode}
               activePath={activeTab?.path ?? activeRootMapPath}
-              diagnosticsCount={diagnostics.length}
+              diagnosticsCount={allDiagnostics.length}
               onToggleProblems={() => setProblemsOpen(!problemsOpen)}
               guideChip={
                 showGuideChip && activeTab ? (
@@ -2588,7 +2673,17 @@ export function App({
         open={strictOpen}
         input={strictInput}
         targetLabel={strictLabel}
-        onClose={() => setStrictOpen(false)}
+        onClose={() => {
+          setStrictOpen(false);
+          // Closing the dialog must not lose the findings: reveal them in the Problems panel.
+          if ((usePublishStore.getState().strictResult?.diagnostics.length ?? 0) > 0) {
+            setProblemsOpen(true);
+          }
+        }}
+        onViewInProblems={() => {
+          setStrictOpen(false);
+          setProblemsOpen(true);
+        }}
         onJumpToFile={handleJumpFromStrictValidation}
         onAiFixDiagnostic={(diagnostic) => void handleAiFixStrictDiagnostic(diagnostic)}
         aiApplied={strictAiApplied}
@@ -2665,6 +2760,7 @@ export function App({
         onSaveWithCheckout={workspaceMode === 'api' ? handleSaveWithCheckoutAndLeave : undefined}
         onDiscardAndLeave={() => void handleDiscardAndLeave()}
         onCancel={() => {
+          pendingLeaveTargetRef.current = null;
           setLeaveError(null);
           setLeaveOpen(false);
         }}

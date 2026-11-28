@@ -2,6 +2,7 @@ import { FileUp, FolderPlus, Loader2, Plus, Search } from 'lucide-react';
 import { useI18n } from '../i18n/index.js';
 import type { Manual } from '../services/manuals-api.js';
 import { ManualCard } from './ManualCard';
+import type { ManualLanguageEdition } from './manual-language-families.js';
 
 export interface ManualListSectionProps {
   manuals: Manual[];
@@ -11,6 +12,9 @@ export interface ManualListSectionProps {
   busyManualId: string | null;
   canManage: boolean;
   offline: boolean;
+  /** Phase 16 — base-first language editions per manual id (optional, purely additive). */
+  editionsByManualId?: Map<string, ManualLanguageEdition[]>;
+  onOpenEdition?: (edition: ManualLanguageEdition) => void;
   onQueryChange: (query: string) => void;
   onToggleArchived: (include: boolean) => void;
   onCreate: () => void;
@@ -30,6 +34,8 @@ export function ManualListSection({
   busyManualId,
   canManage,
   offline,
+  editionsByManualId,
+  onOpenEdition,
   onQueryChange,
   onToggleArchived,
   onCreate,
@@ -151,6 +157,9 @@ export function ManualListSection({
               manual={manual}
               busy={busyManualId === manual.id}
               canManage={canManage}
+              offline={offline}
+              editions={editionsByManualId?.get(manual.id)}
+              onOpenEdition={onOpenEdition}
               onOpen={onOpen}
               onEdit={onEdit}
               onToggleArchive={onToggleArchive}

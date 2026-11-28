@@ -9,12 +9,13 @@ import {
   RefreshCw,
   Save,
   Settings2,
+  ShieldCheck,
   Sparkles,
   X,
 } from 'lucide-react';
 import { useAiStore } from './ai-store';
-import type { AiConfigPatch, AiConfigTestResult } from './ai-types';
-import { useI18n } from '../i18n/index.js';
+import type { AiConfigPatch, AiConfigTestResult, AiUsageTaskType } from './ai-types';
+import { useI18n, type MessageKey } from '../i18n/index.js';
 import { ParserSettingsTab } from '../ingest/ParserSettingsTab.js';
 
 export interface AiSettingsDialogProps {
@@ -27,8 +28,35 @@ export interface AiSettingsDialogProps {
 const DEFAULT_TEMPERATURE = 0.2;
 const DEFAULT_MAX_RETRIES = 2;
 const DEFAULT_TIMEOUT_MS = 60000;
+/** Independent review must stay cold: the reviewer reads, it never improvises. */
+const DEFAULT_REVIEWER_TEMPERATURE = 0.1;
 
 type AiSettingsTab = 'llm' | 'parsers';
+
+/** `inherit` sends four explicit `null`s so the server drops every dedicated override. */
+type ReviewerMode = 'inherit' | 'dedicated';
+
+/** Bilingual labels for the usage ledger's task families (incl. ingest & translation). */
+const TASK_TYPE_KEYS: Record<AiUsageTaskType, MessageKey> = {
+  ask: 'aiSettings.taskType.ask',
+  authoring: 'aiSettings.taskType.authoring',
+  optimize_tags: 'aiSettings.taskType.optimizeTags',
+  fix_error: 'aiSettings.taskType.fixError',
+  ingest_plan: 'aiSettings.taskType.ingestPlan',
+  ingest_write: 'aiSettings.taskType.ingestWrite',
+  ingest_repair: 'aiSettings.taskType.ingestRepair',
+  translate_batch: 'aiSettings.taskType.translateBatch',
+  translate_block: 'aiSettings.taskType.translateBlock',
+  translate_refine: 'aiSettings.taskType.translateRefine',
+  translate_review: 'aiSettings.taskType.translateReview',
+  translate_repair: 'aiSettings.taskType.translateRepair',
+};
+
+const USAGE_STATUS_KEYS: Record<'succeeded' | 'failed' | 'cancelled', MessageKey> = {
+  succeeded: 'aiSettings.usage.status.succeeded',
+  failed: 'aiSettings.usage.status.failed',
+  cancelled: 'aiSettings.usage.status.cancelled',
+};
 
 function formatNumber(value: number): string {
   return value.toLocaleString('zh-CN');
@@ -63,6 +91,19 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
   const [saved, setSaved] = useState(false);
   const [tab, setTab] = useState<AiSettingsTab>('llm');
 
+  /* Phase 16 — independent reviewer model (translation quality review). */
+  const [reviewerMode, setReviewerMode] = useState<ReviewerMode>('inherit');
+  const [reviewerBaseUrl, setReviewerBaseUrl] = useState('');
+  const [reviewerModel, setReviewerModel] = useState('');
+  const [reviewerApiKey, setReviewerApiKey] = useState('');
+  const [clearReviewerApiKey, setClearReviewerApiKey] = useState(false);
+  const [reviewerTemperature, setReviewerTemperature] = useState(
+    String(DEFAULT_REVIEWER_TEMPERATURE),
+  );
+  const [reviewerTesting, setReviewerTesting] = useState(false);
+  const [reviewerTestResult, setReviewerTestResult] = useState<AiConfigTestResult | null>(null);
+  const [reviewerTestError, setReviewerTestError] = useState<string | null>(null);
+
   useEffect(() => {
     if (!open || !config) return;
     setBaseUrl(config.baseUrl);
@@ -74,6 +115,25 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
     setApiKey('');
     setClearApiKey(false);
     setSaved(false);
+
+    const reviewer = config.reviewer;
+    setReviewerMode(reviewer?.isDedicated ? 'dedicated' : 'inherit');
+    setReviewerBaseUrl(reviewer?.hasDedicatedBaseUrl ? reviewer.baseUrl : '');
+    setReviewerModel(reviewer?.hasDedicatedModel ? reviewer.model : '');
+    setReviewerTemperature(
+      String(
+        Number(
+          (reviewer?.hasDedicatedTemperature
+            ? reviewer.temperature
+            : DEFAULT_REVIEWER_TEMPERATURE
+          ).toFixed(2),
+        ),
+      ),
+    );
+    setReviewerApiKey('');
+    setClearReviewerApiKey(false);
+    setReviewerTestResult(null);
+    setReviewerTestError(null);
   }, [open, config]);
 
   useEffect(() => {
@@ -85,6 +145,45 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
   }, [open, config?.canEdit, loadUsage]);
 
   const canEdit = config?.canEdit ?? false;
+  const reviewer = config?.reviewer ?? null;
+  /**
+   * In inherit mode the summary still has to name a concrete model.
+   *
+   * Only an *inheriting* reviewer may report `reviewer.model`: once the pair has a dedicated model,
+   * switching back to inherit makes the primary model answer again, so showing the dedicated name
+   * would describe a model that will not run.
+   */
+  const inheritedReviewerModel =
+    reviewer && !reviewer.isDedicated ? reviewer.model || config?.model || '' : config?.model || '';
+  const selectedReviewerModel =
+    reviewerMode === 'dedicated' ? reviewerModel.trim() : inheritedReviewerModel;
+
+  const reviewerDirty = useMemo(() => {
+    if (!config) return false;
+    const dedicatedNow = reviewerMode === 'dedicated';
+    const dedicatedBefore = config.reviewer?.isDedicated ?? false;
+    if (dedicatedNow !== dedicatedBefore) return true;
+    if (!dedicatedNow) return false;
+    return (
+      reviewerBaseUrl.trim() !== (config.reviewer?.hasDedicatedBaseUrl ? config.reviewer.baseUrl : '') ||
+      reviewerModel.trim() !== (config.reviewer?.hasDedicatedModel ? config.reviewer.model : '') ||
+      reviewerApiKey.trim().length > 0 ||
+      clearReviewerApiKey ||
+      Number(reviewerTemperature) !==
+        (config.reviewer?.hasDedicatedTemperature
+          ? config.reviewer.temperature
+          : DEFAULT_REVIEWER_TEMPERATURE)
+    );
+  }, [
+    clearReviewerApiKey,
+    config,
+    reviewerApiKey,
+    reviewerBaseUrl,
+    reviewerMode,
+    reviewerModel,
+    reviewerTemperature,
+  ]);
+
   const dirty = useMemo(() => {
     if (!config) return false;
     return (
@@ -94,9 +193,20 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
       clearApiKey ||
       Number(temperature) !== config.temperature ||
       Number(maxRetries) !== config.maxRetries ||
-      Number(timeoutMs) !== config.timeoutMs
+      Number(timeoutMs) !== config.timeoutMs ||
+      reviewerDirty
     );
-  }, [apiKey, baseUrl, clearApiKey, config, maxRetries, model, temperature, timeoutMs]);
+  }, [
+    apiKey,
+    baseUrl,
+    clearApiKey,
+    config,
+    maxRetries,
+    model,
+    reviewerDirty,
+    temperature,
+    timeoutMs,
+  ]);
 
   if (!open) return null;
 
@@ -107,6 +217,21 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
     temperature: Number(Number(temperature).toFixed(2)),
     maxRetries: Number(maxRetries),
     timeoutMs: Number(timeoutMs),
+    // Inherit mode is expressed as four `null`s — that is the wire contract for "drop the
+    // dedicated reviewer and fall back to the primary model at a cold temperature".
+    reviewer:
+      reviewerMode === 'dedicated'
+        ? {
+            baseUrl: reviewerBaseUrl.trim() || null,
+            model: reviewerModel.trim() || null,
+            ...(reviewerApiKey.trim()
+              ? { apiKey: reviewerApiKey.trim() }
+              : clearReviewerApiKey
+                ? { apiKey: null }
+                : {}),
+            temperature: Number(Number(reviewerTemperature).toFixed(2)),
+          }
+        : { baseUrl: null, model: null, apiKey: null, temperature: null },
   });
 
   const handleSave = async () => {
@@ -115,6 +240,8 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
     if (ok) {
       setApiKey('');
       setClearApiKey(false);
+      setReviewerApiKey('');
+      setClearReviewerApiKey(false);
     }
   };
 
@@ -133,6 +260,35 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
       setTestError(error instanceof Error ? error.message : String(error));
     } finally {
       setTesting(false);
+    }
+  };
+
+  /**
+   * Probe the reviewer provider.
+   *
+   * `role: 'reviewer'` makes the server resolve the *effective* reviewer config (dedicated values
+   * first, primary ones as fallback) instead of re-testing the primary model, and it falls back to
+   * the saved configuration when a field is left empty — so testing before saving still works.
+   */
+  const handleTestReviewer = async () => {
+    setReviewerTesting(true);
+    setReviewerTestError(null);
+    setReviewerTestResult(null);
+    try {
+      const result =
+        reviewerMode === 'dedicated'
+          ? await testConfig({
+              role: 'reviewer',
+              baseUrl: reviewerBaseUrl.trim() || undefined,
+              model: reviewerModel.trim() || undefined,
+              ...(reviewerApiKey.trim() ? { apiKey: reviewerApiKey.trim() } : {}),
+            })
+          : await testConfig({ role: 'reviewer' });
+      setReviewerTestResult(result);
+    } catch (error) {
+      setReviewerTestError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setReviewerTesting(false);
     }
   };
 
@@ -397,6 +553,221 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
                   {t('aiSettings.test')}
                 </button>
               </div>
+
+              {/* Phase 16 — the independent reviewer is a first-class model choice, not a hidden
+                  fallback: the card states which model answers, at which temperature, and lets
+                  the operator probe it alone so a broken reviewer never hides behind the
+                  translator. */}
+              <div
+                className="rounded-lg border border-slate-200 bg-white"
+                data-testid="ai-reviewer-card"
+              >
+                <div className="flex items-center gap-1.5 border-b border-slate-100 px-2.5 py-1.5">
+                  <ShieldCheck className="h-3.5 w-3.5 text-slate-500" aria-hidden="true" />
+                  <h4 className="text-[11px] font-semibold text-slate-800">
+                    {t('aiSettings.reviewer.title')}
+                  </h4>
+                  <span
+                    className={`ml-auto rounded px-1 py-0.5 text-[9px] font-medium ${
+                      reviewerMode === 'dedicated'
+                        ? 'bg-violet-50 text-violet-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                    data-testid="ai-reviewer-badge"
+                  >
+                    {reviewerMode === 'dedicated'
+                      ? t('aiSettings.reviewer.badgeDedicated')
+                      : t('aiSettings.reviewer.badgeInherit')}
+                  </span>
+                </div>
+
+                <div className="space-y-2 px-2.5 py-2">
+                  <p className="text-[10px] leading-snug text-slate-500">
+                    {t('aiSettings.reviewer.description')}
+                  </p>
+
+                  <div
+                    className="grid grid-cols-2 gap-1 rounded-md bg-slate-100 p-0.5"
+                    role="group"
+                    aria-label={t('aiSettings.reviewer.modeAria')}
+                  >
+                    {(['inherit', 'dedicated'] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        type="button"
+                        data-testid={`ai-reviewer-mode-${mode}`}
+                        aria-pressed={reviewerMode === mode}
+                        disabled={!canEdit}
+                        onClick={() => setReviewerMode(mode)}
+                        className={`rounded px-2 py-1 text-[10px] font-medium transition-colors disabled:opacity-50 ${
+                          reviewerMode === mode
+                            ? 'bg-white text-slate-900 shadow-sm'
+                            : 'text-slate-500 hover:text-slate-700'
+                        }`}
+                      >
+                        {mode === 'inherit'
+                          ? t('aiSettings.reviewer.modeInherit')
+                          : t('aiSettings.reviewer.modeDedicated')}
+                      </button>
+                    ))}
+                  </div>
+
+                  {reviewerMode === 'inherit' ? (
+                    <div
+                      className="space-y-0.5 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5"
+                      data-testid="ai-reviewer-inherit-summary"
+                    >
+                      <p className="flex items-center gap-1 font-mono text-[10px] text-slate-700">
+                        <Sparkles className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                        {inheritedReviewerModel || t('aiSettings.reviewer.noModel')}
+                      </p>
+                      <p className="text-[9.5px] text-slate-500">
+                        {t('aiSettings.reviewer.inheritTemperature')}
+                      </p>
+                      <p className="text-[9.5px] text-slate-400">
+                        {t('aiSettings.reviewer.inheritHint')}
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5" data-testid="ai-reviewer-dedicated-fields">
+                      <label className="block">
+                        <span className="text-[10px] font-medium text-slate-600">
+                          {t('aiSettings.reviewer.baseUrl')}
+                        </span>
+                        <input
+                          type="url"
+                          value={reviewerBaseUrl}
+                          disabled={!canEdit}
+                          onChange={(event) => setReviewerBaseUrl(event.target.value)}
+                          placeholder={t('aiSettings.reviewer.baseUrlPlaceholder')}
+                          data-testid="ai-reviewer-base-url"
+                          className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] outline-none focus:border-blue-400 disabled:bg-slate-50"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-medium text-slate-600">
+                          {t('aiSettings.reviewer.model')}
+                        </span>
+                        <input
+                          type="text"
+                          value={reviewerModel}
+                          disabled={!canEdit}
+                          onChange={(event) => setReviewerModel(event.target.value)}
+                          placeholder={t('aiSettings.reviewer.modelPlaceholder')}
+                          data-testid="ai-reviewer-model"
+                          className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] outline-none focus:border-blue-400 disabled:bg-slate-50"
+                        />
+                      </label>
+                      <label className="block">
+                        <span className="flex items-center gap-1 text-[10px] font-medium text-slate-600">
+                          <KeyRound className="h-3 w-3 text-slate-400" aria-hidden="true" />
+                          {t('aiSettings.reviewer.apiKey')}
+                        </span>
+                        <input
+                          type="password"
+                          value={reviewerApiKey}
+                          disabled={!canEdit || clearReviewerApiKey}
+                          onChange={(event) => setReviewerApiKey(event.target.value)}
+                          placeholder={t('aiSettings.keyPlaceholder')}
+                          data-testid="ai-reviewer-api-key"
+                          className="mt-0.5 w-full rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] outline-none focus:border-blue-400 disabled:bg-slate-50"
+                        />
+                        <span className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[9.5px] text-slate-500">
+                          <span data-testid="ai-reviewer-key-hint">
+                            {clearReviewerApiKey
+                              ? t('aiSettings.reviewer.clearKeyPending')
+                              : reviewer?.hasDedicatedApiKey
+                                ? t('aiSettings.reviewer.keyMasked', {
+                                    masked: reviewer.maskedApiKey ?? '***',
+                                  })
+                                : t('aiSettings.reviewer.keyInherited')}
+                          </span>
+                          {reviewer?.hasDedicatedApiKey && !clearReviewerApiKey ? (
+                            <button
+                              type="button"
+                              disabled={!canEdit}
+                              onClick={() => {
+                                setReviewerApiKey('');
+                                setClearReviewerApiKey(true);
+                              }}
+                              className="font-medium text-rose-600 hover:underline disabled:opacity-40"
+                            >
+                              {t('aiSettings.clearKey')}
+                            </button>
+                          ) : null}
+                        </span>
+                      </label>
+                      <label className="block">
+                        <span className="text-[10px] font-medium text-slate-600">
+                          {t('aiSettings.reviewer.temperature')}
+                        </span>
+                        <input
+                          type="number"
+                          min={0}
+                          max={0.2}
+                          step={0.05}
+                          value={reviewerTemperature}
+                          disabled={!canEdit}
+                          onChange={(event) => setReviewerTemperature(event.target.value)}
+                          data-testid="ai-reviewer-temperature"
+                          className="mt-0.5 w-24 rounded-md border border-slate-300 px-2 py-1 font-mono text-[11px] outline-none focus:border-blue-400 disabled:bg-slate-50"
+                        />
+                        <span className="ml-1.5 text-[9.5px] text-slate-400">
+                          {t('aiSettings.reviewer.temperatureHint')}
+                        </span>
+                      </label>
+                    </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={reviewerTesting || !canEdit}
+                      onClick={() => void handleTestReviewer()}
+                      data-testid="ai-reviewer-test"
+                      className="inline-flex items-center gap-1 rounded-md border border-slate-300 bg-white px-2 py-1 text-[10.5px] text-slate-700 hover:bg-slate-50 disabled:opacity-40"
+                    >
+                      {reviewerTesting ? (
+                        <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />
+                      ) : (
+                        <RefreshCw className="h-3 w-3" aria-hidden="true" />
+                      )}
+                      {t('aiSettings.reviewer.test')}
+                    </button>
+                    <span
+                      className="min-w-0 flex-1 truncate font-mono text-[9.5px] text-slate-400"
+                      data-testid="ai-reviewer-effective-model"
+                    >
+                      {selectedReviewerModel}
+                    </span>
+                  </div>
+
+                  {reviewerTestResult ? (
+                    <p
+                      className="flex items-start gap-1.5 rounded border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10.5px] text-emerald-800"
+                      data-testid="ai-reviewer-test-result"
+                    >
+                      <CheckCircle2 className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                      <span>
+                        {reviewerMode === 'dedicated'
+                          ? t('aiSettings.reviewer.testOk')
+                          : t('aiSettings.reviewer.testOkInherit')}
+                        {' · '}
+                        {reviewerTestResult.model} · {reviewerTestResult.latencyMs} ms
+                      </span>
+                    </p>
+                  ) : null}
+                  {reviewerTestError ? (
+                    <p
+                      className="flex items-start gap-1.5 rounded border border-rose-200 bg-rose-50 px-2 py-1 text-[10.5px] text-rose-800"
+                      data-testid="ai-reviewer-test-error"
+                    >
+                      <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" aria-hidden="true" />
+                      {reviewerTestError}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
             </section>
 
             <section className="space-y-2">
@@ -476,10 +847,12 @@ export function AiSettingsDialog({ open, onClose, initialTab = 'llm' }: AiSettin
                                     : 'bg-rose-50 text-rose-700'
                               }`}
                             >
-                              {entry.status}
+                              {t(USAGE_STATUS_KEYS[entry.status])}
                             </span>
                             <span className="min-w-0 flex-1 truncate text-slate-600">
-                              {entry.taskType} · {entry.filePath ?? '—'}
+                              {t(TASK_TYPE_KEYS[entry.taskType])}
+                              {' · '}
+                              {entry.filePath ?? '—'}
                             </span>
                             <span className="font-mono text-slate-400">
                               {entry.totalTokens} tok · {(entry.durationMs / 1000).toFixed(1)}s

@@ -21,6 +21,11 @@ export interface Manual {
   archived: boolean;
   /** False when the folder is missing on disk — the hub explains instead of crashing. */
   exists: boolean;
+  /**
+   * Phase 16 — BCP 47 source language of this manual (`en`, `zh-CN`). `null` when the manual
+   * predates translation support or the registry never inferred it.
+   */
+  sourceLang?: string | null;
   currentBranch: string;
   stats: ManualStats;
   activeAssignmentCount: number;
@@ -48,6 +53,8 @@ export interface ManualCreateInput {
   parentDir?: string;
   scaffold?: 'blank' | 'starter';
   initGit?: boolean;
+  /** Phase 16 — the language this manual is authored in. */
+  sourceLang?: string | null;
 }
 
 export interface ManualUpdateInput {
@@ -55,6 +62,8 @@ export interface ManualUpdateInput {
   description?: string;
   defaultRootMap?: string | null;
   archived?: boolean;
+  /** Phase 16 — the language this manual is authored in. */
+  sourceLang?: string | null;
 }
 
 export function fetchManuals(options: { includeArchived?: boolean; q?: string } = {}) {

@@ -24,6 +24,8 @@ const createManualSchema = z.object({
     )
     .optional(),
   initGit: z.boolean().optional(),
+  /** Phase 16: authored language (`en`, `zh-CN`, …); inferred from `xml:lang` when omitted. */
+  sourceLang: z.string().trim().min(2).max(35).nullable().optional(),
 });
 
 const updateManualSchema = z.object({
@@ -33,6 +35,8 @@ const updateManualSchema = z.object({
   archived: z.boolean().optional(),
   /** Phase 13: admin-only branch protection policy (`[]` clears protection). */
   protectedBranches: z.array(z.string().trim().min(1).max(200)).max(50).optional(),
+  /** Phase 16: override or clear the authored language. */
+  sourceLang: z.string().trim().min(2).max(35).nullable().optional(),
 });
 
 export interface ManualRouteOptions {
@@ -69,6 +73,8 @@ export function registerManualRoutes(app: FastifyInstance, options: ManualRouteO
 
   app.get('/api/manuals/:id', async (req) => {
     const { id } = req.params as { id: string };
+    // Phase 16: reading one manual lazily records the language inferred from its `xml:lang`.
+    await registry.ensureSourceLang(id).catch(() => null);
     return { manual: await registry.get(id) };
   });
 
@@ -89,6 +95,7 @@ export function registerManualRoutes(app: FastifyInstance, options: ManualRouteO
         scaffold: parsed.data.scaffold as WorkspaceScaffold | undefined,
         files: parsed.data.files,
         initGit: parsed.data.initGit,
+        ...(parsed.data.sourceLang === undefined ? {} : { sourceLang: parsed.data.sourceLang }),
       },
       user,
       locale,

@@ -34,7 +34,7 @@
 
 ```mermaid
 flowchart TB
-  H["顶部全局栏 WorkbenchHeader<br/>左栏展开(仅折叠时) | 视图模式(可视化/双栏/源码) | 发布 CTA · 唯一问题诊断 · 精简身份 · 设置(含语言切换) · 右栏展开(仅折叠时) · 帮助(最右)"]
+  H["顶部全局栏 WorkbenchHeader<br/>左栏展开(仅折叠时) | 视图模式(可视化/双栏/源码) | 语言版本切换器(常驻) · 发布 CTA · 唯一问题诊断 · 精简身份 · 设置(含语言切换) · 右栏展开(仅折叠时) · 帮助(最右)"]
   subgraph Shell["三栏工作台主体（紧贴顶栏，无跨列工具条）"]
     direction LR
     L["左侧导航栏 LeftSidebar<br/>Map 树: Root 标题+源码 → 二级 Tab(目录/Keys) → 树操作(挂载/分组/撤销重做/展开收起) → 搜索+按需 DITAVAL 过滤 → 目录树<br/>底部一级 Tab 栏: 文件 / Map 树 / 版本 / 任务"]
@@ -108,6 +108,19 @@ flowchart TB
 4. **可达性与退路**
    - 面包屑按钮 `title` 改为 `breadcrumb.selectTitle`（zh：`点击选中 <{tag}>，并在大纲中定位到它`；en：`Click to select <{tag}> and reveal it in the outline`），让“点层级会开大纲”可见。
    - 面板头部 `PanelLeftClose` 仍负责关闭；纯源码模式（底栏不渲染面包屑）仍可用快捷键 `Ctrl/Cmd+Shift+O` 随时开关。
+
+### 4.5 P4：多语言工作台卡片与翻译中心导航闭环（Phase 16）
+
+1. **手册中心语言家族折叠与“先选后开”**：
+   - `WorkbenchHubPage` 通过 `groupHubManualsByLanguageFamily()`（`apps/web/src/workbench/manual-language-families.ts`）隐藏已绑定为翻译目标语言的顶层手册卡片，将其归并至源手册卡片的语言标签栏；基础语言（`isBase: true`，`Globe` 图标）固定排首位，目标语言（`Languages` 图标）按语言代码排序紧随其后。
+   - 单击语言胶囊仅切换该卡片的选中语言版本（`aria-pressed` 态同步更新卡片的 Topic/Map 统计、分支与最近打开时间），绝不立即跳转编辑器；点击底部唯一主动作「进入编辑」后，才打开所选语言对应的手册工作区。卡片底部移除「翻译」按钮，避免在浏览态铺设过多二级入口。
+2. **编辑器顶栏常驻「语言版本」切换器（Phase 16 修订）**：
+   - `WorkbenchHeader` 在常规（非 `VITE_STATIC_DEMO` 离线）模式下始终渲染 `header-translation-capsule`（位于「发布」左侧），它现在是**语言版本下拉选择器**而非单纯跳转按钮：胶囊显示当前编辑版本的语言（`en-US`）与目标语言数量徽标（`+{count}`，不渲染 `+0`），点击展开 `header-language-menu`。
+   - 菜单条目由纯函数 `buildSessionLanguageEditions()`（`apps/web/src/workbench/manual-language-families.ts`）构建：基础语言（source of truth）固定排首位并用 `Globe` 深色图标 + `基础`/`Base` 实心徽标（`header-language-base-badge`）双重标识；当前版本额外高亮并显示 `Check` 且不可点击；目标语言条目显示 `Languages` 图标、翻译进度百分比与手册名。底部「打开翻译中心 / 添加目标语言」保留进入 `/manuals/:manualId/translation` 的路径。
+   - 切换版本会打开另一个语言手册的会话，因此必须复用「未保存改动」守卫：`App` 把目标路径存入 `pendingLeaveTargetRef`，`requestLeaveTo(target)` 在存在脏缓冲区时弹出同一个 `UnsavedChangesDialog`，保存/放弃后再执行跳转，绝不静默丢稿。
+   - 基础语言的判定不依赖当前手册的 `sourceLang`（被翻译手册的 `sourceLang` 就是自己的目标语言），而是从 `listLinks()` 返回的整族配对的 `sourceManual`/`sourceLang` 推导，因此从目标语言手册进入时同样能看到并列的基础语言版本。
+3. **翻译中心双向编辑闭环**：
+   - `TranslationCenterPage` 左上角返回按钮为「返回编辑器」（`editorPath(manualId, { branch })`），移除右上角重复的源手册打开按钮；顶部每个目标语言配对（`zh-CN → en-US 100%`）采用无嵌套的双按钮分段胶囊，左侧点击切换当前语言配对，右侧提供「打开编辑器」按钮直接打开对应目标语言手册（目标目录缺失时自动禁用）。
 
 ---
 

@@ -125,7 +125,12 @@ export function registerAiRoutes(app: FastifyInstance, deps: AiRouteDeps): void 
     try {
       requireAdmin(deps.identity, req);
       const overrides = parseBody(aiConfigTestSchema, req.body);
-      const base = deps.settings.resolveConfig();
+      // Phase 16: probe the reviewer role when asked; it inherits the primary config unless a
+      // dedicated reviewer base URL / model / key is configured.
+      const base =
+        overrides.role === 'reviewer'
+          ? deps.settings.resolveReviewerConfig()
+          : deps.settings.resolveConfig();
       const config = {
         ...base,
         ...(overrides.baseUrl ? { baseUrl: overrides.baseUrl } : {}),

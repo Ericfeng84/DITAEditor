@@ -15,7 +15,7 @@ import {
   Wand2,
 } from 'lucide-react';
 import type { AiTargetMode, AiTargetSpec } from '@dita/core';
-import type { WorkspaceDiagnostic } from '../services/workspace-api';
+import type { ProblemDiagnostic } from '../services/problem-diagnostics.js';
 import type { AiApplyMode } from '../store/editor-store';
 import {
   getCurrentLocale,
@@ -52,7 +52,7 @@ export interface AiAssistantPanelProps {
   rootMapPath?: string;
   ditavalPath?: string;
   branch?: string;
-  diagnostics?: WorkspaceDiagnostic[];
+  diagnostics?: ProblemDiagnostic[];
   canApply: boolean;
   readOnly: boolean;
   /** How the proposal lands: apply outright, auto check-out first, or preview only. */
@@ -147,7 +147,7 @@ function targetLabel(target: AiTargetSpec | null): string {
 }
 
 function toDiagnosticContext(
-  diagnostics: WorkspaceDiagnostic[] | undefined,
+  diagnostics: ProblemDiagnostic[] | undefined,
   filePath: string,
 ): AiDiagnosticContext[] {
   if (!diagnostics) return [];

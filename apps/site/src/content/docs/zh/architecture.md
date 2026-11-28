@@ -1,7 +1,7 @@
 ---
 title: 架构参考
-description: 包边界、同构内核、无损往返流水线、锁与 worktree 并发模型、DITA-OT 调用链与部署视图。
-updated: '2026-11-25'
+description: 包边界、同构内核、无损往返流水线、锁与 worktree 并发模型、成对翻译流水线、DITA-OT 调用链与部署视图。
+updated: '2026-11-28'
 ---
 
 DITAEditor 的架构目标只有一个：让标准 DITA XML 在浏览器、服务端与发布工具之间**无损流动**。所有模块划分都服务于此。
@@ -13,12 +13,14 @@ Browser
   @dita/web (React 19)
     ProseMirror visual editor ─┐
     CodeMirror 6 source        ├─ @dita/core (isomorphic)
-    Map tree / Keys / Publish  ┘
-              │ fetch /api
+    Map tree / Keys / Publish  │
+    Translation / Bilingual review ┘
+              │ fetch /api · SSE
               ▼
 Node
   @dita/api (Fastify)
-    identity · locks · files · indexer · validate · publish · ai · static
+    identity · locks · files · indexer · validate · publish · ai
+    translation · glossary · static
     SQLite (Drizzle) · simple-git worktree · DITA-OT CLI
               │
               ▼
@@ -35,13 +37,14 @@ Node
 - `model/`：DITA 1.3 元素注册表（block / inline / structural / whitespace-preserve）。
 - `cals/`：CALS 与 `colspan`/`rowspan` 网格互转。
 - `ai/`：目标定位、候选清洗、无损拼接与校验。
+- `translation/`：段落提取、`S0 × S1 × T0` 增量对齐、术语匹配与 QA（纯函数，浏览器可用）。
 - `prosemirror/`：原生 Schema 与 slimdom ↔ PM Doc 转换。
 
 约束：`src/` 内不得引用 Node 内置模块，保证浏览器可用。不要用 `instanceof slimdom.*` 判断节点；不同版本可能同时存在，使用 `nodeType` 常量。
 
 ### `@dita/web`
 
-手册工作台与任务面板、Topic 编辑器、NodeViews、DITA 感知命令、DITA Map 树、Keys 面板、发布面板、AI 面板与 Diff。以及覆盖全部界面的 `zh-CN` / `en` 字典。所有写操作最终都落到同一份 XML 字符串。
+手册工作台与任务面板、Topic 编辑器、NodeViews、DITA 感知命令、DITA Map 树、Keys 面板、发布面板、AI 面板与 Diff。以及翻译中心（文件 / 队列 / 手册术语库 / 设置）、双语审校与语言血缘，覆盖 `zh-CN` / `en` 字典。所有写操作最终都落到同一份 XML 字符串。
 
 ### `@dita/api`
 
@@ -52,6 +55,7 @@ Node
 - `indexer`：增量语义索引（键空间、conref）。
 - `validate` / `publish` / `dita-ot`：严格校验、异步发布队列与 CLI 调用。
 - `ai`：LangChain `ChatOpenAI` 工厂、SSE、配置与用量。
+- `translation`：配对与文件水位、增量扫描、AI 翻译 / 独立审校、严格 QA、术语库、审校应用与签入。任务与队列在 SQLite，由进程内 worker 与 SSE 驱动。
 - `static`：生产环境托管构建后的 Web 资源。
 
 ### `@dita/site`
@@ -99,6 +103,28 @@ ProseMirror tx   ──┘
 - 合并在隔离的合成提交中完成：`git merge-tree` 预检，冲突逐文件求解，共享 `workDir` 永不残留 `MERGING` 态。
 - 不做 CRDT；冲突在锁层解决，而不是在字符层合并。
 
+## 成对翻译流水线
+
+```text
+源分支 S1 ─┐
+源分支 S0 ─┼─ 三方段落对齐 ─→ plan（unchanged / modified / protected / deleted）
+目标 T0 ──┘                        │
+                                   ├─ 复用 T0，不调用模型
+                                   ├─ AI 翻译变化段落
+                                   └─ 确定性 QA + 可选 AI 审校 + DITA-OT
+                                              │
+                                              ▼
+                              目标 working_drafts（仅本人可见）
+                                              │ Check-in
+                                              ▼
+                              目标分支 HEAD → 独立发布
+```
+
+- 配对存在 `translation_links`，文件水位在 `translation_file_states`；队列是 `translation_jobs` / `translation_items`。
+- 翻译上下文总是「源分支 HEAD + 目标分支 HEAD」，不读取他人的草稿；应用时再检查目标文件锁。
+- AI 只返回候选译文；服务端做标签守恒、术语、DNT、占位符与良构校验，审校工作台再做人工 Diff 与逐段编辑。
+- 目标基线仅由签入推进；扫描、翻译、审校都不会改动共享 `workDir`。
+
 ## 发布链路
 
 ```text
@@ -118,14 +144,15 @@ PDF 插件是纯 XML 的 font-mappings，不含自定义 Java 代码；字体来
 | 工作区文件 | `DITA_WORKSPACE_DIR` |
 | 身份 / 锁 / AI 配置 / 用量 | SQLite（数据卷内） |
 | 手册元数据 / 任务委派 | SQLite；手册指向工作区内的目录 |
+| 翻译配对 / 文件水位 / 队列 / 术语库 | SQLite |
 | 发布产物 | `DITA_PUBLISH_DIR` |
 | Git 仓库与 worktree | 项目目录下的本地仓库 |
 
 ## 测试策略
 
-- `@dita/core`：黄金 fixture 往返、未知元素透传、CALS 网格、解析与 XPath。
-- `@dita/api`：路由、锁、发布队列、AI SSE socket 行为。
-- `@dita/web`：编辑器命令、语义面板、Diff 应用路径。
+- `@dita/core`：黄金 fixture 往返、未知元素透传、CALS 网格、解析与 XPath、段落增量与 QA。
+- `@dita/api`：路由、锁、发布队列、AI SSE socket 行为、翻译扫描 / 队列 / 术语库 / 审校应用。
+- `@dita/web`：编辑器命令、语义面板、Diff 应用路径、翻译中心与双语审校状态机。
 - `@dita/site`：i18n 键结构、路由工具、沙箱预设往返。
 
 ## 延伸阅读

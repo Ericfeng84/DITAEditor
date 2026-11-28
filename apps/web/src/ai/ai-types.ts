@@ -9,10 +9,51 @@ export type { AiTargetMode, AiTargetSpec, AiVerificationReport };
 /** Task families understood by `POST /api/ai/stream`. */
 export type AiTaskType = 'ask' | 'authoring' | 'optimize_tags' | 'fix_error';
 
+/**
+ * Every task family that can appear in the usage ledger.
+ *
+ * The `ingest_*` and `translate_*` families never reach `/api/ai/stream` (they run inside the
+ * ingest repair agent and the translation pipeline) but they are recorded in `ai_usage`, so the
+ * statistics tab has to label them too.
+ */
+export type AiUsageTaskType =
+  | AiTaskType
+  | 'ingest_plan'
+  | 'ingest_write'
+  | 'ingest_repair'
+  | 'translate_batch'
+  | 'translate_block'
+  | 'translate_refine'
+  | 'translate_review'
+  | 'translate_repair';
+
 /** Narrow fix sub-action used by diagnostic / strict-validation entry points. */
 export type AiSubAction = 'optimize_tags' | 'fix_xml' | 'fix_diagnostic' | 'fix_strict';
 
 export type AiApiKeySource = 'db' | 'env' | 'none';
+
+/**
+ * Phase 16 — the independent reviewer model used by the translation quality loop.
+ *
+ * Kept separate from the primary provider because the reviewer must stay *independent* (a
+ * different family reads the translation without seeing the translator's reasoning) and *cold*
+ * (temperature ≤ 0.1). Every `hasDedicated*` flag answers "did the user override this field?", so
+ * the dialog can render the inherited value without guessing.
+ */
+export interface AiReviewerPublicConfig {
+  configured: boolean;
+  isDedicated: boolean;
+  baseUrl: string;
+  model: string;
+  hasApiKey: boolean;
+  apiKeySource: AiApiKeySource;
+  maskedApiKey: string | null;
+  temperature: number;
+  hasDedicatedBaseUrl: boolean;
+  hasDedicatedModel: boolean;
+  hasDedicatedApiKey: boolean;
+  hasDedicatedTemperature: boolean;
+}
 
 /** Public (never-secret) AI provider configuration returned by `GET /api/ai/config`. */
 export interface AiPublicConfig {
@@ -27,6 +68,18 @@ export interface AiPublicConfig {
   timeoutMs: number;
   maxContextChars: number;
   canEdit: boolean;
+  /**
+   * Optional so an older API build (or a test mock predating Phase 16) still type-checks; the
+   * settings dialog degrades to "inherit primary" when it is absent.
+   */
+  reviewer?: AiReviewerPublicConfig;
+}
+
+export interface AiReviewerConfigPatch {
+  baseUrl?: string | null;
+  model?: string | null;
+  apiKey?: string | null;
+  temperature?: number | null;
 }
 
 export interface AiConfigPatch {
@@ -37,12 +90,16 @@ export interface AiConfigPatch {
   temperature?: number;
   maxRetries?: number;
   timeoutMs?: number;
+  /** `null` on every field means "inherit the primary model again". */
+  reviewer?: AiReviewerConfigPatch;
 }
 
 export interface AiConfigTestInput {
   baseUrl?: string;
   model?: string;
   apiKey?: string;
+  /** Which provider to probe: the primary one, or the Phase 16 quality reviewer. */
+  role?: 'primary' | 'reviewer';
 }
 
 export interface AiConfigTestResult {
@@ -168,7 +225,7 @@ export interface AiUsageDayBucket extends AiUsageTokenSummary {
 }
 
 export interface AiUsageTaskBucket extends AiUsageTokenSummary {
-  taskType: AiTaskType;
+  taskType: AiUsageTaskType;
 }
 
 export interface AiUsageUserBucket extends AiUsageTokenSummary {
@@ -182,7 +239,7 @@ export interface AiUsageModelBucket extends AiUsageTokenSummary {
 
 export interface AiUsageRecentEntry {
   id: string;
-  taskType: AiTaskType;
+  taskType: AiUsageTaskType;
   subAction: string | null;
   status: 'succeeded' | 'failed' | 'cancelled';
   userDisplayName: string;

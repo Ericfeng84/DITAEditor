@@ -19,6 +19,7 @@ export const enEditor = {
   'problems.filter.all': 'All ({count})',
   'problems.filter.error': 'Errors ({count})',
   'problems.filter.warning': 'Warnings ({count})',
+  'problems.filter.ditaOt': 'DITA-OT ({count})',
   'problems.strictTitle': 'Run DITA-OT DTD/RNG strict validation on the root map',
   'problems.strict': 'DITA-OT Strict Validation',
   'problems.refreshTitle': 'Re-scan workspace links and XML well-formedness',
@@ -26,6 +27,8 @@ export const enEditor = {
   'problems.closeAria': 'Close the problems panel',
   'problems.empty': 'No broken links, conref cycles, or XML syntax errors found',
   'problems.aiFixTitle': 'Fix this problem with AI',
+  'problems.clearStrict': 'Clear strict',
+  'problems.clearStrictTitle': 'Clear the latest DITA-OT strict validation results',
   'problems.source.xml': 'XML well-formedness',
   'problems.source.mapRef': 'Map reference',
   'problems.source.assetRef': 'Image asset',
@@ -34,6 +37,7 @@ export const enEditor = {
   'problems.source.conrefCycle': 'Conref cycle',
   'problems.source.ditaval': 'DITAVAL',
   'problems.source.structure': 'DITA structure',
+  'problems.source.ditaOt': 'DITA-OT',
 
   // --- visual editor toolbar ---------------------------------------------
   'toolbar.aria': 'DITA document editing toolbar',

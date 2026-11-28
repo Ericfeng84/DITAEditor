@@ -21,7 +21,46 @@ export interface EditorRoute {
   assignmentId: string | null;
 }
 
-export type AppRoute = HubRoute | EditorRoute;
+/** Phase 16 — the four tabs of the translation center. */
+export type TranslationCenterTab = 'files' | 'queue' | 'glossary' | 'settings';
+
+/** Phase 16 — `/manuals/:manualId/translation?branch=…&link=…&tab=…`. */
+export interface TranslationCenterRoute {
+  name: 'translation-center';
+  manualId: string;
+  branch: string | null;
+  linkId: string | null;
+  tab: TranslationCenterTab | null;
+}
+
+/** Phase 16 — `/manuals/:manualId/translation/review/:itemId?branch=…`. */
+export interface BilingualReviewRoute {
+  name: 'translation-review';
+  manualId: string;
+  itemId: string;
+  branch: string | null;
+}
+
+/** Phase 16 — `/glossaries?glossary=…`. */
+export interface GlossariesRoute {
+  name: 'glossaries';
+  glossaryId: string | null;
+}
+
+export type AppRoute =
+  | HubRoute
+  | EditorRoute
+  | TranslationCenterRoute
+  | BilingualReviewRoute
+  | GlossariesRoute;
+
+const TRANSLATION_TABS: readonly TranslationCenterTab[] = ['files', 'queue', 'glossary', 'settings'];
+
+function parseTranslationTab(value: string | null): TranslationCenterTab | null {
+  if (!value) return null;
+  const trimmed = value.trim() as TranslationCenterTab;
+  return (TRANSLATION_TABS as readonly string[]).includes(trimmed) ? trimmed : null;
+}
 
 /** Vite injects `base` for sub-path deployments; keep every link BASE_URL-aware. */
 const BASE = (import.meta.env.BASE_URL ?? '/').replace(/\/$/, '');
@@ -45,6 +84,48 @@ export function parseRoute(url: string): AppRoute {
     return { name: 'hub' };
   }
   const pathname = stripBase(parsed.pathname);
+
+  // Phase 16 screens — matched before `/manuals/:id` so a translation path can never fall back to
+  // the editor (or, worse, silently open the wrong tab).
+  if (/^\/glossaries\/?$/.test(pathname)) {
+    const glossaryId = parsed.searchParams.get('glossary');
+    return {
+      name: 'glossaries',
+      glossaryId: glossaryId && glossaryId.trim() ? glossaryId : null,
+    };
+  }
+
+  const review = /^\/manuals\/([^/]+)\/translation\/review\/([^/]+)\/?$/.exec(pathname);
+  if (review) {
+    const manualId = decodeURIComponent(review[1] ?? '');
+    const itemId = decodeURIComponent(review[2] ?? '');
+    if (manualId && itemId) {
+      const branch = parsed.searchParams.get('branch');
+      return {
+        name: 'translation-review',
+        manualId,
+        itemId,
+        branch: branch && branch.trim() ? branch : null,
+      };
+    }
+    return { name: 'hub' };
+  }
+
+  const center = /^\/manuals\/([^/]+)\/translation\/?$/.exec(pathname);
+  if (center) {
+    const manualId = decodeURIComponent(center[1] ?? '');
+    if (!manualId) return { name: 'hub' };
+    const branch = parsed.searchParams.get('branch');
+    const linkId = parsed.searchParams.get('link');
+    return {
+      name: 'translation-center',
+      manualId,
+      branch: branch && branch.trim() ? branch : null,
+      linkId: linkId && linkId.trim() ? linkId : null,
+      tab: parseTranslationTab(parsed.searchParams.get('tab')),
+    };
+  }
+
   const match = /^\/manuals\/([^/]+)\/?$/.exec(pathname);
   if (!match) return { name: 'hub' };
   const manualId = decodeURIComponent(match[1] ?? '');
@@ -75,6 +156,39 @@ export function editorPath(
   if (options.assignmentId) params.set('assignment', options.assignmentId);
   const suffix = params.toString();
   return withBase(`/manuals/${encodeURIComponent(manualId)}${suffix ? `?${suffix}` : ''}`);
+}
+
+/** Phase 16 — `/manuals/:manualId/translation`. */
+export function translationCenterPath(
+  manualId: string,
+  options: { branch?: string | null; linkId?: string | null; tab?: TranslationCenterTab | null } = {},
+): string {
+  const params = new URLSearchParams();
+  if (options.branch) params.set('branch', options.branch);
+  if (options.linkId) params.set('link', options.linkId);
+  if (options.tab) params.set('tab', options.tab);
+  const suffix = params.toString();
+  return withBase(`/manuals/${encodeURIComponent(manualId)}/translation${suffix ? `?${suffix}` : ''}`);
+}
+
+/** Phase 16 — `/manuals/:manualId/translation/review/:itemId`. */
+export function bilingualReviewPath(
+  manualId: string,
+  itemId: string,
+  options: { branch?: string | null } = {},
+): string {
+  const params = new URLSearchParams();
+  if (options.branch) params.set('branch', options.branch);
+  const suffix = params.toString();
+  return withBase(
+    `/manuals/${encodeURIComponent(manualId)}/translation/review/${encodeURIComponent(itemId)}${suffix ? `?${suffix}` : ''}`,
+  );
+}
+
+/** Phase 16 — `/glossaries`, optionally focused on one glossary. */
+export function glossariesPath(glossaryId?: string | null): string {
+  const suffix = glossaryId ? `?glossary=${encodeURIComponent(glossaryId)}` : '';
+  return withBase(`/glossaries${suffix}`);
 }
 
 const NAVIGATE_EVENT = 'dita:navigate';

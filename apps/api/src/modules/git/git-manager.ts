@@ -232,6 +232,43 @@ function textLooksBinary(text: string): boolean {
   return text.includes('\u0000');
 }
 
+/**
+ * Parses `git diff --name-status -M -z` output.
+ *
+ * Records are NUL separated as `STATUS\0path\0` — or `R100\0oldPath\0newPath\0` for renames and
+ * `C100\0oldPath\0newPath\0` for copies. Only the leading letter of the score is meaningful.
+ */
+function parseNameStatusZ(
+  raw: string,
+): Array<{ status: 'A' | 'M' | 'D' | 'R' | 'C'; path: string; oldPath?: string }> {
+  const tokens = raw.split('\u0000');
+  const changes: Array<{ status: 'A' | 'M' | 'D' | 'R' | 'C'; path: string; oldPath?: string }> =
+    [];
+  let index = 0;
+  while (index < tokens.length) {
+    const token = tokens[index];
+    index += 1;
+    if (!token) continue;
+    const letter = token.trim().charAt(0).toUpperCase();
+    if (letter !== 'A' && letter !== 'M' && letter !== 'D' && letter !== 'R' && letter !== 'C') {
+      continue;
+    }
+    if (letter === 'R' || letter === 'C') {
+      const oldPath = tokens[index];
+      const newPath = tokens[index + 1];
+      index += 2;
+      if (!oldPath || !newPath) continue;
+      changes.push({ status: letter, path: newPath, oldPath });
+      continue;
+    }
+    const filePath = tokens[index];
+    index += 1;
+    if (!filePath) continue;
+    changes.push({ status: letter, path: filePath });
+  }
+  return changes;
+}
+
 /** Directory names under `root`, or an empty list when unreadable. */
 function safeReadDirs(root: string): string[] {
   try {
@@ -1010,6 +1047,87 @@ export class GitManager {
     } catch {
       return null;
     }
+  }
+
+  /**
+   * Phase 16: every tracked file at `ref` with its blob hash, in one read-only pass.
+   * `git ls-tree -r -z` keeps non-ASCII paths intact; repositories without commits return `[]`.
+   */
+  async listTreeFiles(
+    workDir: string,
+    ref = 'HEAD',
+  ): Promise<Array<{ path: string; blobHash: string }>> {
+    if (!this.isRepository(workDir)) return [];
+    try {
+      const raw = await this.client(workDir).raw(['ls-tree', '-r', '-z', '--full-tree', ref]);
+      const files: Array<{ path: string; blobHash: string }> = [];
+      for (const entry of raw.split('\u0000')) {
+        if (!entry) continue;
+        // Format: `<mode> SP <type> SP <object> TAB <path>`
+        const tabIndex = entry.indexOf('\t');
+        if (tabIndex < 0) continue;
+        const meta = entry.slice(0, tabIndex).split(' ');
+        const type = meta[1];
+        const blobHash = meta[2];
+        if (type !== 'blob' || !blobHash) continue;
+        files.push({ path: entry.slice(tabIndex + 1), blobHash });
+      }
+      return files;
+    } catch {
+      // No commits yet, or an unknown ref: an empty tree is the truthful answer.
+      return [];
+    }
+  }
+
+  /**
+   * Phase 16: rename-aware name/status diff between two revisions. `-M` enables rename
+   * detection, which is what lets an incremental scan follow a moved topic instead of
+   * reporting a delete plus an untranslated file.
+   */
+  async diffNameStatusBetween(
+    workDir: string,
+    fromCommit: string,
+    toCommit = 'HEAD',
+  ): Promise<Array<{ status: 'A' | 'M' | 'D' | 'R' | 'C'; path: string; oldPath?: string }>> {
+    if (!this.isRepository(workDir)) return [];
+    let raw: string;
+    try {
+      raw = await this.client(workDir).raw([
+        'diff',
+        '--name-status',
+        '-M',
+        '-z',
+        fromCommit,
+        toCommit,
+      ]);
+    } catch {
+      return [];
+    }
+    return parseNameStatusZ(raw);
+  }
+
+  /**
+   * Phase 16: binary-safe file content at one revision (`git show <rev>:<path>`). Returns
+   * `null` when the path is absent at that revision rather than throwing.
+   */
+  async fileBufferAtRevision(
+    workDir: string,
+    revision: string,
+    filePath: string,
+  ): Promise<Buffer | null> {
+    if (!this.isRepository(workDir)) return null;
+    return await new Promise<Buffer | null>((resolvePromise) => {
+      const child = spawn('git', ['show', `${revision}:${filePath}`], {
+        cwd: workDir,
+        stdio: ['ignore', 'pipe', 'ignore'],
+      });
+      const chunks: Buffer[] = [];
+      child.stdout?.on('data', (chunk: Buffer) => chunks.push(chunk));
+      child.on('error', () => resolvePromise(null));
+      child.on('close', (code) => {
+        resolvePromise(code === 0 ? Buffer.concat(chunks) : null);
+      });
+    });
   }
 
   async log(

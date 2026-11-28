@@ -3,6 +3,8 @@ import {
   ArchiveRestore,
   FolderTree,
   GitBranch,
+  Globe,
+  Languages,
   Loader2,
   MoreHorizontal,
   Pencil,
@@ -13,11 +15,17 @@ import {
 import { useEffect, useRef, useState } from 'react';
 import { formatDateTime, formatRelativeTime, useI18n } from '../i18n/index.js';
 import type { Manual } from '../services/manuals-api.js';
+import type { ManualLanguageEdition } from './manual-language-families.js';
 
 export interface ManualCardProps {
   manual: Manual;
   busy: boolean;
   canManage: boolean;
+  /** Accepted for backward compatibility; the card's bottom bar no longer varies with it. */
+  offline?: boolean;
+  /** Language editions of this manual, base/source language first (Phase 16 hub grouping). */
+  editions?: ManualLanguageEdition[];
+  onOpenEdition?: (edition: ManualLanguageEdition) => void;
   onOpen: (manual: Manual) => void;
   onEdit: (manual: Manual) => void;
   onToggleArchive: (manual: Manual) => void;
@@ -28,6 +36,8 @@ export function ManualCard({
   manual,
   busy,
   canManage,
+  editions,
+  onOpenEdition,
   onOpen,
   onEdit,
   onToggleArchive,
@@ -36,6 +46,51 @@ export function ManualCard({
   const { t, locale } = useI18n();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Language pills only *select* an edition; the bottom "Open" button opens the selected one.
+  const effectiveEditions: ManualLanguageEdition[] =
+    editions ??
+    (manual.sourceLang
+      ? [
+          {
+            lang: manual.sourceLang,
+            manualId: manual.id,
+            branch: manual.currentBranch,
+            manualName: manual.name,
+            isBase: true,
+            exists: manual.exists,
+            stats: manual.stats,
+            lastOpenedAt: manual.lastOpenedAt,
+          },
+        ]
+      : []);
+
+  const orderedEditions = [...effectiveEditions].sort(
+    (left, right) => Number(right.isBase) - Number(left.isBase),
+  );
+
+  const [selectedLang, setSelectedLang] = useState<string | null>(
+    () => orderedEditions[0]?.lang ?? null,
+  );
+  const selectedEdition =
+    orderedEditions.find((edition) => edition.lang === selectedLang) ?? orderedEditions[0] ?? null;
+
+  const displayStats = selectedEdition?.stats ?? manual.stats;
+  const displayBranch = selectedEdition?.branch ?? manual.currentBranch;
+  const displayLastOpenedAt = selectedEdition ? selectedEdition.lastOpenedAt ?? null : manual.lastOpenedAt;
+  const displayExists = selectedEdition ? selectedEdition.exists : manual.exists;
+
+  const lastOpened = displayLastOpenedAt
+    ? t('workbench.lastOpened', { time: formatRelativeTime(displayLastOpenedAt, locale) })
+    : t('workbench.neverOpened');
+
+  const openSelected = () => {
+    if (selectedEdition && !selectedEdition.isBase && onOpenEdition) {
+      onOpenEdition(selectedEdition);
+      return;
+    }
+    onOpen(manual);
+  };
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -53,14 +108,10 @@ export function ManualCard({
     };
   }, [menuOpen]);
 
-  const lastOpened = manual.lastOpenedAt
-    ? t('workbench.lastOpened', { time: formatRelativeTime(manual.lastOpenedAt, locale) })
-    : t('workbench.neverOpened');
-
   return (
     <article
       className={`group relative flex flex-col rounded-xl border bg-white p-4 transition-shadow hover:shadow-md ${
-        manual.exists ? 'border-slate-200' : 'border-amber-200 bg-amber-50/40'
+        displayExists ? 'border-slate-200' : 'border-amber-200 bg-amber-50/40'
       }`}
     >
       <div className="flex items-start justify-between gap-2">
@@ -77,13 +128,77 @@ export function ManualCard({
                 {t('workbench.badgeArchived')}
               </span>
             ) : null}
-            {!manual.exists ? (
+            {!displayExists ? (
               <span className="inline-flex items-center gap-0.5 rounded border border-amber-300 bg-amber-100 px-1 py-[1px] text-[10px] font-medium text-amber-800">
                 <TriangleAlert className="h-2.5 w-2.5" aria-hidden="true" />
                 {t('workbench.badgeMissing')}
               </span>
             ) : null}
           </div>
+          {orderedEditions.length > 0 ? (
+            <div
+              data-testid={`manual-editions-${manual.id}`}
+              className="mt-1.5 flex flex-wrap items-center gap-1.5"
+            >
+              {orderedEditions.map((edition) => {
+                const isSelected = edition.lang === selectedEdition?.lang;
+                const baseLabel = t(
+                  edition.isBase
+                    ? 'translation.entry.openBaseEditionTitle'
+                    : 'translation.entry.openTargetEditionTitle',
+                  { lang: edition.lang, percent: edition.progressPercent ?? 0 },
+                );
+                // Phase 16: a derived edition (`depth >= 2`) is reachable from several branches,
+                // so the pill carries its full root→leaf path instead of a bare language tag.
+                const depth = edition.depth ?? 0;
+                const nested = depth >= 2 && (edition.lineagePath?.length ?? 0) > 0;
+                const lineagePath = edition.lineagePath?.join(' → ') ?? edition.lang;
+                const label = nested
+                  ? t('translation.entry.lineageEditionTitle', {
+                      path: lineagePath,
+                      title: baseLabel,
+                    })
+                  : baseLabel;
+                return (
+                  <button
+                    key={`${edition.isBase ? 'base' : 'target'}-${edition.lang}-${edition.manualId}-${edition.branch}`}
+                    type="button"
+                    disabled={busy || !edition.exists}
+                    data-testid={`manual-edition-${manual.id}-${edition.lang}`}
+                    data-base={edition.isBase ? 'true' : 'false'}
+                    data-depth={depth}
+                    data-selected={isSelected ? 'true' : 'false'}
+                    aria-pressed={isSelected}
+                    title={label}
+                    aria-label={label}
+                    onClick={() => setSelectedLang(edition.lang)}
+                    className={`inline-flex items-center gap-1 rounded border px-1.5 py-[1px] text-[10px] font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+                      isSelected
+                        ? 'border-blue-600 bg-blue-600 text-white'
+                        : 'border-slate-200 bg-white text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700'
+                    }`}
+                  >
+                    {edition.isBase ? (
+                      <Globe className="h-2.5 w-2.5 shrink-0" aria-hidden="true" />
+                    ) : (
+                      <Languages
+                        className={`h-2.5 w-2.5 shrink-0 ${isSelected ? 'text-white' : 'text-slate-400'}`}
+                        aria-hidden="true"
+                      />
+                    )}
+                    <span>
+                      {nested ? (
+                        <span aria-hidden="true" className="text-slate-400">
+                          ↳{' '}
+                        </span>
+                      ) : null}
+                      {edition.lang}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : null}
           <p className="mt-1 line-clamp-2 min-h-[2.1em] text-[11.5px] leading-snug text-slate-500">
             {manual.description || manual.rootDir}
           </p>
@@ -163,13 +278,13 @@ export function ManualCard({
         <span className="inline-flex items-center gap-1">
           <FolderTree className="h-3 w-3 text-slate-400" aria-hidden="true" />
           {t('workbench.stats', {
-            topics: manual.stats.totalTopics,
-            maps: manual.stats.totalMaps,
+            topics: displayStats.totalTopics,
+            maps: displayStats.totalMaps,
           })}
         </span>
         <span className="inline-flex items-center gap-1">
           <GitBranch className="h-3 w-3 text-slate-400" aria-hidden="true" />
-          {t('workbench.branch', { branch: manual.currentBranch })}
+          {t('workbench.branch', { branch: displayBranch })}
         </span>
         {manual.myActiveAssignmentCount > 0 ? (
           <span className="inline-flex items-center gap-1 rounded bg-blue-50 px-1 py-[1px] font-medium text-blue-700">
@@ -187,20 +302,25 @@ export function ManualCard({
       <div className="mt-auto flex items-center justify-between gap-2 pt-3">
         <span
           className="truncate text-[10px] text-slate-400"
-          title={manual.lastOpenedAt ? formatDateTime(manual.lastOpenedAt, locale) : manual.rootDir}
+          title={
+            displayLastOpenedAt ? formatDateTime(displayLastOpenedAt, locale) : manual.rootDir
+          }
         >
           {lastOpened}
         </span>
-        <button
-          type="button"
-          onClick={() => onOpen(manual)}
-          disabled={busy || !manual.exists}
-          title={manual.exists ? undefined : t('workbench.badgeMissing')}
-          className="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : null}
-          {t('workbench.open')}
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            type="button"
+            onClick={openSelected}
+            disabled={busy || !displayExists}
+            data-testid={`manual-open-${manual.id}`}
+            title={displayExists ? undefined : t('workbench.badgeMissing')}
+            className="inline-flex shrink-0 items-center gap-1 rounded-md bg-slate-900 px-2.5 py-1 text-[11px] font-medium text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+          >
+            {busy ? <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" /> : null}
+            {t('workbench.open')}
+          </button>
+        </div>
       </div>
     </article>
   );

@@ -3,6 +3,32 @@
 DITAEditor 的重要变更记录。格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [1.8.0] — 2026-11-28
+
+Phase 16 交付**成对翻译与双语审校**：目标语言不再是一张译文表，而是一本拥有独立仓库、分支、锁、草稿层与发布主题的真实手册。新增语言血缘、按 Git 差异的增量扫描、`S0 × S1 × T0` 段落级复用、AI 翻译队列、四视图双语审校、实时术语 / QA、全局与手册术语库，以及审校稿到目标草稿层的签入闭环。官网同步升级为「十个能力」，新增成对翻译文档与真实界面截图。全仓测试 1351 项通过（1 项跳过；`@dita/core` 309 / `@dita/web` 696 / `@dita/api` 296 / `@dita/site` 30 / `@dita/desktop` 20）。
+
+### Added
+
+- **Phase 16：成对翻译与双语审校**（详见 [phase16-translation.md](docs/plans/phase16-translation.md)、[phase16-translation-center-ux.md](docs/plans/phase16-translation-center-ux.md)、[phase16-bilingual-review-ux.md](docs/plans/phase16-bilingual-review-ux.md)、[ADR 0005](docs/adr/0005-paired-manuals-translation-model.md)）：
+  - **语言家族与配对**：`translation_links` 记录源 / 目标手册、分支与语言，`translation_file_states` 记录文件水位；支持任意深度血缘（如 `zh-CN → ar-SA → uk-UA → en-US`）与按需派生目标手册骨架，也可绑定已有手册。配对只建立映射，不复制 DITA 内容；解除配对不删除任何译文。
+  - **增量扫描与复用**：以 `git diff -M` 识别新增、修改、重命名与删除，跳过仅元数据变更；对每个文件按 `S0 × S1 × T0` 做段落级三方对齐，未变段落直接复用，`codeblock` / `pre` / `conref` / `translate="no"` 等受保护内容逐字保留。结构匹配率低于 50% 时自动退化为整文件翻译并以旧译文作参考（`full_with_reference`）。
+  - **翻译队列**：`translation_jobs` / `translation_items` 两级队列 + 进程内 worker + SSE 进度；支持按文件、按批次与整本翻译，复用统计（复用 / 新译 / 受保护段落）与失败重试；可在设置中控制并发、复用策略与目标地区风格。
+  - **双语审校**：左右对照、双语交错、沉浸对照与 XML 差异四种视图；段落可直接富文本编辑或切到 XML，缺失行内标签一键补齐，`id` / `href` / `keyref` / `conref` 等属性保持与源文一致；实时显示术语一致性、禁用译法、DNT、占位符与良构性问题，并支持逐段 AI 优化与独立 AI 审校。
+  - **术语库**：全局与手册两级术语表，支持同义词、大小写敏感、DNT / 禁用译法、多目标语言，以及 CSV / JSON / TBX-Basic 导入导出（先 dry-run 再落库）；翻译与审校阶段共享同一匹配器。
+  - **审核、签入与发布**：审校通过的译文先写入目标手册的个人草稿叠加层（仅本人可见），可在目标编辑器中预览；勾选后批量签入，才推进目标分支 `HEAD`。翻译读取源 / 目标基线，不消费他人草稿，应用时仍校验目标文件锁；每种语言可按自己的节奏独立发布 HTML5 / PDF。
+- **翻译中心 UI 与工作流**：`apps/web/src/translation/` 新增翻译中心（文件 / 队列 / 手册术语库 / 设置）、语言血缘侧栏、场景提示条、流水线状态条与双语审校页；状态覆盖待处理、翻译中、待审校、草稿就绪、已签入与已同步，并提供源文件更新检查、资产同步与结构化配置（Map / keydef）的人工复核提示。
+- **文档与官网**：新增 `docs/design/` 翻译设计与 Phase 16 规划文档、ADR 0005；官网新增 `/docs/translation`、`/en/docs/translation`，能力展台扩充为十项并加入成对翻译与双语审校真实截图；README / CHANGELOG / 版本号同步至 1.8.0。
+
+### Changed
+
+- **手册工作台接入语言维度**：手册卡片与根地图切换器显示源语言，可从翻译中心直接进入目标手册编辑；工作台保留原有「一本手册 = 一个仓库」与「干净基线 + 个人草稿」模型，不引入 CRDT 或共享工作目录。
+- **AI 与严格校验复用既有契约**：翻译沿用 `@dita/api` 的 LangChain 工厂、SSE 与掩码配置；DITA-OT 校验在临时目录中以 `strict` 模式执行，不污染共享工作区。
+
+### Fixed
+
+- **重命名与删除不产生孤儿译文**：源文件重命名会按 `git diff -M` 跟随并保留目标文件对应关系，源文件删除会把目标项标记为 `source_deleted` 而不是静默清除。
+- **仅元数据变更不再触发全文重译**：`navtitle`、Map `title` 等属性变化单独归类，避免无意义的整篇 AI 调用。
+
 ## [1.7.0] — 2026-11-28
 
 工作台信息架构二次收敛：新增**应用内帮助中心**与**文档站双语写作指南 / DITA 1.3 速查**，把 Root Map 标题行升级为**根地图切换器 + 手册默认根地图**，将标签档位、大纲入口与任务内容模型收进**底栏与单行 chrome**，并把内置演示工作区整体替换为**《DITAEditor 产品手册》**。全仓测试 1061 项全绿（`@dita/core` 259 / `@dita/web` 519 / `@dita/api` 233 / `@dita/site` 30 / `@dita/desktop` 20）。

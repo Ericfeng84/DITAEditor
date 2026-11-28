@@ -10,7 +10,7 @@
 
 | 文档 | 说明 |
 | :--- | :--- |
-| [architecture-and-plan.md](./architecture-and-plan.md) | **总架构基线与实施路线图**：系统总体架构、核心难点攻关、技术选型矩阵与 Phase 0–15 演进记录 |
+| [architecture-and-plan.md](./architecture-and-plan.md) | **总架构基线与实施路线图**：系统总体架构、核心难点攻关、技术选型矩阵与 Phase 0–16 演进记录 |
 | [design/versioning-model.md](./design/versioning-model.md) | **版本管理与并发协作模型（现状）**：Git 干净基线 + 个人草稿叠加层、独占锁、签入、合并、回滚与发布溯源 |
 | [design/dita-authoring-compliance.md](./design/dita-authoring-compliance.md) | **DITA 1.3 结构化写作合规实现**：规则单一来源、引导式插入与三处同源结构诊断 |
 | [design/content-reuse-workflow.md](./design/content-reuse-workflow.md) | **内容复用工作流设计**：Warehouse 复用仓库、新建/提取复用片段与全入口插入闭环 |
@@ -26,6 +26,7 @@
 - [0002-per-request-manual-isolation.md](./adr/0002-per-request-manual-isolation.md) — 请求级按 Manual ID 与 Branch 隔离工作区与语义索引
 - [0003-soft-assignments-in-sqlite.md](./adr/0003-soft-assignments-in-sqlite.md) — Topic 任务委派以软引导形式存储于 SQLite，与 XML 和文件锁解耦
 - [0004-baseline-and-draft-overlay.md](./adr/0004-baseline-and-draft-overlay.md) — 分支 worktree 保持干净基线（`HEAD`），未检入改动隔离至个人草稿叠加层
+- [0005-paired-manuals-translation-model.md](./adr/0005-paired-manuals-translation-model.md) — 多语言版本采用跨手册配对（语言家族）模型，SQLite 追踪路径映射与同步水位
 
 ## 三、部署与运维指南
 
@@ -45,20 +46,25 @@
 - **AI Agent 协作约定（[`agents/`](./agents/)）**：[domain.md](./agents/domain.md)、[issue-tracker.md](./agents/issue-tracker.md)、[triage-labels.md](./agents/triage-labels.md)
 - **工作台截图资产（[`pic/`](./pic/)）**：供根目录 [README.md](../README.md) 与 [README.en.md](../README.en.md) 使用的中英双语 UI 截图
 
-## 五、历史阶段规划与专项方案归档（只读参考）
+## 五、阶段规划与专项方案归档
 
-位于 [`plans/`](./plans/)，记录各阶段落地前的详细设计蓝图与专项修复方案。下列方案**均已实现**；若细节与现行代码存在演进差异，请以源码与上方「现行架构与设计」为准：
+位于 [`plans/`](./plans/)，记录各阶段落地前的详细设计蓝图与专项方案。其中 Phase 6–16 **均已实现**（细节演进以源码与上方「现行架构与设计」为准）：
 
-| 文档 | 覆盖范围 |
-| :--- | :--- |
-| [plans/phase06-ai-implementation.md](./plans/phase06-ai-implementation.md) | Phase 6：AI 辅助编写、标签优化与错误处理实施蓝图 |
-| [plans/phase07-site.md](./plans/phase07-site.md) | Phase 7：官网、浏览器 DITA 沙箱与双语文档站蓝图 |
-| [plans/phase08-i18n.md](./plans/phase08-i18n.md) | Phase 8：全栈中英双语国际化（i18n）蓝图 |
-| [plans/phase10-workbench-assignments.md](./plans/phase10-workbench-assignments.md) | Phase 10：手册编辑工作台（Workbench Hub）与 Topic 任务委派蓝图 |
-| [plans/phase12-html-themes.md](./plans/phase12-html-themes.md) | Phase 12：HTML5 发布样式主题与多套专业文档模板蓝图 |
-| [plans/phase13-versioning-overlay.md](./plans/phase13-versioning-overlay.md) | Phase 13：Git 干净基线 + 个人草稿叠加层与合并闭环蓝图 |
-| [plans/phase13-restore-revert-fix.md](./plans/phase13-restore-revert-fix.md) | Phase 13 补充修复：还原此版本（Restore）与撤销该提交（Revert）前端联动 |
-| [plans/key-management-integration.md](./plans/key-management-integration.md) | v1.5.0：Key 管理整合至「Map 管理」与「属性」及新建 Key 工作流 |
-| [plans/checkin-validation-ai-fix.md](./plans/checkin-validation-ai-fix.md) | v1.5.0：签入前置校验门禁与 AI 修复「检出—草稿—提交」闭环 |
-| [plans/phase14-docling-agent.md](./plans/phase14-docling-agent.md) | Phase 14：文档智能导入与工具化 DITA-OT Repair Agent 闭环 |
-| [plans/phase15-pdf-themes.md](./plans/phase15-pdf-themes.md) | Phase 15：PDF 发布样式主题与多套专业印刷排版模板 |
+| 文档 | 状态 | 覆盖范围 |
+| :--- | :--- | :--- |
+| [plans/phase06-ai-implementation.md](./plans/phase06-ai-implementation.md) | ✅ 已实现 | Phase 6：AI 辅助编写、标签优化与错误处理实施蓝图 |
+| [plans/phase07-site.md](./plans/phase07-site.md) | ✅ 已实现 | Phase 7：官网、浏览器 DITA 沙箱与双语文档站蓝图 |
+| [plans/phase08-i18n.md](./plans/phase08-i18n.md) | ✅ 已实现 | Phase 8：全栈中英双语国际化（i18n）蓝图 |
+| [plans/phase10-workbench-assignments.md](./plans/phase10-workbench-assignments.md) | ✅ 已实现 | Phase 10：手册编辑工作台（Workbench Hub）与 Topic 任务委派蓝图 |
+| [plans/phase12-html-themes.md](./plans/phase12-html-themes.md) | ✅ 已实现 | Phase 12：HTML5 发布样式主题与多套专业文档模板蓝图 |
+| [plans/phase13-versioning-overlay.md](./plans/phase13-versioning-overlay.md) | ✅ 已实现 | Phase 13：Git 干净基线 + 个人草稿叠加层与合并闭环蓝图 |
+| [plans/phase13-restore-revert-fix.md](./plans/phase13-restore-revert-fix.md) | ✅ 已实现 | Phase 13 补充修复：还原此版本（Restore）与撤销该提交（Revert）前端联动 |
+| [plans/key-management-integration.md](./plans/key-management-integration.md) | ✅ 已实现 | v1.5.0：Key 管理整合至「Map 管理」与「属性」及新建 Key 工作流 |
+| [plans/checkin-validation-ai-fix.md](./plans/checkin-validation-ai-fix.md) | ✅ 已实现 | v1.5.0：签入前置校验门禁与 AI 修复「检出—草稿—提交」闭环 |
+| [plans/phase14-docling-agent.md](./plans/phase14-docling-agent.md) | ✅ 已实现 | Phase 14：文档智能导入与工具化 DITA-OT Repair Agent 闭环 |
+| [plans/phase15-pdf-themes.md](./plans/phase15-pdf-themes.md) | ✅ 已实现 | Phase 15：PDF 发布样式主题与多套专业印刷排版模板 |
+| [plans/phase16-translation.md](./plans/phase16-translation.md) | ✅ 已实现 | Phase 16：多语言翻译、增量同步、翻译队列、术语库与 AI 协同工作台 |
+| [plans/phase16-bilingual-review-ux.md](./plans/phase16-bilingual-review-ux.md) | ✅ 已实现 | Phase 16 补充方案：双语审校多视图对照、无损行内富文本编辑与连续审校重构 |
+| [plans/phase16-translation-center-ux.md](./plans/phase16-translation-center-ux.md) | ✅ 已实现 | Phase 16 补充方案：翻译中心场景化工作流重构、图资/结构变动闭环与编辑器 UI 风格统一 |
+| [plans/phase16-translation-dual-ai-qa-strict.md](./plans/phase16-translation-dual-ai-qa-strict.md) | ✅ 已实现 | Phase 16 补充方案：翻译双 AI 独立审查、QA 自动修复、审查模型配置与整批 DITA-OT 严格校验闭环 |
+| [plans/phase16-translation-lineage.md](./plans/phase16-translation-lineage.md) | ✅ 已实现 | Phase 16 补充方案：多级翻译血缘（树形/分支本地化链路）、全家族查询、下游签入重扫与左侧血缘树 UI |

@@ -10,6 +10,7 @@ import { apiT } from '../../i18n/messages.js';
 import { httpError } from '../errors.js';
 import { repositoryIdFor, validateBranchName, type GitManager } from '../git/git-manager.js';
 import type { IdentityUser } from '../identity/identity-service.js';
+import { normalizeLangTag } from '../translation/types.js';
 import { WorkspaceManager, type WorkspaceScaffold } from '../files/workspace-fs.js';
 
 export interface ManualStats {
@@ -37,6 +38,11 @@ export interface ManualView {
   lastOpenedAt: string | null;
   /** Phase 13: branches whose shared baseline cannot be rewritten/merged into without admin. */
   protectedBranches: string[];
+  /**
+   * Phase 16: the language this manual is authored in. `null` until a translation link fixes it
+   * or the root map / first topic `xml:lang` is inferred lazily.
+   */
+  sourceLang: string | null;
 }
 
 export interface ManualListSnapshot {
@@ -56,6 +62,8 @@ export interface ManualCreateInput {
   scaffold?: WorkspaceScaffold;
   files?: { path: string; content: string; encoding?: 'utf8' | 'base64' }[];
   initGit?: boolean;
+  /** Phase 16: authored language for a newly created/imported manual. */
+  sourceLang?: string | null;
 }
 
 export interface ManualUpdateInput {
@@ -65,6 +73,8 @@ export interface ManualUpdateInput {
   archived?: boolean;
   /** Phase 13: admin-only branch protection policy; `[]` means nothing is protected. */
   protectedBranches?: string[];
+  /** Phase 16: explicit authored language; `null` clears it so it can be re-inferred. */
+  sourceLang?: string | null;
 }
 
 export interface ManualRegistryOptions {
@@ -286,6 +296,8 @@ export class ManualRegistryService {
       locale?: ApiLocale;
       /** Phase 13: id chosen at creation time (fresh UUID) instead of the legacy path hash. */
       manualId?: string;
+      /** Phase 16: authored language recorded on insert. */
+      sourceLang?: string | null;
     } = {},
   ): Promise<ManualView> {
     const resolvedRootDir = path.resolve(rootDir);
@@ -382,6 +394,7 @@ export class ManualRegistryService {
       lastOpenedAt?: number;
       isBuiltin?: boolean;
       createdBy?: string;
+      sourceLang?: string | null;
     },
     timestamp: number,
   ): Promise<ManualView> {
@@ -398,6 +411,7 @@ export class ManualRegistryService {
       updatedAt: timestamp,
       lastOpenedAt: options.lastOpenedAt ?? timestamp,
       protectedBranchesJson: JSON.stringify(DEFAULT_PROTECTED_BRANCHES),
+      sourceLang: options.sourceLang ?? null,
     };
     await this.db.insert(manuals).values(row);
     return this.toView(row);
@@ -516,7 +530,13 @@ export class ManualRegistryService {
       createdBy: user.id,
       locale,
       ...(manualId ? { manualId } : {}),
+      ...(input.sourceLang === undefined ? {} : { sourceLang: input.sourceLang }),
     });
+    // An attached manual already has a row; record the requested language explicitly.
+    if (input.sourceLang !== undefined && view.sourceLang !== input.sourceLang) {
+      await this.setSourceLang(view.id, input.sourceLang);
+      return this.get(view.id);
+    }
     return view;
   }
 
@@ -557,11 +577,49 @@ export class ManualRegistryService {
         archived:
           typeof patch.archived === 'boolean' ? (patch.archived ? 1 : 0) : row.archived,
         ...(protectedBranchesJson === null ? {} : { protectedBranchesJson }),
+        ...(patch.sourceLang === undefined
+          ? {}
+          : { sourceLang: normalizeLangTag(patch.sourceLang) }),
         updatedAt: Date.now(),
       })
       .where(eq(manuals.id, id));
 
     return this.get(id);
+  }
+
+  /** Phase 16: current authored language, or `null` when it was never recorded. */
+  getSourceLang(manualId: string): string | null {
+    const row = this.db.select().from(manuals).where(eq(manuals.id, manualId)).get();
+    return row?.sourceLang ?? null;
+  }
+
+  /** Phase 16: persists the authored language (`null` clears it). */
+  async setSourceLang(manualId: string, sourceLang: string | null): Promise<string | null> {
+    const normalized = normalizeLangTag(sourceLang);
+    await this.db
+      .update(manuals)
+      .set({ sourceLang: normalized, updatedAt: Date.now() })
+      .where(eq(manuals.id, manualId));
+    return normalized;
+  }
+
+  /**
+   * Phase 16 lazy inference: keep the recorded language when present, otherwise read the root
+   * map's (or first topic's) `xml:lang`, persist it and return it. A manual whose content never
+   * declares a language stays `null` — guessing `en` would silently mistranslate.
+   */
+  async ensureSourceLang(manualId: string): Promise<string | null> {
+    const row = await this.requireRow(manualId).catch(() => null);
+    if (!row) return null;
+    const existing = normalizeLangTag(row.sourceLang ?? null);
+    if (existing) return existing;
+    const inferred = await inferSourceLangFromDirectory(row.rootDir, row.defaultRootMap);
+    if (!inferred) return null;
+    await this.db
+      .update(manuals)
+      .set({ sourceLang: inferred, updatedAt: Date.now() })
+      .where(eq(manuals.id, manualId));
+    return inferred;
   }
 
   async touch(id: string): Promise<ManualView> {
@@ -684,12 +742,99 @@ export class ManualRegistryService {
       updatedAt: new Date(row.updatedAt).toISOString(),
       lastOpenedAt: nowIso(row.lastOpenedAt),
       protectedBranches: parseProtectedBranches(row.protectedBranchesJson),
+      sourceLang: row.sourceLang ?? null,
     };
   }
 }
 
 function gitFallbackBranch(): string {
   return 'main';
+}
+
+/** Directories that never carry authored DITA content (same skip list as the Phase 16 scan). */
+const IGNORED_DIRS = new Set([
+  '.git',
+  '.ditaeditor',
+  'node_modules',
+  'dist',
+  'out',
+  'build',
+  '.turbo',
+  '.cache',
+]);
+
+/** Root element `xml:lang` of one XML file, or `null` when absent/unreadable. */
+async function readXmllangAt(filePath: string): Promise<string | null> {
+  const text = await readFile(filePath, 'utf8').catch(() => null);
+  if (!text) return null;
+  const match = /<([A-Za-z_][\w.:-]*)([^<>]*?)\sxml:lang\s*=\s*(["'])([^"']+)\3/.exec(text);
+  return match ? normalizeLangTag(match[4]) : null;
+}
+
+/** Depth-limited search for the first file whose extension is in `extensions`. */
+async function findFirstFileByExtension(
+  rootDir: string,
+  extensions: readonly string[],
+  maxDepth = 4,
+): Promise<string | null> {
+  const walk = async (dir: string, depth: number): Promise<string | null> => {
+    const entries = await readdir(dir, { withFileTypes: true }).catch(() => null);
+    if (!entries) return null;
+    const sorted = [...entries].sort((a, b) => a.name.localeCompare(b.name));
+    for (const entry of sorted) {
+      if (entry.isFile() && extensions.some((ext) => entry.name.toLowerCase().endsWith(ext))) {
+        return path.join(dir, entry.name);
+      }
+    }
+    if (depth >= maxDepth) return null;
+    for (const entry of sorted) {
+      if (!entry.isDirectory() || IGNORED_DIRS.has(entry.name) || entry.name.startsWith('.')) {
+        continue;
+      }
+      const found = await walk(path.join(dir, entry.name), depth + 1);
+      if (found) return found;
+    }
+    return null;
+  };
+  return walk(rootDir, 0);
+}
+
+/**
+ * Phase 16 lazy language inference: the root map wins, then any root-level map, then the first
+ * topic. Reading content is the only truthful source — a manual that declares no `xml:lang`
+ * stays `null` instead of being assumed English.
+ */
+export async function inferSourceLangFromDirectory(
+  rootDir: string,
+  defaultRootMap?: string | null,
+): Promise<string | null> {
+  const rootStat = await stat(rootDir).catch(() => null);
+  if (!rootStat?.isDirectory()) return null;
+
+  const mapCandidates: string[] = [];
+  if (defaultRootMap?.trim()) mapCandidates.push(defaultRootMap.trim());
+  const rootEntries = await readdir(rootDir, { withFileTypes: true }).catch(() => []);
+  for (const entry of rootEntries) {
+    if (entry.isFile() && entry.name.toLowerCase().endsWith('.ditamap')) {
+      mapCandidates.push(entry.name);
+      continue;
+    }
+    if (
+      entry.isFile() &&
+      (entry.name.toLowerCase().endsWith('.dita') || entry.name.toLowerCase().endsWith('.xml'))
+    ) {
+      mapCandidates.push(entry.name);
+    }
+  }
+
+  for (const candidate of mapCandidates) {
+    const lang = await readXmllangAt(path.join(rootDir, candidate));
+    if (lang) return lang;
+  }
+
+  const topic = await findFirstFileByExtension(rootDir, ['.dita']);
+  if (topic) return await readXmllangAt(topic);
+  return null;
 }
 
 /** i18n-aware helper used by the route layer when a manual folder disappeared. */

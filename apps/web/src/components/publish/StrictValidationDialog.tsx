@@ -20,6 +20,8 @@ export interface StrictValidationDialogProps {
   targetLabel: string;
   onClose: () => void;
   onJumpToFile: (path: string, line: number, column: number) => void;
+  /** Closes the dialog and reveals the merged results in the bottom Problems panel. */
+  onViewInProblems?: () => void;
   /** Opens the AI assistant with the strict DITA-OT diagnostic as fix context. */
   onAiFixDiagnostic?: (diagnostic: PublishDiagnostic) => void;
   /** Shows the "proposal applied, re-run validation" hint after an AI fix. */
@@ -37,6 +39,7 @@ export function StrictValidationDialog({
   onAiFixDiagnostic,
   aiApplied = false,
   onOpenPluginGuide,
+  onViewInProblems,
 }: StrictValidationDialogProps) {
   const { t } = useI18n();
   const runtime = usePublishStore((state) => state.runtime);
@@ -254,6 +257,16 @@ export function StrictValidationDialog({
             {t('strict.footnote')}
           </span>
           <div className="flex items-center gap-2">
+            {!strictRunning && strictResult && strictResult.diagnostics.length > 0 && onViewInProblems ? (
+              <button
+                type="button"
+                onClick={onViewInProblems}
+                data-testid="strict-view-in-problems"
+                className="rounded-md border border-blue-200 bg-white px-2.5 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-50"
+              >
+                {t('strict.viewInProblems')}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={onClose}

@@ -6,13 +6,13 @@ export const en: typeof zh = {
     siteName: 'DITAEditor',
     homeTitle: 'DITAEditor — write DITA like any modern editor, and never break the structure',
     homeDescription:
-      'Open-source structured authoring in the browser: manuals with task assignment, a document outline you can drag to reorder, visual and source editing that never breaks the layout, clean version history, product names and endpoints defined once, private per-author drafts, and one-click publishing to branded HTML and Chinese PDF — with a bilingual UI.',
+      'Open-source structured authoring in the browser: manuals with task assignment, a document outline you can drag to reorder, visual and source editing that never breaks the layout, clean version history, product names and endpoints defined once, private per-author drafts, paired translation with segment-level bilingual review, and one-click publishing to branded HTML and Chinese PDF — with a bilingual UI.',
     playgroundTitle: 'Interactive DITA 1.3 sandbox — DITAEditor',
     playgroundDescription:
       'A real DITA 1.3 sandbox that runs entirely in your browser: visual and source editing, CALS tables, three-state DITAVAL projection, and exact line-level diffs, all powered by @dita/core.',
     docsTitle: 'Documentation — DITAEditor',
     docsDescription:
-      'DITAEditor quick start, single-container Docker deployment, local development, feature tour, authoring guide, DITA 1.3 quick reference, AI setup, and architecture reference.',
+      'DITAEditor quick start, single-container Docker deployment, local development, feature tour, authoring guide, paired translation and glossaries, DITA 1.3 quick reference, AI setup, and architecture reference.',
     ogAlt: 'Screenshot of the DITAEditor workbench',
   },
   nav: {
@@ -34,7 +34,7 @@ export const en: typeof zh = {
     titleLead: 'Write DITA the way you write',
     titleAccent: 'anything else.',
     subtitle:
-      'Open a browser and write: edit content the way you always do, while structure, references and filters keep themselves correct. Everyone works in their own draft, so nobody overwrites anybody, and when you are done one click publishes branded HTML and a Chinese-ready PDF.',
+      'Open a browser and write: edit content the way you always do, while structure, references and filters keep themselves correct. Everyone works in their own draft, so nobody overwrites anybody, and when you are done one click publishes branded HTML and a Chinese-ready PDF. When the same manual has to ship in English, Arabic or more languages, paired translation and segment-level review happen in the same workbench.',
     primaryCta: 'Try it in the browser',
     desktopCta: 'Download desktop app',
     secondaryCta: 'Deploy with Docker',
@@ -43,7 +43,7 @@ export const en: typeof zh = {
     stats: [
       { value: '100%', label: 'Formatting survives every edit' },
       { value: '0', label: 'Clients to install' },
-      { value: '719', label: 'Automated tests' },
+      { value: '1351', label: 'Automated tests' },
       { value: '2', label: 'Bilingual UI' },
     ],
     showcaseLabel: 'The real workbench',
@@ -91,6 +91,12 @@ export const en: typeof zh = {
         caption: 'AI proposes a fragment only: what changed and which lines it touches is plain to see, and nothing is written until you confirm.',
         alt: 'DITAEditor AI rewrite with diff review screenshot',
       },
+      {
+        id: 'translation',
+        label: 'Paired translation',
+        caption: 'Source and target side by side: changed segments are flagged, terminology and inline tags are checked live, and nothing reaches the target draft until you confirm.',
+        alt: 'DITAEditor bilingual review workbench with source and target segments side by side',
+      },
     ],
   },
   compare: {
@@ -125,6 +131,12 @@ export const en: typeof zh = {
         dita: 'Fonts are bundled, a theme is all you pick, and errors point at the exact source line',
       },
       {
+        topic: 'How are translated editions delivered?',
+        legacy: 'Outsource translation or bolt on a separate TMS, then re-layout the result in the CMS',
+        generic: 'Copy the files and edit by hand; the next source change drifts away',
+        dita: 'A target language is a real manual: translate by Git diff, review segment by segment, then check in',
+      },
+      {
         topic: 'Is AI editing safe?',
         legacy: 'Model output overwrites the document and is hard to review',
         generic: 'Free-text rewriting silently breaks structure',
@@ -152,9 +164,9 @@ export const en: typeof zh = {
   },
   features: {
     eyebrow: '03 — Capabilities',
-    title: 'Nine capabilities, one real pipeline',
+    title: 'Ten capabilities, one real pipeline',
     description:
-      'Start from a day in the life of a manual: hand out tasks, write, restructure, reuse, collaborate on versions, ship — then add AI and a bilingual UI. All of it happens on the same document.',
+      'Start from a day in the life of a manual: hand out tasks, write, restructure, reuse, collaborate on versions, translate into target languages, ship — then add AI and a bilingual UI. All of it happens on the same document.',
     readDocs: 'Read the feature tour',
     screenshotLabel: 'Real interface',
   },
@@ -173,7 +185,7 @@ export const en: typeof zh = {
     layers: {
       web: '@dita/web · React 19 authoring workbench',
       api: '@dita/api · Fastify + SQLite + simple-git',
-      core: '@dita/core · XML / CALS / keyspace / DITAVAL / ProseMirror',
+      core: '@dita/core · XML / CALS / keyspace / DITAVAL / ProseMirror / translation',
       ot: 'DITA-OT 4.2.1 CLI (standard distribution)',
       llm: 'OpenAI-compatible LLM (DeepSeek or private proxy)',
       git: 'Local Git worktree',
@@ -184,6 +196,7 @@ export const en: typeof zh = {
       { label: 'Publishing', value: 'DITA-OT --validate=yes --processing-mode=strict' },
       { label: 'Concurrency', value: 'Branch-isolated git worktrees plus check-out locks' },
       { label: 'AI boundary', value: 'Candidates must pass lossless splicing and diff review' },
+      { label: 'Translation model', value: 'Paired manuals plus SQLite lineage, each with its own Git, locks and publish theme' },
     ],
   },
   desktop: {
@@ -224,12 +237,12 @@ export const en: typeof zh = {
   },
   cta: {
     title: 'Spend ten minutes seeing whether it really holds up.',
-    body: 'Open the full hosted trial: manuals and tasks, visual and source editing, outline drag-and-drop, single sourcing, themed publishing and AI rewriting are all included.',
+    body: 'Open the full hosted trial: manuals and tasks, visual and source editing, outline drag-and-drop, single sourcing, paired translation with bilingual review, themed publishing and AI rewriting are all included.',
     playground: 'Open the online workbench',
     docs: 'Read the docs',
   },
   footer: {
-    blurb: 'An open-source structured authoring workbench: write DITA like any modern document, keep formatting and references intact, keep version history clean, and publish in one click — fully self-hostable.',
+    blurb: 'An open-source structured authoring workbench: write DITA like any modern document, keep formatting and references intact, keep version history clean, translate paired editions without breaking them, and publish in one click — fully self-hostable.',
     productHeading: 'Product',
     learnHeading: 'Learn',
     projectHeading: 'Project',
@@ -275,7 +288,7 @@ export const en: typeof zh = {
     unresolved: 'unresolved',
     fullWorkbenchTitle: 'This is only the site sandbox',
     fullWorkbenchBody:
-      'The full workbench adds multi-file DITA map trees, a semantic index, local Git branches with check-out locks, strict DITA-OT validation with HTML5/PDF publishing, and an AI assistant with diff review.',
+      'The full workbench adds multi-file DITA map trees, a semantic index, local Git branches with check-out locks, paired translation with bilingual review, strict DITA-OT validation with HTML5/PDF publishing, and an AI assistant with diff review.',
     fullWorkbenchCta: 'Read the five-minute deployment guide',
     stats: { lines: 'XML lines', keys: 'keys', changed: 'changed' },
     editingHint: 'Edit directly; use the toolbar to insert new blocks.',
@@ -347,6 +360,7 @@ export const en: typeof zh = {
       features: 'Feature tour',
       'authoring-guide': 'Authoring guide',
       'ai-setup': 'AI setup and safety boundaries',
+      translation: 'Paired translation and bilingual review',
       'dita-spec': 'DITA 1.3 quick reference',
       architecture: 'Architecture reference',
     },
@@ -367,6 +381,6 @@ export const en: typeof zh = {
     loading: 'Loading…',
     error: 'Something went wrong',
     external: 'Opens in a new tab',
-    version: 'v1.0.0',
+    version: 'v1.8.0',
   },
 };

@@ -16,6 +16,7 @@ import { enAssignments } from './en/assignments.js';
 import { enIngest } from './en/ingest.js';
 import { enDesktop } from './en/desktop.js';
 import { enHelp } from './en/help.js';
+import { enTranslation } from './en/translation.js';
 
 export const en: Record<MessageKey, string> = {
   ...enCommon,
@@ -29,4 +30,5 @@ export const en: Record<MessageKey, string> = {
   ...enIngest,
   ...enDesktop,
   ...enHelp,
+  ...enTranslation,
 };

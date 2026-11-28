@@ -39,8 +39,18 @@ import { IngestService } from './modules/ingest/ingest-service.js';
 import { ParserSettingsService } from './modules/ingest/parser-settings-service.js';
 import { registerIngestRoutes } from './modules/ingest/routes.js';
 import type { IngestStrictValidator } from './modules/ingest/agent/types.js';
+import type { validateStrict } from './modules/validate/strict-validator.js';
 import type { CommandRunner } from './modules/ingest/parsers/types.js';
 import { registerRuntimeEnvironmentRoutes } from './modules/runtime/routes.js';
+import { IncrementalSyncService } from './modules/translation/sync-service.js';
+import { TranslationLinkService } from './modules/translation/link-service.js';
+import { GlossaryService } from './modules/translation/glossary-service.js';
+import { AiTranslationOrchestrator } from './modules/translation/ai-translator.js';
+import { AiTranslationReviewer } from './modules/translation/ai-reviewer.js';
+import { TranslationDitaOtValidator } from './modules/translation/dita-ot-validator.js';
+import { TranslationQueueService } from './modules/translation/queue-service.js';
+import { ReviewApplyService } from './modules/translation/review-apply-service.js';
+import { registerTranslationRoutes } from './modules/translation/routes.js';
 import {
   resetDitaRuntimeCache,
   type DitaRuntimeInfo,
@@ -64,6 +74,11 @@ export interface CreateServerOptions {
   worktreesRootDir?: string;
   publishRootDir?: string;
   publishConcurrency?: number;
+  /**
+   * Phase 16 Stage 3: how many AI translation items run in parallel.
+   * Defaults to `DITA_TRANSLATION_CONCURRENCY`, or 2, clamped to 1..8.
+   */
+  translationConcurrency?: number;
   publishTimeoutMs?: number;
   publishRetentionDays?: number;
   /** Overrides the bundled `dita-ot-plugins/html5-themes` asset directory. */
@@ -81,6 +96,8 @@ export interface CreateServerOptions {
   ingestRootDir?: string;
   /** Phase 14: injectable DITA-OT strict validator used by the ingest agent's Layer 2. */
   ingestStrictValidator?: IngestStrictValidator;
+  /** Phase 16: injectable DITA-OT strict validator used by job-level translation validation. */
+  translationStrictValidator?: typeof validateStrict;
   /** Phase 14: injectable `fetch` for Docling Serve health/upload calls. */
   ingestFetchImpl?: typeof fetch;
   /** Phase 14: injectable command runner for Docling/MarkItDown CLI probes. */
@@ -159,9 +176,12 @@ export function createServer(options: CreateServerOptions = {}) {
     await registry.syncLegacyWorkspaces();
     await publish.start();
     await ingest.start();
+    // Phase 16 Stage 3: recover any AI translation items orphaned by an unclean shutdown.
+    translationQueue.start();
   });
   app.addHook('onClose', async () => {
     clearInterval(maintenanceTimer);
+    await translationQueue.stop();
     await publish.stop();
     await ingest.stop();
     database.close();
@@ -185,6 +205,66 @@ export function createServer(options: CreateServerOptions = {}) {
     drafts,
   });
   const assignments = new AssignmentService({ db: database.db, identity, git });
+  // Phase 16: translation center. Links, watermarks and glossaries are SQLite-only metadata so
+  // pairing a manual never pollutes DITA XML or Git history.
+  const translationSync = new IncrementalSyncService({
+    db: database.db,
+    git,
+    registry,
+    locks,
+    drafts,
+  });
+  const translationLinks = new TranslationLinkService({
+    db: database.db,
+    git,
+    registry,
+    sync: translationSync,
+  });
+  const glossaries = new GlossaryService({ db: database.db });
+  // Phase 16 Stage 3: block-level AI translation. The orchestrator is persistence-free — it turns
+  // `S0`/`S1`/`T0` into one assembled proposal — so the queue can own all SQLite/Git state.
+  const aiModelFactory = options.aiModelFactory ?? createLangChainModelFactory();
+  // Phase 16: the reviewer is a *separate role* (review-only prompt, low temperature, optional
+  // dedicated endpoint/model/key) but shares the primary settings service and usage log.
+  const translationReviewer = new AiTranslationReviewer({
+    aiSettings,
+    aiUsage,
+    modelFactory: aiModelFactory,
+  });
+  const translationTranslator = new AiTranslationOrchestrator({
+    aiSettings,
+    aiUsage,
+    modelFactory: aiModelFactory,
+    glossaries,
+    reviewer: translationReviewer,
+  });
+  const translationDitaOtValidator = new TranslationDitaOtValidator({
+    translator: translationTranslator,
+    drafts,
+    glossaries,
+    ...(options.translationStrictValidator
+      ? { strictValidator: options.translationStrictValidator }
+      : {}),
+    logger: (message, error) => {
+      if (options.logger === false) return;
+      app.log.warn({ err: error }, message);
+    },
+  });
+  const translationQueue = new TranslationQueueService({
+    db: database.db,
+    git,
+    registry,
+    links: translationLinks,
+    sync: translationSync,
+    translator: translationTranslator,
+    ditaOtValidator: translationDitaOtValidator,
+    identity,
+    concurrency: options.translationConcurrency,
+    logger: (message, error) => {
+      if (options.logger === false) return;
+      app.log.warn({ err: error }, message);
+    },
+  });
   // Phase 14: document ingest (parse → plan → write → validate → materialize).
   const parserSettings = new ParserSettingsService(database.db);
   const ingest = new IngestService({
@@ -337,6 +417,23 @@ export function createServer(options: CreateServerOptions = {}) {
       completeMyAssignments?: boolean;
     }) => {
       const explicit = completeAssignmentIds?.length ? completeAssignmentIds : undefined;
+      // Phase 16 Stage 3: translation watermarks advance for EVERY committed target manual,
+      // independently of assignment completion, and a watermark failure must never fail a
+      // check-in whose Git commit already landed.
+      if (scope.manualId) {
+        try {
+          await translationReview.onTargetCheckinCommitted({
+            manualId: scope.manualId,
+            branch: scope.branch,
+            paths,
+            userId: scope.user.id,
+          });
+        } catch (error) {
+          if (options.logger !== false) {
+            app.log.warn({ err: error }, 'translation watermark sync failed');
+          }
+        }
+      }
       if (!scope.manualId || (!completeMyAssignments && !explicit)) return [];
       return assignments.completeOnCheckin({
         manualId: scope.manualId,
@@ -347,6 +444,33 @@ export function createServer(options: CreateServerOptions = {}) {
       });
     },
   };
+  // Phase 16 Stage 3: bilingual review + the Phase 13 draft bridge. Applying a proposal writes
+  // only the caller's `working_drafts` row (never the shared worktree), and batch check-in reuses
+  // the exact same atomic commit path as `POST /api/locks/checkin`.
+  const translationReview = new ReviewApplyService({
+    db: database.db,
+    git,
+    registry,
+    locks,
+    drafts,
+    audit,
+    links: translationLinks,
+    sync: translationSync,
+    glossaries,
+    translator: translationTranslator,
+    ditaOtValidator: translationDitaOtValidator,
+    identity,
+    onTargetBaselineChanged: async (input) => {
+      try {
+        const session = await context.resolve(input.manualId, input.branch);
+        await session.indexer.refreshFromBaselineDisk(input.branch, {
+          writtenPaths: input.paths,
+        });
+      } catch {
+        // Indexing is advisory; a failed refresh must never fail a committed check-in.
+      }
+    },
+  });
   registerLockRoutes(app, phase4);
   registerGitRoutes(app, { ...phase4, merge, registry });
   registerStrictValidationRoutes(app, {
@@ -386,6 +510,14 @@ export function createServer(options: CreateServerOptions = {}) {
     context,
     ...(options.ingestFetchImpl ? { fetchImpl: options.ingestFetchImpl } : {}),
     ...(options.ingestCommandRunner ? { commandRunner: options.ingestCommandRunner } : {}),
+  });
+  registerTranslationRoutes(app, {
+    identity,
+    links: translationLinks,
+    sync: translationSync,
+    glossaries,
+    queue: translationQueue,
+    review: translationReview,
   });
   // Unified runtime & plugin readiness (Git, Java, DITA-OT + CJK fonts, Docling, MarkItDown).
   // `options.ditaRuntime` is passed by reference on purpose: mutating `ditaHome` /

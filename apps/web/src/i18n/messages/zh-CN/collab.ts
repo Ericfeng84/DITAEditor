@@ -349,6 +349,7 @@ export const zhCNCollab = {
   'strict.noTargets': '没有可校验的目标。',
   'strict.footnote': '严格校验只读取工作区文件，不修改 XML；发布任务同样会先执行严格校验。',
   'strict.revalidate': '重新校验',
+  'strict.viewInProblems': '在问题面板中查看',
 
   'jobLog.live': '实时流式输出',
   'jobLog.finished': '构建结束',
